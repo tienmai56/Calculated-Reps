@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'IntentionalTrainingNotesTests' in project 'IntentionalTrainingNotes'
+➜ Explicit dependency on target 'IntentionalTrainingNotes' in project 'IntentionalTrainingNotes'
+Target 'IntentionalTrainingNotes' in project 'IntentionalTrainingNotes' (no dependencies)

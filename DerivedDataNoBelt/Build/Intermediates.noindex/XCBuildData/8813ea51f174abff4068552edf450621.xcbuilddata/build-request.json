@@ -1,0 +1,67 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildOnly"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "85cb13301970b7b2750ccd49c5e48a17e0e15baa4b7c24357a723f7044266341"
+    }
+  ],
+  "containerPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/IntentionalTrainingNotes.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "undefined_arch",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : true,
+      "hostTargetedPlatform" : null,
+      "platform" : "iphonesimulator",
+      "sdk" : "iphonesimulator26.4",
+      "sdkVariant" : "iphonesimulator",
+      "supportedArchitectures" : [
+        "i386",
+        "x86_64"
+      ],
+      "targetArchitecture" : "undefined_arch"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataNoBelt/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataNoBelt/Build/Products",
+      "derivedDataPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataNoBelt",
+      "indexDataStoreFolderPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataNoBelt/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataNoBelt/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataNoBelt/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+          "CODE_SIGNING_ALLOWED" : "NO",
+          "SDKROOT" : "iphonesimulator26.4"
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "CLANG_COVERAGE_MAPPING" : "YES",
+          "CLANG_PROFILE_DATA_DIRECTORY" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataNoBelt/Build/ProfileData",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES",
+          "ONLY_ACTIVE_ARCH" : "YES"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

@@ -1,0 +1,77 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildAndRun"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "85cb13301970b7b2750ccd49c5e48a17ea8e76a46202864ccd1f4dfa0d807495"
+    },
+    {
+      "guid" : "85cb13301970b7b2750ccd49c5e48a17e0e15baa4b7c24357a723f7044266341"
+    }
+  ],
+  "containerPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/IntentionalTrainingNotes.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "arm64",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : false,
+      "hostTargetedPlatform" : null,
+      "platform" : "iphoneos",
+      "sdk" : "iphoneos26.4",
+      "sdkVariant" : "iphoneos",
+      "supportedArchitectures" : [
+        "arm64e",
+        "arm64",
+        "x86_64"
+      ],
+      "targetArchitecture" : "arm64"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataAppStoreQA/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataAppStoreQA/Build/Products",
+      "derivedDataPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataAppStoreQA",
+      "indexDataStoreFolderPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataAppStoreQA/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataAppStoreQA/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataAppStoreQA/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ASSETCATALOG_FILTER_FOR_DEVICE_MODEL" : "MacFamily20,1",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_OS_VERSION" : "26.4",
+          "ASSETCATALOG_FILTER_FOR_THINNING_DEVICE_CONFIGURATION" : "MacFamily20,1",
+          "BUILD_ACTIVE_RESOURCES_ONLY" : "YES",
+          "CLANG_COVERAGE_MAPPING" : "YES",
+          "CLANG_PROFILE_DATA_DIRECTORY" : "/Users/tienmai56/mai-agents/outputs/intentional-training-notes-ios/DerivedDataAppStoreQA/Build/ProfileData",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES",
+          "ONLY_ACTIVE_ARCH" : "YES",
+          "TARGET_DEVICE_IDENTIFIER" : "00008132-001948200121801C",
+          "TARGET_DEVICE_MODEL" : "Mac16,12",
+          "TARGET_DEVICE_OS_VERSION" : "26.4.1",
+          "TARGET_DEVICE_PLATFORM_NAME" : "macosx"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "test",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

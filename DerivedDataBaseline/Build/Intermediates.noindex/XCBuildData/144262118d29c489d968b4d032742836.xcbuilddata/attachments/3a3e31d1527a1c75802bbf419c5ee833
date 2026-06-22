@@ -1,0 +1,4 @@
+module third_party_IsAppEncrypted {
+umbrella "/Users/tienmai56/Downloads/Calculated-Reps-main/DerivedDataBaseline/SourcePackages/checkouts/GoogleUtilities/third_party/IsAppEncrypted/Public"
+export *
+}

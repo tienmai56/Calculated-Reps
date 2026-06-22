@@ -1,0 +1,33 @@
+moduledependenciestarget: \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/AppAuthCore.modulemap \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDAuthState.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/System/Library/Frameworks/Foundation.framework/Modules/module.modulemap \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDAuthStateChangeDelegate.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDAuthStateErrorDelegate.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDAuthorizationRequest.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDExternalUserAgentRequest.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDResponseTypes.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDScopes.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDAuthorizationResponse.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDAuthorizationService.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDClientMetadataParameters.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDDefines.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDEndSessionRequest.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDEndSessionResponse.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDError.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDErrorUtilities.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDExternalUserAgent.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDExternalUserAgentSession.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDFieldMapping.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDGrantTypes.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDIDToken.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDRegistrationRequest.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDRegistrationResponse.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDScopeUtilities.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDServiceConfiguration.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDServiceDiscovery.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDTokenRequest.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDTokenResponse.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDTokenUtilities.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDURLQueryComponent.h \
+  /Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore/OIDURLSessionProvider.h

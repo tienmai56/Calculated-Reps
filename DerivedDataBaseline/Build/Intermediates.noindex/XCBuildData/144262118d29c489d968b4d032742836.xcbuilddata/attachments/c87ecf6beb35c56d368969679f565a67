@@ -1,0 +1,4 @@
+module AppCheckCore {
+umbrella header "/Users/tienmai56/Downloads/Calculated-Reps-main/DerivedDataBaseline/SourcePackages/checkouts/app-check/AppCheckCore/Sources/Public/AppCheckCore/AppCheckCore.h"
+export *
+}
