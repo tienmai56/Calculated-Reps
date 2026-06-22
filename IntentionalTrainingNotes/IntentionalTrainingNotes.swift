@@ -286,9 +286,10 @@ struct Spacing {
 
 struct GoalIconLibrary {
     static let icons = ["target", "flame", "bolt.fill", "star.fill", "heart.fill",
-                        "figure.walk", "sportscourt", "music.note", "book.fill",
-                        "pencil", "paintbrush.fill", "camera.fill", "leaf.fill",
-                        "hammer.fill", "flag.fill",
+                        "figure.walk", "dollarsign.circle.fill", "music.note", "book.fill",
+                        "wand.and.stars", "paintbrush.fill", "camera.fill", "leaf.fill",
+                        "hammer.fill", "flag.fill", "shield.fill", "arrow.up.right",
+                        "arrow.up.arrow.down", "sportscourt", "pencil",
                         "custom.arm", "custom.leg", "custom.toe"]
     static let customIcons: Set<String> = ["custom.arm", "custom.leg", "custom.toe"]
 
@@ -719,6 +720,27 @@ final class JSONNotebookPersistence: NotebookPersistence {
 
     func loadNoteImage(accountId: String, noteId: String, fileName: String) -> Data? {
         let fileURL = noteImagesDirectory(accountId: accountId, noteId: noteId).appendingPathComponent(fileName)
+        return try? Data(contentsOf: fileURL)
+    }
+
+    func taskImagesDirectory(accountId: String, taskId: String) -> URL {
+        rootDirectory
+            .appendingPathComponent("accounts", isDirectory: true)
+            .appendingPathComponent(accountId.sanitizedAccountId, isDirectory: true)
+            .appendingPathComponent("task-images", isDirectory: true)
+            .appendingPathComponent(taskId, isDirectory: true)
+    }
+
+    func saveTaskImage(accountId: String, taskId: String, imageData: Data, fileName: String) throws -> URL {
+        let dir = taskImagesDirectory(accountId: accountId, taskId: taskId)
+        try fileManager.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
+        let fileURL = dir.appendingPathComponent(fileName)
+        try imageData.write(to: fileURL, options: [.atomic])
+        return fileURL
+    }
+
+    func loadTaskImage(accountId: String, taskId: String, fileName: String) -> Data? {
+        let fileURL = taskImagesDirectory(accountId: accountId, taskId: taskId).appendingPathComponent(fileName)
         return try? Data(contentsOf: fileURL)
     }
 }
@@ -1183,6 +1205,9 @@ final class AppSessionStore: ObservableObject {
         self.notebookStore = store
         // Local-only mode skips the profile gate and goes straight into the app.
         self.route = .ready
+        #if DEBUG
+        store.seedDemoDataIfEmpty()
+        #endif
     }
 
     /// Fixed account used when running without authentication (local-only mode).
@@ -1248,6 +1273,52 @@ final class NotebookStore: ObservableObject {
         let task = TrainingTask(goalId: goalId, name: trimmed)
         mutate { notebook.tasks.append(task) }
         return task
+    }
+
+    func updateTask(id: String, name: String? = nil, notes: String? = nil, link: String? = nil, imageFileNames: [String]? = nil) {
+        guard let idx = notebook.tasks.firstIndex(where: { $0.id == id }) else { return }
+        mutate {
+            if let name = name?.nilIfBlank { notebook.tasks[idx].name = name }
+            if let notes = notes { notebook.tasks[idx].notes = notes }
+            if let link = link { notebook.tasks[idx].link = link }
+            if let imgs = imageFileNames { notebook.tasks[idx].imageFileNames = imgs }
+            notebook.tasks[idx].updatedAt = Date()
+        }
+    }
+
+    @discardableResult
+    func addTaskImage(taskId: String, imageData: Data) -> String? {
+        guard let idx = notebook.tasks.firstIndex(where: { $0.id == taskId }),
+              let jsonPersistence = persistence as? JSONNotebookPersistence else { return nil }
+        let fileName = "\(UUID().uuidString).jpg"
+        do {
+            _ = try jsonPersistence.saveTaskImage(accountId: notebook.accountId, taskId: taskId, imageData: imageData, fileName: fileName)
+        } catch {
+            errorMessage = "Could not save image."
+            return nil
+        }
+        mutate {
+            notebook.tasks[idx].imageFileNames.append(fileName)
+            notebook.tasks[idx].updatedAt = Date()
+        }
+        return fileName
+    }
+
+    func removeTaskImage(taskId: String, fileName: String) {
+        guard let idx = notebook.tasks.firstIndex(where: { $0.id == taskId }) else { return }
+        if let jsonPersistence = persistence as? JSONNotebookPersistence {
+            let url = jsonPersistence.taskImagesDirectory(accountId: notebook.accountId, taskId: taskId).appendingPathComponent(fileName)
+            try? FileManager.default.removeItem(at: url)
+        }
+        mutate {
+            notebook.tasks[idx].imageFileNames.removeAll { $0 == fileName }
+            notebook.tasks[idx].updatedAt = Date()
+        }
+    }
+
+    func taskImageData(taskId: String, fileName: String) -> Data? {
+        guard let jsonPersistence = persistence as? JSONNotebookPersistence else { return nil }
+        return jsonPersistence.loadTaskImage(accountId: notebook.accountId, taskId: taskId, fileName: fileName)
     }
 
     func archiveGoal(id: String) {
@@ -1538,6 +1609,89 @@ final class NotebookStore: ObservableObject {
             errorMessage = "Could not save notebook."
         }
     }
+
+#if DEBUG
+    /// TEMPORARY demo data for visual QA against the Mat Mind designs. Remove before shipping.
+    func seedDemoDataIfEmpty() {
+        guard notebook.goals.isEmpty && notebook.tasks.isEmpty else { return }
+        let acct = notebook.accountId
+        func day(_ d: Int) -> Date {
+            calendar.normalizedTrainingDay(calendar.date(from: DateComponents(year: 2026, month: 6, day: d)) ?? Date())
+        }
+
+        let pinSide = TrainingGoal(accountId: acct, name: "Pin side control", iconName: "star.fill", colorName: "indigo")
+        let overUnder = TrainingGoal(accountId: acct, name: "Over under", iconName: "target", colorName: "purple")
+        let passOpen = TrainingGoal(accountId: acct, name: "Passing open guard", iconName: "target", colorName: "indigo")
+        let passHalf = TrainingGoal(accountId: acct, name: "Passing half guard", iconName: "custom.leg", colorName: "purple")
+        let tripod = TrainingGoal(accountId: acct, name: "Tripod", iconName: "custom.leg", colorName: "orange")
+        let legLock = TrainingGoal(accountId: acct, name: "Leg lock", iconName: "bolt.fill", colorName: "mint")
+        let butterfly = TrainingGoal(accountId: acct, name: "Butterfly sweep", iconName: "heart.fill", colorName: "purple")
+        let goals = [pinSide, overUnder, passOpen, passHalf, tripod, legLock, butterfly]
+
+        func t(_ goal: TrainingGoal, _ name: String, _ notes: String = "") -> TrainingTask {
+            TrainingTask(goalId: goal.id, name: name, notes: notes)
+        }
+        let pinHead = t(pinSide, "Pin head down")
+        let elbowPen = t(pinSide, "Elbow penetrate")
+        let headUnder = t(overUnder, "Head under knee")
+        let pinFeet = t(overUnder, "Pin their feet against butt")
+        let armOver = t(overUnder, "Arm over leg not hip")
+        let backStep = t(passOpen, "Back step to clear outside dlrv")
+        let chaseHip = t(passOpen, "Chase hip/torso", "- clear whatever obstacle in your way that prevents you from accessing torso\n- control hip first with leg ib their tailbone\n- Address their arm framing\n- Pinning the bottom leg- could use my leg, chest etc")
+        let sepKnee = t(passOpen, "Separate knee + elbow")
+        let clearOutside = t(passOpen, "Clear outside leg")
+        let beatArm = t(passOpen, "Beat the arm frame")
+        let killArm = t(passHalf, "Kill arm frame", "- pin bottom arm to kill their offensive cycle")
+        let headBetween = t(passHalf, "Head between knees")
+        let trapArm = t(tripod, "Trap the arm")
+        let blockHead = t(tripod, "Block head")
+        let insideHeel = t(legLock, "Inside heel hook")
+        let openHip = t(legLock, "Open hip")
+        let headPos = t(butterfly, "Head position over head")
+        let offBalance = t(butterfly, "Off balance both ways")
+        let tasks = [pinHead, elbowPen, headUnder, pinFeet, armOver, backStep, chaseHip, sepKnee,
+                     clearOutside, beatArm, killArm, headBetween, trapArm, blockHead, insideHeel, openHip, headPos, offBalance]
+
+        func sess(_ goal: TrainingGoal, _ d: Int, _ taskIds: [String], _ status: SessionStatus) -> PlannedSession {
+            PlannedSession(goalId: goal.id, date: day(d), taskIds: taskIds, status: status)
+        }
+        let sToday1 = sess(passOpen, 21, [chaseHip.id, sepKnee.id, clearOutside.id, beatArm.id], .planned)
+        let sToday2 = sess(passHalf, 21, [killArm.id, headBetween.id], .planned)
+        let s18 = sess(passOpen, 18, [chaseHip.id, sepKnee.id], .done)
+        let s16 = sess(overUnder, 16, [headUnder.id, pinFeet.id], .planned)
+        let s10 = sess(passOpen, 10, [backStep.id], .planned)
+        let s7 = sess(pinSide, 7, [pinHead.id], .planned)
+        let s4 = sess(legLock, 4, [insideHeel.id], .planned)
+        let s3 = sess(legLock, 3, [openHip.id, insideHeel.id], .done)
+        let s2 = sess(overUnder, 2, [pinFeet.id], .planned)
+        let s1 = sess(overUnder, 1, [headUnder.id], .done)
+        let sessions = [sToday1, sToday2, s18, s16, s10, s7, s4, s3, s2, s1]
+
+        let r18 = Reflection(sessionId: s18.id, date: day(18),
+            workedText: "Focusing on chasing the hip makes me move more; clearing the knee shield by push/pull then scooping and pushing the knee\n- cross face frame is effective in keeping their shoulder down",
+            stuckText: "- Got swept by knee lever\n- Hard time clearing the low knee shield especially when John locked his feet",
+            tryNextText: "- Clearing upper knee shield by push/pull and using scoop grip to extend the knee then push the knee",
+            mood: .neutral, isFavorite: true)
+        let r3 = Reflection(sessionId: s3.id, date: day(3),
+            workedText: "Open hip gave me a wider range of motion to bridge",
+            stuckText: "",
+            tryNextText: "Threaten inside heel hook > transition to wojick lock as they react by hiding the heel",
+            mood: .good, isFavorite: true)
+        let r1 = Reflection(sessionId: s1.id, date: day(1),
+            workedText: "Got the head under knee position a few times",
+            stuckText: "Kept losing the underhook",
+            tryNextText: "Pin their feet earlier",
+            mood: .neutral, isFavorite: false)
+        let reflections = [r18, r3, r1]
+
+        mutate {
+            notebook.goals = goals
+            notebook.tasks = tasks
+            notebook.sessions = sessions
+            notebook.reflections = reflections
+        }
+    }
+#endif
 }
 
 // MARK: - Root
@@ -1729,7 +1883,19 @@ struct MainAppView: View {
     @ObservedObject var sessionStore: AppSessionStore
     @ObservedObject var store: NotebookStore
 
-    @State private var tab: MainTab = .home
+    @State private var tab: MainTab = MainAppView.initialTab
+
+    static var initialTab: MainTab {
+        #if DEBUG
+        switch ProcessInfo.processInfo.environment["START_TAB"] {
+        case "goals": return .goals
+        case "plan": return .plan
+        default: return .home
+        }
+        #else
+        return .home
+        #endif
+    }
     @State private var stack: [GoalsRoute] = [.list]
     @State private var isPlanning = false
     @State private var planningGoalId: String?
@@ -1841,12 +2007,7 @@ struct MainAppView: View {
         Group {
             switch stack.last ?? .list {
             case .list:
-                GoalListView(
-                    store: store,
-                    onOpenGoal: { stack.append(.detail($0)) },
-                    onOpenProfile: { isProfileOpen = true },
-                    onSignOut: sessionStore.signOut
-                )
+                GoalListView(store: store)
             case .detail(let goalId):
                 GoalDetailView(
                     store: store,
@@ -3152,6 +3313,17 @@ struct EditSessionView: View {
 
 // MARK: - Edit Goal
 
+private enum EditGoalAlert: Identifiable {
+    case deleteTask(String)
+    case deleteGoal
+    var id: String {
+        switch self {
+        case .deleteTask(let id): return "task-\(id)"
+        case .deleteGoal: return "goal"
+        }
+    }
+}
+
 struct EditGoalView: View {
     @ObservedObject var store: NotebookStore
     let goalId: String
@@ -3162,7 +3334,10 @@ struct EditGoalView: View {
     @State private var colorName: String
     @State private var addingTask = false
     @State private var newTaskName = ""
-    @State private var confirmDeleteTaskId: String?
+    @State private var expandedTaskIds: Set<String>
+    @State private var activeAlert: EditGoalAlert?
+
+    private var goalColor: Color { GoalIconLibrary.color(for: colorName) }
 
     init(store: NotebookStore, goalId: String, onDismiss: @escaping () -> Void) {
         self.store = store
@@ -3172,137 +3347,323 @@ struct EditGoalView: View {
         _goalName = State(initialValue: goal?.name ?? "")
         _iconName = State(initialValue: goal?.iconName ?? "target")
         _colorName = State(initialValue: goal?.colorName ?? "indigo")
+        // Auto-expand tasks that already carry details (set once in init, per learning.md).
+        let detailTasks = store.tasks(forGoal: goalId).filter { $0.hasDetails }.map { $0.id }
+        _expandedTaskIds = State(initialValue: Set(detailTasks))
     }
 
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Goal name
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("NAME")
-                            .font(.system(size: 10, design: .rounded))
-                            .fontWeight(.medium)
-                            .foregroundColor(AppColors.secondaryLabel)
+                VStack(spacing: 16) {
+                    previewCard
+                    sectionCard(dotColor: AppColors.indigo, title: "Name") {
                         TextField("Goal name", text: $goalName)
                             .font(.body)
                             .textFieldStyle(TrainingTextFieldStyle())
                     }
-
-                    // Icon & color
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("ICON & COLOR")
-                            .font(.system(size: 10, design: .rounded))
-                            .fontWeight(.medium)
-                            .foregroundColor(AppColors.secondaryLabel)
+                    sectionCard(dotColor: AppColors.mint, title: "Icon & Color") {
                         GoalIconColorPicker(iconName: $iconName, colorName: $colorName)
                     }
-
-                    // Tasks
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("TASKS")
-                            .font(.system(size: 10, design: .rounded))
-                            .fontWeight(.medium)
-                            .foregroundColor(AppColors.secondaryLabel)
-                        let tasks = store.tasks(forGoal: goalId)
-                        if tasks.isEmpty && !addingTask {
-                            Text("No tasks yet.")
-                                .font(.caption)
-                                .foregroundColor(AppColors.secondaryLabel)
-                        }
-                        ForEach(tasks) { task in
-                            HStack {
-                                Text(task.name)
-                                    .font(.subheadline)
-                                    .foregroundColor(AppColors.label)
-                                Spacer()
-                                Button(action: { confirmDeleteTaskId = task.id }) {
-                                    Image(systemName: "trash")
-                                        .font(.system(size: 13, design: .rounded))
-                                        .foregroundColor(AppColors.coral)
-                                }
-                            }
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(10)
-                        }
-
-                        if addingTask {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 8) {
-                                    TextField("Task name", text: $newTaskName)
-                                        .font(.subheadline)
-                                        .textFieldStyle(TrainingTextFieldStyle())
-                                    Button(action: {
-                                        if store.addTask(goalId: goalId, name: newTaskName) != nil {
-                                            newTaskName = ""
-                                            addingTask = false
-                                        }
-                                    }) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(AppColors.indigo)
-                                    }
-                                    .disabled(newTaskName.nilIfBlank == nil || newTaskName.count > 19)
-                                    Button(action: {
-                                        addingTask = false
-                                        newTaskName = ""
-                                    }) {
-                                        Image(systemName: "xmark.circle")
-                                            .foregroundColor(AppColors.label)
-                                    }
-                                }
-                                if newTaskName.count > 19 {
-                                    Text("Keep it under 20 letters")
-                                        .font(.caption)
-                                        .foregroundColor(AppColors.coral)
-                                }
-                            }
-                        } else {
-                            Button(action: { addingTask = true }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "plus")
-                                        .font(.caption)
-                                    Text("Add task")
-                                        .font(.subheadline)
-                                }
-                                .foregroundColor(AppColors.indigo)
-                            }
-                        }
-                    }
+                    tasksCard
+                    deleteGoalButton
                 }
                 .padding(16)
             }
-            .background(AppColors.groupedBackground)
+            .background(AppColors.groupedBackground.edgesIgnoringSafeArea(.all))
             .navigationBarTitle("Edit Goal", displayMode: .inline)
             .navigationBarItems(
-                leading: Button("Cancel") { onDismiss() },
-                trailing: Button(action: {
-                    if goalName.nilIfBlank != nil {
-                        store.updateGoal(id: goalId, name: goalName, iconName: iconName, colorName: colorName)
-                    }
-                    onDismiss()
-                }) {
-                    Text("Save").font(.system(size: 17, weight: .medium, design: .rounded))
+                leading: Button("Cancel") { onDismiss() }
+                    .foregroundColor(AppColors.secondaryLabel),
+                trailing: Button(action: saveAndDismiss) {
+                    Text("Save").font(.system(size: 17, weight: .semibold, design: .rounded))
                 }
+                .foregroundColor(goalColor)
                 .disabled(goalName.nilIfBlank == nil)
             )
-            .alert(isPresented: Binding(
-                get: { confirmDeleteTaskId != nil },
-                set: { if !$0 { confirmDeleteTaskId = nil } }
-            )) {
-                Alert(
-                    title: Text("Delete Task"),
-                    message: Text("Are you sure you want to delete this task?"),
-                    primaryButton: .destructive(Text("Delete")) {
-                        if let taskId = confirmDeleteTaskId {
-                            store.deleteTaskCascade(taskId: taskId)
+            .alert(item: $activeAlert, content: alert(for:))
+        }
+    }
+
+    private var previewCard: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(goalColor.opacity(0.15)).frame(width: 84, height: 84)
+                GoalIconImage(name: iconName, color: goalColor, size: 40)
+            }
+            Text(goalName.nilIfBlank ?? "New goal")
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .foregroundColor(AppColors.label)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+    }
+
+    private var tasksCard: some View {
+        sectionCard(dotColor: AppColors.coral, title: "Tasks") {
+            let tasks = store.tasks(forGoal: goalId)
+            if tasks.isEmpty && !addingTask {
+                Text("No tasks yet.")
+                    .font(.caption)
+                    .foregroundColor(AppColors.secondaryLabel)
+            }
+            ForEach(tasks) { task in
+                TaskEditRow(
+                    store: store,
+                    task: task,
+                    accentColor: goalColor,
+                    expanded: Binding(
+                        get: { expandedTaskIds.contains(task.id) },
+                        set: { isOn in
+                            if isOn { _ = expandedTaskIds.insert(task.id) }
+                            else { _ = expandedTaskIds.remove(task.id) }
                         }
-                        confirmDeleteTaskId = nil
-                    },
-                    secondaryButton: .cancel { confirmDeleteTaskId = nil }
+                    ),
+                    onDelete: { activeAlert = .deleteTask(task.id) }
                 )
+                if task.id != tasks.last?.id {
+                    Divider()
+                }
+            }
+            addTaskControl
+        }
+    }
+
+    private var deleteGoalButton: some View {
+        Button(action: { activeAlert = .deleteGoal }) {
+            Text("Delete goal")
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(AppColors.coral)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.coral.opacity(0.1)))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private var addTaskControl: some View {
+        if addingTask {
+            HStack(spacing: 8) {
+                TextField("Task name", text: $newTaskName, onCommit: commitNewTask)
+                    .font(.subheadline)
+                    .textFieldStyle(TrainingTextFieldStyle())
+                Button(action: commitNewTask) {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(goalColor)
+                }
+                .disabled(newTaskName.nilIfBlank == nil)
+                Button(action: { addingTask = false; newTaskName = "" }) {
+                    Image(systemName: "xmark.circle").foregroundColor(AppColors.secondaryLabel)
+                }
+            }
+        } else {
+            Button(action: { addingTask = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus").font(.system(size: 13, weight: .semibold))
+                    Text("Add task").font(.system(size: 15, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(goalColor)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.top, 4)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionCard<Content: View>(dotColor: Color, title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Circle().fill(dotColor).frame(width: 8, height: 8)
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+            }
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+    }
+
+    private func alert(for alert: EditGoalAlert) -> Alert {
+        switch alert {
+        case .deleteTask(let taskId):
+            return Alert(
+                title: Text("Delete Task"),
+                message: Text("Are you sure you want to delete this task?"),
+                primaryButton: .destructive(Text("Delete")) {
+                    store.deleteTaskCascade(taskId: taskId)
+                },
+                secondaryButton: .cancel()
+            )
+        case .deleteGoal:
+            let summary = store.goalCascadeSummary(goalId: goalId)
+            return Alert(
+                title: Text("Delete \"\(goalName)\"?"),
+                message: Text("\(summary.taskCount) tasks, \(summary.sessionCount) sessions, and \(summary.reflectionCount) reflections will be deleted."),
+                primaryButton: .destructive(Text("Delete")) {
+                    store.deleteGoalCascade(goalId: goalId)
+                    onDismiss()
+                },
+                secondaryButton: .cancel()
+            )
+        }
+    }
+
+    private func saveAndDismiss() {
+        if goalName.nilIfBlank != nil {
+            store.updateGoal(id: goalId, name: goalName, iconName: iconName, colorName: colorName)
+        }
+        onDismiss()
+    }
+
+    private func commitNewTask() {
+        if let task = store.addTask(goalId: goalId, name: newTaskName) {
+            newTaskName = ""
+            addingTask = false
+            _ = expandedTaskIds.insert(task.id)
+        }
+    }
+}
+
+struct TaskEditRow: View {
+    @ObservedObject var store: NotebookStore
+    let task: TrainingTask
+    let accentColor: Color
+    @Binding var expanded: Bool
+    var onDelete: () -> Void
+
+    @State private var name: String
+    @State private var notes: String
+    @State private var link: String
+    @State private var showingPhotoPicker = false
+
+    init(store: NotebookStore, task: TrainingTask, accentColor: Color, expanded: Binding<Bool>, onDelete: @escaping () -> Void) {
+        self.store = store
+        self.task = task
+        self.accentColor = accentColor
+        self._expanded = expanded
+        self.onDelete = onDelete
+        _name = State(initialValue: task.name)
+        _notes = State(initialValue: task.notes)
+        _link = State(initialValue: task.link)
+    }
+
+    private var imageFileNames: [String] {
+        store.task(id: task.id)?.imageFileNames ?? []
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { expanded.toggle() } }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(accentColor)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                if expanded {
+                    TextField("Task name", text: nameBinding)
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .textFieldStyle(TrainingTextFieldStyle())
+                } else {
+                    Text(name)
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                        .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { expanded = true } }
+                    Spacer()
+                }
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 15))
+                        .foregroundColor(AppColors.coral)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            if expanded {
+                Text("Notes")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                TrainingTextView(text: notesBinding, placeholder: "Technique notes...")
+                    .frame(height: 90)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "link")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppColors.secondaryLabel)
+                    TextField("Paste link...", text: linkBinding)
+                        .font(.system(size: 14, design: .rounded))
+                }
+                .padding(11)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray3), lineWidth: 1))
+
+                Button(action: { showingPhotoPicker = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "photo.on.rectangle").font(.system(size: 13))
+                        Text("Attach Photos").font(.system(size: 13, weight: .medium, design: .rounded))
+                    }
+                    .foregroundColor(accentColor)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(accentColor.opacity(0.12)))
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                if !imageFileNames.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(imageFileNames, id: \.self) { fileName in
+                                taskThumbnail(fileName)
+                            }
+                        }
+                    }
+                }
             }
         }
+        .padding(.vertical, 6)
+        .sheet(isPresented: $showingPhotoPicker) {
+            NoteImagePicker { data in
+                store.addTaskImage(taskId: task.id, imageData: data)
+            }
+        }
+    }
+
+    private func taskThumbnail(_ fileName: String) -> some View {
+        ZStack(alignment: .topTrailing) {
+            if let data = store.taskImageData(taskId: task.id, fileName: fileName), let ui = UIImage(data: data) {
+                Image(uiImage: ui)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 84, height: 84)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                RoundedRectangle(cornerRadius: 8).fill(Color(.systemGray5)).frame(width: 84, height: 84)
+            }
+            Button(action: { store.removeTaskImage(taskId: task.id, fileName: fileName) }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.white)
+                    .background(Circle().fill(Color.black.opacity(0.4)))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(4)
+        }
+    }
+
+    private var nameBinding: Binding<String> {
+        Binding(get: { name }, set: { name = $0; store.updateTask(id: task.id, name: $0) })
+    }
+    private var notesBinding: Binding<String> {
+        Binding(get: { notes }, set: { notes = $0; store.updateTask(id: task.id, notes: $0) })
+    }
+    private var linkBinding: Binding<String> {
+        Binding(get: { link }, set: { link = $0; store.updateTask(id: task.id, link: $0) })
     }
 }
 
@@ -4172,124 +4533,76 @@ struct AddTaskSheet: View {
     }
 }
 
+private enum GoalSheet: Identifiable {
+    case add
+    case edit(String)
+    var id: String {
+        switch self {
+        case .add: return "add"
+        case .edit(let goalId): return "edit-\(goalId)"
+        }
+    }
+}
+
 struct GoalListView: View {
     @ObservedObject var store: NotebookStore
-    var onOpenGoal: (String) -> Void
-    var onOpenProfile: () -> Void
-    var onSignOut: () -> Void
 
-    @State private var adding = false
-    @State private var name = ""
-    @State private var goalIconName = "target"
-    @State private var goalColorName = "indigo"
-    @State private var menuOpen = false
-    @State private var addingTaskForGoalId: String?
-    @State private var newTaskName = ""
-    @State private var confirmDeleteGoalId: String?
-    @State private var actionSheetGoalId: String?
-    @State private var editingGoalId: String?
+    @State private var sheet: GoalSheet?
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Goals")
-                                .font(.largeTitle)
-                                .fontWeight(.medium)
-                            Text("What are you working on right now?")
-                                .font(.subheadline)
-                                .foregroundColor(AppColors.secondaryLabel)
-                        }
-                        .padding(.top, 12)
-
-                        if store.activeGoals.isEmpty && !adding {
-                            EmptyDashedState(title: "No goals yet.", subtitle: "Add one to begin.")
-                        }
-
-                        ForEach(store.activeGoals) { goal in
-                            GoalExpandedCard(
-                                store: store,
-                                goal: goal,
-                                actionSheetGoalId: $actionSheetGoalId,
-                                onEdit: { editingGoalId = goal.id },
-                                onDelete: { confirmDeleteGoalId = goal.id }
-                            )
-                        }
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Active Goals")
+                            .font(.largeTitle)
+                            .fontWeight(.medium)
+                        Text("What are you working on right now?")
+                            .font(.subheadline)
+                            .foregroundColor(AppColors.secondaryLabel)
                     }
-                    .padding(16)
-                }
-            }
+                    .padding(.top, 12)
 
-            if menuOpen {
-                Color.black.opacity(0.001)
-                    .edgesIgnoringSafeArea(.all)
-                    .onTapGesture { menuOpen = false }
-            }
+                    if store.activeGoals.isEmpty {
+                        EmptyDashedState(title: "No goals yet.", subtitle: "Add one to begin.")
+                    }
 
-            AccountMenuButton(
-                menuOpen: $menuOpen,
-                onOpenProfile: {
-                    menuOpen = false
-                    onOpenProfile()
-                },
-                onSignOut: {
-                    menuOpen = false
-                    onSignOut()
+                    ForEach(store.activeGoals) { goal in
+                        GoalExpandedCard(store: store, goal: goal, onEdit: { sheet = .edit(goal.id) })
+                    }
                 }
-            )
-            .padding(.top, 6)
-            .padding(.trailing, 16)
-        }
-        .background(AppColors.background.edgesIgnoringSafeArea(.all))
-        .alert(item: Binding(
-            get: { confirmDeleteGoalId.map(GoalDeleteAlertToken.init(id:)) },
-            set: { confirmDeleteGoalId = $0?.id }
-        )) { token in
-            let goal = store.notebook.goals.first(where: { $0.id == token.id })
-            let summary = store.goalCascadeSummary(goalId: token.id)
-            return Alert(
-                title: Text("Delete \"\(goal?.name ?? "goal")\"?"),
-                message: Text("\(summary.taskCount) tasks, \(summary.sessionCount) sessions, and \(summary.reflectionCount) reflections will be deleted."),
-                primaryButton: .destructive(Text("Delete")) {
-                    store.deleteGoalCascade(goalId: token.id)
-                },
-                secondaryButton: .cancel()
-            )
-        }
-        .sheet(item: Binding(
-            get: { editingGoalId.map(GoalEditToken.init(id:)) },
-            set: { editingGoalId = $0?.id }
-        )) { token in
-            EditGoalView(store: store, goalId: token.id) {
-                editingGoalId = nil
+                .padding(16)
+                .padding(.bottom, 88)
             }
-        }
-        .sheet(item: Binding(
-            get: { addingTaskForGoalId.map(GoalEditToken.init(id:)) },
-            set: { addingTaskForGoalId = $0?.id }
-        )) { token in
-            AddTaskSheet(store: store, goalId: token.id, onDone: {
-                addingTaskForGoalId = nil
-            })
-        }
+            .background(AppColors.background.edgesIgnoringSafeArea(.all))
 
-            // Floating add button
-                Button(action: { adding = true }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .medium, design: .rounded))
-                        .foregroundColor(.white)
-                        .frame(width: 56, height: 56)
-                        .background(AppColors.indigo)
-                        .clipShape(Circle())
-                        .shadow(color: AppColors.indigo.opacity(0.35), radius: 8, x: 0, y: 4)
-                }
-                .padding(.bottom, 24)
+            Button(action: { sheet = .add }) {
+                Image(systemName: "plus")
+                    .font(.system(size: 24, weight: .medium, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(width: 56, height: 56)
+                    .background(AppColors.indigo)
+                    .clipShape(Circle())
+                    .shadow(color: AppColors.indigo.opacity(0.35), radius: 8, x: 0, y: 4)
+            }
+            .padding(.bottom, 24)
+            .padding(.trailing, 20)
         }
-        .sheet(isPresented: $adding) {
-            AddGoalSheet(store: store, onDone: { adding = false })
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["EDIT_FIRST_GOAL"] != nil, sheet == nil,
+               let g = store.activeGoals.first(where: { $0.name == "Over under" }) ?? store.activeGoals.first {
+                sheet = .edit(g.id)
+            }
+            #endif
+        }
+        .sheet(item: $sheet) { which in
+            switch which {
+            case .add:
+                AddGoalSheet(store: store, onDone: { sheet = nil })
+            case .edit(let goalId):
+                EditGoalView(store: store, goalId: goalId) { sheet = nil }
+            }
         }
     }
 }
@@ -4350,143 +4663,130 @@ struct AccountMenuButton: View {
 struct GoalExpandedCard: View {
     @ObservedObject var store: NotebookStore
     let goal: TrainingGoal
-    @Binding var actionSheetGoalId: String?
     var onEdit: () -> Void
-    var onDelete: () -> Void
+
+    @State private var showingNotes = false
 
     var body: some View {
         let tasks = store.tasks(forGoal: goal.id)
+        let hasNotes = tasks.contains { $0.hasDetails }
 
-        ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Header row with icon + name
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        goal.goalColor.opacity(0.15),
-                                        goal.goalColor.opacity(0.08)
-                                    ]),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 44, height: 44)
-
-                        GoalIconImage(name: goal.iconName, color: goal.goalColor, size: 22)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(goal.name)
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
-                            .foregroundColor(AppColors.label)
-                        let count = tasks.count
-                        Text("\(count) \(count == 1 ? "task" : "tasks")")
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundColor(AppColors.secondaryLabel)
-                    }
-
-                    Spacer()
+        VStack(alignment: .leading, spacing: 12) {
+            // Header row with icon + name
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(goal.goalColor.opacity(0.15))
+                        .frame(width: 52, height: 52)
+                    GoalIconImage(name: goal.iconName, color: goal.goalColor, size: 26)
                 }
 
-                // Tasks
-                if !tasks.isEmpty {
-                    WrappingHStack(items: tasks) { task in
-                        Text(task.name)
-                            .font(.system(size: 11, design: .rounded))
-                            .foregroundColor(goal.goalColor)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(goal.goalColor.opacity(0.12))
-                            .cornerRadius(10)
-                    }
-                } else {
-                    Text("No tasks yet")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(goal.name)
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    let count = tasks.count
+                    Text("\(count) \(count == 1 ? "task" : "tasks")")
+                        .font(.system(size: 14, design: .rounded))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: goal.goalColor.opacity(0.15), radius: 8, x: 0, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(goal.goalColor.opacity(0.2), lineWidth: 1)
-            )
 
-            // Ellipsis menu button
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    actionSheetGoalId = actionSheetGoalId == goal.id ? nil : goal.id
+                Spacer()
+            }
+
+            // Task chips
+            if !tasks.isEmpty {
+                WrappingHStack(items: tasks) { task in
+                    Text(task.name)
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundColor(goal.goalColor)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(goal.goalColor.opacity(0.14))
+                        .cornerRadius(14)
                 }
-            }) {
-                Image(systemName: "ellipsis")
+            } else {
+                Text("No tasks yet")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(AppColors.secondaryLabel)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(PlainButtonStyle())
-            .offset(x: -4, y: 4)
 
-            // Dropdown menu
-            if actionSheetGoalId == goal.id {
-                VStack(alignment: .leading, spacing: 0) {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) { actionSheetGoalId = nil }
-                        onEdit()
-                    }) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "pencil")
-                                .font(.system(size: 14, design: .rounded))
-                                .foregroundColor(AppColors.label)
-                            Text("Edit")
-                                .font(.system(size: 15, design: .rounded))
-                                .foregroundColor(AppColors.label)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
+            // task notes expander
+            if hasNotes {
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showingNotes.toggle() } }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: showingNotes ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("task notes")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
                     }
-                    .buttonStyle(PlainButtonStyle())
-
-                    Divider().padding(.horizontal, 10)
-
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) { actionSheetGoalId = nil }
-                        onDelete()
-                    }) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 14, design: .rounded))
-                                .foregroundColor(AppColors.coral)
-                            Text("Delete")
-                                .font(.system(size: 15, design: .rounded))
-                                .foregroundColor(AppColors.coral)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PlainButtonStyle())
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 2)
                 }
-                .background(AppColors.background)
-                .cornerRadius(12)
-                .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
-                .frame(width: 160)
-                .offset(x: -8, y: 44)
-                .transition(.opacity)
-                .zIndex(10)
+                .buttonStyle(PlainButtonStyle())
+
+                if showingNotes {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForEach(tasks) { task in
+                            taskNoteBlock(task)
+                        }
+                    }
+                    .padding(.top, 4)
+                }
             }
         }
+        .padding(16)
         .frame(maxWidth: .infinity)
-        .zIndex(actionSheetGoalId == goal.id ? 10 : 0)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.systemBackground)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(goal.goalColor.opacity(0.18), lineWidth: 1))
+        .shadow(color: goal.goalColor.opacity(0.12), radius: 8, x: 0, y: 2)
+        .contentShape(Rectangle())
+        .onTapGesture { onEdit() }
+    }
+
+    @ViewBuilder
+    private func taskNoteBlock(_ task: TrainingTask) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Circle().fill(goal.goalColor).frame(width: 7, height: 7)
+                Text(task.name)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+            }
+            if let notes = task.notes.nilIfBlank {
+                Text(notes)
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if !task.hasDetails {
+                Text("No notes yet")
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(AppColors.tertiaryLabel)
+            }
+            if let link = task.link.nilIfBlank {
+                HStack(spacing: 4) {
+                    Image(systemName: "link").font(.system(size: 11))
+                    Text(link).font(.system(size: 13, design: .rounded)).lineLimit(1)
+                }
+                .foregroundColor(AppColors.indigo)
+            }
+            if !task.imageFileNames.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(task.imageFileNames, id: \.self) { fileName in
+                            if let data = store.taskImageData(taskId: task.id, fileName: fileName), let ui = UIImage(data: data) {
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 220, height: 124)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -6317,16 +6617,17 @@ struct GoalIconColorPicker: View {
                 .fontWeight(.medium)
                 .foregroundColor(AppColors.secondaryLabel)
 
-            let rowCount = (GoalIconLibrary.icons.count + 4) / 5
+            let columns = 6
+            let rowCount = (GoalIconLibrary.icons.count + columns - 1) / columns
             VStack(spacing: 8) {
                 ForEach(0..<rowCount, id: \.self) { row in
                     HStack(spacing: 0) {
-                        ForEach(0..<5, id: \.self) { col in
-                            let idx = row * 5 + col
+                        ForEach(0..<columns, id: \.self) { col in
+                            let idx = row * columns + col
                             if idx < GoalIconLibrary.icons.count {
                                 let icon = GoalIconLibrary.icons[idx]
                                 Button(action: { iconName = icon }) {
-                                    GoalIconImage(name: icon, color: iconName == icon ? selectedColor : Color(.systemGray3), size: 36)
+                                    GoalIconImage(name: icon, color: iconName == icon ? selectedColor : Color(.systemGray3), size: 30)
                                         .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(PlainButtonStyle())
