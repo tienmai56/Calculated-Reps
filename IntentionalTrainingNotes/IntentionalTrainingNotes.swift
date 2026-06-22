@@ -237,6 +237,27 @@ struct AppColors {
         traits.userInterfaceStyle == .dark ? .tertiaryLabel : UIColor(red: 165/255, green: 161/255, blue: 155/255, alpha: 1)
     })
     static let separator = Color(.separator)
+
+    // Streak header gradient (Home)
+    static let headerGradientTop = Color(red: 124/255, green: 112/255, blue: 214/255)
+    static let headerGradientBottom = Color(red: 91/255, green: 82/255, blue: 176/255)
+
+    // Reflection section accents: What worked / Where I got stuck / What I'll try next.
+    // Keep UIColor variants so we can derive adaptive tints without iOS 14's UIColor(Color).
+    static let indigoUI = UIColor(red: 63/255, green: 61/255, blue: 158/255, alpha: 1)
+    static let winGreenUI = UIColor(red: 56/255, green: 178/255, blue: 144/255, alpha: 1)
+    static let stuckCoralUI = UIColor(red: 235/255, green: 110/255, blue: 100/255, alpha: 1)
+    static let winGreen = Color(winGreenUI)
+    static let stuckCoral = Color(stuckCoralUI)
+    static let nextIndigo = indigo
+
+    /// Adaptive low-opacity tint (dark mode needs higher opacity to stay visible).
+    /// Takes a UIColor to avoid the iOS 14-only `UIColor(Color)` initializer.
+    static func tint(_ ui: UIColor, light: Double = 0.10, dark: Double = 0.24) -> Color {
+        Color(UIColor { traits in
+            ui.withAlphaComponent(CGFloat(traits.userInterfaceStyle == .dark ? dark : light))
+        })
+    }
 }
 
 struct AppTypography {
@@ -382,21 +403,52 @@ struct TrainingTask: Codable, Equatable, Identifiable {
     var id: String
     var goalId: String
     var name: String
+    var notes: String
+    var link: String
+    var imageFileNames: [String]
     var createdAt: Date
     var updatedAt: Date
+
+    var hasDetails: Bool {
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !imageFileNames.isEmpty
+    }
 
     init(
         id: String = "t_\(UUID().uuidString)",
         goalId: String,
         name: String,
+        notes: String = "",
+        link: String = "",
+        imageFileNames: [String] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
         self.id = id
         self.goalId = goalId
         self.name = name
+        self.notes = notes
+        self.link = link
+        self.imageFileNames = imageFileNames
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, goalId, name, notes, link, imageFileNames, createdAt, updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        goalId = try c.decode(String.self, forKey: .goalId)
+        name = try c.decode(String.self, forKey: .name)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        link = try c.decodeIfPresent(String.self, forKey: .link) ?? ""
+        imageFileNames = try c.decodeIfPresent([String].self, forKey: .imageFileNames) ?? []
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
     }
 }
 
@@ -434,7 +486,9 @@ struct Reflection: Codable, Equatable, Identifiable {
     var date: Date
     var workedText: String
     var stuckText: String
+    var tryNextText: String
     var mood: Mood?
+    var isFavorite: Bool
     var createdAt: Date
     var updatedAt: Date
 
@@ -444,7 +498,9 @@ struct Reflection: Codable, Equatable, Identifiable {
         date: Date,
         workedText: String,
         stuckText: String,
+        tryNextText: String = "",
         mood: Mood?,
+        isFavorite: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -453,9 +509,29 @@ struct Reflection: Codable, Equatable, Identifiable {
         self.date = Calendar.current.normalizedTrainingDay(date)
         self.workedText = workedText
         self.stuckText = stuckText
+        self.tryNextText = tryNextText
         self.mood = mood
+        self.isFavorite = isFavorite
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, sessionId, date, workedText, stuckText, tryNextText, mood, isFavorite, createdAt, updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        sessionId = try c.decode(String.self, forKey: .sessionId)
+        date = Calendar.current.normalizedTrainingDay(try c.decode(Date.self, forKey: .date))
+        workedText = try c.decode(String.self, forKey: .workedText)
+        stuckText = try c.decode(String.self, forKey: .stuckText)
+        tryNextText = try c.decodeIfPresent(String.self, forKey: .tryNextText) ?? ""
+        mood = try c.decodeIfPresent(Mood.self, forKey: .mood)
+        isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
     }
 }
 
