@@ -1536,11 +1536,15 @@ final class NotebookStore: ObservableObject {
         return reflection
     }
 
-    /// Reflection is allowed only at least one hour after the session was planned
-    /// (a proxy for "the session has actually happened").
+    /// Reflection rules:
+    /// - Editing an existing reflection is always allowed.
+    /// - If the session's day is already in the past, it has happened → reflect right away.
+    /// - Otherwise (today or future) require at least one hour since it was planned
+    ///   (a proxy for "the session has actually happened" when we only store a day, not a time).
     func canReflect(sessionId: String) -> Bool {
         guard let session = notebook.sessions.first(where: { $0.id == sessionId }) else { return false }
-        if reflection(forSessionId: sessionId) != nil { return true } // editing an existing reflection is always allowed
+        if reflection(forSessionId: sessionId) != nil { return true }
+        if session.date < calendar.startOfDay(for: Date()) { return true }
         return Date() >= session.createdAt.addingTimeInterval(3600)
     }
 
