@@ -2789,65 +2789,211 @@ struct HomeTrendGraph: View {
 
 // MARK: - Plan List
 
+// MARK: - Reusable Session Card (matches Mat Mind Home / Plan design)
+
+struct SessionCardView: View {
+    @ObservedObject var store: NotebookStore
+    let session: PlannedSession
+    var onReflect: () -> Void
+    var onEdit: () -> Void
+    var onDelete: () -> Void
+
+    @State private var showNotes = false
+    @State private var menuOpen = false
+
+    var body: some View {
+        let goal = store.goal(id: session.goalId)
+        let color = goal?.goalColor ?? AppColors.indigo
+        let tasks = session.taskIds.compactMap { store.task(id: $0) }
+        let hasNotes = tasks.contains { $0.hasDetails }
+        let reflected = store.reflection(forSessionId: session.id) != nil
+
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    GoalIconImage(name: goal?.iconName ?? "target", color: color, size: 18)
+                    Text(goal?.name ?? "No goal")
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(color.opacity(0.14)))
+
+                Spacer()
+
+                Button(action: onReflect) {
+                    HStack(spacing: 4) {
+                        ReflectPencilIcon(size: 14, color: AppColors.indigo)
+                        Text(reflected ? "Reflected" : "Reflect")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppColors.indigo)
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { menuOpen.toggle() } }) {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 16))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .frame(width: 28, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            if !tasks.isEmpty {
+                WrappingHStack(items: tasks) { task in
+                    Text(task.name)
+                        .font(.system(size: 15, design: .rounded))
+                        .foregroundColor(color)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(color.opacity(0.12))
+                        .cornerRadius(14)
+                }
+            }
+
+            if hasNotes {
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showNotes.toggle() } }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: showNotes ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("task notes")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                    }
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                if showNotes {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(tasks) { task in
+                            taskNoteBlock(task, color: color)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground))
+                RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 5).padding(.vertical, 8)
+            }
+        )
+        .overlay(menuOverlay, alignment: .topTrailing)
+    }
+
+    @ViewBuilder
+    private var menuOverlay: some View {
+        if menuOpen {
+            VStack(alignment: .leading, spacing: 0) {
+                menuRow(icon: "pencil", label: "Edit", color: AppColors.label) {
+                    menuOpen = false
+                    onEdit()
+                }
+                Divider().padding(.horizontal, 10)
+                menuRow(icon: "trash", label: "Delete", color: AppColors.coral) {
+                    menuOpen = false
+                    onDelete()
+                }
+            }
+            .background(AppColors.background)
+            .cornerRadius(10)
+            .shadow(color: Color.black.opacity(0.14), radius: 8, x: 0, y: 2)
+            .frame(width: 150)
+            .padding(.top, 44)
+            .padding(.trailing, 8)
+        }
+    }
+
+    private func menuRow(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.system(size: 14, design: .rounded)).foregroundColor(color)
+                Text(label).font(.system(size: 15, design: .rounded)).foregroundColor(color)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    @ViewBuilder
+    private func taskNoteBlock(_ task: TrainingTask, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Text(task.name)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+            }
+            if let notes = task.notes.nilIfBlank {
+                Text(notes)
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("No notes yet")
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(AppColors.tertiaryLabel)
+            }
+            if let link = task.link.nilIfBlank {
+                HStack(spacing: 4) {
+                    Image(systemName: "link").font(.system(size: 11))
+                    Text(link).font(.system(size: 13, design: .rounded)).lineLimit(1)
+                }
+                .foregroundColor(AppColors.indigo)
+            }
+            if !task.imageFileNames.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(task.imageFileNames, id: \.self) { fileName in
+                            if let data = store.taskImageData(taskId: task.id, fileName: fileName), let ui = UIImage(data: data) {
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 220, height: 124)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Plan (month calendar)
+
 struct PlanListView: View {
     @ObservedObject var store: NotebookStore
     var onAdd: () -> Void
     var onReflect: (String) -> Void
 
-    @State private var expandedSessionId: String?
-    @State private var showPast = false
+    @State private var displayedMonth: Date = Date()
+    @State private var selectedDate: Date = Date()
     @State private var editingSession: PlannedSession?
-    @State private var actionSheetSessionId: String?
     @State private var showDeleteConfirm = false
     @State private var sessionToDelete: PlannedSession?
 
     private var cal: Calendar { Calendar.current }
 
-    private var weekStart: Date { cal.mondayStartOfWeek(containing: Date()) }
-    private var weekEnd: Date {
-        let endOfThisWeek = cal.date(byAdding: .day, value: 6, to: weekStart)!
-        let today = cal.startOfDay(for: Date())
-        // If less than 2 days remain in the Mon-Sun week, extend to include next week
-        let daysLeft = cal.dateComponents([.day], from: today, to: endOfThisWeek).day ?? 0
-        if daysLeft < 2 {
-            return cal.date(byAdding: .day, value: 13, to: weekStart)!
-        }
-        return endOfThisWeek
-    }
-    private var nextWeekStart: Date { cal.date(byAdding: .day, value: 1, to: weekEnd)! }
-
-    private var allSorted: [PlannedSession] {
-        store.notebook.sessions.sorted { $0.date < $1.date }
-    }
-
-    private var thisWeekSessions: [PlannedSession] {
-        allSorted.filter { s in
-            let d = cal.startOfDay(for: s.date)
-            return d >= weekStart && d <= weekEnd
-        }
-    }
-
-    private var upcomingSessions: [PlannedSession] {
-        allSorted.filter { s in
-            cal.startOfDay(for: s.date) >= nextWeekStart
-        }
-    }
-
-    private var pastSessions: [PlannedSession] {
-        allSorted.filter { s in
-            cal.startOfDay(for: s.date) < weekStart
-        }.reversed()
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Text("Plan")
-                    .font(.headline)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                 Spacer()
                 Button(action: onAdd) {
                     Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundColor(AppColors.indigo)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
@@ -2857,66 +3003,12 @@ struct PlanListView: View {
             .padding(.top, 8)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    // This Week
-                    Text("THIS WEEK (\(thisWeekSessions.count))")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(AppColors.label)
-                        .padding(.top, 4)
-
-                    if thisWeekSessions.isEmpty {
-                        EmptyDashedState(title: "No sessions this week.", subtitle: "Tap + to plan your training.")
-                    } else {
-                        ForEach(thisWeekSessions) { session in
-                            planEntryCard(session: session)
-                                .zIndex(actionSheetSessionId == session.id ? 10 : 0)
-                        }
-                    }
-
-                    // Upcoming
-                    Text("UPCOMING (\(upcomingSessions.count))")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(AppColors.label)
-                        .padding(.top, 8)
-
-                    if upcomingSessions.isEmpty {
-                        EmptyDashedState(title: "Nothing planned yet.", subtitle: "Tap + to schedule ahead.")
-                    } else {
-                        ForEach(upcomingSessions) { session in
-                            planEntryCard(session: session)
-                                .zIndex(actionSheetSessionId == session.id ? 10 : 0)
-                        }
-                    }
-
-                    // Past (collapsible)
-                    Button(action: { withAnimation { showPast.toggle() } }) {
-                        HStack {
-                            Text("PAST  · \(pastSessions.count)")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(AppColors.label)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(AppColors.label)
-                                .rotationEffect(.degrees(showPast ? 90 : 0))
-                        }
-                        .padding(12)
-                        .cardBackground()
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .padding(.top, 8)
-
-                    if showPast {
-                        ForEach(pastSessions) { session in
-                            planEntryCard(session: session)
-                                .zIndex(actionSheetSessionId == session.id ? 10 : 0)
-                        }
-                    }
+                VStack(spacing: 16) {
+                    calendarCard
+                    selectedDaySection
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
                 .padding(.bottom, 24)
             }
         }
@@ -2936,251 +3028,189 @@ struct PlanListView: View {
                         sessionToDelete = nil
                     }
                 },
-                secondaryButton: .cancel {
-                    sessionToDelete = nil
-                }
+                secondaryButton: .cancel { sessionToDelete = nil }
             )
         }
     }
 
-    @ViewBuilder
-    private func planEntryCard(session: PlannedSession) -> some View {
-        let goal = store.goal(id: session.goalId)
-        let tasks = session.taskIds.compactMap { store.task(id: $0) }
-        let reflection = store.reflection(forSessionId: session.id)
-        let hasReflection = reflection != nil
-        let isExpanded = expandedSessionId == session.id
+    // MARK: Calendar card
 
-        let fmt = DateFormatter()
-        let _ = fmt.dateFormat = "EEE, MMM d"
-
-        VStack(alignment: .leading, spacing: 0) {
-            // Header row: chevron + date + status + ellipsis
-            HStack(spacing: 10) {
-                // Expand/collapse arrow
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(AppColors.label)
-                    .frame(width: 20, height: 20)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(fmt.string(from: session.date))
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(AppColors.label)
-                    if let goal = goal {
-                        Text(goal.name)
-                            .font(.caption)
-                            .foregroundColor(AppColors.secondaryLabel)
-                    }
-                }
-
-                Spacer()
-
-                if session.status == .planned && cal.startOfDay(for: session.date) <= cal.startOfDay(for: Date()) {
-                    // Today or past + planned → show reflect button + planned pill
-                    HStack(spacing: 6) {
-                        sessionStatusPill(label: "Planned", color: Color(.systemGray4), textColor: .secondary, icon: nil)
-                        Button(action: { onReflect(session.id) }) {
-                            ReflectPencilIcon(size: 14, color: .primary)
-                                .frame(width: 28, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                } else if session.status == .planned {
-                    sessionStatusPill(label: "Planned", color: Color(.systemGray4), textColor: .secondary, icon: nil)
-                } else if session.status == .done && !hasReflection {
-                    HStack(spacing: 6) {
-                        sessionStatusPill(label: "Done", color: Color.green.opacity(0.15), textColor: .green, icon: "checkmark")
-                        Button(action: { onReflect(session.id) }) {
-                            ReflectPencilIcon(size: 14, color: .primary)
-                                .frame(width: 28, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                } else if hasReflection {
-                    sessionStatusPill(label: "Reflected", color: AppColors.indigo.opacity(0.12), textColor: AppColors.indigo, icon: "text.book.closed")
-                }
-
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        actionSheetSessionId = actionSheetSessionId == session.id ? nil : session.id
-                    }
-                }) {
-                    Image(systemName: "ellipsis")
-                        .foregroundColor(AppColors.label)
-                        .frame(width: 32, height: 32)
+    private var calendarCard: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Button(action: { shiftMonth(-1) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(AppColors.indigo)
+                        .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(PlainButtonStyle())
-            }
-            .padding(12)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    expandedSessionId = isExpanded ? nil : session.id
-                }
-            }
-
-            // Expanded content: task pills + reflection
-            if isExpanded {
-                if !tasks.isEmpty {
-                    WrappingHStack(items: tasks) { task in
-                        Text(task.name)
-                            .font(.system(size: 11, design: .rounded))
-                            .foregroundColor(goal?.goalColor ?? AppColors.indigo)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(
-                                (goal?.goalColor ?? AppColors.indigo).opacity(0.12)
-                            )
-                            .cornerRadius(10)
-                    }
-                    .padding(.horizontal, 42)
-                    .padding(.bottom, 12)
-                }
-
-                if let ref = reflection {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let mood = ref.mood {
-                            HStack(spacing: 4) {
-                                Text("Mood:")
-                                    .font(.caption)
-                                    .foregroundColor(AppColors.label)
-                                Text(mood.glyph)
-                                    .font(.caption)
-                            }
-                        }
-                        let worked = ref.workedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !worked.isEmpty {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("WHAT WORKED")
-                                    .font(.system(size: 9, design: .rounded))
-                                    .foregroundColor(AppColors.label)
-                                Text(worked)
-                                    .font(.caption)
-                            }
-                        }
-                        let stuck = ref.stuckText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !stuck.isEmpty {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("WHERE I GOT STUCK")
-                                    .font(.system(size: 9, design: .rounded))
-                                    .foregroundColor(AppColors.label)
-                                Text(stuck)
-                                    .font(.caption)
-                            }
-                        }
-                        Button(action: { onReflect(session.id) }) {
-                            Text("Edit reflection")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(AppColors.label)
-                        }
-                        .padding(.top, 2)
-                    }
-                    .padding(.horizontal, 42)
-                    .padding(.bottom, 14)
-                }
-            }
-        }
-        .cardBackground()
-        .overlay(
-            // Left color strip indicating session state
-            HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(sessionStatusColor(session: session, hasReflection: hasReflection))
-                    .frame(width: 4)
-                    .padding(.vertical, 6)
                 Spacer()
-            }
-            .padding(.leading, 4)
-        , alignment: .leading)
-        .overlay(
-            Group {
-                if actionSheetSessionId == session.id {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                actionSheetSessionId = nil
-                            }
-                            editingSession = session
-                        }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 14, design: .rounded))
-                                    .foregroundColor(AppColors.label)
-                                Text("Edit")
-                                    .font(.system(size: 15, design: .rounded))
-                                    .foregroundColor(AppColors.label)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
-                        Divider()
-                            .padding(.horizontal, 10)
-
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                actionSheetSessionId = nil
-                            }
-                            sessionToDelete = session
-                            showDeleteConfirm = true
-                        }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 14, design: .rounded))
-                                    .foregroundColor(AppColors.coral)
-                                Text("Delete")
-                                    .font(.system(size: 15, design: .rounded))
-                                    .foregroundColor(AppColors.coral)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    .background(AppColors.background)
-                    .cornerRadius(10)
-                    .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 2)
-                    .frame(width: 160)
-                    .padding(.top, 40)
-                    .padding(.trailing, 4)
+                HStack(spacing: 8) {
+                    Text(monthTitle)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    Text("\(monthEntryCount) \(monthEntryCount == 1 ? "Entry" : "Entries")")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppColors.indigo)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(AppColors.indigo.opacity(0.12)))
+                }
+                Spacer()
+                Button(action: { shiftMonth(1) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(AppColors.indigo)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
                 }
             }
-        , alignment: .topTrailing)
-    }
 
-    private func sessionStatusColor(session: PlannedSession, hasReflection: Bool) -> Color {
-        if hasReflection { return AppColors.indigo }
-        if session.status == .done { return .green }
-        return Color(.systemGray4)
-    }
-
-    @ViewBuilder
-    private func sessionStatusPill(label: String, color: Color, textColor: Color, icon: String?) -> some View {
-        HStack(spacing: 3) {
-            if let icon = icon {
-                Image(systemName: icon)
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundColor(textColor)
+            HStack(spacing: 0) {
+                ForEach(weekdaySymbols, id: \.self) { wd in
+                    Text(wd)
+                        .font(.system(size: 13, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .frame(maxWidth: .infinity)
+                }
             }
-            Text(label)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundColor(textColor)
+
+            let days = gridDays
+            let rows = (days.count + 6) / 7
+            VStack(spacing: 6) {
+                ForEach(0..<rows, id: \.self) { row in
+                    HStack(spacing: 0) {
+                        ForEach(0..<7, id: \.self) { col in
+                            let idx = row * 7 + col
+                            if idx < days.count, let date = days[idx] {
+                                dayCell(date)
+                            } else {
+                                Color.clear.frame(maxWidth: .infinity, minHeight: 48)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(color)
-        .cornerRadius(6)
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.systemBackground)))
+    }
+
+    private func dayCell(_ date: Date) -> some View {
+        let isSelected = cal.isDate(date, inSameDayAs: selectedDate)
+        let isToday = cal.isDateInToday(date)
+        let glyph = moodGlyph(on: date)
+        let planned = glyph == nil && hasPlan(on: date)
+        return Button(action: { selectedDate = date }) {
+            VStack(spacing: 1) {
+                ZStack {
+                    if isSelected {
+                        Circle().fill(AppColors.indigo).frame(width: 34, height: 34)
+                    } else if isToday {
+                        Circle().stroke(AppColors.indigo, lineWidth: 1.5).frame(width: 34, height: 34)
+                    }
+                    Text("\(cal.component(.day, from: date))")
+                        .font(.system(size: 16, design: .rounded))
+                        .foregroundColor(isSelected ? .white : AppColors.label)
+                }
+                .frame(height: 34)
+                ZStack {
+                    if let glyph = glyph {
+                        Text(glyph).font(.system(size: 12))
+                    } else if planned {
+                        Circle().fill(AppColors.coral).frame(width: 6, height: 6)
+                    }
+                }
+                .frame(height: 14)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: Selected day
+
+    private var selectedDaySection: some View {
+        let daySessions = sessions(on: selectedDate)
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(longDateLabel)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.label)
+            if daySessions.isEmpty {
+                EmptyDashedState(title: "Nothing planned.", subtitle: "Tap + to plan training for this day.")
+            } else {
+                ForEach(daySessions) { session in
+                    SessionCardView(
+                        store: store,
+                        session: session,
+                        onReflect: { onReflect(session.id) },
+                        onEdit: { editingSession = session },
+                        onDelete: { sessionToDelete = session; showDeleteConfirm = true }
+                    )
+                    .zIndex(1)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Helpers
+
+    private var weekdaySymbols: [String] { ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] }
+
+    private var monthFirst: Date {
+        cal.date(from: cal.dateComponents([.year, .month], from: displayedMonth)) ?? displayedMonth
+    }
+
+    private var monthTitle: String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMMM yyyy"
+        return fmt.string(from: monthFirst)
+    }
+
+    private var longDateLabel: String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "EEE, MMM d, yyyy"
+        return fmt.string(from: selectedDate)
+    }
+
+    private var gridDays: [Date?] {
+        guard let range = cal.range(of: .day, in: .month, for: monthFirst) else { return [] }
+        let weekdayOfFirst = cal.component(.weekday, from: monthFirst) // 1 = Sunday
+        var days: [Date?] = Array(repeating: nil, count: weekdayOfFirst - 1)
+        for d in range {
+            days.append(cal.date(byAdding: .day, value: d - 1, to: monthFirst))
+        }
+        return days
+    }
+
+    private var monthEntryCount: Int {
+        store.notebook.sessions.filter { cal.isDate($0.date, equalTo: monthFirst, toGranularity: .month) }.count
+    }
+
+    private func sessions(on date: Date) -> [PlannedSession] {
+        store.notebook.sessions
+            .filter { cal.isDate($0.date, inSameDayAs: date) }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func moodGlyph(on date: Date) -> String? {
+        store.notebook.reflections
+            .filter { cal.isDate($0.date, inSameDayAs: date) }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .first?.mood?.glyph
+    }
+
+    private func hasPlan(on date: Date) -> Bool {
+        store.notebook.sessions.contains { cal.isDate($0.date, inSameDayAs: date) }
+    }
+
+    private func shiftMonth(_ delta: Int) {
+        if let d = cal.date(byAdding: .month, value: delta, to: monthFirst) {
+            displayedMonth = d
+        }
     }
 }
 
