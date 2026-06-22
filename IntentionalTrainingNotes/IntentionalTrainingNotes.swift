@@ -2001,6 +2001,11 @@ struct MainAppView: View {
         .sheet(isPresented: $isAddingGoalFromHome) {
             AddGoalSheet(store: store, onDone: { isAddingGoalFromHome = false })
         }
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["OPEN_WIZARD"] != nil { isPlanning = true }
+            #endif
+        }
     }
 
     private var goalsScreen: some View {
@@ -5212,185 +5217,383 @@ struct PlanTrainingView: View {
     var onSaved: ([PlannedSession]) -> Void
     var initialGoalId: String?
 
-    private let totalSteps = 3
+    private let totalSteps = 2
     private let calendar = Calendar.current
 
     @State private var step = 1
-    @State private var weekAnchor: Date = {
-        Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
-    }()
-    @State private var goalId: String?
+    @State private var displayedMonth: Date = Date()
     @State private var selectedDays: Set<Date> = []
-    @State private var tasksByDay: [Date: [String]] = [:]
-    @State private var pendingProposals: [ProposedSession]?
-    @State private var conflicts: [DuplicatePlanConflict] = []
+    @State private var selectedGoalIds: Set<String> = []
+    @State private var selectedTasksByDay: [Date: Set<String>] = [:]
     @State private var didApplyInitial = false
 
-    private var weekStart: Date {
-        calendar.mondayStartOfWeek(containing: weekAnchor)
-    }
-
-    private var weekDays: [Date] {
-        (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: weekStart) }
-    }
-
-    private var weekEnd: Date {
-        weekDays.last ?? weekStart
-    }
-
-    private var focusGoal: TrainingGoal? {
-        goalId.flatMap { store.goal(id: $0) }
-    }
-
-    private var goalTasks: [TrainingTask] {
-        goalId.map { store.tasks(forGoal: $0) } ?? []
-    }
-
-    private var progressFraction: CGFloat {
-        CGFloat(step) / CGFloat(totalSteps)
-    }
+    private var sortedDays: [Date] { selectedDays.sorted() }
+    private var selectedGoals: [TrainingGoal] { store.activeGoals.filter { selectedGoalIds.contains($0.id) } }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with progress bar
             PlanStepHeader(
                 step: step,
                 totalSteps: totalSteps,
-                progress: progressFraction,
+                progress: CGFloat(step) / CGFloat(totalSteps),
                 onBack: {
                     if step <= 1 { onCancel() }
                     else { withAnimation(.easeOut(duration: 0.2)) { step -= 1 } }
                 },
                 onClose: onCancel
             )
-
-            // Step content
-            Group {
-                if step == 1 {
-                    PlanStepFocus(
-                        goals: store.activeGoals,
-                        goalId: goalId,
-                        onPickGoal: { goalId = $0 },
-                        weekStart: weekStart,
-                        weekEnd: weekEnd,
-                        onShiftWeek: shiftWeek,
-                        canAdvance: goalId != nil,
-                        onContinue: { withAnimation(.easeOut(duration: 0.2)) { step = 2 } }
-                    )
-                } else if step == 2 {
-                    PlanStepDays(
-                        weekDays: weekDays,
-                        selectedDays: selectedDays,
-                        onToggleDay: toggleDay,
-                        focusName: focusGoal?.name ?? "",
-                        canAdvance: !selectedDays.isEmpty,
-                        onContinue: { withAnimation(.easeOut(duration: 0.2)) { step = 3 } }
-                    )
-                } else {
-                    PlanStepTasks(
-                        selectedDays: Array(selectedDays).sorted(),
-                        tasksByDay: tasksByDay,
-                        goalTasks: goalTasks,
-                        onToggleTask: toggleTaskForDay,
-                        onApplyToAll: applyTasksToAllDays,
-                        totalDays: selectedDays.count,
-                        focusName: focusGoal?.name ?? "",
-                        onSave: handleSave
-                    )
-                }
-            }
+            if step == 1 { stepDaysGoals } else { stepTasks }
         }
-        .alert(item: Binding(
-            get: { pendingProposals.map { _ in DuplicateAlertToken(id: "duplicate") } },
-            set: { if $0 == nil { pendingProposals = nil } }
-        )) { _ in
-            let proposalsToCreate = pendingProposals ?? []
-            let message = conflictMessage()
-            return Alert(
-                title: Text("Some days already have planned sessions"),
-                message: Text(message),
-                primaryButton: .destructive(Text("Yes, create")) {
-                    guard !proposalsToCreate.isEmpty else { return }
-                    let created = store.planSessions(proposalsToCreate, overrideConflicts: true)
-                    pendingProposals = nil
-                    conflicts = []
-                    onSaved(created)
-                },
-                secondaryButton: .cancel {
-                    pendingProposals = nil
-                    conflicts = []
-                }
-            )
-        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
         .onAppear {
             if !didApplyInitial {
                 didApplyInitial = true
-                if let gId = initialGoalId {
-                    goalId = gId
-                    weekAnchor = Date() // current week when pre-selecting
+                if let g = initialGoalId { _ = selectedGoalIds.insert(g) }
+                #if DEBUG
+                if ProcessInfo.processInfo.environment["WIZARD_STEP2"] != nil {
+                    let base = calendar.normalizedTrainingDay(Date())
+                    var set = Set<Date>([base])
+                    if let next = calendar.date(byAdding: .day, value: 1, to: base) {
+                        set.insert(calendar.normalizedTrainingDay(next))
+                    }
+                    selectedDays = set
+                    selectedGoalIds = Set(store.activeGoals.prefix(2).map { $0.id })
+                    step = 2
+                }
+                #endif
+            }
+        }
+    }
+
+    // MARK: - Step 1: days + goals
+
+    private var stepDaysGoals: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Plan your training")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                        Text("Tap the days you want to train, then pick your goals.")
+                            .font(.system(size: 16, design: .rounded))
+                            .foregroundColor(AppColors.secondaryLabel)
+                    }
+                    monthCalendar
+                    Text(daysSelectedLabel)
+                        .font(.system(size: 15, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    if !selectedDays.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Goals")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundColor(AppColors.secondaryLabel)
+                            WrappingHStack(items: store.activeGoals) { goal in
+                                goalChip(goal)
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            bottomBar(title: "Continue", enabled: !selectedDays.isEmpty && !selectedGoalIds.isEmpty) {
+                withAnimation(.easeOut(duration: 0.2)) { step = 2 }
+            }
+        }
+    }
+
+    private func goalChip(_ goal: TrainingGoal) -> some View {
+        let selected = selectedGoalIds.contains(goal.id)
+        return Button(action: {
+            if selected { _ = selectedGoalIds.remove(goal.id) } else { _ = selectedGoalIds.insert(goal.id) }
+        }) {
+            Text(goal.name)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(selected ? .white : AppColors.label)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(chipBackground(selected: selected, color: goal.goalColor))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: - Step 2: tasks per day
+
+    private var stepTasks: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("What will you drill?")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                        Text(drillSubtitle)
+                            .font(.system(size: 16, design: .rounded))
+                            .foregroundColor(AppColors.secondaryLabel)
+                    }
+                    ForEach(sortedDays, id: \.self) { day in
+                        dayTaskCard(day)
+                    }
+                    Text("Planning creates an unchecked entry for each day. Check it off after training to reflect.")
+                        .font(.system(size: 15, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                }
+                .padding(16)
+            }
+            bottomBar(title: "Save plan (\(sortedDays.count) \(sortedDays.count == 1 ? "day" : "days"))", enabled: true) {
+                handleSave()
+            }
+        }
+    }
+
+    private func dayTaskCard(_ day: Date) -> some View {
+        let taskCount = selectedTasksByDay[day]?.count ?? 0
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Text(dowString(day))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                Text(mdString(day))
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                Text("· \(taskCount) \(taskCount == 1 ? "task" : "tasks")")
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                Spacer()
+                if sortedDays.count > 1 {
+                    Button(action: { applyToAll(from: day) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.on.doc").font(.system(size: 12))
+                            Text("APPLY TO ALL")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .kerning(0.5)
+                        }
+                        .foregroundColor(AppColors.secondaryLabel)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
+            ForEach(selectedGoals) { goal in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(goal.name)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(goal.goalColor)
+                    let tasks = store.tasks(forGoal: goal.id)
+                    if tasks.isEmpty {
+                        Text("No tasks — whole-goal session")
+                            .font(.system(size: 13, design: .rounded))
+                            .foregroundColor(AppColors.tertiaryLabel)
+                    } else {
+                        WrappingHStack(items: tasks) { task in
+                            taskChip(day: day, task: task, color: goal.goalColor)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.secondaryBackground))
+    }
+
+    private func taskChip(day: Date, task: TrainingTask, color: Color) -> some View {
+        let selected = selectedTasksByDay[day]?.contains(task.id) ?? false
+        return Button(action: { toggleTask(day: day, taskId: task.id) }) {
+            Text(task.name)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundColor(selected ? .white : AppColors.label)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(chipBackground(selected: selected, color: color))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func chipBackground(selected: Bool, color: Color) -> some View {
+        ZStack {
+            if selected {
+                Capsule().fill(color)
+            } else {
+                Capsule().fill(Color(.systemBackground))
+                Capsule().stroke(Color(.systemGray3), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            }
+        }
+    }
+
+    // MARK: - Month calendar (multi-select)
+
+    private var monthCalendar: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Button(action: { shiftMonth(-1) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(AppColors.indigo)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                Spacer()
+                Text(monthTitle)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                Spacer()
+                Button(action: { shiftMonth(1) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(AppColors.indigo)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+            }
+            HStack(spacing: 0) {
+                ForEach(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], id: \.self) { wd in
+                    Text(wd)
+                        .font(.system(size: 13, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            let days = gridDays
+            let rows = (days.count + 6) / 7
+            VStack(spacing: 6) {
+                ForEach(0..<rows, id: \.self) { row in
+                    HStack(spacing: 0) {
+                        ForEach(0..<7, id: \.self) { col in
+                            let idx = row * 7 + col
+                            if idx < days.count, let date = days[idx] {
+                                daySelectCell(date)
+                            } else {
+                                Color.clear.frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.secondaryBackground))
+    }
+
+    private func daySelectCell(_ date: Date) -> some View {
+        let norm = calendar.normalizedTrainingDay(date)
+        let selected = selectedDays.contains(norm)
+        let isToday = calendar.isDateInToday(date)
+        return Button(action: { toggleDay(date) }) {
+            ZStack {
+                if selected {
+                    Circle().fill(AppColors.indigo).frame(width: 36, height: 36)
+                } else if isToday {
+                    Circle().stroke(AppColors.indigo, lineWidth: 1.5).frame(width: 36, height: 36)
+                }
+                Text("\(calendar.component(.day, from: date))")
+                    .font(.system(size: 16, design: .rounded))
+                    .foregroundColor(selected ? .white : AppColors.label)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: - Bottom bar
+
+    private func bottomBar(title: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button(action: action) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(RoundedRectangle(cornerRadius: 28).fill(enabled ? AppColors.indigo : AppColors.indigo.opacity(0.4)))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(!enabled)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
         }
     }
 
     // MARK: - Actions
 
-    private func shiftWeek(_ delta: Int) {
-        weekAnchor = calendar.date(byAdding: .day, value: delta * 7, to: weekAnchor) ?? weekAnchor
-        selectedDays = []
-        tasksByDay = [:]
-    }
-
     private func toggleDay(_ date: Date) {
-        let normalized = calendar.normalizedTrainingDay(date)
-        if selectedDays.contains(normalized) {
-            selectedDays.remove(normalized)
-            tasksByDay.removeValue(forKey: normalized)
+        let norm = calendar.normalizedTrainingDay(date)
+        if selectedDays.contains(norm) {
+            _ = selectedDays.remove(norm)
+            selectedTasksByDay.removeValue(forKey: norm)
         } else {
-            selectedDays.insert(normalized)
+            _ = selectedDays.insert(norm)
         }
     }
 
-    private func toggleTaskForDay(_ date: Date, _ taskId: String) {
-        let normalized = calendar.normalizedTrainingDay(date)
-        var current = tasksByDay[normalized] ?? []
-        if current.contains(taskId) {
-            current.removeAll { $0 == taskId }
-        } else {
-            current.append(taskId)
-        }
-        tasksByDay[normalized] = current
+    private func toggleTask(day: Date, taskId: String) {
+        var set = selectedTasksByDay[day] ?? []
+        if set.contains(taskId) { set.remove(taskId) } else { set.insert(taskId) }
+        selectedTasksByDay[day] = set
     }
 
-    private func applyTasksToAllDays(from sourceDate: Date) {
-        let source = tasksByDay[calendar.normalizedTrainingDay(sourceDate)] ?? []
-        for day in selectedDays {
-            tasksByDay[day] = source
-        }
+    private func applyToAll(from source: Date) {
+        let src = selectedTasksByDay[source] ?? []
+        for d in selectedDays { selectedTasksByDay[d] = src }
     }
 
     private func handleSave() {
-        guard let gId = goalId, !selectedDays.isEmpty else { return }
-        let proposals = store.proposeBatchSessions(
-            goalId: gId,
-            dayDates: Array(selectedDays).sorted(),
-            tasksByDay: tasksByDay
-        )
-        let found = store.duplicateConflicts(for: proposals)
-        if found.isEmpty {
-            onSaved(store.planSessions(proposals, overrideConflicts: false))
-        } else {
-            pendingProposals = proposals
-            conflicts = found
+        var proposals: [ProposedSession] = []
+        for day in sortedDays {
+            let dayTasks = selectedTasksByDay[day] ?? []
+            for goal in selectedGoals {
+                let goalTaskIds = Set(store.tasks(forGoal: goal.id).map { $0.id })
+                let tasksForGoal = Array(dayTasks.intersection(goalTaskIds))
+                proposals.append(ProposedSession(goalId: goal.id, date: day, taskIds: tasksForGoal))
+            }
+        }
+        let created = store.planSessions(proposals, overrideConflicts: true)
+        onSaved(created)
+    }
+
+    // MARK: - Calendar helpers
+
+    private var monthFirst: Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth)) ?? displayedMonth
+    }
+
+    private var monthTitle: String {
+        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f.string(from: monthFirst)
+    }
+
+    private var gridDays: [Date?] {
+        guard let range = calendar.range(of: .day, in: .month, for: monthFirst) else { return [] }
+        let weekdayOfFirst = calendar.component(.weekday, from: monthFirst)
+        var days: [Date?] = Array(repeating: nil, count: weekdayOfFirst - 1)
+        for d in range {
+            days.append(calendar.date(byAdding: .day, value: d - 1, to: monthFirst))
+        }
+        return days
+    }
+
+    private func shiftMonth(_ delta: Int) {
+        if let d = calendar.date(byAdding: .month, value: delta, to: monthFirst) {
+            displayedMonth = d
         }
     }
 
-    private func conflictMessage() -> String {
-        let lines = conflicts.map { conflict -> String in
-            let tasks = conflict.sharedTaskNames.isEmpty ? "this goal" : conflict.sharedTaskNames.joined(separator: ", ")
-            return "\(conflict.goal.name) · \(conflict.date.trainingDayString) already covers \(tasks)."
-        }
-        return (lines + ["Existing entries on those days will be replaced. Reflections tied to them will move to the new entries."]).joined(separator: "\n\n")
+    private var daysSelectedLabel: String {
+        selectedDays.isEmpty ? "No days picked yet." : "\(selectedDays.count) day\(selectedDays.count == 1 ? "" : "s") selected."
+    }
+
+    private var drillSubtitle: String {
+        let names = selectedGoals.map { $0.name }.joined(separator: ", ")
+        return "Pick tasks under \(names) for each day. Leave empty to plan a whole-goal session."
+    }
+
+    private func dowString(_ d: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "EEE"; return f.string(from: d).uppercased()
+    }
+
+    private func mdString(_ d: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "MMM d"; return f.string(from: d)
     }
 }
 
