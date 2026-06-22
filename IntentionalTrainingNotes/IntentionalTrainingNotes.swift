@@ -1105,13 +1105,13 @@ final class AppSessionStore: ObservableObject {
     }
 
     func restore() {
-        guard let restored = accountStore.loadAccount() else {
-            account = nil
-            notebookStore = nil
-            route = .signedOut
-            return
+        // Local-only mode: no authentication required. Use a saved account if one exists
+        // (legacy installs), otherwise launch straight into the app with a local account.
+        if let restored = accountStore.loadAccount() {
+            activate(account: restored)
+        } else {
+            activate(account: AppSessionStore.localAccount)
         }
-        activate(account: restored)
     }
 
     func signIn(provider: AuthProvider) {
@@ -1181,8 +1181,16 @@ final class AppSessionStore: ObservableObject {
         let store = NotebookStore(accountId: account.id, persistence: persistenceFactory(account.id))
         self.account = account
         self.notebookStore = store
-        self.route = store.notebook.profile == nil ? .signedInMissingProfile : .ready
+        // Local-only mode skips the profile gate and goes straight into the app.
+        self.route = .ready
     }
+
+    /// Fixed account used when running without authentication (local-only mode).
+    static let localAccount = UserAccount(
+        id: "local",
+        provider: .apple,
+        providerSubjectId: "local-device"
+    )
 }
 
 final class NotebookStore: ObservableObject {
@@ -1710,7 +1718,6 @@ enum MainTab {
     case home
     case plan
     case goals
-    case notes
 }
 
 enum GoalsRoute: Equatable {
@@ -1759,8 +1766,6 @@ struct MainAppView: View {
                             reflectResetToken = UUID()
                         }
                     )
-                } else if tab == .notes {
-                    NotesListView(store: store)
                 } else {
                     goalsScreen
                 }
@@ -1770,15 +1775,12 @@ struct MainAppView: View {
                 onHome: {
                     tab = .home
                 },
-                onPlan: {
-                    tab = .plan
-                },
                 onGoals: {
                     tab = .goals
                     stack = [.list]
                 },
-                onNotes: {
-                    tab = .notes
+                onPlan: {
+                    tab = .plan
                 }
             )
         }
@@ -3307,16 +3309,14 @@ struct EditGoalView: View {
 struct BottomTabsView: View {
     var active: MainTab
     var onHome: () -> Void
-    var onPlan: () -> Void
     var onGoals: () -> Void
-    var onNotes: () -> Void
+    var onPlan: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
-            BottomTabButton(title: "Home", systemName: "house", active: active == .home, action: onHome)
+            BottomTabButton(title: "Home", systemName: active == .home ? "house.fill" : "house", active: active == .home, action: onHome)
             BottomTabButton(title: "Goals", systemName: "target", active: active == .goals, action: onGoals)
-            BottomTabButton(title: "Plan", systemName: "calendar", active: active == .plan, action: onPlan)
-            BottomTabButton(title: "Notes", systemName: "square.and.pencil", active: active == .notes, action: onNotes)
+            BottomTabButton(title: "Plan", systemName: active == .plan ? "calendar.circle.fill" : "calendar", active: active == .plan, action: onPlan)
         }
         .padding(.top, 8)
         .padding(.bottom, 8)
