@@ -4,6 +4,10 @@
 <dict>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mat Mind uses the microphone so you can speak your reflections instead of typing.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Mat Mind transcribes your spoken reflections into text so you can review and edit them.</string>
 	<key>GoogleClientID</key>
 	<string>523055768394-20kj4rgm70vmohh0bebegvu13hdqmv1a.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>

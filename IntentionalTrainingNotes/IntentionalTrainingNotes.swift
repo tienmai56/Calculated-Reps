@@ -1,7 +1,9 @@
 import AuthenticationServices
+import AVFoundation
 import Foundation
 import Network
 import Security
+import Speech
 import SwiftUI
 import UIKit
 
@@ -490,6 +492,8 @@ struct Reflection: Codable, Equatable, Identifiable {
     var tryNextText: String
     var mood: Mood?
     var isFavorite: Bool
+    var link: String
+    var imageFileNames: [String]
     var createdAt: Date
     var updatedAt: Date
 
@@ -502,6 +506,8 @@ struct Reflection: Codable, Equatable, Identifiable {
         tryNextText: String = "",
         mood: Mood?,
         isFavorite: Bool = false,
+        link: String = "",
+        imageFileNames: [String] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -513,12 +519,14 @@ struct Reflection: Codable, Equatable, Identifiable {
         self.tryNextText = tryNextText
         self.mood = mood
         self.isFavorite = isFavorite
+        self.link = link
+        self.imageFileNames = imageFileNames
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, sessionId, date, workedText, stuckText, tryNextText, mood, isFavorite, createdAt, updatedAt
+        case id, sessionId, date, workedText, stuckText, tryNextText, mood, isFavorite, link, imageFileNames, createdAt, updatedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -531,6 +539,8 @@ struct Reflection: Codable, Equatable, Identifiable {
         tryNextText = try c.decodeIfPresent(String.self, forKey: .tryNextText) ?? ""
         mood = try c.decodeIfPresent(Mood.self, forKey: .mood)
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        link = try c.decodeIfPresent(String.self, forKey: .link) ?? ""
+        imageFileNames = try c.decodeIfPresent([String].self, forKey: .imageFileNames) ?? []
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decode(Date.self, forKey: .updatedAt)
     }
@@ -741,6 +751,27 @@ final class JSONNotebookPersistence: NotebookPersistence {
 
     func loadTaskImage(accountId: String, taskId: String, fileName: String) -> Data? {
         let fileURL = taskImagesDirectory(accountId: accountId, taskId: taskId).appendingPathComponent(fileName)
+        return try? Data(contentsOf: fileURL)
+    }
+
+    func reflectionImagesDirectory(accountId: String, reflectionId: String) -> URL {
+        rootDirectory
+            .appendingPathComponent("accounts", isDirectory: true)
+            .appendingPathComponent(accountId.sanitizedAccountId, isDirectory: true)
+            .appendingPathComponent("reflection-images", isDirectory: true)
+            .appendingPathComponent(reflectionId, isDirectory: true)
+    }
+
+    func saveReflectionImage(accountId: String, reflectionId: String, imageData: Data, fileName: String) throws -> URL {
+        let dir = reflectionImagesDirectory(accountId: accountId, reflectionId: reflectionId)
+        try fileManager.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
+        let fileURL = dir.appendingPathComponent(fileName)
+        try imageData.write(to: fileURL, options: [.atomic])
+        return fileURL
+    }
+
+    func loadReflectionImage(accountId: String, reflectionId: String, fileName: String) -> Data? {
+        let fileURL = reflectionImagesDirectory(accountId: accountId, reflectionId: reflectionId).appendingPathComponent(fileName)
         return try? Data(contentsOf: fileURL)
     }
 }
@@ -1479,7 +1510,7 @@ final class NotebookStore: ObservableObject {
     }
 
     @discardableResult
-    func saveReflection(sessionId: String, mood: Mood?, workedText: String, stuckText: String, tryNextText: String) -> Reflection? {
+    func saveReflection(sessionId: String, mood: Mood?, workedText: String, stuckText: String, tryNextText: String, link: String = "", imageFileNames: [String] = []) -> Reflection? {
         guard let sessionIndex = notebook.sessions.firstIndex(where: { $0.id == sessionId }) else { return nil }
         let session = notebook.sessions[sessionIndex]
         let existing = notebook.reflections.first { $0.sessionId == sessionId }
@@ -1492,6 +1523,8 @@ final class NotebookStore: ObservableObject {
             tryNextText: tryNextText.trimmingCharacters(in: .whitespacesAndNewlines),
             mood: mood,
             isFavorite: existing?.isFavorite ?? false,
+            link: link.trimmingCharacters(in: .whitespacesAndNewlines),
+            imageFileNames: imageFileNames,
             createdAt: existing?.createdAt ?? Date()
         )
         mutate {
@@ -1501,6 +1534,32 @@ final class NotebookStore: ObservableObject {
             notebook.sessions[sessionIndex].updatedAt = Date()
         }
         return reflection
+    }
+
+    /// Reflection is allowed only at least one hour after the session was planned
+    /// (a proxy for "the session has actually happened").
+    func canReflect(sessionId: String) -> Bool {
+        guard let session = notebook.sessions.first(where: { $0.id == sessionId }) else { return false }
+        if reflection(forSessionId: sessionId) != nil { return true } // editing an existing reflection is always allowed
+        return Date() >= session.createdAt.addingTimeInterval(3600)
+    }
+
+    @discardableResult
+    func addReflectionImage(sessionId: String, imageData: Data) -> String? {
+        guard let jsonPersistence = persistence as? JSONNotebookPersistence else { return nil }
+        let fileName = "\(UUID().uuidString).jpg"
+        do {
+            _ = try jsonPersistence.saveReflectionImage(accountId: notebook.accountId, reflectionId: sessionId, imageData: imageData, fileName: fileName)
+        } catch {
+            errorMessage = "Could not save image."
+            return nil
+        }
+        return fileName
+    }
+
+    func reflectionImageData(sessionId: String, fileName: String) -> Data? {
+        guard let jsonPersistence = persistence as? JSONNotebookPersistence else { return nil }
+        return jsonPersistence.loadReflectionImage(accountId: notebook.accountId, reflectionId: sessionId, fileName: fileName)
     }
 
     func toggleFavorite(reflectionId: String) {
@@ -1666,7 +1725,8 @@ final class NotebookStore: ObservableObject {
                      clearOutside, beatArm, killArm, headBetween, trapArm, blockHead, insideHeel, openHip, headPos, offBalance]
 
         func sess(_ goal: TrainingGoal, _ d: Int, _ taskIds: [String], _ status: SessionStatus) -> PlannedSession {
-            PlannedSession(goalId: goal.id, date: day(d), taskIds: taskIds, status: status)
+            // Backdate createdAt to the training day so the 1-hour reflect gate doesn't block demo data.
+            PlannedSession(goalId: goal.id, date: day(d), taskIds: taskIds, status: status, createdAt: day(d))
         }
         let sToday1 = sess(passOpen, 21, [chaseHip.id, sepKnee.id, clearOutside.id, beatArm.id], .planned)
         let sToday2 = sess(passHalf, 21, [killArm.id, headBetween.id], .planned)
@@ -1924,6 +1984,7 @@ struct MainAppView: View {
     }
     @State private var stack: [GoalsRoute] = [.list]
     @State private var activeSheet: MainSheet?
+    @State private var showCantReflect = false
     @State private var reflectResetToken = UUID()
 
     var body: some View {
@@ -1934,8 +1995,7 @@ struct MainAppView: View {
                         stack = [.list, .detail(goalId)]
                         tab = .goals
                     }, onReflect: { sessionId in
-                        reflectResetToken = UUID()
-                        activeSheet = .reflect(sessionId)
+                        requestReflect(sessionId)
                     }, onPlanTraining: {
                         activeSheet = .planning(nil)
                     }, onAddGoal: {
@@ -1948,8 +2008,7 @@ struct MainAppView: View {
                             activeSheet = .planning(nil)
                         },
                         onReflect: { sessionId in
-                            reflectResetToken = UUID()
-                            activeSheet = .reflect(sessionId)
+                            requestReflect(sessionId)
                         }
                     )
                 } else {
@@ -1994,6 +2053,31 @@ struct MainAppView: View {
             case .addGoal:
                 AddGoalSheet(store: store, onDone: { activeSheet = nil })
             }
+        }
+        .alert(isPresented: $showCantReflect) {
+            Alert(
+                title: Text("Session hasn't happened yet"),
+                message: Text("You can reflect after your session is done."),
+                dismissButton: .default(Text("Got it"))
+            )
+        }
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["OPEN_REFLECT"] != nil,
+               let sid = (store.notebook.sessions.first(where: { !$0.taskIds.isEmpty }) ?? store.notebook.sessions.first)?.id {
+                reflectResetToken = UUID()
+                activeSheet = .reflect(sid)
+            }
+            #endif
+        }
+    }
+
+    private func requestReflect(_ sessionId: String) {
+        if store.canReflect(sessionId: sessionId) {
+            reflectResetToken = UUID()
+            activeSheet = .reflect(sessionId)
+        } else {
+            showCantReflect = true
         }
     }
 
@@ -6320,6 +6404,9 @@ struct ReflectFlowView: View {
     @State private var worked = ""
     @State private var stuck = ""
     @State private var tryNext = ""
+    @State private var link = ""
+    @State private var images: [String] = []
+    @State private var showVoice = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -6332,9 +6419,19 @@ struct ReflectFlowView: View {
                         onContinue: { if selectedSessionId != nil { step = 2 } }
                     )
                 } else if step == 2 {
-                    ReflectMoodStep(mood: $mood, onContinue: { if mood != nil { step = 3 } })
+                    ReflectMoodStep(store: store, session: selectedSession, mood: $mood, onContinue: { if mood != nil { step = 3 } })
                 } else if step == 3 {
-                    ReflectNotesStep(worked: $worked, stuck: $stuck, tryNext: $tryNext, onFinish: saveReflection)
+                    ReflectNotesStep(
+                        store: store,
+                        sessionId: selectedSessionId,
+                        worked: $worked,
+                        stuck: $stuck,
+                        tryNext: $tryNext,
+                        link: $link,
+                        imageFileNames: $images,
+                        onUseVoice: { showVoice = true },
+                        onFinish: saveReflection
+                    )
                 } else {
                     ReflectDoneStep(
                         store: store,
@@ -6353,6 +6450,9 @@ struct ReflectFlowView: View {
         }
         .onAppear(perform: resetIfNeeded)
         .id(resetToken)
+        .sheet(isPresented: $showVoice) {
+            VoiceReflectionView(worked: $worked, stuck: $stuck, tryNext: $tryNext, onClose: { showVoice = false })
+        }
     }
 
     private var selectedSession: PlannedSession? {
@@ -6368,12 +6468,21 @@ struct ReflectFlowView: View {
             worked = r.workedText
             stuck = r.stuckText
             tryNext = r.tryNextText
+            link = r.link
+            images = r.imageFileNames
         } else {
             mood = nil
             worked = ""
             stuck = ""
             tryNext = ""
+            link = ""
+            images = []
         }
+        #if DEBUG
+        let env = ProcessInfo.processInfo.environment
+        if let s = env["REFLECT_STEP"], let n = Int(s) { step = n }
+        if env["REFLECT_VOICE"] != nil { showVoice = true }
+        #endif
     }
 
     private func goBack() {
@@ -6385,10 +6494,8 @@ struct ReflectFlowView: View {
     }
 
     private func saveReflection() {
-        guard let sessionId = selectedSessionId,
-              mood != nil,
-              (worked.nilIfBlank != nil || stuck.nilIfBlank != nil || tryNext.nilIfBlank != nil) else { return }
-        _ = store.saveReflection(sessionId: sessionId, mood: mood, workedText: worked, stuckText: stuck, tryNextText: tryNext)
+        guard let sessionId = selectedSessionId, mood != nil, tryNext.nilIfBlank != nil else { return }
+        _ = store.saveReflection(sessionId: sessionId, mood: mood, workedText: worked, stuckText: stuck, tryNextText: tryNext, link: link, imageFileNames: images)
         step = 4
     }
 }
@@ -6556,24 +6663,30 @@ struct ReflectSessionRow: View {
 }
 
 struct ReflectMoodStep: View {
+    @ObservedObject var store: NotebookStore
+    let session: PlannedSession?
     @Binding var mood: Mood?
     var onContinue: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("How did it feel?")
-                        .font(.system(size: 22, weight: .medium, design: .rounded))
-                        .fontWeight(.medium)
-                    Text("One quick read on the session. You can change it any time.")
-                        .font(.subheadline)
-                        .foregroundColor(AppColors.secondaryLabel)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("How did it feel?")
+                            .font(.system(size: 22, weight: .medium, design: .rounded))
+                            .fontWeight(.medium)
+                        Text("One quick read on the session. You can change it any time.")
+                            .font(.subheadline)
+                            .foregroundColor(AppColors.secondaryLabel)
+                    }
+                    if let session = session {
+                        reflectGoalCard(session)
+                    }
+                    LazyMoodGrid(mood: $mood)
                 }
-                LazyMoodGrid(mood: $mood)
-                Spacer()
+                .padding(16)
             }
-            .padding(16)
             Button("Continue", action: onContinue)
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(mood == nil)
@@ -6581,6 +6694,45 @@ struct ReflectMoodStep: View {
                 .padding(.top, 10)
                 .padding(.bottom, 30)
         }
+    }
+
+    @ViewBuilder
+    private func reflectGoalCard(_ session: PlannedSession) -> some View {
+        let goal = store.goal(id: session.goalId)
+        let color = goal?.goalColor ?? AppColors.indigo
+        let tasks = session.taskIds.compactMap { store.task(id: $0) }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                GoalIconImage(name: goal?.iconName ?? "target", color: color, size: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(goal?.name ?? "Session")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    Text(longDate(session.date))
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                }
+                Spacer()
+            }
+            if !tasks.isEmpty {
+                WrappingHStack(items: tasks) { task in
+                    Text(task.name)
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundColor(color)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(color.opacity(0.12))
+                        .cornerRadius(14)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.secondaryBackground))
+    }
+
+    private func longDate(_ d: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"; return f.string(from: d)
     }
 }
 
@@ -6610,22 +6762,31 @@ struct LazyMoodGrid: View {
                     .uppercaseTracking()
             }
             .frame(maxWidth: .infinity, minHeight: 124)
-            .foregroundColor(mood == option ? .white : .primary)
-            .background(mood == option ? AppColors.indigo : Color.white)
-            .cardBackground()
+            .foregroundColor(mood == option ? .white : AppColors.label)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(mood == option ? AppColors.indigo : AppColors.secondaryBackground)
+            )
         }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
 struct ReflectNotesStep: View {
+    @ObservedObject var store: NotebookStore
+    let sessionId: String?
     @Binding var worked: String
     @Binding var stuck: String
     @Binding var tryNext: String
+    @Binding var link: String
+    @Binding var imageFileNames: [String]
+    var onUseVoice: () -> Void
     var onFinish: () -> Void
 
-    private var canFinish: Bool {
-        worked.nilIfBlank != nil || stuck.nilIfBlank != nil || tryNext.nilIfBlank != nil
-    }
+    @State private var showLinkField = false
+    @State private var showPhotoPicker = false
+
+    private var canFinish: Bool { tryNext.nilIfBlank != nil }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -6635,52 +6796,30 @@ struct ReflectNotesStep: View {
                         Text("What stood out?")
                             .font(.system(size: 22, weight: .medium, design: .rounded))
                             .fontWeight(.medium)
-                        Text("A line or two for each is plenty. Skip what doesn't apply.")
+                        Text("A line or two for each is plenty.")
                             .font(.subheadline)
                             .foregroundColor(AppColors.secondaryLabel)
                     }
-                    ZStack(alignment: .topLeading) {
-                        TrainingTextView(text: $worked, placeholder: "A grip, a setup, a moment that clicked...")
-                            .frame(height: 108)
-                            .padding(.top, 8)
-                        Text("What worked")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(AppColors.winGreen)
-                            .cornerRadius(8)
-                            .offset(x: 8, y: -10)
+
+                    Button(action: onUseVoice) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "mic.fill")
+                            Text("Use Voice Instead")
+                                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(AppColors.indigo)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.indigo.opacity(0.10)))
                     }
-                    ZStack(alignment: .topLeading) {
-                        TrainingTextView(text: $stuck, placeholder: "What didn't work, what felt off, what to adjust...")
-                            .frame(height: 108)
-                            .padding(.top, 8)
-                        Text("Where I got stuck")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(AppColors.stuckCoral)
-                            .cornerRadius(8)
-                            .offset(x: 8, y: -10)
-                    }
-                    ZStack(alignment: .topLeading) {
-                        TrainingTextView(text: $tryNext, placeholder: "The adjustment or focus for next time...")
-                            .frame(height: 108)
-                            .padding(.top, 8)
-                        Text("What I'll try next")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(AppColors.indigo)
-                            .cornerRadius(8)
-                            .offset(x: 8, y: -10)
-                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    labeledField($worked, "What worked today", AppColors.winGreen, "A grip, a setup, a moment that clicked...")
+                    labeledField($stuck, "Where I got stuck", AppColors.stuckCoral, "What didn't work, what felt off, what to adjust...")
+                    labeledField($tryNext, "What I'll try next *", AppColors.indigo, "A different angle, a drill to try, something to focus on...")
+
+                    linkRow
+                    photosRow
                 }
                 .padding(16)
             }
@@ -6691,6 +6830,337 @@ struct ReflectNotesStep: View {
                 .padding(.top, 10)
                 .padding(.bottom, 30)
         }
+        .sheet(isPresented: $showPhotoPicker) {
+            NoteImagePicker { data in
+                if let sid = sessionId, let fn = store.addReflectionImage(sessionId: sid, imageData: data) {
+                    imageFileNames.append(fn)
+                }
+            }
+        }
+    }
+
+    private func labeledField(_ text: Binding<String>, _ label: String, _ color: Color, _ placeholder: String) -> some View {
+        ZStack(alignment: .topLeading) {
+            TrainingTextView(text: text, placeholder: placeholder)
+                .frame(height: 108)
+                .padding(.top, 8)
+            Text(label)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(color)
+                .cornerRadius(8)
+                .offset(x: 8, y: -10)
+        }
+    }
+
+    @ViewBuilder
+    private var linkRow: some View {
+        if showLinkField || link.nilIfBlank != nil {
+            HStack(spacing: 8) {
+                Image(systemName: "link").foregroundColor(AppColors.secondaryLabel)
+                TextField("Paste link...", text: $link).font(.system(size: 14, design: .rounded))
+            }
+            .padding(11)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray3), lineWidth: 1))
+        } else {
+            Button(action: { showLinkField = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "link.badge.plus")
+                    Text("Add link").font(.system(size: 15, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(AppColors.label)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+
+    private var photosRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "photo.on.rectangle")
+                Text("Attach photos").font(.system(size: 15, weight: .medium, design: .rounded))
+            }
+            .foregroundColor(AppColors.label)
+
+            if !imageFileNames.isEmpty, let sid = sessionId {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(imageFileNames, id: \.self) { fn in
+                            thumbnail(sid: sid, fn: fn)
+                        }
+                    }
+                }
+            }
+
+            Button(action: { showPhotoPicker = true }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill").font(.system(size: 20))
+                    Text("Choose from album").font(.system(size: 16, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(AppColors.indigo)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.indigo.opacity(0.08)))
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+
+    private func thumbnail(sid: String, fn: String) -> some View {
+        ZStack(alignment: .topTrailing) {
+            if let data = store.reflectionImageData(sessionId: sid, fileName: fn), let ui = UIImage(data: data) {
+                Image(uiImage: ui)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 84, height: 84)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                RoundedRectangle(cornerRadius: 8).fill(Color(.systemGray5)).frame(width: 84, height: 84)
+            }
+            Button(action: { imageFileNames.removeAll { $0 == fn } }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.white)
+                    .background(Circle().fill(Color.black.opacity(0.4)))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(4)
+        }
+    }
+}
+
+// MARK: - Voice Reflection
+
+struct VoiceReflectionView: View {
+    @Binding var worked: String
+    @Binding var stuck: String
+    @Binding var tryNext: String
+    var onClose: () -> Void
+
+    @State private var index = 0
+    @State private var draft = ""
+    @State private var isRecording = false
+    @State private var statusMessage: String?
+    @State private var recognizer = SpeechRecognizer()
+
+    private let questions: [(label: String, color: Color, placeholder: String)] = [
+        ("What worked today", AppColors.winGreen, "A grip, a setup, a moment that clicked..."),
+        ("Where I got stuck", AppColors.stuckCoral, "What didn't work, what felt off, what to adjust..."),
+        ("What I'll try next", AppColors.indigo, "A different angle, a drill to try, something to focus on...")
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button(action: handleBack) {
+                    Image(systemName: "chevron.left")
+                        .frame(width: 30, height: 30)
+                        .dashedCircle()
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color(.systemGray5))
+                        Capsule().fill(AppColors.indigo)
+                            .frame(width: geo.size.width * CGFloat(index + 1) / 3.0)
+                    }
+                }
+                .frame(height: 6)
+                Button(action: { stopRecording(); onClose() }) {
+                    Image(systemName: "xmark")
+                        .frame(width: 30, height: 30)
+                        .dashedCircle()
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+            }
+            .padding(14)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Speak your reflection")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    Text(questions[index].label)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(questions[index].color)
+                        .cornerRadius(8)
+
+                    Button(action: toggleRecording) {
+                        ZStack {
+                            Circle()
+                                .fill(isRecording ? AppColors.stuckCoral : AppColors.indigo)
+                                .frame(width: 96, height: 96)
+                            Image(systemName: isRecording ? "stop.fill" : "mic.fill")
+                                .font(.system(size: 34))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .frame(maxWidth: .infinity)
+
+                    Text(isRecording ? "Listening… tap to stop" : "Tap to record, or type below")
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .frame(maxWidth: .infinity)
+
+                    if let s = statusMessage {
+                        Text(s)
+                            .font(.caption)
+                            .foregroundColor(AppColors.secondaryLabel)
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    TrainingTextView(text: $draft, placeholder: "Your words appear here. You can edit them.")
+                        .frame(height: 150)
+                }
+                .padding(16)
+            }
+
+            Button(index < questions.count - 1 ? "Next" : "Done", action: handleNext)
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(draft.nilIfBlank == nil)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 30)
+        }
+        .onAppear {
+            draft = bindingValue()
+            recognizer.onText = { text in draft = text }
+            recognizer.onStatus = { msg in statusMessage = msg }
+        }
+        .onDisappear { stopRecording() }
+    }
+
+    private func bindingValue() -> String {
+        index == 0 ? worked : (index == 1 ? stuck : tryNext)
+    }
+    private func setBindingValue(_ v: String) {
+        if index == 0 { worked = v } else if index == 1 { stuck = v } else { tryNext = v }
+    }
+
+    private func handleNext() {
+        stopRecording()
+        setBindingValue(draft)
+        if index < questions.count - 1 {
+            index += 1
+            draft = bindingValue()
+            statusMessage = nil
+        } else {
+            onClose()
+        }
+    }
+
+    private func handleBack() {
+        stopRecording()
+        setBindingValue(draft)
+        if index > 0 {
+            index -= 1
+            draft = bindingValue()
+            statusMessage = nil
+        } else {
+            onClose()
+        }
+    }
+
+    private func toggleRecording() {
+        if isRecording { stopRecording() } else { startRecording() }
+    }
+
+    private func startRecording() {
+        recognizer.requestAuthorization { granted in
+            if granted {
+                recognizer.start()
+                isRecording = true
+                statusMessage = nil
+            } else {
+                statusMessage = "Microphone or speech access is off. Type your reflection below."
+            }
+        }
+    }
+
+    private func stopRecording() {
+        recognizer.stop()
+        isRecording = false
+    }
+}
+
+final class SpeechRecognizer {
+    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var task: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
+
+    var onText: ((String) -> Void)?
+    var onStatus: ((String) -> Void)?
+
+    func requestAuthorization(_ completion: @escaping (Bool) -> Void) {
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                completion(status == .authorized)
+            }
+        }
+    }
+
+    func start() {
+        stop()
+        guard let recognizer = recognizer, recognizer.isAvailable else {
+            onStatus?("Speech recognition isn't available right now. Type below.")
+            return
+        }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            onStatus?("Couldn't start audio. Type below.")
+            return
+        }
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        self.request = request
+
+        let inputNode = audioEngine.inputNode
+        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            if let result = result {
+                self?.onText?(result.bestTranscription.formattedString)
+            }
+            if error != nil || (result?.isFinal ?? false) {
+                self?.stop()
+            }
+        }
+
+        let format = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            self?.request?.append(buffer)
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            onStatus?("Couldn't start the microphone. Type below.")
+            stop()
+        }
+    }
+
+    func stop() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        request?.endAudio()
+        task?.cancel()
+        request = nil
+        task = nil
     }
 }
 
