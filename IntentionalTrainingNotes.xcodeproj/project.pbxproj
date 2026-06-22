@@ -1,0 +1,421 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		111111111111111111111101 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111001 /* AppDelegate.swift */; };
+		111111111111111111111102 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111002 /* SceneDelegate.swift */; };
+		111111111111111111111103 /* IntentionalTrainingNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111003 /* IntentionalTrainingNotes.swift */; };
+		111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111005 /* IntentionalTrainingNotesTests.swift */; };
+		8D439B0C2FB05F1D00DCA7D1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 8D439B0B2FB05F1D00DCA7D1 /* GoogleSignIn */; };
+		8D439B0E2FB05F1D00DCA7D1 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 8D439B0D2FB05F1D00DCA7D1 /* GoogleSignInSwift */; };
+		8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		111111111111111111111301 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 111111111111111111111200 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 111111111111111111111201;
+			remoteInfo = IntentionalTrainingNotes;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		111111111111111111111001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		111111111111111111111002 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		111111111111111111111003 /* IntentionalTrainingNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalTrainingNotes.swift; sourceTree = "<group>"; };
+		111111111111111111111005 /* IntentionalTrainingNotesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalTrainingNotesTests.swift; sourceTree = "<group>"; };
+		111111111111111111111006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		111111111111111111111011 /* IntentionalTrainingNotes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IntentionalTrainingNotes.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntentionalTrainingNotesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		111111111111111111111401 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D439B0C2FB05F1D00DCA7D1 /* GoogleSignIn in Frameworks */,
+				8D439B0E2FB05F1D00DCA7D1 /* GoogleSignInSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		111111111111111111111402 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		111111111111111111111100 = {
+			isa = PBXGroup;
+			children = (
+				111111111111111111111110 /* IntentionalTrainingNotes */,
+				111111111111111111111120 /* IntentionalTrainingNotesTests */,
+				111111111111111111111130 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		111111111111111111111110 /* IntentionalTrainingNotes */ = {
+			isa = PBXGroup;
+			children = (
+				8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */,
+				111111111111111111111001 /* AppDelegate.swift */,
+				111111111111111111111002 /* SceneDelegate.swift */,
+				111111111111111111111003 /* IntentionalTrainingNotes.swift */,
+				111111111111111111111006 /* Info.plist */,
+			);
+			path = IntentionalTrainingNotes;
+			sourceTree = "<group>";
+		};
+		111111111111111111111120 /* IntentionalTrainingNotesTests */ = {
+			isa = PBXGroup;
+			children = (
+				111111111111111111111005 /* IntentionalTrainingNotesTests.swift */,
+			);
+			path = IntentionalTrainingNotesTests;
+			sourceTree = "<group>";
+		};
+		111111111111111111111130 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				111111111111111111111011 /* IntentionalTrainingNotes.app */,
+				111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		111111111111111111111201 /* IntentionalTrainingNotes */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 111111111111111111111601 /* Build configuration list for PBXNativeTarget "IntentionalTrainingNotes" */;
+			buildPhases = (
+				111111111111111111111501 /* Sources */,
+				111111111111111111111401 /* Frameworks */,
+				111111111111111111111502 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IntentionalTrainingNotes;
+			productName = IntentionalTrainingNotes;
+			productReference = 111111111111111111111011 /* IntentionalTrainingNotes.app */;
+			productType = "com.apple.product-type.application";
+		};
+		111111111111111111111202 /* IntentionalTrainingNotesTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 111111111111111111111602 /* Build configuration list for PBXNativeTarget "IntentionalTrainingNotesTests" */;
+			buildPhases = (
+				111111111111111111111503 /* Sources */,
+				111111111111111111111402 /* Frameworks */,
+				111111111111111111111504 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				111111111111111111111302 /* PBXTargetDependency */,
+			);
+			name = IntentionalTrainingNotesTests;
+			productName = IntentionalTrainingNotesTests;
+			productReference = 111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		111111111111111111111200 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					111111111111111111111201 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					111111111111111111111202 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 111111111111111111111201;
+					};
+				};
+			};
+			buildConfigurationList = 111111111111111111111600 /* Build configuration list for PBXProject "IntentionalTrainingNotes" */;
+			compatibilityVersion = "Xcode 12.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 111111111111111111111100;
+			packageReferences = (
+				8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
+			productRefGroup = 111111111111111111111130 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				111111111111111111111201 /* IntentionalTrainingNotes */,
+				111111111111111111111202 /* IntentionalTrainingNotesTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		111111111111111111111502 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		111111111111111111111504 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		111111111111111111111501 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				111111111111111111111101 /* AppDelegate.swift in Sources */,
+				111111111111111111111102 /* SceneDelegate.swift in Sources */,
+				111111111111111111111103 /* IntentionalTrainingNotes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		111111111111111111111503 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		111111111111111111111302 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 111111111111111111111201 /* IntentionalTrainingNotes */;
+			targetProxy = 111111111111111111111301 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		111111111111111111111701 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		111111111111111111111702 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		111111111111111111111711 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9R4A2F8F94;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IntentionalTrainingNotes/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		111111111111111111111712 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9R4A2F8F94;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IntentionalTrainingNotes/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		111111111111111111111721 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IntentionalTrainingNotes.app/IntentionalTrainingNotes";
+			};
+			name = Debug;
+		};
+		111111111111111111111722 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IntentionalTrainingNotes.app/IntentionalTrainingNotes";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		111111111111111111111600 /* Build configuration list for PBXProject "IntentionalTrainingNotes" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				111111111111111111111701 /* Debug */,
+				111111111111111111111702 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		111111111111111111111601 /* Build configuration list for PBXNativeTarget "IntentionalTrainingNotes" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				111111111111111111111711 /* Debug */,
+				111111111111111111111712 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		111111111111111111111602 /* Build configuration list for PBXNativeTarget "IntentionalTrainingNotesTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				111111111111111111111721 /* Debug */,
+				111111111111111111111722 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8D439B0B2FB05F1D00DCA7D1 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		8D439B0D2FB05F1D00DCA7D1 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 111111111111111111111200 /* Project object */;
+}
