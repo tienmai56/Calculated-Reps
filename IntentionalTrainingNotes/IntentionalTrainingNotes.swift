@@ -1892,6 +1892,19 @@ enum GoalsRoute: Equatable {
     case detail(String)
 }
 
+private enum MainSheet: Identifiable {
+    case planning(String?)
+    case reflect(String)
+    case addGoal
+    var id: String {
+        switch self {
+        case .planning(let g): return "plan-\(g ?? "new")"
+        case .reflect(let s): return "reflect-\(s)"
+        case .addGoal: return "addGoal"
+        }
+    }
+}
+
 struct MainAppView: View {
     @ObservedObject var sessionStore: AppSessionStore
     @ObservedObject var store: NotebookStore
@@ -1910,12 +1923,8 @@ struct MainAppView: View {
         #endif
     }
     @State private var stack: [GoalsRoute] = [.list]
-    @State private var isPlanning = false
-    @State private var planningGoalId: String?
-    @State private var isProfileOpen = false
-    @State private var reflectSessionId: String?
+    @State private var activeSheet: MainSheet?
     @State private var reflectResetToken = UUID()
-    @State private var isAddingGoalFromHome = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1925,24 +1934,22 @@ struct MainAppView: View {
                         stack = [.list, .detail(goalId)]
                         tab = .goals
                     }, onReflect: { sessionId in
-                        reflectSessionId = sessionId
                         reflectResetToken = UUID()
+                        activeSheet = .reflect(sessionId)
                     }, onPlanTraining: {
-                        planningGoalId = nil
-                        isPlanning = true
+                        activeSheet = .planning(nil)
                     }, onAddGoal: {
-                        isAddingGoalFromHome = true
+                        activeSheet = .addGoal
                     })
                 } else if tab == .plan {
                     PlanListView(
                         store: store,
                         onAdd: {
-                            planningGoalId = nil
-                            isPlanning = true
+                            activeSheet = .planning(nil)
                         },
                         onReflect: { sessionId in
-                            reflectSessionId = sessionId
                             reflectResetToken = UUID()
+                            activeSheet = .reflect(sessionId)
                         }
                     )
                 } else {
@@ -1964,64 +1971,29 @@ struct MainAppView: View {
             )
         }
         .background(AppColors.background.edgesIgnoringSafeArea(.all))
-        .sheet(isPresented: $isPlanning) {
-            PlanTrainingView(
-                store: store,
-                onCancel: {
-                    isPlanning = false
-                    planningGoalId = nil
-                },
-                onSaved: { created in
-                    isPlanning = false
-                    planningGoalId = nil
-                    if let first = created.first {
-                        routeToSession(first)
-                    }
-                },
-                initialGoalId: planningGoalId
-            )
-        }
-        .sheet(isPresented: $isProfileOpen) {
-            ProfileSetupView(
-                account: sessionStore.account,
-                profile: store.profile,
-                onSave: { firstName, lastName in
-                    sessionStore.saveProfile(firstName: firstName, lastName: lastName)
-                    isProfileOpen = false
-                },
-                onSignOut: {
-                    isProfileOpen = false
-                    sessionStore.signOut()
-                }
-            )
-        }
-        .sheet(isPresented: Binding(
-            get: { reflectSessionId != nil },
-            set: { if !$0 { reflectSessionId = nil } }
-        )) {
-            ReflectFlowView(
-                store: store,
-                initialSessionId: reflectSessionId,
-                resetToken: reflectResetToken,
-                onClose: {
-                    reflectSessionId = nil
-                },
-                onFinish: { _ in
-                    reflectSessionId = nil
-                }
-            )
-        }
-        .sheet(isPresented: $isAddingGoalFromHome) {
-            AddGoalSheet(store: store, onDone: { isAddingGoalFromHome = false })
-        }
-        .onAppear {
-            #if DEBUG
-            if ProcessInfo.processInfo.environment["OPEN_WIZARD"] != nil { isPlanning = true }
-            if ProcessInfo.processInfo.environment["OPEN_REFLECT"] != nil,
-               let sid = store.notebook.reflections.sorted(by: { $0.date > $1.date }).first?.sessionId {
-                reflectSessionId = sid
+        .sheet(item: $activeSheet) { which in
+            switch which {
+            case .planning(let goalId):
+                PlanTrainingView(
+                    store: store,
+                    onCancel: { activeSheet = nil },
+                    onSaved: { created in
+                        activeSheet = nil
+                        if let first = created.first { routeToSession(first) }
+                    },
+                    initialGoalId: goalId
+                )
+            case .reflect(let sessionId):
+                ReflectFlowView(
+                    store: store,
+                    initialSessionId: sessionId,
+                    resetToken: reflectResetToken,
+                    onClose: { activeSheet = nil },
+                    onFinish: { _ in activeSheet = nil }
+                )
+            case .addGoal:
+                AddGoalSheet(store: store, onDone: { activeSheet = nil })
             }
-            #endif
         }
     }
 
@@ -2074,22 +2046,12 @@ struct HomeView: View {
 
     private var cal: Calendar { Calendar.current }
 
-    private var showTop: Bool {
-        #if DEBUG
-        return ProcessInfo.processInfo.environment["HOME_LOWER"] == nil
-        #else
-        return true
-        #endif
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if showTop {
-                    streakHeader
-                    bountyCard
-                    nextSessionSection
-                }
+                streakHeader
+                bountyCard
+                nextSessionSection
                 latestEntrySection
                 patternsSection
             }
@@ -5019,14 +4981,6 @@ struct GoalListView: View {
             .padding(.bottom, 24)
             .padding(.trailing, 20)
         }
-        .onAppear {
-            #if DEBUG
-            if ProcessInfo.processInfo.environment["EDIT_FIRST_GOAL"] != nil, sheet == nil,
-               let g = store.activeGoals.first(where: { $0.name == "Over under" }) ?? store.activeGoals.first {
-                sheet = .edit(g.id)
-            }
-            #endif
-        }
         .sheet(item: $sheet) { which in
             switch which {
             case .add:
@@ -5645,18 +5599,6 @@ struct PlanTrainingView: View {
             if !didApplyInitial {
                 didApplyInitial = true
                 if let g = initialGoalId { _ = selectedGoalIds.insert(g) }
-                #if DEBUG
-                if ProcessInfo.processInfo.environment["WIZARD_STEP2"] != nil {
-                    let base = calendar.normalizedTrainingDay(Date())
-                    var set = Set<Date>([base])
-                    if let next = calendar.date(byAdding: .day, value: 1, to: base) {
-                        set.insert(calendar.normalizedTrainingDay(next))
-                    }
-                    selectedDays = set
-                    selectedGoalIds = Set(store.activeGoals.prefix(2).map { $0.id })
-                    step = 2
-                }
-                #endif
             }
         }
     }
@@ -6432,9 +6374,6 @@ struct ReflectFlowView: View {
             stuck = ""
             tryNext = ""
         }
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["REFLECT_NOTES"] != nil { step = 3 }
-        #endif
     }
 
     private func goBack() {
