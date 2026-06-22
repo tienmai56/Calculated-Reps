@@ -2061,15 +2061,6 @@ struct MainAppView: View {
                 dismissButton: .default(Text("Got it"))
             )
         }
-        .onAppear {
-            #if DEBUG
-            if ProcessInfo.processInfo.environment["OPEN_REFLECT"] != nil,
-               let sid = (store.notebook.sessions.first(where: { !$0.taskIds.isEmpty }) ?? store.notebook.sessions.first)?.id {
-                reflectResetToken = UUID()
-                activeSheet = .reflect(sid)
-            }
-            #endif
-        }
     }
 
     private func requestReflect(_ sessionId: String) {
@@ -2150,6 +2141,8 @@ struct HomeView: View {
                 SettingsSheet()
             case .editSession(let session):
                 EditSessionView(store: store, session: session) { sheet = nil }
+            case .feedback(let reflection):
+                FeedbackPreviewView(store: store, reflection: reflection, onClose: { sheet = nil })
             }
         }
     }
@@ -2351,7 +2344,8 @@ struct HomeView: View {
                     store: store,
                     reflection: latest,
                     onReflect: { onReflect(latest.sessionId) },
-                    onDelete: { store.deleteReflection(id: latest.id) }
+                    onDelete: { store.deleteReflection(id: latest.id) },
+                    onShareFeedback: { sheet = .feedback(latest) }
                 )
             }
         }
@@ -2398,7 +2392,8 @@ struct HomeView: View {
                                 store: store,
                                 reflection: reflection,
                                 onReflect: { onReflect(reflection.sessionId) },
-                                onDelete: { store.deleteReflection(id: reflection.id) }
+                                onDelete: { store.deleteReflection(id: reflection.id) },
+                                onShareFeedback: { sheet = .feedback(reflection) }
                             )
                         }
                     }
@@ -2588,10 +2583,12 @@ struct HomeView: View {
 enum HomeSheet: Identifiable {
     case settings
     case editSession(PlannedSession)
+    case feedback(Reflection)
     var id: String {
         switch self {
         case .settings: return "settings"
         case .editSession(let s): return "edit-\(s.id)"
+        case .feedback(let r): return "feedback-\(r.id)"
         }
     }
 }
@@ -2626,6 +2623,7 @@ struct ReflectionCardView: View {
     let reflection: Reflection
     var onReflect: () -> Void
     var onDelete: () -> Void
+    var onShareFeedback: () -> Void
 
     @State private var menuOpen = false
 
@@ -2644,7 +2642,7 @@ struct ReflectionCardView: View {
                     .foregroundColor(color)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 6)
-                Button(action: {}) {
+                Button(action: onShareFeedback) {
                     HStack(spacing: 4) {
                         Image(systemName: "square.and.arrow.up").font(.system(size: 12))
                         Text("Get feedback").font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -2734,6 +2732,257 @@ struct ReflectionCardView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Feedback share card
+
+struct FeedbackCardView: View {
+    let goalName: String
+    let tryNextText: String
+    let mood: Mood?
+    let dateLabel: String
+    let recipient: String
+    let accent: Color
+
+    private var tryNextLines: [String] {
+        tryNextText
+            .components(separatedBy: CharacterSet.newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(dateLabel)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(accent)
+                Rectangle().fill(accent).frame(width: 60, height: 3).cornerRadius(2)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dear \(recipient.nilIfBlank ?? "Friend"),")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
+                Text("Please fix my jiu-jitsu:")
+                    .font(.system(size: 16, design: .rounded))
+                    .foregroundColor(Color(red: 120/255, green: 117/255, blue: 113/255))
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("What I was working on")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(accent)
+                Text(goalName)
+                    .font(.system(size: 18, design: .rounded))
+                    .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
+            }
+            if !tryNextLines.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("What I'll try next")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(accent)
+                    ForEach(Array(tryNextLines.enumerated()), id: \.offset) { idx, line in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("\(idx + 1)")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundColor(accent)
+                            Text(line)
+                                .font(.system(size: 18, design: .rounded))
+                                .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+            if let mood = mood {
+                HStack(spacing: 6) {
+                    Text("Feeling:")
+                        .font(.system(size: 16, design: .rounded))
+                        .foregroundColor(Color(red: 120/255, green: 117/255, blue: 113/255))
+                    Text("\(mood.glyph) \(mood.label)")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
+                }
+            }
+            Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Thank you, see you on the mat.")
+                    .font(.system(size: 16, design: .rounded))
+                    .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
+                Text("xoxo")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(accent)
+            }
+            Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
+            VStack(spacing: 2) {
+                Text("Mat Mind")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(accent)
+                Text("matmind.com")
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundColor(Color(red: 165/255, green: 161/255, blue: 155/255))
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.offWhite))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.3), lineWidth: 1))
+    }
+}
+
+struct FeedbackPreviewView: View {
+    @ObservedObject var store: NotebookStore
+    let reflection: Reflection
+    var onClose: () -> Void
+
+    @State private var recipient = ""
+    @State private var accentName = "indigo"
+
+    private let styles: [(name: String, color: Color)] = [
+        ("indigo", AppColors.indigo),
+        ("mint", AppColors.mint),
+        ("coral", AppColors.coral),
+        ("slate", Color(.systemGray)),
+        ("blue", Color(.systemBlue)),
+        ("purple", Color(.systemPurple)),
+        ("teal", Color(.systemTeal))
+    ]
+    private var accent: Color { styles.first { $0.name == accentName }?.color ?? AppColors.indigo }
+
+    private var goalName: String {
+        guard let s = store.notebook.sessions.first(where: { $0.id == reflection.sessionId }) else { return "Training" }
+        return store.goal(id: s.goalId)?.name ?? "Training"
+    }
+    private var dateLabel: String {
+        let f = DateFormatter(); f.dateFormat = "EEE, MMM d, yyyy"; return f.string(from: reflection.date)
+    }
+    private var card: FeedbackCardView {
+        FeedbackCardView(goalName: goalName, tryNextText: reflection.tryNextText, mood: reflection.mood, dateLabel: dateLabel, recipient: recipient, accent: accent)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(AppColors.label)
+                        .frame(width: 44, height: 44)
+                }
+                Spacer()
+                Text("Preview").font(.system(size: 18, weight: .semibold, design: .rounded))
+                Spacer()
+                Spacer().frame(width: 44)
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(spacing: 8) {
+                        Text("To:").font(.system(size: 17, weight: .bold, design: .rounded)).foregroundColor(AppColors.label)
+                        TextField("Friend's name", text: $recipient).font(.system(size: 17, design: .rounded))
+                    }
+                    .padding(.bottom, 8)
+                    .overlay(Rectangle().fill(Color(.systemGray4)).frame(height: 1), alignment: .bottom)
+
+                    card
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("CARD STYLE")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .kerning(0.5)
+                            .foregroundColor(AppColors.secondaryLabel)
+                            .frame(maxWidth: .infinity)
+                        HStack(spacing: 10) {
+                            ForEach(styles, id: \.name) { style in
+                                Button(action: { accentName = style.name }) {
+                                    ZStack {
+                                        Circle().fill(style.color).frame(width: 36, height: 36)
+                                        if accentName == style.name {
+                                            Circle().stroke(style.color, lineWidth: 2).frame(width: 46, height: 46)
+                                        }
+                                    }
+                                    .frame(width: 46, height: 46)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(16)
+            }
+
+            Button(action: share) {
+                Text("Share")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(RoundedRectangle(cornerRadius: 28).fill(AppColors.indigo))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
+    }
+
+    private func share() {
+        let image = ShareSnapshot.image(of: card, width: 360)
+        let activity = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        guard let root = UIApplication.shared.windows.first(where: { $0.isKeyWindow })?.rootViewController else { return }
+        var top = root
+        while let presented = top.presentedViewController { top = presented }
+        if let pop = activity.popoverPresentationController {
+            pop.sourceView = top.view
+            pop.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.maxY - 80, width: 0, height: 0)
+            pop.permittedArrowDirections = []
+        }
+        top.present(activity, animated: true)
+    }
+}
+
+struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+enum ShareSnapshot {
+    /// Renders a SwiftUI view to a UIImage (iOS 13-safe; no ImageRenderer).
+    static func image<V: View>(of view: V, width: CGFloat) -> UIImage {
+        let controller = UIHostingController(rootView: view.frame(width: width))
+        let target = controller.view
+        target?.backgroundColor = .clear
+        let fitting = target?.systemLayoutSizeFitting(
+            CGSize(width: width, height: 0),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ) ?? CGSize(width: width, height: 480)
+        let size = CGSize(width: width, height: max(fitting.height, 200))
+        target?.frame = CGRect(origin: .zero, size: size)
+
+        if let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }), let target = target {
+            window.addSubview(target)
+            target.setNeedsLayout()
+            target.layoutIfNeeded()
+            let renderer = UIGraphicsImageRenderer(size: size)
+            let image = renderer.image { _ in
+                target.drawHierarchy(in: CGRect(origin: .zero, size: size), afterScreenUpdates: true)
+            }
+            target.removeFromSuperview()
+            return image
+        }
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            UIColor(red: 240/255, green: 237/255, blue: 235/255, alpha: 1).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+        }
     }
 }
 
@@ -6478,11 +6727,6 @@ struct ReflectFlowView: View {
             link = ""
             images = []
         }
-        #if DEBUG
-        let env = ProcessInfo.processInfo.environment
-        if let s = env["REFLECT_STEP"], let n = Int(s) { step = n }
-        if env["REFLECT_VOICE"] != nil { showVoice = true }
-        #endif
     }
 
     private func goBack() {
@@ -6940,118 +7184,201 @@ struct VoiceReflectionView: View {
     @Binding var tryNext: String
     var onClose: () -> Void
 
+    private enum Phase { case idle, recording, recorded }
+
     @State private var index = 0
+    @State private var phase: Phase = .idle
     @State private var draft = ""
-    @State private var isRecording = false
+    @State private var elapsed = 0
     @State private var statusMessage: String?
     @State private var recognizer = SpeechRecognizer()
+    @State private var timer: Timer?
 
-    private let questions: [(label: String, color: Color, placeholder: String)] = [
+    private let questions: [(label: String, color: Color, prompt: String)] = [
         ("What worked today", AppColors.winGreen, "A grip, a setup, a moment that clicked..."),
         ("Where I got stuck", AppColors.stuckCoral, "What didn't work, what felt off, what to adjust..."),
         ("What I'll try next", AppColors.indigo, "A different angle, a drill to try, something to focus on...")
     ]
+    private var q: (label: String, color: Color, prompt: String) { questions[index] }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Button(action: handleBack) {
-                    Image(systemName: "chevron.left")
-                        .frame(width: 30, height: 30)
-                        .dashedCircle()
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                    Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(AppColors.label).frame(width: 44, height: 44)
                 }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color(.systemGray5))
-                        Capsule().fill(AppColors.indigo)
-                            .frame(width: geo.size.width * CGFloat(index + 1) / 3.0)
-                    }
-                }
-                .frame(height: 6)
+                Spacer()
+                Text("\(index + 1) of 3")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                Spacer()
                 Button(action: { stopRecording(); onClose() }) {
-                    Image(systemName: "xmark")
-                        .frame(width: 30, height: 30)
-                        .dashedCircle()
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                    Image(systemName: "xmark").font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(AppColors.label).frame(width: 44, height: 44)
                 }
             }
-            .padding(14)
+            .padding(.horizontal, 8)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("Speak your reflection")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(AppColors.label)
-                    Text(questions[index].label)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(questions[index].color)
-                        .cornerRadius(8)
-
-                    Button(action: toggleRecording) {
-                        ZStack {
-                            Circle()
-                                .fill(isRecording ? AppColors.stuckCoral : AppColors.indigo)
-                                .frame(width: 96, height: 96)
-                            Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                                .font(.system(size: 34))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .frame(maxWidth: .infinity)
-
-                    Text(isRecording ? "Listening… tap to stop" : "Tap to record, or type below")
-                        .font(.system(size: 14, design: .rounded))
-                        .foregroundColor(AppColors.secondaryLabel)
-                        .frame(maxWidth: .infinity)
-
-                    if let s = statusMessage {
-                        Text(s)
-                            .font(.caption)
-                            .foregroundColor(AppColors.secondaryLabel)
-                            .frame(maxWidth: .infinity)
-                    }
-
-                    TrainingTextView(text: $draft, placeholder: "Your words appear here. You can edit them.")
-                        .frame(height: 150)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color(.systemGray5))
+                    Capsule().fill(q.color).frame(width: geo.size.width * CGFloat(index + 1) / 3.0)
                 }
-                .padding(16)
+            }
+            .frame(height: 6)
+            .padding(.horizontal, 16)
+
+            Spacer()
+
+            Text(q.label)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .background(Capsule().fill(q.color))
+            Text(q.prompt)
+                .font(.system(size: 22, design: .rounded))
+                .foregroundColor(AppColors.secondaryLabel)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+
+            Spacer()
+
+            phaseContent
+
+            Spacer()
+
+            if let s = statusMessage {
+                Text(s)
+                    .font(.caption)
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 8)
             }
 
-            Button(index < questions.count - 1 ? "Next" : "Done", action: handleNext)
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(draft.nilIfBlank == nil)
+            bottomButton
                 .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 30)
+                .padding(.bottom, phase == .idle ? 8 : 30)
+
+            if phase == .idle {
+                Button(action: skip) {
+                    Text("Skip").font(.system(size: 17, design: .rounded)).foregroundColor(AppColors.secondaryLabel)
+                }
+                .padding(.bottom, 24)
+            }
         }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
         .onAppear {
             draft = bindingValue()
+            phase = draft.nilIfBlank != nil ? .recorded : .idle
             recognizer.onText = { text in draft = text }
             recognizer.onStatus = { msg in statusMessage = msg }
         }
         .onDisappear { stopRecording() }
     }
 
-    private func bindingValue() -> String {
-        index == 0 ? worked : (index == 1 ? stuck : tryNext)
-    }
-    private func setBindingValue(_ v: String) {
-        if index == 0 { worked = v } else if index == 1 { stuck = v } else { tryNext = v }
+    @ViewBuilder
+    private var phaseContent: some View {
+        if phase == .recording {
+            VStack(spacing: 16) {
+                VoiceWaveform(color: q.color)
+                    .frame(height: 44)
+                    .padding(.horizontal, 40)
+                HStack(spacing: 8) {
+                    Circle().fill(AppColors.stuckCoral).frame(width: 10, height: 10)
+                    Text("Recording…")
+                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.stuckCoral)
+                    Text(timeString)
+                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                }
+            }
+        } else if phase == .recorded {
+            VStack(spacing: 10) {
+                TrainingTextView(text: $draft, placeholder: "Your words appear here. You can edit them.")
+                    .frame(height: 150)
+                    .padding(.horizontal, 16)
+                Button(action: reRecord) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.counterclockwise").font(.system(size: 13))
+                        Text("Re-record").font(.system(size: 16, weight: .medium, design: .rounded))
+                    }
+                    .foregroundColor(AppColors.secondaryLabel)
+                }
+            }
+        } else {
+            EmptyView()
+        }
     }
 
-    private func handleNext() {
+    @ViewBuilder
+    private var bottomButton: some View {
+        switch phase {
+        case .idle:
+            bigButton("Tap to Record", icon: "mic.fill", color: q.color, action: startRecording)
+        case .recording:
+            bigButton("Done", icon: "stop.fill", color: AppColors.stuckCoral, action: finishRecording)
+        case .recorded:
+            bigButton(index < questions.count - 1 ? "Next" : "Done", icon: nil, color: AppColors.indigo, action: next)
+        }
+    }
+
+    private func bigButton(_ title: String, icon: String?, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if let icon = icon { Image(systemName: icon).font(.system(size: 18)) }
+                Text(title).font(.system(size: 18, weight: .semibold, design: .rounded))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .background(RoundedRectangle(cornerRadius: 16).fill(color))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private var timeString: String { String(format: "%d:%02d", elapsed / 60, elapsed % 60) }
+
+    private func bindingValue() -> String { index == 0 ? worked : (index == 1 ? stuck : tryNext) }
+    private func setBindingValue(_ v: String) { if index == 0 { worked = v } else if index == 1 { stuck = v } else { tryNext = v } }
+
+    private func startRecording() {
+        recognizer.requestAuthorization { granted in
+            if !granted { statusMessage = "Mic/speech access is off — you can still type your answer." }
+            recognizer.start()
+            elapsed = 0
+            phase = .recording
+            startTimer()
+        }
+    }
+
+    private func finishRecording() {
         stopRecording()
+        phase = .recorded
+    }
+
+    private func reRecord() {
+        draft = ""
+        startRecording()
+    }
+
+    private func skip() { goNext() }
+
+    private func next() {
         setBindingValue(draft)
+        goNext()
+    }
+
+    private func goNext() {
+        stopRecording()
         if index < questions.count - 1 {
             index += 1
             draft = bindingValue()
+            phase = draft.nilIfBlank != nil ? .recorded : .idle
             statusMessage = nil
         } else {
             onClose()
@@ -7060,35 +7387,53 @@ struct VoiceReflectionView: View {
 
     private func handleBack() {
         stopRecording()
-        setBindingValue(draft)
+        if phase == .recorded { setBindingValue(draft) }
         if index > 0 {
             index -= 1
             draft = bindingValue()
+            phase = draft.nilIfBlank != nil ? .recorded : .idle
             statusMessage = nil
         } else {
             onClose()
         }
     }
 
-    private func toggleRecording() {
-        if isRecording { stopRecording() } else { startRecording() }
-    }
-
-    private func startRecording() {
-        recognizer.requestAuthorization { granted in
-            if granted {
-                recognizer.start()
-                isRecording = true
-                statusMessage = nil
-            } else {
-                statusMessage = "Microphone or speech access is off. Type your reflection below."
-            }
-        }
+    private func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in elapsed += 1 }
     }
 
     private func stopRecording() {
+        timer?.invalidate()
+        timer = nil
         recognizer.stop()
-        isRecording = false
+    }
+}
+
+struct VoiceWaveform: View {
+    let color: Color
+    @State private var heights: [CGFloat] = Array(repeating: 6, count: 26)
+    @State private var timer: Timer?
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<heights.count, id: \.self) { i in
+                Capsule().fill(color).frame(width: 4, height: heights[i])
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear {
+            timer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { _ in
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    heights = (0..<heights.count).map { idx in
+                        // Taller toward the right, like a live meter.
+                        let bias = CGFloat(idx) / CGFloat(heights.count)
+                        return CGFloat.random(in: 6...(10 + bias * 34))
+                    }
+                }
+            }
+        }
+        .onDisappear { timer?.invalidate() }
     }
 }
 
