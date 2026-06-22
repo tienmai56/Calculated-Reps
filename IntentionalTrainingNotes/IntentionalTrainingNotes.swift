@@ -1479,15 +1479,20 @@ final class NotebookStore: ObservableObject {
     }
 
     @discardableResult
-    func saveReflection(sessionId: String, mood: Mood?, workedText: String, stuckText: String) -> Reflection? {
+    func saveReflection(sessionId: String, mood: Mood?, workedText: String, stuckText: String, tryNextText: String) -> Reflection? {
         guard let sessionIndex = notebook.sessions.firstIndex(where: { $0.id == sessionId }) else { return nil }
         let session = notebook.sessions[sessionIndex]
+        let existing = notebook.reflections.first { $0.sessionId == sessionId }
         let reflection = Reflection(
+            id: existing?.id ?? "r_\(UUID().uuidString)",
             sessionId: session.id,
             date: session.date,
             workedText: workedText.trimmingCharacters(in: .whitespacesAndNewlines),
             stuckText: stuckText.trimmingCharacters(in: .whitespacesAndNewlines),
-            mood: mood
+            tryNextText: tryNextText.trimmingCharacters(in: .whitespacesAndNewlines),
+            mood: mood,
+            isFavorite: existing?.isFavorite ?? false,
+            createdAt: existing?.createdAt ?? Date()
         )
         mutate {
             notebook.reflections.removeAll { $0.sessionId == sessionId }
@@ -1496,6 +1501,14 @@ final class NotebookStore: ObservableObject {
             notebook.sessions[sessionIndex].updatedAt = Date()
         }
         return reflection
+    }
+
+    func toggleFavorite(reflectionId: String) {
+        guard let idx = notebook.reflections.firstIndex(where: { $0.id == reflectionId }) else { return }
+        mutate {
+            notebook.reflections[idx].isFavorite.toggle()
+            notebook.reflections[idx].updatedAt = Date()
+        }
     }
 
     func deleteReflection(id: String) {
@@ -2004,6 +2017,10 @@ struct MainAppView: View {
         .onAppear {
             #if DEBUG
             if ProcessInfo.processInfo.environment["OPEN_WIZARD"] != nil { isPlanning = true }
+            if ProcessInfo.processInfo.environment["OPEN_REFLECT"] != nil,
+               let sid = store.notebook.reflections.sorted(by: { $0.date > $1.date }).first?.sessionId {
+                reflectSessionId = sid
+            }
             #endif
         }
     }
@@ -5981,6 +5998,7 @@ struct ReflectFlowView: View {
     @State private var mood: Mood?
     @State private var worked = ""
     @State private var stuck = ""
+    @State private var tryNext = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -5995,7 +6013,7 @@ struct ReflectFlowView: View {
                 } else if step == 2 {
                     ReflectMoodStep(mood: $mood, onContinue: { if mood != nil { step = 3 } })
                 } else if step == 3 {
-                    ReflectNotesStep(worked: $worked, stuck: $stuck, onFinish: saveReflection)
+                    ReflectNotesStep(worked: $worked, stuck: $stuck, tryNext: $tryNext, onFinish: saveReflection)
                 } else {
                     ReflectDoneStep(
                         store: store,
@@ -6024,9 +6042,20 @@ struct ReflectFlowView: View {
     private func resetIfNeeded() {
         selectedSessionId = initialSessionId
         step = initialSessionId == nil ? 1 : 2
-        mood = nil
-        worked = ""
-        stuck = ""
+        if let sid = initialSessionId, let r = store.reflection(forSessionId: sid) {
+            mood = r.mood
+            worked = r.workedText
+            stuck = r.stuckText
+            tryNext = r.tryNextText
+        } else {
+            mood = nil
+            worked = ""
+            stuck = ""
+            tryNext = ""
+        }
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["REFLECT_NOTES"] != nil { step = 3 }
+        #endif
     }
 
     private func goBack() {
@@ -6040,8 +6069,8 @@ struct ReflectFlowView: View {
     private func saveReflection() {
         guard let sessionId = selectedSessionId,
               mood != nil,
-              (worked.nilIfBlank != nil || stuck.nilIfBlank != nil) else { return }
-        _ = store.saveReflection(sessionId: sessionId, mood: mood, workedText: worked, stuckText: stuck)
+              (worked.nilIfBlank != nil || stuck.nilIfBlank != nil || tryNext.nilIfBlank != nil) else { return }
+        _ = store.saveReflection(sessionId: sessionId, mood: mood, workedText: worked, stuckText: stuck, tryNextText: tryNext)
         step = 4
     }
 }
@@ -6273,10 +6302,11 @@ struct LazyMoodGrid: View {
 struct ReflectNotesStep: View {
     @Binding var worked: String
     @Binding var stuck: String
+    @Binding var tryNext: String
     var onFinish: () -> Void
 
     private var canFinish: Bool {
-        worked.nilIfBlank != nil || stuck.nilIfBlank != nil
+        worked.nilIfBlank != nil || stuck.nilIfBlank != nil || tryNext.nilIfBlank != nil
     }
 
     var body: some View {
@@ -6293,21 +6323,21 @@ struct ReflectNotesStep: View {
                     }
                     ZStack(alignment: .topLeading) {
                         TrainingTextView(text: $worked, placeholder: "A grip, a setup, a moment that clicked...")
-                            .frame(height: 116)
+                            .frame(height: 108)
                             .padding(.top, 8)
-                        Text("What worked today")
+                        Text("What worked")
                             .font(.caption)
                             .fontWeight(.semibold)
                             .foregroundColor(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Color.green)
+                            .background(AppColors.winGreen)
                             .cornerRadius(8)
                             .offset(x: 8, y: -10)
                     }
                     ZStack(alignment: .topLeading) {
                         TrainingTextView(text: $stuck, placeholder: "What didn't work, what felt off, what to adjust...")
-                            .frame(height: 116)
+                            .frame(height: 108)
                             .padding(.top, 8)
                         Text("Where I got stuck")
                             .font(.caption)
@@ -6315,7 +6345,21 @@ struct ReflectNotesStep: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(AppColors.coral)
+                            .background(AppColors.stuckCoral)
+                            .cornerRadius(8)
+                            .offset(x: 8, y: -10)
+                    }
+                    ZStack(alignment: .topLeading) {
+                        TrainingTextView(text: $tryNext, placeholder: "The adjustment or focus for next time...")
+                            .frame(height: 108)
+                            .padding(.top, 8)
+                        Text("What I'll try next")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(AppColors.indigo)
                             .cornerRadius(8)
                             .offset(x: 8, y: -10)
                     }
