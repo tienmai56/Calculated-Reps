@@ -1272,7 +1272,7 @@ final class NotebookStore: ObservableObject {
     }
 
     var profile: UserProfile? { notebook.profile }
-    var activeGoals: [TrainingGoal] { notebook.goals.filter { !$0.isArchived }.sorted { $0.createdAt < $1.createdAt } }
+    var activeGoals: [TrainingGoal] { notebook.goals.filter { !$0.isArchived && $0.name.nilIfBlank != nil }.sorted { $0.createdAt < $1.createdAt } }
 
     func saveProfile(_ profile: UserProfile) {
         mutate {
@@ -1284,6 +1284,16 @@ final class NotebookStore: ObservableObject {
     func addGoal(name: String, iconName: String = "target", colorName: String = "indigo") -> TrainingGoal? {
         guard let trimmed = name.nilIfBlank else { return nil }
         let goal = TrainingGoal(accountId: notebook.accountId, name: trimmed, iconName: iconName, colorName: colorName)
+        mutate { notebook.goals.append(goal) }
+        return goal
+    }
+
+    /// Creates an unnamed draft goal so the rich `EditGoalView` (live task notes/links/photos)
+    /// can be reused for goal creation. Drafts are hidden from `activeGoals` until named, and
+    /// discarded on dismiss if left unnamed.
+    @discardableResult
+    func createDraftGoal() -> TrainingGoal {
+        let goal = TrainingGoal(accountId: notebook.accountId, name: "", iconName: "target", colorName: "indigo")
         mutate { notebook.goals.append(goal) }
         return goal
     }
@@ -3593,11 +3603,13 @@ struct SessionCardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground))
-                RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 5).padding(.vertical, 8)
-            }
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(gradient: Gradient(colors: [color, color.opacity(0.3)]), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1.8
+                )
         )
         .overlay(menuOverlay, alignment: .topTrailing)
     }
@@ -5445,14 +5457,14 @@ struct GoalCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground)))
-        .overlay(
-            HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 18).fill(color).frame(width: 6)
-                Spacer()
-            }
-        )
         .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(color.opacity(0.22), lineWidth: 1))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(
+                    LinearGradient(gradient: Gradient(colors: [color, color.opacity(0.3)]), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1.8
+                )
+        )
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 3)
         .overlay(menuOverlay, alignment: .topTrailing)
     }
@@ -5472,7 +5484,7 @@ struct GoalCard: View {
                     .font(.system(size: 21, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 if isExpanded {
-                    Text(lastTrainedText)
+                    Text("\(tasks.count) \(tasks.count == 1 ? "task" : "tasks")")
                         .font(.system(size: 14, design: .rounded))
                         .foregroundColor(AppColors.secondaryLabel)
                 } else {
@@ -5715,15 +5727,6 @@ struct GoalCard: View {
 
     private func trainedThisWeek(_ task: TrainingTask) -> Bool {
         store.taskWeekDoneDayCount(taskId: task.id, goalId: goal.id, anchor: Date()) > 0
-    }
-
-    private var lastTrainedText: String {
-        let doneDates = store.sessions(forGoal: goal.id).filter { $0.status == .done }.map { $0.date }
-        guard let latest = doneDates.max() else { return "Not trained yet" }
-        let days = cal.dateComponents([.day], from: cal.startOfDay(for: latest), to: cal.startOfDay(for: Date())).day ?? 0
-        if days <= 0 { return "Last trained today" }
-        if days == 1 { return "Last trained 1d ago" }
-        return "Last trained \(days)d ago"
     }
 
     private func toggleTask(_ id: String) {
