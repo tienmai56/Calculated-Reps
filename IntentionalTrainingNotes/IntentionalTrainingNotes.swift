@@ -4310,7 +4310,6 @@ struct TaskEditRow: View {
     @State private var notes: String
     @State private var link: String
     @State private var showLinkField = false
-    @State private var showingPhotoPicker = false
 
     init(store: NotebookStore, task: TrainingTask, accentColor: Color, expanded: Binding<Bool>, onDelete: @escaping () -> Void) {
         self.store = store
@@ -4374,7 +4373,11 @@ struct TaskEditRow: View {
 
                 HStack(spacing: 10) {
                     chipButton(icon: "link", label: "Add link") { showLinkField = true }
-                    chipButton(icon: "photo", label: "Photo") { showingPhotoPicker = true }
+                    chipButton(icon: "photo", label: "Photo") {
+                        UIKitImagePicker.present { data in
+                            store.addTaskImage(taskId: task.id, imageData: data)
+                        }
+                    }
                     Spacer()
                     Button(action: onDelete) {
                         Image(systemName: "trash").font(.system(size: 16)).foregroundColor(AppColors.coral)
@@ -4384,11 +4387,6 @@ struct TaskEditRow: View {
             }
         }
         .padding(.vertical, 8)
-        .sheet(isPresented: $showingPhotoPicker) {
-            NoteImagePicker { data in
-                store.addTaskImage(taskId: task.id, imageData: data)
-            }
-        }
     }
 
     private func chipButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
@@ -5073,6 +5071,43 @@ struct NoteBodyEditor: UIViewRepresentable {
 
 // MARK: - Note Image Picker
 
+// MARK: - UIKit Image Picker (presented directly to avoid nested-sheet bug on iOS 13/14)
+
+final class UIKitImagePicker: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    private static var active: UIKitImagePicker?
+    private let onPick: (Data) -> Void
+
+    private init(onPick: @escaping (Data) -> Void) {
+        self.onPick = onPick
+    }
+
+    static func present(onPick: @escaping (Data) -> Void) {
+        guard let root = UIApplication.shared.windows.first(where: { $0.isKeyWindow })?.rootViewController else { return }
+        var top = root
+        while let presented = top.presentedViewController { top = presented }
+        let presenter = UIKitImagePicker(onPick: onPick)
+        active = presenter
+        let picker = UIImagePickerController()
+        picker.sourceType = .photoLibrary
+        picker.delegate = presenter
+        top.present(picker, animated: true)
+    }
+
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+        if let image = info[.originalImage] as? UIImage,
+           let data = image.jpegData(compressionQuality: 0.8) {
+            onPick(data)
+        }
+        picker.dismiss(animated: true)
+        UIKitImagePicker.active = nil
+    }
+
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
+        UIKitImagePicker.active = nil
+    }
+}
+
 struct NoteImagePicker: UIViewControllerRepresentable {
     var onImageSelected: (Data) -> Void
 
@@ -5386,7 +5421,7 @@ struct GoalListView: View {
                                 if expandedGoalIds.contains(goal.id) {
                                     expandedGoalIds.remove(goal.id)
                                 } else {
-                                    expandedGoalIds = [goal.id]
+                                    _ = expandedGoalIds.insert(goal.id)
                                 }
                             }
                         },
@@ -5458,8 +5493,6 @@ struct GoalCard: View {
 
     @State private var expandedTaskIds: Set<String> = []
     @State private var menuOpen = false
-    @State private var addingTask = false
-    @State private var newTaskName = ""
 
     private var cal: Calendar { Calendar.current }
 
@@ -5570,18 +5603,17 @@ struct GoalCard: View {
             Divider().padding(.horizontal, 16).padding(.top, 14)
 
             ForEach(tasks) { task in
-                taskRow(task, color)
+                taskRow(task, color, isLast: task.id == tasks.last?.id)
             }
-            addTaskRow(color)
         }
         .padding(.bottom, 10)
     }
 
     @ViewBuilder
-    private func taskRow(_ task: TrainingTask, _ color: Color) -> some View {
+    private func taskRow(_ task: TrainingTask, _ color: Color, isLast: Bool) -> some View {
         let trained = trainedThisWeek(task)
         let isOpen = expandedTaskIds.contains(task.id)
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             Button(action: { withAnimation(.easeInOut(duration: 0.15)) { toggleTask(task.id) } }) {
                 HStack(spacing: 12) {
                     checkbox(trained, color)
@@ -5607,7 +5639,7 @@ struct GoalCard: View {
             if isOpen {
                 taskDetail(task, color)
             }
-            Divider()
+            if !isLast { Divider() }
         }
         .padding(.horizontal, 16)
         .padding(.leading, 4)
@@ -5652,45 +5684,6 @@ struct GoalCard: View {
         }
         .padding(.leading, 38)
         .padding(.bottom, 14)
-    }
-
-    @ViewBuilder
-    private func addTaskRow(_ color: Color) -> some View {
-        Group {
-            if addingTask {
-                HStack(spacing: 8) {
-                    TextField("Task name", text: $newTaskName, onCommit: commitTask)
-                        .font(.system(size: 16, design: .rounded))
-                        .textFieldStyle(TrainingTextFieldStyle())
-                    Button(action: commitTask) {
-                        Image(systemName: "checkmark.circle.fill").foregroundColor(color)
-                    }
-                    .disabled(newTaskName.nilIfBlank == nil)
-                    Button(action: { addingTask = false; newTaskName = "" }) {
-                        Image(systemName: "xmark.circle").foregroundColor(AppColors.secondaryLabel)
-                    }
-                }
-                .padding(.vertical, 8)
-            } else {
-                Button(action: { addingTask = true }) {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle().stroke(Color(.systemGray3), style: StrokeStyle(lineWidth: 1.5, dash: [3, 2])).frame(width: 26, height: 26)
-                            Image(systemName: "plus").font(.system(size: 12, weight: .semibold)).foregroundColor(AppColors.secondaryLabel)
-                        }
-                        Text("Add task")
-                            .font(.system(size: 17, design: .rounded))
-                            .foregroundColor(AppColors.secondaryLabel)
-                        Spacer()
-                    }
-                    .padding(.vertical, 13)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.leading, 4)
     }
 
     // MARK: Pieces
@@ -5756,14 +5749,6 @@ struct GoalCard: View {
 
     private func toggleTask(_ id: String) {
         if expandedTaskIds.contains(id) { expandedTaskIds.remove(id) } else { _ = expandedTaskIds.insert(id) }
-    }
-
-    private func commitTask() {
-        if let t = store.addTask(goalId: goal.id, name: newTaskName) {
-            newTaskName = ""
-            addingTask = false
-            _ = expandedTaskIds.insert(t.id)
-        }
     }
 }
 
