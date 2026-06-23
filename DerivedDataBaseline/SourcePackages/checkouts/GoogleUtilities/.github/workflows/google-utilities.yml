@@ -1,0 +1,108 @@
+name: google-utilities
+
+on:
+  pull_request:
+  schedule:
+    # Run every day at 11pm (PST) - cron uses UTC times
+    - cron:  '0 7 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changed_today:
+    runs-on: ubuntu-latest
+    name: Check if the repo was updated today
+    outputs:
+      WAS_CHANGED: ${{ steps.check_changed.outputs.WAS_CHANGED }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check_changed
+        name: Check
+        if: ${{ github.event_name == 'schedule' }}
+        run: echo '::set-output name=WAS_CHANGED::'$(test -n "$(git log --format=%H --since='24 hours ago')" && echo 'true' || echo 'false')
+
+  pod-lib-lint:
+    needs: changed_today
+    if: ${{ github.event_name == 'pull_request' || needs.changed_today.outputs.WAS_CHANGED == 'true' }}
+
+    runs-on: macOS-latest
+    strategy:
+      matrix:
+        target: [ios, tvos, macos]
+    steps:
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "2.7"
+    - uses: actions/checkout@v3
+    - name: Setup Scripts Directory
+      run: ./setup-scripts.sh
+    - name: Setup Bundler
+      run: scripts/setup_bundler.sh
+    - name: Build and test
+      run: |
+        scripts/third_party/travis/retry.sh scripts/pod_lib_lint.rb GoogleUtilities.podspec \
+          --platforms=${{ matrix.target }} --analyze
+
+  catalyst:
+    needs: changed_today
+    if: ${{ github.event_name == 'pull_request' || needs.changed_today.outputs.WAS_CHANGED == 'true' }}
+
+    runs-on: macOS-latest
+    steps:
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "2.7"
+    - uses: actions/checkout@v3
+    - name: Setup Scripts Directory
+      run: ./setup-scripts.sh
+    - name: Setup Bundler
+      run: scripts/setup_bundler.sh
+    - name: Setup project and Build for Catalyst
+      run: |
+        scripts/third_party/travis/retry.sh scripts/test_catalyst.sh GoogleUtilities test \
+          GoogleUtilities-Unit-unit
+
+  spm:
+    needs: changed_today
+    if: ${{ github.event_name == 'pull_request' || needs.changed_today.outputs.WAS_CHANGED == 'true' }}
+
+    runs-on: macOS-latest
+    strategy:
+      matrix:
+        target: [iOS, tvOS, macOS, catalyst]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Scripts Directory
+      run: ./setup-scripts.sh
+    - name: Initialize xcodebuild
+      run: |
+        sudo xcode-select -s '/Applications/Xcode_16.2.app/Contents/Developer'
+        xcodebuild -list
+    - name: iOS Unit Tests
+      run: scripts/third_party/travis/retry.sh scripts/build.sh GoogleUtilities-Package ${{ matrix.target }} spm
+
+  utilities-cocoapods-option-matrix:
+    needs: pod-lib-lint
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [ios, tvos, macos]
+        flags: [
+          '--use-static-frameworks',
+          '--use-libraries --skip-tests'
+        ]
+    steps:
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "2.7"
+    - uses: actions/checkout@v3
+    - name: Setup Scripts Directory
+      run: ./setup-scripts.sh
+    - name: Setup Bundler
+      run: scripts/setup_bundler.sh
+    - name: PodLibLint GoogleUtilities Cron
+      run: |
+        scripts/third_party/travis/retry.sh scripts/pod_lib_lint.rb \
+          GoogleUtilities.podspec --platforms=${{ matrix.target }} ${{ matrix.flags }} --analyze

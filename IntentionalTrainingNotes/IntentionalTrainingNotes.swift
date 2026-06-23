@@ -1687,86 +1687,84 @@ final class NotebookStore: ObservableObject {
     }
 
 #if DEBUG
-    /// TEMPORARY demo data for visual QA against the Mat Mind designs. Remove before shipping.
+    /// TEMPORARY demo data for testing. Re-seeds when `seedVersion` changes. Remove before shipping.
     func seedDemoDataIfEmpty() {
-        guard notebook.goals.isEmpty && notebook.tasks.isEmpty else { return }
+        let seedKey = "matmind.debugSeedVersion"
+        let seedVersion = "v2-2goals-3sessions-photos"
+        let alreadySeeded = UserDefaults.standard.string(forKey: seedKey) == seedVersion
+        if alreadySeeded && !notebook.goals.isEmpty { return }
+
         let acct = notebook.accountId
-        func day(_ d: Int) -> Date {
-            calendar.normalizedTrainingDay(calendar.date(from: DateComponents(year: 2026, month: 6, day: d)) ?? Date())
+        func day(_ offset: Int) -> Date {
+            calendar.normalizedTrainingDay(calendar.date(byAdding: .day, value: offset, to: Date()) ?? Date())
         }
 
-        let pinSide = TrainingGoal(accountId: acct, name: "Pin side control", iconName: "star.fill", colorName: "indigo")
-        let overUnder = TrainingGoal(accountId: acct, name: "Over under", iconName: "target", colorName: "purple")
-        let passOpen = TrainingGoal(accountId: acct, name: "Passing open guard", iconName: "target", colorName: "indigo")
-        let passHalf = TrainingGoal(accountId: acct, name: "Passing half guard", iconName: "custom.leg", colorName: "purple")
-        let tripod = TrainingGoal(accountId: acct, name: "Tripod", iconName: "custom.leg", colorName: "orange")
-        let legLock = TrainingGoal(accountId: acct, name: "Leg lock", iconName: "bolt.fill", colorName: "mint")
-        let butterfly = TrainingGoal(accountId: acct, name: "Butterfly sweep", iconName: "heart.fill", colorName: "purple")
-        let goals = [pinSide, overUnder, passOpen, passHalf, tripod, legLock, butterfly]
-
-        func t(_ goal: TrainingGoal, _ name: String, _ notes: String = "") -> TrainingTask {
-            TrainingTask(goalId: goal.id, name: name, notes: notes)
+        // Renders a simple colored placeholder image so attached photos are visible in the UI.
+        func placeholderImage(_ fill: UIColor, _ caption: String) -> Data {
+            let size = CGSize(width: 640, height: 380)
+            let renderer = UIGraphicsImageRenderer(size: size)
+            let image = renderer.image { ctx in
+                fill.setFill()
+                ctx.fill(CGRect(origin: .zero, size: size))
+                UIColor.white.withAlphaComponent(0.12).setFill()
+                ctx.cgContext.fillEllipse(in: CGRect(x: size.width - 200, y: -120, width: 320, height: 320))
+                UIColor.black.withAlphaComponent(0.20).setFill()
+                ctx.fill(CGRect(x: 0, y: size.height - 92, width: size.width, height: 92))
+                let para = NSMutableParagraphStyle()
+                para.lineBreakMode = .byTruncatingTail
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 34, weight: .bold),
+                    .foregroundColor: UIColor.white,
+                    .paragraphStyle: para
+                ]
+                NSAttributedString(string: caption, attributes: attrs)
+                    .draw(in: CGRect(x: 28, y: size.height - 66, width: size.width - 56, height: 48))
+            }
+            return image.jpegData(compressionQuality: 0.85) ?? Data()
         }
-        let pinHead = t(pinSide, "Pin head down")
-        let elbowPen = t(pinSide, "Elbow penetrate")
-        let headUnder = t(overUnder, "Head under knee")
-        let pinFeet = t(overUnder, "Pin their feet against butt")
-        let armOver = t(overUnder, "Arm over leg not hip")
-        let backStep = t(passOpen, "Back step to clear outside dlrv")
-        let chaseHip = t(passOpen, "Chase hip/torso", "- clear whatever obstacle in your way that prevents you from accessing torso\n- control hip first with leg ib their tailbone\n- Address their arm framing\n- Pinning the bottom leg- could use my leg, chest etc")
-        let sepKnee = t(passOpen, "Separate knee + elbow")
-        let clearOutside = t(passOpen, "Clear outside leg")
-        let beatArm = t(passOpen, "Beat the arm frame")
-        let killArm = t(passHalf, "Kill arm frame", "- pin bottom arm to kill their offensive cycle")
-        let headBetween = t(passHalf, "Head between knees")
-        let trapArm = t(tripod, "Trap the arm")
-        let blockHead = t(tripod, "Block head")
-        let insideHeel = t(legLock, "Inside heel hook")
-        let openHip = t(legLock, "Open hip")
-        let headPos = t(butterfly, "Head position over head")
-        let offBalance = t(butterfly, "Off balance both ways")
-        let tasks = [pinHead, elbowPen, headUnder, pinFeet, armOver, backStep, chaseHip, sepKnee,
-                     clearOutside, beatArm, killArm, headBetween, trapArm, blockHead, insideHeel, openHip, headPos, offBalance]
 
-        func sess(_ goal: TrainingGoal, _ d: Int, _ taskIds: [String], _ status: SessionStatus) -> PlannedSession {
-            // Backdate createdAt to the training day so the 1-hour reflect gate doesn't block demo data.
-            PlannedSession(goalId: goal.id, date: day(d), taskIds: taskIds, status: status, createdAt: day(d))
+        func savePhoto(_ taskId: String, _ fill: UIColor, _ caption: String) -> [String] {
+            guard let jsonPersistence = persistence as? JSONNotebookPersistence else { return [] }
+            let fileName = "\(UUID().uuidString).jpg"
+            let data = placeholderImage(fill, caption)
+            guard (try? jsonPersistence.saveTaskImage(accountId: acct, taskId: taskId, imageData: data, fileName: fileName)) != nil else { return [] }
+            return [fileName]
         }
-        let sToday1 = sess(passOpen, 21, [chaseHip.id, sepKnee.id, clearOutside.id, beatArm.id], .planned)
-        let sToday2 = sess(passHalf, 21, [killArm.id, headBetween.id], .planned)
-        let s18 = sess(passOpen, 18, [chaseHip.id, sepKnee.id], .done)
-        let s16 = sess(overUnder, 16, [headUnder.id, pinFeet.id], .planned)
-        let s10 = sess(passOpen, 10, [backStep.id], .planned)
-        let s7 = sess(pinSide, 7, [pinHead.id], .planned)
-        let s4 = sess(legLock, 4, [insideHeel.id], .planned)
-        let s3 = sess(legLock, 3, [openHip.id, insideHeel.id], .done)
-        let s2 = sess(overUnder, 2, [pinFeet.id], .planned)
-        let s1 = sess(overUnder, 1, [headUnder.id], .done)
-        let sessions = [sToday1, sToday2, s18, s16, s10, s7, s4, s3, s2, s1]
 
-        let r18 = Reflection(sessionId: s18.id, date: day(18),
-            workedText: "Focusing on chasing the hip makes me move more; clearing the knee shield by push/pull then scooping and pushing the knee\n- cross face frame is effective in keeping their shoulder down",
-            stuckText: "- Got swept by knee lever\n- Hard time clearing the low knee shield especially when John locked his feet",
-            tryNextText: "- Clearing upper knee shield by push/pull and using scoop grip to extend the knee then push the knee",
-            mood: .neutral, isFavorite: true)
-        let r3 = Reflection(sessionId: s3.id, date: day(3),
-            workedText: "Open hip gave me a wider range of motion to bridge",
-            stuckText: "",
-            tryNextText: "Threaten inside heel hook > transition to wojick lock as they react by hiding the heel",
-            mood: .good, isFavorite: true)
-        let r1 = Reflection(sessionId: s1.id, date: day(1),
-            workedText: "Got the head under knee position a few times",
-            stuckText: "Kept losing the underhook",
-            tryNextText: "Pin their feet earlier",
-            mood: .neutral, isFavorite: false)
-        let reflections = [r18, r3, r1]
+        let indigoUI = UIColor(red: 63/255, green: 61/255, blue: 158/255, alpha: 1)
+        let mintUI = UIColor(red: 94/255, green: 196/255, blue: 182/255, alpha: 1)
+
+        // Goal 1 — Passing open guard (indigo); first task has a description + photo.
+        let g1 = TrainingGoal(accountId: acct, name: "Passing open guard", iconName: "target", colorName: "indigo")
+        var chaseHip = TrainingTask(goalId: g1.id, name: "Chase hip/torso",
+            notes: "Clear whatever obstacle blocks the torso. Control the hip first with a leg on their tailbone, then address their arm framing before stepping around.")
+        chaseHip.imageFileNames = savePhoto(chaseHip.id, indigoUI, "Hip control drill")
+        let sepKnee = TrainingTask(goalId: g1.id, name: "Separate knee + elbow",
+            notes: "Create the gap between their knee and elbow, then drive your hips through to begin the pass.")
+
+        // Goal 2 — Leg locks (mint); first task has a description + photo.
+        let g2 = TrainingGoal(accountId: acct, name: "Leg locks", iconName: "bolt.fill", colorName: "mint")
+        var insideHeel = TrainingTask(goalId: g2.id, name: "Inside heel hook",
+            notes: "Control the knee line, expose the heel, and rotate from your hips — never the hands. Stay tight to kill their rotation.")
+        insideHeel.imageFileNames = savePhoto(insideHeel.id, mintUI, "Heel exposure")
+        let ashiEntry = TrainingTask(goalId: g2.id, name: "Ashi garami entry",
+            notes: "Off-balance them, secure the outside leg, and establish ashi garami before attacking the foot.")
+
+        // 3 planned sessions: today + two past days (past days are immediately reflectable).
+        func sess(_ goal: TrainingGoal, _ offset: Int, _ taskIds: [String]) -> PlannedSession {
+            PlannedSession(goalId: goal.id, date: day(offset), taskIds: taskIds, status: .planned, createdAt: day(offset))
+        }
+        let s1 = sess(g1, 0, [chaseHip.id, sepKnee.id])
+        let s2 = sess(g2, -1, [insideHeel.id])
+        let s3 = sess(g1, -3, [chaseHip.id])
 
         mutate {
-            notebook.goals = goals
-            notebook.tasks = tasks
-            notebook.sessions = sessions
-            notebook.reflections = reflections
+            notebook.goals = [g1, g2]
+            notebook.tasks = [chaseHip, sepKnee, insideHeel, ashiEntry]
+            notebook.sessions = [s1, s2, s3]
+            notebook.reflections = []
         }
+        UserDefaults.standard.set(seedVersion, forKey: seedKey)
     }
 #endif
 }
