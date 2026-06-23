@@ -3603,12 +3603,18 @@ struct SessionCardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground))
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.12), color.opacity(0.02)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .stroke(
-                    LinearGradient(gradient: Gradient(colors: [color, color.opacity(0.3)]), startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 1.8
+                    LinearGradient(gradient: Gradient(colors: [color.opacity(0.35), color.opacity(0.08)]), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
                 )
         )
         .overlay(menuOverlay, alignment: .topTrailing)
@@ -4084,6 +4090,7 @@ struct EditGoalView: View {
     @ObservedObject var store: NotebookStore
     let goalId: String
     var onDismiss: () -> Void
+    let isNewGoal: Bool
 
     @State private var goalName: String
     @State private var iconName: String
@@ -4095,9 +4102,10 @@ struct EditGoalView: View {
 
     private var goalColor: Color { GoalIconLibrary.color(for: colorName) }
 
-    init(store: NotebookStore, goalId: String, onDismiss: @escaping () -> Void) {
+    init(store: NotebookStore, goalId: String, isNewGoal: Bool = false, onDismiss: @escaping () -> Void) {
         self.store = store
         self.goalId = goalId
+        self.isNewGoal = isNewGoal
         self.onDismiss = onDismiss
         let goal = store.goal(id: goalId)
         _goalName = State(initialValue: goal?.name ?? "")
@@ -4133,7 +4141,7 @@ struct EditGoalView: View {
                     previewHeader
                     appearanceSection
                     tasksSection
-                    deleteGoalButton
+                    if !isNewGoal { deleteGoalButton }
                 }
                 .padding(16)
             }
@@ -5320,11 +5328,9 @@ struct AddTaskSheet: View {
 }
 
 private enum GoalSheet: Identifiable {
-    case add
     case edit(String)
     var id: String {
         switch self {
-        case .add: return "add"
         case .edit(let goalId): return "edit-\(goalId)"
         }
     }
@@ -5336,6 +5342,7 @@ struct GoalListView: View {
     @State private var sheet: GoalSheet?
     @State private var expandedGoalIds: Set<String> = []
     @State private var confirmDeleteGoalId: String?
+    @State private var pendingNewGoalId: String?
     @State private var didInit = false
 
     var body: some View {
@@ -5351,7 +5358,11 @@ struct GoalListView: View {
                             .foregroundColor(AppColors.secondaryLabel)
                     }
                     Spacer()
-                    Button(action: { sheet = .add }) {
+                    Button(action: {
+                        let draft = store.createDraftGoal()
+                        pendingNewGoalId = draft.id
+                        sheet = .edit(draft.id)
+                    }) {
                         Image(systemName: "plus")
                             .font(.system(size: 22, weight: .semibold, design: .rounded))
                             .foregroundColor(AppColors.indigo)
@@ -5418,13 +5429,21 @@ struct GoalListView: View {
                 secondaryButton: .cancel()
             )
         }
-        .sheet(item: $sheet) { which in
+        .sheet(item: $sheet, onDismiss: discardDraftIfUnsaved) { which in
             switch which {
-            case .add:
-                AddGoalSheet(store: store, onDone: { sheet = nil })
             case .edit(let goalId):
-                EditGoalView(store: store, goalId: goalId) { sheet = nil }
+                EditGoalView(store: store, goalId: goalId, isNewGoal: goalId == pendingNewGoalId) { sheet = nil }
             }
+        }
+    }
+
+    /// When the add-goal flow closes, drop the draft goal if it was never named (i.e. discarded
+    /// via Cancel or swipe-to-dismiss). Saving a goal sets a non-blank name, so it's kept.
+    private func discardDraftIfUnsaved() {
+        guard let id = pendingNewGoalId else { return }
+        pendingNewGoalId = nil
+        if let g = store.goal(id: id), g.name.nilIfBlank == nil {
+            store.deleteGoalCascade(goalId: id)
         }
     }
 }
@@ -5456,13 +5475,19 @@ struct GoalCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground)))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground))
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.12), color.opacity(0.02)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
+        )
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
                 .stroke(
-                    LinearGradient(gradient: Gradient(colors: [color, color.opacity(0.3)]), startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 1.8
+                    LinearGradient(gradient: Gradient(colors: [color.opacity(0.35), color.opacity(0.08)]), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
                 )
         )
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 3)
