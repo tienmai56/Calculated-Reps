@@ -1,0 +1,4 @@
+module AppAuthCore {
+umbrella "/Users/tienmai56/Downloads/Mat-Mind-v2/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore"
+export *
+}

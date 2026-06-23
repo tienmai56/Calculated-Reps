@@ -4148,6 +4148,21 @@ struct EditGoalView: View {
         }
         .background(AppColors.background.edgesIgnoringSafeArea(.all))
         .alert(item: $activeAlert, content: alert(for:))
+        #if DEBUG
+        .onAppear {
+            if ProcessInfo.processInfo.environment["AUTO_PICK"] == "1", let firstTask = store.tasks(forGoal: goalId).first {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 600, height: 400))
+                    let img = renderer.image { ctx in
+                        UIColor.systemOrange.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 600, height: 400))
+                    }
+                    if let data = img.jpegData(compressionQuality: 0.8) {
+                        store.addTaskImage(taskId: firstTask.id, imageData: data)
+                    }
+                }
+            }
+        }
+        #endif
     }
 
     private var previewHeader: some View {
@@ -5450,6 +5465,11 @@ struct GoalListView: View {
                 didInit = true
                 if let first = store.activeGoals.first { expandedGoalIds = [first.id] }
             }
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["AUTO_EDIT"] == "1", sheet == nil, let first = store.activeGoals.first {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { sheet = .edit(first.id) }
+            }
+            #endif
         }
         .alert(item: Binding(
             get: { confirmDeleteGoalId.map(GoalEditToken.init(id:)) },
