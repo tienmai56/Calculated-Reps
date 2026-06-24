@@ -1,4 +1,0 @@
-module AppAuthCore {
-umbrella "/Users/tienmai56/Downloads/Calculated-Reps-main/DerivedDataBaseline/SourcePackages/checkouts/AppAuth-iOS/Sources/AppAuthCore"
-export *
-}

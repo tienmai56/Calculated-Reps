@@ -1,4 +1,0 @@
-module GoogleUtilities_Environment {
-umbrella "/Users/tienmai56/Downloads/Calculated-Reps-main/DerivedDataBaseline/SourcePackages/checkouts/GoogleUtilities/GoogleUtilities/Environment/Public"
-export *
-}

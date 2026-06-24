@@ -428,20 +428,6 @@
     "moduleName" : "Foundation"
   },
   {
-    "clangModuleMapPath" : "\/Users\/tienmai56\/Downloads\/Mat-Mind-v2\/DerivedDataBaseline\/Build\/Intermediates.noindex\/GeneratedModuleMaps-iphonesimulator\/GTMSessionFetcherCore.modulemap",
-    "clangModulePath" : "\/Users\/tienmai56\/Downloads\/Mat-Mind-v2\/DerivedDataBaseline\/Build\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/GTMSessionFetcherCore-B51TGHCQQ1C2HSRTV9JN2JE2U.pcm",
-    "isBridgingHeaderDependency" : false,
-    "isFramework" : false,
-    "moduleName" : "GTMSessionFetcherCore"
-  },
-  {
-    "clangModuleMapPath" : "\/Users\/tienmai56\/Downloads\/Mat-Mind-v2\/DerivedDataBaseline\/Build\/Intermediates.noindex\/GeneratedModuleMaps-iphonesimulator\/GoogleSignIn.modulemap",
-    "clangModulePath" : "\/Users\/tienmai56\/Downloads\/Mat-Mind-v2\/DerivedDataBaseline\/Build\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/GoogleSignIn-DF4MIFRFC1BAVGSDDPGLQK2P5.pcm",
-    "isBridgingHeaderDependency" : false,
-    "isFramework" : false,
-    "moduleName" : "GoogleSignIn"
-  },
-  {
     "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/iPhoneSimulator.platform\/Developer\/SDKs\/iPhoneSimulator.sdk\/System\/Library\/Frameworks\/IOSurface.framework\/Modules\/module.modulemap",
     "clangModulePath" : "\/Users\/tienmai56\/Downloads\/Mat-Mind-v2\/DerivedDataBaseline\/ModuleCache.noindex\/IOSurface-7YQ6JOEMXP9JFFAFEGIQHI9Z2.pcm",
     "isBridgingHeaderDependency" : false,

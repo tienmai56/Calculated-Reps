@@ -11,9 +11,9 @@
 		111111111111111111111102 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111002 /* SceneDelegate.swift */; };
 		111111111111111111111103 /* IntentionalTrainingNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111003 /* IntentionalTrainingNotes.swift */; };
 		111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111005 /* IntentionalTrainingNotesTests.swift */; };
-		8D439B0C2FB05F1D00DCA7D1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 8D439B0B2FB05F1D00DCA7D1 /* GoogleSignIn */; };
-		8D439B0E2FB05F1D00DCA7D1 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 8D439B0D2FB05F1D00DCA7D1 /* GoogleSignInSwift */; };
 		8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */; };
+		FA00FA00FA00FA00FA000001 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */; };
+		FA00FA00FA00FA00FA000002 /* Fraunces-Italic-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,6 +35,8 @@
 		111111111111111111111011 /* IntentionalTrainingNotes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IntentionalTrainingNotes.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntentionalTrainingNotesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-VariableFont.ttf"; sourceTree = "<group>"; };
+		FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Italic-VariableFont.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,8 +44,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8D439B0C2FB05F1D00DCA7D1 /* GoogleSignIn in Frameworks */,
-				8D439B0E2FB05F1D00DCA7D1 /* GoogleSignInSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -74,8 +74,18 @@
 				111111111111111111111002 /* SceneDelegate.swift */,
 				111111111111111111111003 /* IntentionalTrainingNotes.swift */,
 				111111111111111111111006 /* Info.plist */,
+				FA00FA00FA00FA00FA000010 /* Fonts */,
 			);
 			path = IntentionalTrainingNotes;
+			sourceTree = "<group>";
+		};
+		FA00FA00FA00FA00FA000010 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */,
+				FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		111111111111111111111120 /* IntentionalTrainingNotesTests */ = {
@@ -161,7 +171,6 @@
 			);
 			mainGroup = 111111111111111111111100;
 			packageReferences = (
-				8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			productRefGroup = 111111111111111111111130 /* Products */;
 			projectDirPath = "";
@@ -179,6 +188,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */,
+				FA00FA00FA00FA00FA000001 /* Fraunces-VariableFont.ttf in Resources */,
+				FA00FA00FA00FA00FA000002 /* Fraunces-Italic-VariableFont.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -392,30 +403,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 8.0.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		8D439B0B2FB05F1D00DCA7D1 /* GoogleSignIn */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
-			productName = GoogleSignIn;
-		};
-		8D439B0D2FB05F1D00DCA7D1 /* GoogleSignInSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 8D439B0A2FB05F1D00DCA7D1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
-			productName = GoogleSignInSwift;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 111111111111111111111200 /* Project object */;
 }

@@ -6,10 +6,32 @@ import Security
 import Speech
 import SwiftUI
 import UIKit
+import UserNotifications
 
 #if canImport(GoogleSignIn)
 import GoogleSignIn
 #endif
+
+// MARK: - Mat Mind Typography
+//
+// Mat Mind pairs Apple's SF Pro Rounded with Fraunces (variable serif):
+//   • TITLES & HEADERS — SF Pro Rounded via Font.system(..., design: .rounded)
+//   • DESCRIPTIONS / BODY PROSE — Fraunces, via Font.matMindBody(size:)
+//
+// Use Fraunces only for prose: reflection notes, task notes, subtitles,
+// helper text. Keep buttons, chips, labels, and titles in rounded.
+extension Font {
+    /// Fraunces for descriptive prose — reflection notes, helper text, subtitles.
+    /// Variable font; defaults to regular weight (best for body).
+    static func matMindBody(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font.custom("Fraunces", size: size).weight(weight)
+    }
+
+    /// Fraunces italic for emphasis within body prose.
+    static func matMindItalic(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font.custom("Fraunces-Italic", size: size).weight(weight)
+    }
+}
 
 // MARK: - Shared Formatters
 
@@ -218,15 +240,18 @@ struct AppColors {
 
     // Warm background: faint warm off-white in light mode, system default in dark
     static let background = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .systemBackground : UIColor(red: 250/255, green: 249/255, blue: 247/255, alpha: 1)
+        traits.userInterfaceStyle == .dark ? .systemBackground : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
     })
     static let secondaryBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .secondarySystemBackground : UIColor(red: 245/255, green: 243/255, blue: 240/255, alpha: 1)
+        traits.userInterfaceStyle == .dark ? .secondarySystemBackground : UIColor(red: 242/255, green: 241/255, blue: 247/255, alpha: 1)
     })
     static let groupedBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .systemGroupedBackground : UIColor(red: 250/255, green: 249/255, blue: 247/255, alpha: 1)
+        traits.userInterfaceStyle == .dark ? .systemGroupedBackground : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
     })
-    static let cardBackground = Color(.systemBackground) // true white cards for contrast
+    // Soft lavender card surface that reads as a card against the near-white app background.
+    static let cardBackground = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .secondarySystemBackground : UIColor(red: 246/255, green: 245/255, blue: 250/255, alpha: 1)
+    })
 
     // Warm grays for text
     static let label = Color(UIColor { traits in
@@ -1452,6 +1477,14 @@ final class NotebookStore: ObservableObject {
         notebook.reflections.filter { calendar.sameTrainingDay($0.date, date) }
     }
 
+    /// All reflections whose session contains the given task, newest first.
+    func reflections(forTaskId taskId: String) -> [Reflection] {
+        let sessionIds = Set(notebook.sessions.filter { $0.taskIds.contains(taskId) }.map { $0.id })
+        return notebook.reflections
+            .filter { sessionIds.contains($0.sessionId) }
+            .sorted { $0.date > $1.date }
+    }
+
     func proposeBatchSessions(goalId: String, dayDates: [Date], tasksByDay: [Date: [String]]) -> [ProposedSession] {
         dayDates.map { date in
             let normalized = calendar.normalizedTrainingDay(date)
@@ -1590,11 +1623,14 @@ final class NotebookStore: ObservableObject {
         }
     }
 
-    func updateSession(id: String, goalId: String, taskIds: [String]) {
+    func updateSession(id: String, goalId: String, taskIds: [String], date: Date? = nil) {
         guard let idx = notebook.sessions.firstIndex(where: { $0.id == id }) else { return }
         mutate {
             notebook.sessions[idx].goalId = goalId
             notebook.sessions[idx].taskIds = taskIds
+            if let newDate = date {
+                notebook.sessions[idx].date = Calendar.current.normalizedTrainingDay(newDate)
+            }
             notebook.sessions[idx].updatedAt = Date()
         }
     }
@@ -1700,7 +1736,7 @@ final class NotebookStore: ObservableObject {
     /// TEMPORARY demo data for testing. Re-seeds when `seedVersion` changes. Remove before shipping.
     func seedDemoDataIfEmpty() {
         let seedKey = "matmind.debugSeedVersion"
-        let seedVersion = "v2-2goals-3sessions-photos"
+        let seedVersion = "v3-2goals-3sessions-2reflections-photos"
         let alreadySeeded = UserDefaults.standard.string(forKey: seedKey) == seedVersion
         if alreadySeeded && !notebook.goals.isEmpty { return }
 
@@ -1760,19 +1796,39 @@ final class NotebookStore: ObservableObject {
         let ashiEntry = TrainingTask(goalId: g2.id, name: "Ashi garami entry",
             notes: "Off-balance them, secure the outside leg, and establish ashi garami before attacking the foot.")
 
-        // 3 planned sessions: today + two past days (past days are immediately reflectable).
-        func sess(_ goal: TrainingGoal, _ offset: Int, _ taskIds: [String]) -> PlannedSession {
-            PlannedSession(goalId: goal.id, date: day(offset), taskIds: taskIds, status: .planned, createdAt: day(offset))
+        // 3 sessions: one planned today (Next Session) + two completed past days (with reflections).
+        func sess(_ goal: TrainingGoal, _ offset: Int, _ taskIds: [String], _ status: SessionStatus = .planned) -> PlannedSession {
+            PlannedSession(goalId: goal.id, date: day(offset), taskIds: taskIds, status: status, createdAt: day(offset))
         }
         let s1 = sess(g1, 0, [chaseHip.id, sepKnee.id])
-        let s2 = sess(g2, -1, [insideHeel.id])
-        let s3 = sess(g1, -3, [chaseHip.id])
+        let s2 = sess(g1, -2, [chaseHip.id], .done)
+        let s3 = sess(g2, -4, [insideHeel.id], .done)
+
+        // Two reflections so Latest Entry + Patterns are populated for testing.
+        let r1 = Reflection(
+            sessionId: s2.id,
+            date: day(-2),
+            workedText: "Focusing on chasing the hip makes me move more; clearing the knee shield by push/pull then scooping and pushing the knee.\n- Cross-face frame is effective in keeping their shoulder down.",
+            stuckText: "- Got swept by knee lever.\n- Hard time clearing the low knee shield, especially when John locked his feet.",
+            tryNextText: "- Clear the upper knee shield by push/pull, then use a scoop grip to extend and push the knee.",
+            mood: .neutral,
+            isFavorite: true
+        )
+        let r2 = Reflection(
+            sessionId: s3.id,
+            date: day(-4),
+            workedText: "Staying tight to the hip killed their rotation and let me keep the heel exposed.",
+            stuckText: "Lost the position when I reached with my hands instead of rotating from the hips.",
+            tryNextText: "Drill the ashi garami entry off a failed pass so the transition becomes automatic.",
+            mood: .good,
+            isFavorite: false
+        )
 
         mutate {
             notebook.goals = [g1, g2]
             notebook.tasks = [chaseHip, sepKnee, insideHeel, ashiEntry]
             notebook.sessions = [s1, s2, s3]
-            notebook.reflections = []
+            notebook.reflections = [r1, r2]
         }
         UserDefaults.standard.set(seedVersion, forKey: seedKey)
     }
@@ -2199,7 +2255,7 @@ struct HomeView: View {
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     Text("mat sessions")
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.matMindBody(size: 14))
                         .foregroundColor(.white.opacity(0.8))
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -2212,7 +2268,7 @@ struct HomeView: View {
                             .foregroundColor(AppColors.mint)
                     }
                     Text("reflections")
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.matMindBody(size: 14))
                         .foregroundColor(.white.opacity(0.8))
                 }
                 Spacer()
@@ -2274,7 +2330,7 @@ struct HomeView: View {
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 Text("You've put in the reps — set a challenge.")
-                    .font(.system(size: 14, design: .rounded))
+                    .font(.matMindBody(size: 14))
                     .foregroundColor(AppColors.secondaryLabel)
             }
             Spacer()
@@ -2289,7 +2345,7 @@ struct HomeView: View {
             .buttonStyle(PlainButtonStyle())
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
     }
 
     // MARK: - Next Session
@@ -2298,7 +2354,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Next Session")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 Spacer()
                 if !nextSessions.isEmpty {
@@ -2324,7 +2380,7 @@ struct HomeView: View {
                     .buttonStyle(PlainButtonStyle())
                 }
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+                .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
             } else {
                 ForEach(nextSessions) { session in
                     SessionCardView(
@@ -2347,7 +2403,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Latest Entry")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .foregroundColor(AppColors.label)
                     Spacer()
                     Text(weekdayLabel(latest.date))
@@ -2371,7 +2427,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Patterns — \(filteredReflections.count) \(filteredReflections.count == 1 ? "entry" : "entries")")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 Spacer()
                 Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showFavoritesOnly.toggle() } }) {
@@ -2390,9 +2446,9 @@ struct HomeView: View {
                 .buttonStyle(PlainButtonStyle())
             }
 
-            HStack {
+            HStack(alignment: .center, spacing: 8) {
                 goalFilterControl
-                Spacer()
+                Spacer(minLength: 8)
                 kindFilterControl
             }
 
@@ -2421,41 +2477,52 @@ struct HomeView: View {
                 }
             }
         }
+        .overlay(
+            ZStack(alignment: .topLeading) {
+                if goalFilterOpen {
+                    // Soft-dismiss backdrop — uses .overlay so it doesn't affect parent layout
+                    Color.black.opacity(0.001)
+                        .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                        .fixedSize()
+                        .contentShape(Rectangle())
+                        .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { goalFilterOpen = false } }
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        goalFilterRow(title: "All", id: nil)
+                        ForEach(store.activeGoals) { goal in
+                            Divider()
+                            goalFilterRow(title: goal.name, id: goal.id)
+                        }
+                    }
+                    .background(AppColors.background)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.systemGray4), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.22), radius: 14, x: 0, y: 6)
+                    .frame(width: 200)
+                    .fixedSize()
+                    .offset(x: 0, y: 80)
+                }
+            }
+            .allowsHitTesting(goalFilterOpen),
+            alignment: .topLeading
+        )
     }
 
     private var goalFilterControl: some View {
-        ZStack(alignment: .topLeading) {
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { goalFilterOpen.toggle() } }) {
-                HStack(spacing: 4) {
-                    Text(patternGoalId.flatMap { store.goal(id: $0)?.name } ?? "All")
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.label)
-                    Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold)).foregroundColor(AppColors.secondaryLabel)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color(.secondarySystemBackground)))
+        Button(action: { withAnimation(.easeInOut(duration: 0.15)) { goalFilterOpen.toggle() } }) {
+            HStack(spacing: 4) {
+                Text(patternGoalId.flatMap { store.goal(id: $0)?.name } ?? "All")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundColor(AppColors.secondaryLabel)
             }
-            .buttonStyle(PlainButtonStyle())
-
-            if goalFilterOpen {
-                VStack(alignment: .leading, spacing: 0) {
-                    goalFilterRow(title: "All", id: nil)
-                    ForEach(store.activeGoals) { goal in
-                        Divider()
-                        goalFilterRow(title: goal.name, id: goal.id)
-                    }
-                }
-                .background(AppColors.background)
-                .cornerRadius(10)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.systemGray4), lineWidth: 1))
-                .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 2)
-                .frame(width: 200)
-                .offset(y: 44)
-                .zIndex(20)
-            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(AppColors.cardBackground))
         }
-        .zIndex(goalFilterOpen ? 20 : 0)
+        .buttonStyle(PlainButtonStyle())
+        .fixedSize()
     }
 
     private func goalFilterRow(title: String, id: String?) -> some View {
@@ -2464,7 +2531,7 @@ struct HomeView: View {
             withAnimation(.easeInOut(duration: 0.15)) { goalFilterOpen = false }
         }) {
             HStack {
-                Text(title).font(.system(size: 15, design: .rounded)).foregroundColor(AppColors.label)
+                Text(title).font(.matMindBody(size: 15)).foregroundColor(AppColors.label)
                 Spacer()
                 if patternGoalId == id {
                     Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundColor(AppColors.indigo)
@@ -2478,21 +2545,24 @@ struct HomeView: View {
     }
 
     private var kindFilterControl: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(PatternKind.allCases, id: \.self) { kind in
                 Button(action: { patternKind = kind }) {
                     Text(kind.rawValue)
-                        .font(.system(size: 15, weight: patternKind == kind ? .semibold : .regular, design: .rounded))
+                        .font(.system(size: 13, weight: patternKind == kind ? .semibold : .regular, design: .rounded))
                         .foregroundColor(patternKind == kind ? AppColors.indigo : AppColors.secondaryLabel)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
                         .background(
                             Capsule().fill(patternKind == kind ? AppColors.indigo.opacity(0.12) : Color.clear)
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
+                .fixedSize()
             }
         }
+        .fixedSize()
     }
 
     // MARK: - Stats
@@ -2618,24 +2688,229 @@ enum HomeSheet: Identifiable {
 
 struct SettingsSheet: View {
     @Environment(\.presentationMode) var presentationMode
+    @State private var showReminders = false
+
     var body: some View {
         NavigationView {
-            VStack(spacing: 12) {
-                Text("Mat Mind")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(AppColors.label)
-                Text("Train with intention.")
-                    .font(.system(size: 15, design: .rounded))
-                    .foregroundColor(AppColors.secondaryLabel)
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    settingsRow(icon: "bell.fill", iconColor: Color(red: 0.9, green: 0.4, blue: 0.4), label: "Reminders", showDivider: true) {
+                        showReminders = true
+                    }
+                    settingsRow(icon: "star.fill", iconColor: AppColors.mint, label: "Rate Mat Mind", showDivider: true) {
+                        openAppStoreRating()
+                    }
+                    settingsRow(icon: "envelope.fill", iconColor: AppColors.indigo, label: "Feedback", showDivider: false) {
+                        // Placeholder — no action yet
+                    }
+                }
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+
                 Spacer()
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 40)
-            .padding(.horizontal, 16)
-            .background(AppColors.background.edgesIgnoringSafeArea(.all))
+            .background(AppColors.groupedBackground.edgesIgnoringSafeArea(.all))
             .navigationBarTitle("Settings", displayMode: .inline)
-            .navigationBarItems(trailing: Button("Done") { presentationMode.wrappedValue.dismiss() })
+            .navigationBarItems(leading: Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left").font(.system(size: 16, weight: .semibold))
+                    Text("Back")
+                }
+                .foregroundColor(AppColors.indigo)
+            })
+            .sheet(isPresented: $showReminders) {
+                RemindersSettingsView()
+            }
         }
+    }
+
+    private func settingsRow(icon: String, iconColor: Color, label: String, showDivider: Bool, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 0) {
+            Button(action: action) {
+                HStack(spacing: 14) {
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                        .foregroundColor(iconColor)
+                        .frame(width: 28)
+                    Text(label)
+                        .font(.system(size: 17, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color(.systemGray3))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            if showDivider {
+                Divider().padding(.leading, 58)
+            }
+        }
+    }
+
+    private func openAppStoreRating() {
+        let appId = "com.tienmai.intentionaltrainingnotes"
+        if let url = URL(string: "itms-apps://itunes.apple.com/app/id\(appId)?action=write-review") {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+    }
+}
+
+// MARK: - Reminders Settings
+
+struct RemindersSettingsView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @State private var reminderEnabled: Bool = UserDefaults.standard.object(forKey: "reminderEnabled") as? Bool ?? true
+    @State private var reminderHour: Int = UserDefaults.standard.object(forKey: "reminderHour") as? Int ?? 8
+    @State private var reminderMinute: Int = UserDefaults.standard.object(forKey: "reminderMinute") as? Int ?? 0
+    @State private var showTimePicker = false
+
+    private var timeLabel: String {
+        let h = reminderHour % 12 == 0 ? 12 : reminderHour % 12
+        let period = reminderHour < 12 ? "AM" : "PM"
+        return String(format: "%d:%02d %@", h, reminderMinute, period)
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("REFLECTION REMINDER")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .kerning(0.5)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
+                    .padding(.bottom, 10)
+
+                VStack(spacing: 0) {
+                    // Toggle row
+                    HStack(spacing: 14) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(Color(red: 0.9, green: 0.4, blue: 0.4))
+                            .frame(width: 28)
+                        Text("Reflection reminder")
+                            .font(.system(size: 17, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                        Spacer()
+                        Toggle("", isOn: $reminderEnabled)
+                            .labelsHidden()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+
+                    Divider().padding(.leading, 58)
+
+                    // Time row
+                    Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showTimePicker.toggle() } }) {
+                        HStack(spacing: 14) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 18))
+                                .foregroundColor(AppColors.secondaryLabel)
+                                .frame(width: 28)
+                            Text("Time")
+                                .font(.system(size: 17, design: .rounded))
+                                .foregroundColor(AppColors.label)
+                            Spacer()
+                            Text(timeLabel)
+                                .font(.system(size: 17, design: .rounded))
+                                .foregroundColor(AppColors.secondaryLabel)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Color(.systemGray3))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .opacity(reminderEnabled ? 1.0 : 0.4)
+                    .disabled(!reminderEnabled)
+
+                    if showTimePicker && reminderEnabled {
+                        DatePicker("", selection: Binding(
+                            get: {
+                                var comps = DateComponents()
+                                comps.hour = reminderHour
+                                comps.minute = reminderMinute
+                                return Calendar.current.date(from: comps) ?? Date()
+                            },
+                            set: { newDate in
+                                reminderHour = Calendar.current.component(.hour, from: newDate)
+                                reminderMinute = Calendar.current.component(.minute, from: newDate)
+                            }
+                        ), displayedComponents: .hourAndMinute)
+                        .datePickerStyle(WheelDatePickerStyle())
+                        .labelsHidden()
+                        .padding(.horizontal, 16)
+                    }
+                }
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))
+                .padding(.horizontal, 16)
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppColors.groupedBackground.edgesIgnoringSafeArea(.all))
+            .navigationBarTitle("Reminders", displayMode: .inline)
+            .navigationBarItems(leading: Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left").font(.system(size: 16, weight: .semibold))
+                    Text("Back")
+                }
+                .foregroundColor(AppColors.indigo)
+            })
+            .onDisappear { saveAndSchedule() }
+        }
+    }
+
+    private func saveAndSchedule() {
+        UserDefaults.standard.set(reminderEnabled, forKey: "reminderEnabled")
+        UserDefaults.standard.set(reminderHour, forKey: "reminderHour")
+        UserDefaults.standard.set(reminderMinute, forKey: "reminderMinute")
+        ReminderScheduler.shared.updateSchedule(enabled: reminderEnabled, hour: reminderHour, minute: reminderMinute)
+    }
+}
+
+// MARK: - Reminder Scheduler
+
+final class ReminderScheduler {
+    static let shared = ReminderScheduler()
+    private let notificationId = "matmind.reflection.reminder"
+
+    func updateSchedule(enabled: Bool, hour: Int, minute: Int) {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [notificationId])
+
+        guard enabled else { return }
+
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = "Time to reflect 📖"
+            content.body = "How did training go? Take a minute to capture what worked and where you got stuck."
+            content.sound = .default
+
+            var dateComponents = DateComponents()
+            dateComponents.hour = hour
+            dateComponents.minute = minute
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+            let request = UNNotificationRequest(identifier: self.notificationId, content: content, trigger: trigger)
+            center.add(request, withCompletionHandler: nil)
+        }
+    }
+
+    func scheduleDefaultIfNeeded() {
+        let enabled = UserDefaults.standard.object(forKey: "reminderEnabled") as? Bool ?? true
+        let hour = UserDefaults.standard.object(forKey: "reminderHour") as? Int ?? 8
+        let minute = UserDefaults.standard.object(forKey: "reminderMinute") as? Int ?? 0
+        updateSchedule(enabled: enabled, hour: hour, minute: minute)
     }
 }
 
@@ -2648,6 +2923,14 @@ struct ReflectionCardView: View {
     var onDelete: () -> Void
     var onShareFeedback: () -> Void
     var filter: PatternKind = .all
+    /// When true, header shows date + mood label instead of the goal name. Used by the
+    /// per-task reflections screen where the goal/task context is already in the screen header.
+    var dateMode: Bool = false
+    /// When false, hides the "Get feedback" share button (used in contexts where sharing is out of scope).
+    var showShareButton: Bool = true
+    /// When false, hides the "..." overflow menu (edit/delete). Used by read-only-ish surfaces
+    /// like the per-task reflections list where the only meaningful in-place action is favorite.
+    var showMenu: Bool = true
 
     @State private var menuOpen = false
 
@@ -2657,36 +2940,54 @@ struct ReflectionCardView: View {
         let color = goal?.goalColor ?? AppColors.indigo
 
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 if let mood = reflection.mood {
                     Text(mood.glyph).font(.system(size: 26))
                 }
-                Text(goal?.name ?? "Session")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(color)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 6)
-                Button(action: onShareFeedback) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.and.arrow.up").font(.system(size: 12))
-                        Text("Get feedback").font(.system(size: 13, weight: .semibold, design: .rounded))
+                if dateMode {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Self.dateLabel(reflection.date))
+                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                        if let mood = reflection.mood {
+                            Text(mood.label)
+                                .font(.system(size: 13, design: .rounded))
+                                .foregroundColor(AppColors.secondaryLabel)
+                        }
                     }
-                    .foregroundColor(AppColors.indigo)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(AppColors.indigo.opacity(0.10)))
+                } else {
+                    Text(goal?.name ?? "Session")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundColor(color)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(PlainButtonStyle())
+                Spacer(minLength: 6)
+                if showShareButton {
+                    Button(action: onShareFeedback) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(AppColors.indigo)
+                            .frame(width: 32, height: 28)
+                            .background(Capsule().fill(AppColors.indigo.opacity(0.10)))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
                 Button(action: { store.toggleFavorite(reflectionId: reflection.id) }) {
                     Image(systemName: reflection.isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 18))
+                        .font(.system(size: 17))
                         .foregroundColor(reflection.isFavorite ? AppColors.coral : AppColors.tertiaryLabel)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(PlainButtonStyle())
-                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { menuOpen.toggle() } }) {
-                    Image(systemName: "ellipsis").font(.system(size: 16)).foregroundColor(AppColors.secondaryLabel).frame(width: 22, height: 28)
+                if showMenu {
+                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { menuOpen.toggle() } }) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16))
+                            .foregroundColor(AppColors.secondaryLabel)
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
 
             if shows(.wins), let s = reflection.workedText.nilIfBlank {
@@ -2701,8 +3002,14 @@ struct ReflectionCardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
         .overlay(menuOverlay, alignment: .topTrailing)
+    }
+
+    private static func dateLabel(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        return formatter.string(from: date)
     }
 
     private func shows(_ kind: PatternKind) -> Bool {
@@ -2717,7 +3024,7 @@ struct ReflectionCardView: View {
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(accent)
                 Text(text)
-                    .font(.system(size: 15, design: .rounded))
+                    .font(.matMindBody(size: 15))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -2731,30 +3038,37 @@ struct ReflectionCardView: View {
     @ViewBuilder
     private var menuOverlay: some View {
         if menuOpen {
-            VStack(alignment: .leading, spacing: 0) {
-                Button(action: { menuOpen = false; onReflect() }) {
-                    menuRowLabel(icon: "pencil", label: "Edit", color: AppColors.label)
+            ZStack(alignment: .topTrailing) {
+                Color.black.opacity(0.001)
+                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                    .fixedSize()
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { menuOpen = false } }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Button(action: { menuOpen = false; onReflect() }) {
+                        menuRowLabel(icon: "pencil", label: "Edit", color: AppColors.label)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    Divider().padding(.horizontal, 10)
+                    Button(action: { menuOpen = false; onDelete() }) {
+                        menuRowLabel(icon: "trash", label: "Delete", color: AppColors.coral)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
-                Divider().padding(.horizontal, 10)
-                Button(action: { menuOpen = false; onDelete() }) {
-                    menuRowLabel(icon: "trash", label: "Delete", color: AppColors.coral)
-                }
-                .buttonStyle(PlainButtonStyle())
+                .background(AppColors.background)
+                .cornerRadius(10)
+                .shadow(color: Color.black.opacity(0.14), radius: 8, x: 0, y: 2)
+                .frame(width: 150)
+                .padding(.top, 40)
+                .padding(.trailing, 6)
             }
-            .background(AppColors.background)
-            .cornerRadius(10)
-            .shadow(color: Color.black.opacity(0.14), radius: 8, x: 0, y: 2)
-            .frame(width: 150)
-            .padding(.top, 40)
-            .padding(.trailing, 6)
         }
     }
 
     private func menuRowLabel(icon: String, label: String, color: Color) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 14, design: .rounded)).foregroundColor(color)
-            Text(label).font(.system(size: 15, design: .rounded)).foregroundColor(color)
+            Image(systemName: icon).font(.matMindBody(size: 14)).foregroundColor(color)
+            Text(label).font(.matMindBody(size: 15)).foregroundColor(color)
             Spacer()
         }
         .padding(.horizontal, 14)
@@ -2793,7 +3107,7 @@ struct FeedbackCardView: View {
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
                 Text("Please fix my jiu-jitsu:")
-                    .font(.system(size: 16, design: .rounded))
+                    .font(.matMindBody(size: 16))
                     .foregroundColor(Color(red: 120/255, green: 117/255, blue: 113/255))
             }
             VStack(alignment: .leading, spacing: 6) {
@@ -2825,7 +3139,7 @@ struct FeedbackCardView: View {
             if let mood = mood {
                 HStack(spacing: 6) {
                     Text("Feeling:")
-                        .font(.system(size: 16, design: .rounded))
+                        .font(.matMindBody(size: 16))
                         .foregroundColor(Color(red: 120/255, green: 117/255, blue: 113/255))
                     Text("\(mood.glyph) \(mood.label)")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
@@ -2835,7 +3149,7 @@ struct FeedbackCardView: View {
             Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Thank you, see you on the mat.")
-                    .font(.system(size: 16, design: .rounded))
+                    .font(.matMindBody(size: 16))
                     .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
                 Text("xoxo")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
@@ -3093,7 +3407,7 @@ struct HomeStatRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: systemName)
-                .font(.system(size: 16, design: .rounded))
+                .font(.matMindBody(size: 16))
                 .foregroundColor(iconColor)
             Text("\(value)")
                 .font(.system(size: 24, weight: .medium, design: .rounded))
@@ -3374,7 +3688,7 @@ struct HomeSnippetSection: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(snippets.enumerated()), id: \.offset) { _, snippet in
                         Text("• " + snippet)
-                            .font(.system(size: 15, design: .rounded))
+                            .font(.matMindBody(size: 15))
                             .foregroundColor(AppColors.label)
                     }
                 }
@@ -3522,14 +3836,12 @@ struct SessionCardView: View {
     var onEdit: () -> Void
     var onDelete: () -> Void
 
-    @State private var showNotes = false
     @State private var menuOpen = false
 
     var body: some View {
         let goal = store.goal(id: session.goalId)
         let color = goal?.goalColor ?? AppColors.indigo
         let tasks = session.taskIds.compactMap { store.task(id: $0) }
-        let hasNotes = tasks.contains { $0.hasDetails }
         let reflected = store.reflection(forSessionId: session.id) != nil
 
         VStack(alignment: .leading, spacing: 12) {
@@ -3568,86 +3880,138 @@ struct SessionCardView: View {
             }
 
             if !tasks.isEmpty {
-                WrappingHStack(items: tasks) { task in
-                    Text(task.name)
-                        .font(.system(size: 15, design: .rounded))
-                        .foregroundColor(color)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(color.opacity(0.12))
-                        .cornerRadius(14)
-                }
-            }
-
-            if hasNotes {
-                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showNotes.toggle() } }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: showNotes ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("task notes")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                    }
-                    .foregroundColor(AppColors.secondaryLabel)
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PlainButtonStyle())
-
-                if showNotes {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ForEach(tasks) { task in
-                            taskNoteBlock(task, color: color)
-                        }
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(tasks) { task in
+                        sessionTaskRow(task, color, isLast: task.id == tasks.last?.id)
                     }
                 }
+                .padding(.top, 4)
+                .padding(.horizontal, 16)
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground))
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.12), color.opacity(0.02)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground))
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.06), color.opacity(0.03)]), startPoint: .topLeading, endPoint: .bottomTrailing))
             }
         )
+        .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 18)
                 .stroke(
-                    LinearGradient(gradient: Gradient(colors: [color.opacity(0.35), color.opacity(0.08)]), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    LinearGradient(gradient: Gradient(colors: [color.opacity(0.22), color.opacity(0.06)]), startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 1
                 )
         )
+        .overlay(
+            HStack(spacing: 0) {
+                Rectangle().fill(color).frame(width: 4)
+                Spacer()
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+        )
+        .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
         .overlay(menuOverlay, alignment: .topTrailing)
+    }
+
+    // MARK: Task row (matches "Next Session" screenshot design)
+
+    @ViewBuilder
+    private func sessionTaskRow(_ task: TrainingTask, _ color: Color, isLast: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
+                Circle().fill(color)
+                    .frame(width: 6, height: 6)
+                    .padding(.top, 7)
+                Text(task.name)
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+
+            sessionTaskDetail(task, color)
+
+            if !isLast {
+                Divider()
+                    .padding(.leading, 16)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private func sessionTaskDetail(_ task: TrainingTask, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let notes = task.notes.nilIfBlank {
+                Text(notes)
+                    .font(.matMindBody(size: 14))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !task.imageFileNames.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(task.imageFileNames, id: \.self) { fn in
+                        if let data = store.taskImageData(taskId: task.id, fileName: fn), let ui = UIImage(data: data) {
+                            Image(uiImage: ui)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 200)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                }
+            }
+            if let link = task.link.nilIfBlank {
+                HStack(spacing: 8) {
+                    Image(systemName: "link").font(.system(size: 13)).foregroundColor(color)
+                    Text(link).font(.system(size: 14, weight: .medium, design: .rounded)).foregroundColor(color).lineLimit(1)
+                    Spacer()
+                }
+            }
+        }
     }
 
     @ViewBuilder
     private var menuOverlay: some View {
         if menuOpen {
-            VStack(alignment: .leading, spacing: 0) {
-                menuRow(icon: "pencil", label: "Edit", color: AppColors.label) {
-                    menuOpen = false
-                    onEdit()
+            ZStack(alignment: .topTrailing) {
+                Color.black.opacity(0.001)
+                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                    .fixedSize()
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { menuOpen = false } }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    menuRow(icon: "pencil", label: "Edit", color: AppColors.label) {
+                        menuOpen = false
+                        onEdit()
+                    }
+                    Divider().padding(.horizontal, 10)
+                    menuRow(icon: "trash", label: "Delete", color: AppColors.coral) {
+                        menuOpen = false
+                        onDelete()
+                    }
                 }
-                Divider().padding(.horizontal, 10)
-                menuRow(icon: "trash", label: "Delete", color: AppColors.coral) {
-                    menuOpen = false
-                    onDelete()
-                }
+                .background(AppColors.background)
+                .cornerRadius(10)
+                .shadow(color: Color.black.opacity(0.14), radius: 8, x: 0, y: 2)
+                .frame(width: 150)
+                .padding(.top, 44)
+                .padding(.trailing, 8)
             }
-            .background(AppColors.background)
-            .cornerRadius(10)
-            .shadow(color: Color.black.opacity(0.14), radius: 8, x: 0, y: 2)
-            .frame(width: 150)
-            .padding(.top, 44)
-            .padding(.trailing, 8)
         }
     }
 
     private func menuRow(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 14, design: .rounded)).foregroundColor(color)
-                Text(label).font(.system(size: 15, design: .rounded)).foregroundColor(color)
+                Image(systemName: icon).font(.matMindBody(size: 14)).foregroundColor(color)
+                Text(label).font(.matMindBody(size: 15)).foregroundColor(color)
                 Spacer()
             }
             .padding(.horizontal, 14)
@@ -3655,50 +4019,6 @@ struct SessionCardView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
-    }
-
-    @ViewBuilder
-    private func taskNoteBlock(_ task: TrainingTask, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Circle().fill(color).frame(width: 7, height: 7)
-                Text(task.name)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppColors.label)
-            }
-            if let notes = task.notes.nilIfBlank {
-                Text(notes)
-                    .font(.system(size: 14, design: .rounded))
-                    .foregroundColor(AppColors.secondaryLabel)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text("No notes yet")
-                    .font(.system(size: 14, design: .rounded))
-                    .foregroundColor(AppColors.tertiaryLabel)
-            }
-            if let link = task.link.nilIfBlank {
-                HStack(spacing: 4) {
-                    Image(systemName: "link").font(.system(size: 11))
-                    Text(link).font(.system(size: 13, design: .rounded)).lineLimit(1)
-                }
-                .foregroundColor(AppColors.indigo)
-            }
-            if !task.imageFileNames.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(task.imageFileNames, id: \.self) { fileName in
-                            if let data = store.taskImageData(taskId: task.id, fileName: fileName), let ui = UIImage(data: data) {
-                                Image(uiImage: ui)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 220, height: 124)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -3826,7 +4146,7 @@ struct PlanListView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.systemBackground)))
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
     }
 
     private func dayCell(_ date: Date) -> some View {
@@ -3843,7 +4163,7 @@ struct PlanListView: View {
                         Circle().stroke(AppColors.indigo, lineWidth: 1.5).frame(width: 34, height: 34)
                     }
                     Text("\(cal.component(.day, from: date))")
-                        .font(.system(size: 16, design: .rounded))
+                        .font(.matMindBody(size: 16))
                         .foregroundColor(isSelected ? .white : AppColors.label)
                 }
                 .frame(height: 34)
@@ -3871,7 +4191,22 @@ struct PlanListView: View {
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(AppColors.label)
             if daySessions.isEmpty {
-                EmptyDashedState(title: "Nothing planned.", subtitle: "Tap + to plan training for this day.")
+                VStack(spacing: 14) {
+                    Text("Nothing planned.")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                    Button(action: onAdd) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(width: 48, height: 48)
+                            .background(Circle().fill(AppColors.indigo))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+                .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
             } else {
                 ForEach(daySessions) { session in
                     SessionCardView(
@@ -3953,49 +4288,82 @@ struct EditSessionView: View {
     let session: PlannedSession
     var onDismiss: () -> Void
 
-    @State private var selectedGoalId: String
+    @State private var selectedGoalIds: Set<String>
     @State private var selectedTaskIds: Set<String>
+    @State private var selectedDate: Date
+    @State private var showDatePicker = false
 
     init(store: NotebookStore, session: PlannedSession, onDismiss: @escaping () -> Void) {
         self.store = store
         self.session = session
         self.onDismiss = onDismiss
-        _selectedGoalId = State(initialValue: session.goalId)
+        // Pre-select goals that own any of the session's tasks
+        let taskGoalIds = Set(session.taskIds.compactMap { tid in
+            store.notebook.tasks.first(where: { $0.id == tid })?.goalId
+        })
+        let initialGoalIds = taskGoalIds.union([session.goalId])
+        _selectedGoalIds = State(initialValue: initialGoalIds)
         _selectedTaskIds = State(initialValue: Set(session.taskIds))
+        _selectedDate = State(initialValue: session.date)
     }
 
-    private var availableTasks: [TrainingTask] {
-        store.tasks(forGoal: selectedGoalId)
+    private var selectedGoalsSorted: [TrainingGoal] {
+        store.activeGoals.filter { selectedGoalIds.contains($0.id) }
     }
+
+    private var cal: Calendar { Calendar.current }
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Date (read-only)
+                    // Date (editable)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("DATE")
                             .font(.system(size: 10, design: .rounded))
                             .fontWeight(.medium)
                             .foregroundColor(AppColors.secondaryLabel)
-                        let fmt = DateFormatter()
-                        let _ = fmt.dateFormat = "EEE, MMM d"
-                        Text(fmt.string(from: session.date))
-                            .font(.body)
-                            .foregroundColor(AppColors.label)
+                        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showDatePicker.toggle() } }) {
+                            HStack {
+                                let fmt = DateFormatter()
+                                let _ = fmt.dateFormat = "EEE, MMM d"
+                                Text(fmt.string(from: selectedDate))
+                                    .font(.body)
+                                    .foregroundColor(AppColors.label)
+                                Spacer()
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(AppColors.indigo)
+                            }
+                            .padding(12)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        if showDatePicker {
+                            editSessionCalendar
+                                .transition(.opacity)
+                        }
                     }
 
-                    // Goal picker
+                    // Goal picker (multi-select)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("GOAL")
                             .font(.system(size: 10, design: .rounded))
                             .fontWeight(.medium)
                             .foregroundColor(AppColors.secondaryLabel)
-                        ForEach(store.notebook.goals) { goal in
+                        ForEach(store.activeGoals) { goal in
                             Button(action: {
-                                if selectedGoalId != goal.id {
-                                    selectedGoalId = goal.id
-                                    selectedTaskIds.removeAll()
+                                if selectedGoalIds.contains(goal.id) {
+                                    if selectedGoalIds.count > 1 {
+                                        selectedGoalIds.remove(goal.id)
+                                        // Remove tasks belonging to this goal
+                                        let goalTaskIds = Set(store.tasks(forGoal: goal.id).map(\.id))
+                                        selectedTaskIds.subtract(goalTaskIds)
+                                    }
+                                } else {
+                                    selectedGoalIds.insert(goal.id)
                                 }
                             }) {
                                 HStack {
@@ -4003,56 +4371,67 @@ struct EditSessionView: View {
                                         .font(.subheadline)
                                         .foregroundColor(AppColors.label)
                                     Spacer()
-                                    if selectedGoalId == goal.id {
+                                    if selectedGoalIds.contains(goal.id) {
                                         Image(systemName: "checkmark")
                                             .font(.caption)
                                             .foregroundColor(AppColors.label)
                                     }
                                 }
                                 .padding(12)
-                                .background(selectedGoalId == goal.id ? Color(.systemGray5) : Color(.systemGray6))
+                                .background(selectedGoalIds.contains(goal.id) ? Color(.systemGray5) : Color(.systemGray6))
                                 .cornerRadius(10)
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
                     }
 
-                    // Task picker
+                    // Task picker (grouped by goal)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("TASKS")
                             .font(.system(size: 10, design: .rounded))
                             .fontWeight(.medium)
                             .foregroundColor(AppColors.secondaryLabel)
-                        if availableTasks.isEmpty {
-                            Text("No tasks for this goal.")
+
+                        ForEach(selectedGoalsSorted) { goal in
+                            let tasks = store.tasks(forGoal: goal.id)
+                            if !tasks.isEmpty {
+                                Text(goal.name)
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .foregroundColor(goal.goalColor)
+                                    .padding(.top, 4)
+
+                                ForEach(tasks) { task in
+                                    Button(action: {
+                                        if selectedTaskIds.contains(task.id) {
+                                            selectedTaskIds.remove(task.id)
+                                        } else {
+                                            selectedTaskIds.insert(task.id)
+                                        }
+                                    }) {
+                                        HStack {
+                                            Text(task.name)
+                                                .font(.subheadline)
+                                                .foregroundColor(AppColors.label)
+                                            Spacer()
+                                            if selectedTaskIds.contains(task.id) {
+                                                Image(systemName: "checkmark")
+                                                    .font(.caption)
+                                                    .foregroundColor(AppColors.label)
+                                            }
+                                        }
+                                        .padding(12)
+                                        .background(selectedTaskIds.contains(task.id) ? goal.goalColor.opacity(0.12) : Color(.systemGray6))
+                                        .cornerRadius(10)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+                        }
+
+                        if selectedGoalsSorted.allSatisfy({ store.tasks(forGoal: $0.id).isEmpty }) {
+                            Text("No tasks for selected goals.")
                                 .font(.caption)
                                 .foregroundColor(AppColors.secondaryLabel)
-                        } else {
-                            ForEach(availableTasks) { task in
-                                Button(action: {
-                                    if selectedTaskIds.contains(task.id) {
-                                        selectedTaskIds.remove(task.id)
-                                    } else {
-                                        selectedTaskIds.insert(task.id)
-                                    }
-                                }) {
-                                    HStack {
-                                        Text(task.name)
-                                            .font(.subheadline)
-                                            .foregroundColor(AppColors.label)
-                                        Spacer()
-                                        if selectedTaskIds.contains(task.id) {
-                                            Image(systemName: "checkmark")
-                                                .font(.caption)
-                                                .foregroundColor(AppColors.label)
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(selectedTaskIds.contains(task.id) ? Color(.systemGray5) : Color(.systemGray6))
-                                    .cornerRadius(10)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
                         }
                     }
                 }
@@ -4063,13 +4442,104 @@ struct EditSessionView: View {
             .navigationBarItems(
                 leading: Button("Cancel") { onDismiss() },
                 trailing: Button(action: {
-                    store.updateSession(id: session.id, goalId: selectedGoalId, taskIds: Array(selectedTaskIds))
+                    let primaryGoalId = selectedGoalIds.first ?? session.goalId
+                    store.updateSession(id: session.id, goalId: primaryGoalId, taskIds: Array(selectedTaskIds), date: selectedDate)
                     onDismiss()
                 }) {
                     Text("Save").font(.system(size: 17, weight: .medium, design: .rounded))
                 }
             )
         }
+    }
+
+    // MARK: - Inline Calendar
+
+    @ViewBuilder
+    private var editSessionCalendar: some View {
+        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: selectedDate)) ?? selectedDate
+        let daysInMonth = cal.range(of: .day, in: .month, for: monthStart)?.count ?? 30
+        let firstWeekday = cal.component(.weekday, from: monthStart)
+        let offset = (firstWeekday + 5) % 7 // Monday-start offset
+
+        VStack(spacing: 12) {
+            // Month nav
+            HStack {
+                Button(action: { shiftMonth(-1) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppColors.indigo)
+                }
+                Spacer()
+                Text(monthYearLabel(monthStart))
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                Spacer()
+                Button(action: { shiftMonth(1) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppColors.indigo)
+                }
+            }
+
+            // Day-of-week headers
+            let days = ["M", "T", "W", "T", "F", "S", "S"]
+            HStack(spacing: 0) {
+                ForEach(0..<7, id: \.self) { i in
+                    Text(days[i])
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.tertiaryLabel)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            // Day grid
+            let totalCells = offset + daysInMonth
+            let rows = (totalCells + 6) / 7
+            VStack(spacing: 6) {
+                ForEach(0..<rows, id: \.self) { row in
+                    HStack(spacing: 0) {
+                        ForEach(0..<7, id: \.self) { col in
+                            let cellIndex = row * 7 + col
+                            let dayNum = cellIndex - offset + 1
+                            if dayNum >= 1 && dayNum <= daysInMonth {
+                                let cellDate = cal.date(byAdding: .day, value: dayNum - 1, to: monthStart) ?? monthStart
+                                let isSelected = cal.isDate(cellDate, inSameDayAs: selectedDate)
+                                Button(action: { selectedDate = cellDate }) {
+                                    Text("\(dayNum)")
+                                        .font(.system(size: 15, weight: isSelected ? .bold : .regular, design: .rounded))
+                                        .foregroundColor(isSelected ? .white : AppColors.label)
+                                        .frame(width: 36, height: 36)
+                                        .background(
+                                            Circle().fill(isSelected ? AppColors.indigo : Color.clear)
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .frame(maxWidth: .infinity)
+                            } else {
+                                Color.clear.frame(width: 36, height: 36).frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 14).fill(AppColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.systemGray4), lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
+    }
+
+    private func shiftMonth(_ direction: Int) {
+        if let newDate = cal.date(byAdding: .month, value: direction, to: selectedDate) {
+            selectedDate = cal.date(from: cal.dateComponents([.year, .month], from: newDate))
+                .flatMap { cal.date(byAdding: .day, value: 0, to: $0) } ?? newDate
+        }
+    }
+
+    private func monthYearLabel(_ date: Date) -> String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMMM yyyy"
+        return fmt.string(from: date)
     }
 }
 
@@ -4111,11 +4581,20 @@ struct EditGoalView: View {
         _goalName = State(initialValue: goal?.name ?? "")
         _iconName = State(initialValue: goal?.iconName ?? "target")
         _colorName = State(initialValue: goal?.colorName ?? "indigo")
-        let detailTasks = store.tasks(forGoal: goalId).filter { $0.hasDetails }.map { $0.id }
-        _expandedTaskIds = State(initialValue: Set(detailTasks))
+        // Auto-expand any task that has details OR is missing a description, so the user can
+        // immediately see what needs to be filled in (descriptions are required to save).
+        let tasks = store.tasks(forGoal: goalId)
+        let needsAttention = tasks
+            .filter { $0.hasDetails || $0.notes.nilIfBlank == nil }
+            .map { $0.id }
+        _expandedTaskIds = State(initialValue: Set(needsAttention))
     }
 
     var body: some View {
+        let tasks = store.tasks(forGoal: goalId)
+        let missingDescription = tasks.contains(where: { $0.notes.nilIfBlank == nil })
+        let saveDisabled = goalName.nilIfBlank == nil || missingDescription
+
         VStack(spacing: 0) {
             HStack {
                 Button("Cancel") { onDismiss() }
@@ -4128,13 +4607,26 @@ struct EditGoalView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 22)
                         .padding(.vertical, 10)
-                        .background(Capsule().fill(goalName.nilIfBlank == nil ? AppColors.indigo.opacity(0.4) : AppColors.indigo))
+                        .background(Capsule().fill(saveDisabled ? AppColors.indigo.opacity(0.4) : AppColors.indigo))
                 }
                 .buttonStyle(PlainButtonStyle())
-                .disabled(goalName.nilIfBlank == nil)
+                .disabled(saveDisabled)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+
+            if missingDescription {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 13))
+                    Text("Add a description to each task before saving.")
+                        .font(.system(size: 13, design: .rounded))
+                }
+                .foregroundColor(AppColors.coral)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
@@ -4148,21 +4640,6 @@ struct EditGoalView: View {
         }
         .background(AppColors.background.edgesIgnoringSafeArea(.all))
         .alert(item: $activeAlert, content: alert(for:))
-        #if DEBUG
-        .onAppear {
-            if ProcessInfo.processInfo.environment["AUTO_PICK"] == "1", let firstTask = store.tasks(forGoal: goalId).first {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 600, height: 400))
-                    let img = renderer.image { ctx in
-                        UIColor.systemOrange.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 600, height: 400))
-                    }
-                    if let data = img.jpegData(compressionQuality: 0.8) {
-                        store.addTaskImage(taskId: firstTask.id, imageData: data)
-                    }
-                }
-            }
-        }
-        #endif
     }
 
     private var previewHeader: some View {
@@ -4180,7 +4657,7 @@ struct EditGoalView: View {
                 }
                 let n = store.tasks(forGoal: goalId).count
                 Text("\(n) \(n == 1 ? "task" : "tasks")")
-                    .font(.system(size: 16, design: .rounded))
+                    .font(.matMindBody(size: 16))
                     .foregroundColor(AppColors.secondaryLabel)
             }
             Spacer(minLength: 0)
@@ -4220,7 +4697,7 @@ struct EditGoalView: View {
             let tasks = store.tasks(forGoal: goalId)
             if tasks.isEmpty && !addingTask {
                 Text("No tasks yet.")
-                    .font(.system(size: 14, design: .rounded))
+                    .font(.matMindBody(size: 14))
                     .foregroundColor(AppColors.secondaryLabel)
                     .padding(.top, 6)
             }
@@ -4247,7 +4724,7 @@ struct EditGoalView: View {
     private var addTaskField: some View {
         HStack(spacing: 8) {
             TextField("Task name", text: $newTaskName, onCommit: commitNewTask)
-                .font(.system(size: 16, design: .rounded))
+                .font(.matMindBody(size: 16))
                 .textFieldStyle(TrainingTextFieldStyle())
             Button(action: commitNewTask) {
                 Image(systemName: "checkmark.circle.fill").foregroundColor(goalColor)
@@ -4366,7 +4843,7 @@ struct TaskEditRow: View {
             }
 
             if expanded {
-                TrainingTextView(text: notesBinding, placeholder: "Add a description...")
+                TrainingTextView(text: notesBinding, placeholder: "Add a description (required)…")
                     .frame(height: 76)
 
                 if !imageFileNames.isEmpty {
@@ -4380,7 +4857,7 @@ struct TaskEditRow: View {
                 if showLinkField || link.nilIfBlank != nil {
                     HStack(spacing: 8) {
                         Image(systemName: "link").font(.system(size: 13)).foregroundColor(AppColors.secondaryLabel)
-                        TextField("Paste link...", text: linkBinding).font(.system(size: 14, design: .rounded))
+                        TextField("Paste link...", text: linkBinding).font(.matMindBody(size: 14))
                     }
                     .padding(11)
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.systemGray3), lineWidth: 1))
@@ -4503,7 +4980,7 @@ struct BottomTabButton: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: systemName)
-                    .font(.system(size: 20, design: .rounded))
+                    .font(.system(size: 20, weight: .regular, design: .rounded))
                 Text(title)
                     .font(.caption)
                     .uppercaseTracking()
@@ -4550,7 +5027,7 @@ struct NotesListView: View {
                             .font(.system(size: 17, weight: .medium, design: .rounded))
                             .foregroundColor(AppColors.secondaryLabel)
                         Text("Tap + to start writing.")
-                            .font(.system(size: 15, design: .rounded))
+                            .font(.matMindBody(size: 15))
                             .foregroundColor(Color(.systemGray2))
                     }
                     Spacer()
@@ -4592,10 +5069,10 @@ struct NotesListView: View {
                                             }) {
                                                 HStack(spacing: 10) {
                                                     Image(systemName: "trash")
-                                                        .font(.system(size: 14, design: .rounded))
+                                                        .font(.matMindBody(size: 14))
                                                         .foregroundColor(AppColors.coral)
                                                     Text("Delete")
-                                                        .font(.system(size: 15, design: .rounded))
+                                                        .font(.matMindBody(size: 15))
                                                         .foregroundColor(AppColors.coral)
                                                     Spacer()
                                                 }
@@ -4709,10 +5186,10 @@ struct NoteRowView: View {
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     Text(dateLabel)
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.matMindBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                     Text(previewSnippet)
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.matMindBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                         .lineLimit(1)
                 }
@@ -4880,7 +5357,7 @@ struct NoteEditorView: View {
                     saveNote()
                 }) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 24, design: .rounded))
+                        .font(.system(size: 24, weight: .regular, design: .rounded))
                         .foregroundColor(Color(red: 1.0, green: 0.78, blue: 0.0))
                 }
             }
@@ -5271,7 +5748,7 @@ struct AddGoalSheet: View {
                                 }
                             }) {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 24, design: .rounded))
+                                    .font(.system(size: 24, weight: .regular, design: .rounded))
                                     .foregroundColor(newTaskName.nilIfBlank == nil || newTaskName.count > 19 ? Color.gray : AppColors.indigo)
                             }
                             .disabled(newTaskName.nilIfBlank == nil || newTaskName.count > 19)
@@ -5352,11 +5829,11 @@ struct AddTaskSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
                     Image(systemName: "checklist")
-                        .font(.system(size: 16, design: .rounded))
+                        .font(.matMindBody(size: 16))
                         .foregroundColor(.gray)
                         .frame(width: 24)
                     TextField("Enter task name", text: $taskName)
-                        .font(.system(size: 16, design: .rounded))
+                        .font(.matMindBody(size: 16))
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
@@ -5379,9 +5856,157 @@ struct AddTaskSheet: View {
 
 private enum GoalSheet: Identifiable {
     case edit(String)
+    case reflections(String)  // taskId
     var id: String {
         switch self {
         case .edit(let goalId): return "edit-\(goalId)"
+        case .reflections(let taskId): return "refl-\(taskId)"
+        }
+    }
+}
+
+// MARK: - Task Reflections (per-task list of all linked reflections)
+
+struct TaskReflectionsView: View {
+    @ObservedObject var store: NotebookStore
+    let taskId: String
+    var onClose: () -> Void
+
+    @State private var filter: PatternKind = .all
+    @State private var favoritesOnly = false
+
+    var body: some View {
+        let task = store.task(id: taskId)
+        let goal = task.flatMap { store.goal(id: $0.goalId) }
+        let allReflections = store.reflections(forTaskId: taskId)
+        let favCount = allReflections.filter { $0.isFavorite }.count
+        let filtered = allReflections.filter { r in
+            (!favoritesOnly || r.isFavorite) && matchesKind(r, filter)
+        }
+
+        VStack(spacing: 0) {
+            header(task: task, goal: goal, total: allReflections.count)
+            filterBar(allCount: allReflections.count, favCount: favCount)
+
+            ScrollView {
+                VStack(spacing: 12) {
+                    if filtered.isEmpty {
+                        EmptyDashedState(
+                            title: "Nothing here yet.",
+                            subtitle: allReflections.isEmpty
+                                ? "Reflect after a session to capture what worked and where you got stuck."
+                                : "Try a different filter."
+                        )
+                        .padding(.top, 32)
+                    }
+                    ForEach(filtered) { r in
+                        ReflectionCardView(
+                            store: store,
+                            reflection: r,
+                            onReflect: {},
+                            onDelete: { store.deleteReflection(id: r.id) },
+                            onShareFeedback: {},
+                            filter: filter,
+                            dateMode: true,
+                            showShareButton: false,
+                            showMenu: false
+                        )
+                    }
+                }
+                .padding(16)
+                .padding(.bottom, 40)
+            }
+        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
+    }
+
+    // MARK: Header
+
+    private func header(task: TrainingTask?, goal: TrainingGoal?, total: Int) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Button(action: onClose) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(AppColors.label)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(AppColors.cardBackground))
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task?.name ?? "Task")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                Text("\(goal?.name ?? "Goal") · \(total) \(total == 1 ? "reflection" : "reflections")")
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+    }
+
+    // MARK: Filter bar
+
+    private func filterBar(allCount: Int, favCount: Int) -> some View {
+        HStack(spacing: 8) {
+            filterChip(label: "All \(allCount)", isOn: filter == .all && !favoritesOnly) {
+                filter = .all
+                favoritesOnly = false
+            }
+            filterChip(label: "Wins", isOn: filter == .wins) {
+                filter = (filter == .wins) ? .all : .wins
+                favoritesOnly = false
+            }
+            filterChip(label: "Stuck", isOn: filter == .stuck) {
+                filter = (filter == .stuck) ? .all : .stuck
+                favoritesOnly = false
+            }
+            filterChip(label: "Up next", isOn: filter == .upNext) {
+                filter = (filter == .upNext) ? .all : .upNext
+                favoritesOnly = false
+            }
+            Spacer(minLength: 0)
+            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { favoritesOnly.toggle() } }) {
+                HStack(spacing: 4) {
+                    Image(systemName: favoritesOnly ? "heart.fill" : "heart")
+                        .font(.system(size: 14))
+                    if favCount > 0 {
+                        Text("\(favCount)")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                }
+                .foregroundColor(favoritesOnly ? AppColors.coral : AppColors.secondaryLabel)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(favoritesOnly ? AppColors.coral.opacity(0.14) : Color.clear))
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    private func filterChip(label: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: { withAnimation(.easeInOut(duration: 0.15)) { action() } }) {
+            Text(label)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(isOn ? .white : AppColors.label)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(isOn ? AppColors.indigo : AppColors.cardBackground))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func matchesKind(_ r: Reflection, _ kind: PatternKind) -> Bool {
+        switch kind {
+        case .all: return true
+        case .wins: return r.workedText.nilIfBlank != nil
+        case .stuck: return r.stuckText.nilIfBlank != nil
+        case .upNext: return r.tryNextText.nilIfBlank != nil
         }
     }
 }
@@ -5404,7 +6029,7 @@ struct GoalListView: View {
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(AppColors.label)
                         Text("What are you working on right now?")
-                            .font(.system(size: 16, design: .rounded))
+                            .font(.matMindBody(size: 16))
                             .foregroundColor(AppColors.secondaryLabel)
                     }
                     Spacer()
@@ -5441,7 +6066,8 @@ struct GoalListView: View {
                             }
                         },
                         onEdit: { sheet = .edit(goal.id) },
-                        onDelete: { confirmDeleteGoalId = goal.id }
+                        onDelete: { confirmDeleteGoalId = goal.id },
+                        onShowReflections: { taskId in sheet = .reflections(taskId) }
                     )
                     .zIndex(expandedGoalIds.contains(goal.id) ? 1 : 0)
                 }
@@ -5449,7 +6075,7 @@ struct GoalListView: View {
                 if store.activeGoals.count > 1 {
                     HStack(spacing: 5) {
                         Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
-                        Text("tap a goal to expand its tasks").font(.system(size: 14, design: .rounded))
+                        Text("tap a goal to expand its tasks").font(.matMindBody(size: 14))
                     }
                     .foregroundColor(AppColors.tertiaryLabel)
                     .frame(maxWidth: .infinity)
@@ -5465,11 +6091,6 @@ struct GoalListView: View {
                 didInit = true
                 if let first = store.activeGoals.first { expandedGoalIds = [first.id] }
             }
-            #if DEBUG
-            if ProcessInfo.processInfo.environment["AUTO_EDIT"] == "1", sheet == nil, let first = store.activeGoals.first {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { sheet = .edit(first.id) }
-            }
-            #endif
         }
         .alert(item: Binding(
             get: { confirmDeleteGoalId.map(GoalEditToken.init(id:)) },
@@ -5488,6 +6109,8 @@ struct GoalListView: View {
             switch which {
             case .edit(let goalId):
                 EditGoalView(store: store, goalId: goalId, isNewGoal: goalId == pendingNewGoalId) { sheet = nil }
+            case .reflections(let taskId):
+                TaskReflectionsView(store: store, taskId: taskId, onClose: { sheet = nil })
             }
         }
     }
@@ -5510,6 +6133,7 @@ struct GoalCard: View {
     var onToggle: () -> Void
     var onEdit: () -> Void
     var onDelete: () -> Void
+    var onShowReflections: (String) -> Void
 
     @State private var expandedTaskIds: Set<String> = []
     @State private var menuOpen = false
@@ -5532,18 +6156,18 @@ struct GoalCard: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground))
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.12), color.opacity(0.02)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.06), color.opacity(0.03)]), startPoint: .topLeading, endPoint: .bottomTrailing))
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
                 .stroke(
-                    LinearGradient(gradient: Gradient(colors: [color.opacity(0.35), color.opacity(0.08)]), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    LinearGradient(gradient: Gradient(colors: [color.opacity(0.22), color.opacity(0.06)]), startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
         .overlay(menuOverlay, alignment: .topTrailing)
     }
 
@@ -5552,18 +6176,18 @@ struct GoalCard: View {
     @ViewBuilder
     private func header(tasks: [TrainingTask], color: Color, trained: Int) -> some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 13)
                 .fill(color.opacity(0.14))
-                .frame(width: 52, height: 52)
-                .overlay(GoalIconImage(name: goal.iconName, color: color, size: 26))
+                .frame(width: 46, height: 46)
+                .overlay(GoalIconImage(name: goal.iconName, color: color, size: 23))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(goal.name)
-                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 if isExpanded {
                     Text("\(tasks.count) \(tasks.count == 1 ? "task" : "tasks")")
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.matMindBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                 } else {
                     HStack(spacing: 10) {
@@ -5605,7 +6229,7 @@ struct GoalCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Trained this week")
-                    .font(.system(size: 15, design: .rounded))
+                    .font(.matMindBody(size: 15))
                     .foregroundColor(AppColors.secondaryLabel)
                 Spacer()
                 Text("\(trained) / \(tasks.count)")
@@ -5614,13 +6238,13 @@ struct GoalCard: View {
             }
             .padding(.horizontal, 16)
             .padding(.leading, 4)
+            .padding(.top, 4)
 
             progressBar(trained, tasks.count, color)
                 .padding(.horizontal, 16)
                 .padding(.leading, 4)
                 .padding(.top, 8)
-
-            Divider().padding(.horizontal, 16).padding(.top, 14)
+                .padding(.bottom, 14)
 
             ForEach(tasks) { task in
                 taskRow(task, color, isLast: task.id == tasks.last?.id)
@@ -5633,14 +6257,18 @@ struct GoalCard: View {
     private func taskRow(_ task: TrainingTask, _ color: Color, isLast: Bool) -> some View {
         let trained = trainedThisWeek(task)
         let isOpen = expandedTaskIds.contains(task.id)
+        let reflCount = store.reflections(forTaskId: task.id).count
         VStack(alignment: .leading, spacing: 0) {
             Button(action: { withAnimation(.easeInOut(duration: 0.15)) { toggleTask(task.id) } }) {
                 HStack(spacing: 12) {
                     checkbox(trained, color)
                     Text(task.name)
-                        .font(.system(size: 17, weight: .medium, design: .rounded))
-                        .foregroundColor(trained ? AppColors.label : AppColors.secondaryLabel)
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.label)
                     Spacer()
+                    if reflCount > 0 {
+                        reflectionBadge(reflCount)
+                    }
                     if task.link.nilIfBlank != nil {
                         Image(systemName: "link").font(.system(size: 13)).foregroundColor(AppColors.tertiaryLabel)
                     }
@@ -5662,20 +6290,21 @@ struct GoalCard: View {
             if !isLast { Divider() }
         }
         .padding(.horizontal, 16)
-        .padding(.leading, 4)
+        .padding(.leading, 14)
     }
 
     @ViewBuilder
     private func taskDetail(_ task: TrainingTask, _ color: Color) -> some View {
+        let reflCount = store.reflections(forTaskId: task.id).count
         VStack(alignment: .leading, spacing: 12) {
             if let notes = task.notes.nilIfBlank {
                 Text(notes)
-                    .font(.system(size: 16, design: .rounded))
+                    .font(.matMindBody(size: 16))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("No notes yet")
-                    .font(.system(size: 15, design: .rounded))
+                    .font(.matMindBody(size: 15))
                     .foregroundColor(AppColors.tertiaryLabel)
             }
             if !task.imageFileNames.isEmpty {
@@ -5701,9 +6330,39 @@ struct GoalCard: View {
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.secondaryBackground))
             }
+            if reflCount > 0 {
+                viewAllReflectionsCTA(taskId: task.id, count: reflCount)
+            }
         }
         .padding(.leading, 38)
         .padding(.bottom, 14)
+    }
+
+    private func reflectionBadge(_ count: Int) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "text.bubble").font(.system(size: 10))
+            Text("\(count)").font(.system(size: 12, weight: .semibold, design: .rounded))
+        }
+        .foregroundColor(AppColors.winGreen)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(AppColors.winGreen.opacity(0.15)))
+    }
+
+    private func viewAllReflectionsCTA(taskId: String, count: Int) -> some View {
+        Button(action: { onShowReflections(taskId) }) {
+            HStack(spacing: 6) {
+                Image(systemName: "text.bubble").font(.system(size: 12))
+                Text("View all reflections")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
+                Spacer(minLength: 0)
+            }
+            .foregroundColor(AppColors.indigo)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: Pieces
@@ -5733,17 +6392,24 @@ struct GoalCard: View {
     @ViewBuilder
     private var menuOverlay: some View {
         if menuOpen {
-            VStack(spacing: 0) {
-                menuRow(icon: "pencil", label: "Edit goal", color: AppColors.label) { menuOpen = false; onEdit() }
-                Divider().padding(.horizontal, 10)
-                menuRow(icon: "trash", label: "Delete goal", color: AppColors.coral) { menuOpen = false; onDelete() }
+            ZStack(alignment: .topTrailing) {
+                Color.black.opacity(0.001)
+                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                    .fixedSize()
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { menuOpen = false } }
+
+                VStack(spacing: 0) {
+                    menuRow(icon: "pencil", label: "Edit goal", color: AppColors.label) { menuOpen = false; onEdit() }
+                    Divider().padding(.horizontal, 10)
+                    menuRow(icon: "trash", label: "Delete goal", color: AppColors.coral) { menuOpen = false; onDelete() }
+                }
+                .background(AppColors.background)
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.14), radius: 10, x: 0, y: 4)
+                .frame(width: 170)
+                .padding(.top, 54)
+                .padding(.trailing, 12)
             }
-            .background(AppColors.background)
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.14), radius: 10, x: 0, y: 4)
-            .frame(width: 170)
-            .padding(.top, 54)
-            .padding(.trailing, 12)
         }
     }
 
@@ -5751,7 +6417,7 @@ struct GoalCard: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.system(size: 14)).foregroundColor(color)
-                Text(label).font(.system(size: 15, design: .rounded)).foregroundColor(color)
+                Text(label).font(.matMindBody(size: 15)).foregroundColor(color)
                 Spacer()
             }
             .padding(.horizontal, 14)
@@ -5815,6 +6481,7 @@ struct GoalDetailView: View {
                                             Image(systemName: "trash")
                                             Text("Delete task")
                                         }
+                                        .foregroundColor(AppColors.coral)
                                     }
                                 } label: {
                                     Image(systemName: "ellipsis")
@@ -6173,6 +6840,8 @@ struct PlanTrainingView: View {
     @State private var selectedGoalIds: Set<String> = []
     @State private var selectedTasksByDay: [Date: Set<String>] = [:]
     @State private var didApplyInitial = false
+    @State private var newGoalSheet: GoalEditToken?
+    @State private var pendingNewGoalId: String?
 
     private var sortedDays: [Date] { selectedDays.sorted() }
     private var selectedGoals: [TrainingGoal] { store.activeGoals.filter { selectedGoalIds.contains($0.id) } }
@@ -6203,6 +6872,21 @@ struct PlanTrainingView: View {
                 if let g = initialGoalId { _ = selectedGoalIds.insert(g) }
             }
         }
+        .sheet(item: $newGoalSheet, onDismiss: finalizeNewGoalDraft) { token in
+            EditGoalView(store: store, goalId: token.id, isNewGoal: true) { newGoalSheet = nil }
+        }
+    }
+
+    /// Mirrors `GoalListView.discardDraftIfUnsaved`: if the user saved the draft (it has a name now),
+    /// auto-select it for this plan; otherwise discard the empty draft.
+    private func finalizeNewGoalDraft() {
+        guard let id = pendingNewGoalId else { return }
+        pendingNewGoalId = nil
+        if let g = store.goal(id: id), g.name.nilIfBlank != nil {
+            _ = selectedGoalIds.insert(id)
+        } else {
+            store.deleteGoalCascade(goalId: id)
+        }
     }
 
     // MARK: - Step 1: days + goals
@@ -6216,12 +6900,12 @@ struct PlanTrainingView: View {
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(AppColors.label)
                         Text("Tap the days you want to train, then pick your goals.")
-                            .font(.system(size: 16, design: .rounded))
+                            .font(.matMindBody(size: 16))
                             .foregroundColor(AppColors.secondaryLabel)
                     }
                     monthCalendar
                     Text(daysSelectedLabel)
-                        .font(.system(size: 15, design: .rounded))
+                        .font(.matMindBody(size: 15))
                         .foregroundColor(AppColors.label)
                     if !selectedDays.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
@@ -6231,6 +6915,26 @@ struct PlanTrainingView: View {
                             WrappingHStack(items: store.activeGoals) { goal in
                                 goalChip(goal)
                             }
+                            Button(action: {
+                                let draft = store.createDraftGoal()
+                                pendingNewGoalId = draft.id
+                                newGoalSheet = GoalEditToken(id: draft.id)
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("New Goal")
+                                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                                }
+                                .foregroundColor(AppColors.indigo)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .stroke(AppColors.indigo.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
                     }
                 }
@@ -6268,14 +6972,14 @@ struct PlanTrainingView: View {
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(AppColors.label)
                         Text(drillSubtitle)
-                            .font(.system(size: 16, design: .rounded))
+                            .font(.matMindBody(size: 16))
                             .foregroundColor(AppColors.secondaryLabel)
                     }
                     ForEach(sortedDays, id: \.self) { day in
                         dayTaskCard(day)
                     }
                     Text("Planning creates an unchecked entry for each day. Check it off after training to reflect.")
-                        .font(.system(size: 15, design: .rounded))
+                        .font(.matMindBody(size: 15))
                         .foregroundColor(AppColors.label)
                 }
                 .padding(16)
@@ -6309,7 +7013,7 @@ struct PlanTrainingView: View {
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 Text("· \(taskCount) \(taskCount == 1 ? "task" : "tasks")")
-                    .font(.system(size: 14, design: .rounded))
+                    .font(.matMindBody(size: 14))
                     .foregroundColor(AppColors.secondaryLabel)
                 Spacer()
                 if sortedDays.count > 1 {
@@ -6438,7 +7142,7 @@ struct PlanTrainingView: View {
                     Circle().stroke(AppColors.indigo, lineWidth: 1.5).frame(width: 36, height: 36)
                 }
                 Text("\(calendar.component(.day, from: date))")
-                    .font(.system(size: 16, design: .rounded))
+                    .font(.matMindBody(size: 16))
                     .foregroundColor(selected ? .white : AppColors.label)
             }
             .frame(maxWidth: .infinity, minHeight: 44)
@@ -7235,7 +7939,7 @@ struct ReflectMoodStep: View {
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.label)
                     Text(longDate(session.date))
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.matMindBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
                 Spacer()
@@ -7243,7 +7947,7 @@ struct ReflectMoodStep: View {
             if !tasks.isEmpty {
                 WrappingHStack(items: tasks) { task in
                     Text(task.name)
-                        .font(.system(size: 14, design: .rounded))
+                        .font(.matMindBody(size: 14))
                         .foregroundColor(color)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -7387,7 +8091,7 @@ struct ReflectNotesStep: View {
         if showLinkField || link.nilIfBlank != nil {
             HStack(spacing: 8) {
                 Image(systemName: "link").foregroundColor(AppColors.secondaryLabel)
-                TextField("Paste link...", text: $link).font(.system(size: 14, design: .rounded))
+                TextField("Paste link...", text: $link).font(.matMindBody(size: 14))
             }
             .padding(11)
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray3), lineWidth: 1))
@@ -7520,7 +8224,7 @@ struct VoiceReflectionView: View {
                 .padding(.vertical, 10)
                 .background(Capsule().fill(q.color))
             Text(q.prompt)
-                .font(.system(size: 22, design: .rounded))
+                .font(.system(size: 22, weight: .regular, design: .rounded))
                 .foregroundColor(AppColors.secondaryLabel)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -8089,7 +8793,7 @@ struct EmptyStateCard: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 28, design: .rounded))
+                .font(.system(size: 28, weight: .regular, design: .rounded))
                 .foregroundColor(AppColors.indigo.opacity(0.5))
             Text(title)
                 .font(.subheadline)
