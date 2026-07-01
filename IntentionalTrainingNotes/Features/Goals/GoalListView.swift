@@ -7,6 +7,8 @@ struct GoalListView: View {
     @State private var expandedGoalIds: Set<String> = []
     @State private var pendingNewGoalId: String?
     @State private var didInit = false
+    @State private var goalToDelete: TrainingGoal?
+    @State private var showGoalDeleteConfirm = false
 
     var body: some View {
         ScrollView {
@@ -54,6 +56,7 @@ struct GoalListView: View {
                             }
                         },
                         onEdit: { sheet = .edit(goal.id) },
+                        onDelete: { goalToDelete = goal; showGoalDeleteConfirm = true },
                         onShowReflections: { taskId in sheet = .reflections(taskId) }
                     )
                     .zIndex(expandedGoalIds.contains(goal.id) ? 1 : 0)
@@ -87,6 +90,28 @@ struct GoalListView: View {
                 TaskReflectionsView(store: store, taskId: taskId, onClose: { sheet = nil })
             }
         }
+        // Presented from the parent (like PlanListView's session-delete alert) so it
+        // reliably fires; a `.alert` on the GoalCard itself inside the ForEach did not.
+        .alert(isPresented: $showGoalDeleteConfirm) {
+            guard let goal = goalToDelete else { return Alert(title: Text("")) }
+            let summary = store.goalCascadeSummary(goalId: goal.id)
+            return Alert(
+                title: Text("Delete \"\(goal.name)\"?"),
+                message: Text(goalDeleteMessage(summary)),
+                primaryButton: .destructive(Text("Delete")) {
+                    store.deleteGoalCascade(goalId: goal.id)
+                    goalToDelete = nil
+                },
+                secondaryButton: .cancel { goalToDelete = nil }
+            )
+        }
+    }
+
+    private func goalDeleteMessage(_ s: GoalCascadeSummary) -> String {
+        func plural(_ n: Int, _ noun: String) -> String { "\(n) \(noun)\(n == 1 ? "" : "s")" }
+        return "This will permanently delete the goal along with its \(plural(s.taskCount, "task")), "
+            + "\(plural(s.sessionCount, "training session")), and \(plural(s.reflectionCount, "reflection")). "
+            + "This can't be undone."
     }
 
     /// When the add-goal flow closes, drop the draft goal if it was never named (i.e. discarded
@@ -106,11 +131,11 @@ struct GoalCard: View {
     let isExpanded: Bool
     var onToggle: () -> Void
     var onEdit: () -> Void
+    var onDelete: () -> Void
     var onShowReflections: (String) -> Void
 
     @State private var expandedTaskIds: Set<String> = []
     @State private var menuOpen = false
-    @State private var confirmDelete = false
 
     private var cal: Calendar { Calendar.current }
 
@@ -143,24 +168,6 @@ struct GoalCard: View {
         )
         .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
         .overlay(menuOverlay, alignment: .topTrailing)
-        // Owned here (not on GoalListView) so it doesn't collide with that view's `.sheet`,
-        // which previously stopped the goal-delete confirmation from ever presenting.
-        .alert(isPresented: $confirmDelete) {
-            let summary = store.goalCascadeSummary(goalId: goal.id)
-            return Alert(
-                title: Text("Delete \"\(goal.name)\"?"),
-                message: Text(goalDeleteMessage(summary)),
-                primaryButton: .destructive(Text("Delete")) { store.deleteGoalCascade(goalId: goal.id) },
-                secondaryButton: .cancel()
-            )
-        }
-    }
-
-    private func goalDeleteMessage(_ s: GoalCascadeSummary) -> String {
-        func plural(_ n: Int, _ noun: String) -> String { "\(n) \(noun)\(n == 1 ? "" : "s")" }
-        return "This will permanently delete the goal along with its \(plural(s.taskCount, "task")), "
-            + "\(plural(s.sessionCount, "training session")), and \(plural(s.reflectionCount, "reflection")). "
-            + "This can't be undone."
     }
 
     // MARK: Header
@@ -393,7 +400,7 @@ struct GoalCard: View {
                 VStack(spacing: 0) {
                     menuRow(icon: "pencil", label: "Edit goal", color: AppColors.label) { menuOpen = false; onEdit() }
                     Divider().padding(.horizontal, 10)
-                    menuRow(icon: "trash", label: "Delete goal", color: AppColors.coral) { menuOpen = false; confirmDelete = true }
+                    menuRow(icon: "trash", label: "Delete goal", color: AppColors.coral) { menuOpen = false; onDelete() }
                 }
                 .background(AppColors.background)
                 .cornerRadius(12)
