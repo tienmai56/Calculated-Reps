@@ -6,7 +6,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        ReminderScheduler.shared.scheduleDefaultIfNeeded()
+        // Re-register the reminder for returning users. First-run users get the notification
+        // permission prompt contextually when they finish onboarding with the reminder on,
+        // keeping the splash free of a premature system dialog.
+        if UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
+            ReminderScheduler.shared.scheduleDefaultIfNeeded()
+        }
         return true
     }
 

@@ -86,6 +86,12 @@ extension String {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+
+    /// Uppercases only the first letter, leaving the rest untouched.
+    var capitalizedFirst: String {
+        guard let first = first else { return self }
+        return first.uppercased() + dropFirst()
+    }
 }
 
 final class NetworkStatusStore: ObservableObject {
@@ -125,6 +131,7 @@ enum AuthProvider: String, Codable, CaseIterable {
 enum AppRoute: Equatable {
     case signedOut
     case signedInMissingProfile
+    case onboarding
     case ready
 }
 
@@ -236,6 +243,9 @@ struct AppColors {
     static let indigo = Color(red: 63/255, green: 61/255, blue: 158/255)
     static let mint = Color(red: 94/255, green: 196/255, blue: 182/255)
     static let coral = Color(red: 242/255, green: 139/255, blue: 130/255)
+    static let coralDeep = Color(red: 232/255, green: 106/255, blue: 95/255)
+    static let gold = Color(red: 233/255, green: 180/255, blue: 76/255)
+    static let goldSoft = Color(red: 245/255, green: 201/255, blue: 122/255)
     static let offWhite = Color(red: 240/255, green: 237/255, blue: 235/255)
 
     // Warm background: faint warm off-white in light mode, system default in dark
@@ -596,6 +606,110 @@ struct Note: Codable, Equatable, Identifiable {
     }
 }
 
+/// The primary "shape" of a bounty chosen on the first step of the flow.
+/// A bounty can still carry both a count and a partner regardless of kind
+/// (see `Set the target`), but the kind drives the copy and default fields.
+enum BountyKind: String, Codable, CaseIterable, Identifiable {
+    case hitCount
+    case targetPartner
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .hitCount: return "Hit count"
+        case .targetPartner: return "Target a training partner"
+        }
+    }
+
+    var blurb: String {
+        switch self {
+        case .hitCount: return "Land a submission a specific number of times."
+        case .targetPartner: return "Land a submission on a specific person."
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .hitCount: return "target"
+        case .targetPartner: return "person.fill"
+        }
+    }
+}
+
+enum BountyStatus: String, Codable {
+    case active
+    case collected
+}
+
+/// A self-set challenge to land a drilled technique. Unlocked after a goal has
+/// been worked for 2+ weeks. No deadline — the user taps "I hit it" to record.
+struct Bounty: Codable, Equatable, Identifiable {
+    var id: String
+    var accountId: String
+    var goalId: String
+    var taskId: String
+    var kind: BountyKind
+    /// Number of times to land it. `nil` means "not specified" → treated as 1.
+    var targetCount: Int?
+    /// Specific partner to land it on. `nil`/blank means no specific person.
+    var targetPartner: String?
+    var hitDates: [Date]
+    var status: BountyStatus
+    var createdAt: Date
+    var collectedAt: Date?
+
+    /// Hits needed before the bounty is collected. A partner-only bounty with no
+    /// explicit count is landed once.
+    var requiredHits: Int { max(1, targetCount ?? 1) }
+    var hitCount: Int { hitDates.count }
+    var isComplete: Bool { hitCount >= requiredHits }
+
+    init(
+        id: String = "b_\(UUID().uuidString)",
+        accountId: String,
+        goalId: String,
+        taskId: String,
+        kind: BountyKind,
+        targetCount: Int? = nil,
+        targetPartner: String? = nil,
+        hitDates: [Date] = [],
+        status: BountyStatus = .active,
+        createdAt: Date = Date(),
+        collectedAt: Date? = nil
+    ) {
+        self.id = id
+        self.accountId = accountId
+        self.goalId = goalId
+        self.taskId = taskId
+        self.kind = kind
+        self.targetCount = targetCount
+        self.targetPartner = targetPartner
+        self.hitDates = hitDates
+        self.status = status
+        self.createdAt = createdAt
+        self.collectedAt = collectedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, accountId, goalId, taskId, kind, targetCount, targetPartner, hitDates, status, createdAt, collectedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        accountId = try c.decode(String.self, forKey: .accountId)
+        goalId = try c.decode(String.self, forKey: .goalId)
+        taskId = try c.decode(String.self, forKey: .taskId)
+        kind = try c.decodeIfPresent(BountyKind.self, forKey: .kind) ?? .hitCount
+        targetCount = try c.decodeIfPresent(Int.self, forKey: .targetCount)
+        targetPartner = try c.decodeIfPresent(String.self, forKey: .targetPartner)
+        hitDates = try c.decodeIfPresent([Date].self, forKey: .hitDates) ?? []
+        status = try c.decodeIfPresent(BountyStatus.self, forKey: .status) ?? .active
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        collectedAt = try c.decodeIfPresent(Date.self, forKey: .collectedAt)
+    }
+}
+
 struct TrainingNotebook: Codable, Equatable {
     var schemaVersion: Int
     var accountId: String
@@ -605,16 +719,18 @@ struct TrainingNotebook: Codable, Equatable {
     var sessions: [PlannedSession]
     var reflections: [Reflection]
     var notes: [Note]
+    var bounties: [Bounty]
 
     init(
-        schemaVersion: Int = 3,
+        schemaVersion: Int = 4,
         accountId: String = "local",
         profile: UserProfile? = nil,
         goals: [TrainingGoal] = [],
         tasks: [TrainingTask] = [],
         sessions: [PlannedSession] = [],
         reflections: [Reflection] = [],
-        notes: [Note] = []
+        notes: [Note] = [],
+        bounties: [Bounty] = []
     ) {
         self.schemaVersion = schemaVersion
         self.accountId = accountId
@@ -624,6 +740,7 @@ struct TrainingNotebook: Codable, Equatable {
         self.sessions = sessions
         self.reflections = reflections
         self.notes = notes
+        self.bounties = bounties
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -635,6 +752,7 @@ struct TrainingNotebook: Codable, Equatable {
         case sessions
         case reflections
         case notes
+        case bounties
     }
 
     init(from decoder: Decoder) throws {
@@ -647,6 +765,7 @@ struct TrainingNotebook: Codable, Equatable {
         sessions = try container.decodeIfPresent([PlannedSession].self, forKey: .sessions) ?? []
         reflections = try container.decodeIfPresent([Reflection].self, forKey: .reflections) ?? []
         notes = try container.decodeIfPresent([Note].self, forKey: .notes) ?? []
+        bounties = try container.decodeIfPresent([Bounty].self, forKey: .bounties) ?? []
     }
 }
 
@@ -1259,12 +1378,73 @@ final class AppSessionStore: ObservableObject {
         let store = NotebookStore(accountId: account.id, persistence: persistenceFactory(account.id))
         self.account = account
         self.notebookStore = store
-        // Local-only mode skips the profile gate and goes straight into the app.
-        self.route = .ready
+
         #if DEBUG
-        store.seedDemoDataIfEmpty()
+        // DEBUG/QA: `RESET_ONBOARDING` clears the completed flag and wipes data on every launch so
+        // onboarding can be re-tested repeatedly without deleting the app. Never present in release.
+        if ProcessInfo.processInfo.environment["RESET_ONBOARDING"] != nil {
+            UserDefaults.standard.removeObject(forKey: AppSessionStore.onboardingCompletedKey)
+            UserDefaults.standard.removeObject(forKey: "matmind.debugSeedVersion")
+            store.resetForOnboardingTestingDEBUG()
+        }
         #endif
+
+        // Upgrading users already have a notebook — never send them through first-run onboarding
+        // (it would add a stray goal/task/session on top of their real data). Treat any existing
+        // data as "already onboarded" and persist that so the check only runs once.
+        let hasExistingData = !store.notebook.goals.isEmpty
+            || !store.notebook.sessions.isEmpty
+            || store.notebook.profile != nil
+        if hasExistingData && !UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
+            UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
+        }
+
+        // First-run onboarding: show the goal → task → session flow until it's completed once.
+        if UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
+            self.route = .ready
+            #if DEBUG
+            // Only seed demo data when there's nothing yet, so it never overwrites
+            // a real notebook created through onboarding.
+            if store.notebook.goals.isEmpty {
+                store.seedDemoDataIfEmpty()
+            }
+            #endif
+        } else {
+            self.route = .onboarding
+        }
     }
+
+    /// Persists the goal, first task(s) and first session captured during onboarding, wires up the
+    /// default 8:00 reminder, then routes into the app. Called once when onboarding finishes.
+    func completeOnboarding(_ draft: OnboardingDraft) {
+        if let store = notebookStore,
+           let goal = store.addGoal(name: draft.goalName, iconName: draft.iconName, colorName: draft.colorName) {
+            let taskIds: [String] = draft.taskNames.compactMap { store.addTask(goalId: goal.id, name: $0)?.id }
+            // Attach the optional free-form description to the first task.
+            if let firstTaskId = taskIds.first {
+                let notes = draft.firstTaskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !notes.isEmpty { store.updateTask(id: firstTaskId, notes: notes) }
+            }
+            store.planSessions(
+                [ProposedSession(goalId: goal.id, date: draft.sessionDate, taskIds: taskIds)],
+                overrideConflicts: false
+            )
+        }
+
+        UserDefaults.standard.set(draft.reminderEnabled, forKey: "reminderEnabled")
+        UserDefaults.standard.set(draft.reminderHour, forKey: "reminderHour")
+        UserDefaults.standard.set(draft.reminderMinute, forKey: "reminderMinute")
+        ReminderScheduler.shared.updateSchedule(
+            enabled: draft.reminderEnabled,
+            hour: draft.reminderHour,
+            minute: draft.reminderMinute
+        )
+
+        UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
+        route = .ready
+    }
+
+    static let onboardingCompletedKey = "matmind.hasCompletedOnboarding"
 
     /// Fixed account used when running without authentication (local-only mode).
     static let localAccount = UserAccount(
@@ -1681,6 +1861,116 @@ final class NotebookStore: ObservableObject {
         }
     }
 
+    // MARK: - Bounties
+
+    /// A goal qualifies for a bounty once it's been worked for 2+ weeks: created at
+    /// least 14 days ago and has at least one completed session. The `MATMIND_FORCE_BOUNTY`
+    /// launch env var force-unlocks eligibility for QA.
+    func isGoalBountyEligible(_ goalId: String) -> Bool {
+        guard let goal = goal(id: goalId), !goal.isArchived, goal.name.nilIfBlank != nil else { return false }
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MATMIND_FORCE_BOUNTY"] == "1" {
+            return notebook.sessions.contains { $0.goalId == goalId }
+        }
+        #endif
+        guard let twoWeeksAgo = calendar.date(byAdding: .day, value: -14, to: Date()) else { return false }
+        let hasActivity = notebook.sessions.contains { $0.goalId == goalId && $0.status == .done }
+        return goal.createdAt <= twoWeeksAgo && hasActivity
+    }
+
+    var hasBountyEligibleGoal: Bool {
+        activeGoals.contains { isGoalBountyEligible($0.id) }
+    }
+
+    /// Tasks the user can turn into a bounty: any task under a goal worked 2+ weeks,
+    /// paired with its goal and how many sessions have drilled it.
+    func bountyEligibleTasks() -> [(task: TrainingTask, goal: TrainingGoal, sessionCount: Int)] {
+        activeGoals
+            .filter { isGoalBountyEligible($0.id) }
+            .flatMap { goal in
+                tasks(forGoal: goal.id).map { task in
+                    (task: task, goal: goal, sessionCount: sessions(forTask: task.id, goalId: goal.id).count)
+                }
+            }
+    }
+
+    var activeBounty: Bounty? {
+        notebook.bounties.first { $0.status == .active }
+    }
+
+    /// The unlocked "Set a challenge" card shows only when a goal qualifies and there
+    /// is no bounty already in flight.
+    var isBountyUnlocked: Bool {
+        activeBounty == nil && hasBountyEligibleGoal
+    }
+
+    var collectedBounties: [Bounty] {
+        notebook.bounties
+            .filter { $0.status == .collected }
+            .sorted { ($0.collectedAt ?? $0.createdAt) > ($1.collectedAt ?? $1.createdAt) }
+    }
+
+    var collectedBountyCount: Int { collectedBounties.count }
+
+    @discardableResult
+    func createBounty(taskId: String, kind: BountyKind, targetCount: Int?, targetPartner: String?) -> Bounty? {
+        guard let task = task(id: taskId) else { return nil }
+        let bounty = Bounty(
+            accountId: notebook.accountId,
+            goalId: task.goalId,
+            taskId: taskId,
+            kind: kind,
+            targetCount: targetCount,
+            targetPartner: targetPartner?.nilIfBlank
+        )
+        mutate { notebook.bounties.append(bounty) }
+        return bounty
+    }
+
+    /// Records one landing. Auto-collects the bounty when the required hits are reached.
+    @discardableResult
+    func recordBountyHit(id: String) -> Bounty? {
+        guard let idx = notebook.bounties.firstIndex(where: { $0.id == id }) else { return nil }
+        mutate {
+            notebook.bounties[idx].hitDates.append(Date())
+            if notebook.bounties[idx].isComplete {
+                notebook.bounties[idx].status = .collected
+                notebook.bounties[idx].collectedAt = Date()
+            }
+        }
+        return notebook.bounties[idx]
+    }
+
+    func cancelBounty(id: String) {
+        mutate { notebook.bounties.removeAll { $0.id == id } }
+    }
+
+    /// Trophy stats for a collected (or in-flight) bounty: sessions drilling the
+    /// technique during the hunt, elapsed days, and total hits landed.
+    func bountyStats(_ bounty: Bounty) -> (sessions: Int, days: Int, hits: Int) {
+        let end = bounty.collectedAt ?? Date()
+        let sessionCount = notebook.sessions.filter {
+            $0.goalId == bounty.goalId
+                && $0.taskIds.contains(bounty.taskId)
+                && $0.date >= calendar.startOfDay(for: bounty.createdAt)
+        }.count
+        let days = max(1, (calendar.dateComponents([.day], from: bounty.createdAt, to: end).day ?? 0) + 1)
+        return (sessions: sessionCount, days: days, hits: bounty.hitCount)
+    }
+
+    /// Human-readable title, e.g. "Hit over under on Marcus, 5×".
+    func bountyTitle(_ bounty: Bounty) -> String {
+        let name = task(id: bounty.taskId)?.name ?? "your technique"
+        var parts = "Hit \(name)"
+        if let partner = bounty.targetPartner?.nilIfBlank {
+            parts += " on \(partner)"
+        }
+        if bounty.requiredHits > 1 {
+            parts += ", \(bounty.requiredHits)×"
+        }
+        return parts
+    }
+
     func trainingDatesThisWeek(goalId: String, anchor: Date) -> Set<Date> {
         let start = calendar.mondayStartOfWeek(containing: anchor)
         let end = calendar.date(byAdding: .day, value: 7, to: start) ?? start
@@ -1733,6 +2023,19 @@ final class NotebookStore: ObservableObject {
     }
 
 #if DEBUG
+    /// DEBUG/QA: wipes all notebook data so first-run onboarding can be re-tested without
+    /// deleting the app. Triggered by the `RESET_ONBOARDING` launch environment variable.
+    func resetForOnboardingTestingDEBUG() {
+        mutate {
+            notebook.goals = []
+            notebook.tasks = []
+            notebook.sessions = []
+            notebook.reflections = []
+            notebook.notes = []
+            notebook.profile = nil
+        }
+    }
+
     /// TEMPORARY demo data for testing. Re-seeds when `seedVersion` changes. Remove before shipping.
     func seedDemoDataIfEmpty() {
         let seedKey = "matmind.debugSeedVersion"
@@ -1859,6 +2162,10 @@ struct RootView: View {
                     },
                     onSignOut: sessionStore.signOut
                 )
+            } else if sessionStore.route == .onboarding {
+                OnboardingContainerView(onComplete: { draft in
+                    sessionStore.completeOnboarding(draft)
+                })
             } else if let notebookStore = sessionStore.notebookStore {
                 MainAppView(sessionStore: sessionStore, store: notebookStore)
             } else {
@@ -2004,6 +2311,703 @@ struct ProfileSetupView: View {
             firstName = parts.first.map(String.init) ?? ""
             lastName = parts.dropFirst().joined(separator: " ")
         }
+    }
+}
+
+// MARK: - Onboarding Flow
+
+/// Everything captured during first-run onboarding, handed to `AppSessionStore.completeOnboarding`.
+struct OnboardingDraft {
+    var goalName: String
+    var iconName: String = "target"
+    var colorName: String = "indigo"
+    var taskNames: [String]
+    var firstTaskDescription: String = ""
+    var sessionDate: Date
+    var reminderEnabled: Bool
+    var reminderHour: Int
+    var reminderMinute: Int
+}
+
+/// Static, illustrative example tasks shown under the first-task field. Intentionally a fixed list
+/// (not derived from the live goal text) so typing in the goal field never rebuilds this section —
+/// a changing list here would churn `WrappingHStack`'s layout state and drop the keyboard.
+enum OnboardingSuggestions {
+    static let examples = ["Break their posture", "Hip escape to angle", "Two-on-one grip", "Lasso grip"]
+}
+
+struct OnboardingContainerView: View {
+    var onComplete: (OnboardingDraft) -> Void
+
+    private enum Step { case splash, goal, session }
+    @State private var step: Step = OnboardingContainerView.initialStep
+
+    @State private var goalName = ""
+    @State private var firstTask = ""
+    @State private var firstTaskDescription = ""
+    @State private var extraTasks: [String] = []
+    @State private var sessionDay: Date = Calendar.current.normalizedTrainingDay(Date())
+    @State private var reminderEnabled = true
+    @State private var reminderHour = 8
+    @State private var reminderMinute = 0
+
+    var body: some View {
+        ZStack {
+            if step == .splash {
+                OnboardingSplashView(onNext: { go(.goal) })
+                    .transition(.opacity)
+            } else if step == .goal {
+                OnboardingGoalStepView(
+                    goalName: $goalName,
+                    firstTask: $firstTask,
+                    firstTaskDescription: $firstTaskDescription,
+                    onBack: { go(.splash) },
+                    onNext: { go(.session) }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                OnboardingSessionStepView(
+                    goalName: goalName,
+                    firstTask: firstTask,
+                    extraTasks: $extraTasks,
+                    sessionDay: $sessionDay,
+                    reminderEnabled: $reminderEnabled,
+                    reminderHour: $reminderHour,
+                    reminderMinute: $reminderMinute,
+                    onBack: { go(.goal) },
+                    onSkip: { finish(useDefaults: true) },
+                    onStart: { finish(useDefaults: false) }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
+    }
+
+    private func go(_ next: Step) {
+        withAnimation(.easeInOut(duration: 0.3)) { step = next }
+    }
+
+    /// DEBUG-only deep link into a specific onboarding step for screenshot/QA, mirroring
+    /// `MainAppView.initialTab`'s `START_TAB` override.
+    static private var initialStep: Step {
+        #if DEBUG
+        switch ProcessInfo.processInfo.environment["ONBOARDING_STEP"] {
+        case "goal": return .goal
+        case "session": return .session
+        default: return .splash
+        }
+        #else
+        return .splash
+        #endif
+    }
+
+    private func finish(useDefaults: Bool) {
+        let goal = goalName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var tasks = [firstTask.trimmingCharacters(in: .whitespacesAndNewlines)]
+        tasks.append(contentsOf: extraTasks.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        tasks = tasks.filter { !$0.isEmpty }
+
+        let day = useDefaults ? Calendar.current.normalizedTrainingDay(Date()) : sessionDay
+        let hour = useDefaults ? 8 : reminderHour
+        let minute = useDefaults ? 0 : reminderMinute
+
+        onComplete(
+            OnboardingDraft(
+                goalName: goal,
+                taskNames: tasks,
+                firstTaskDescription: firstTaskDescription,
+                sessionDate: day,
+                reminderEnabled: reminderEnabled,
+                reminderHour: hour,
+                reminderMinute: minute
+            )
+        )
+    }
+}
+
+// MARK: Onboarding · shared pieces
+
+/// The Mat Mind "MM" monogram stroke used on the splash.
+struct MatMindMarkShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let s = min(rect.width, rect.height) / 120
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
+        var path = Path()
+        path.move(to: p(26, 88))
+        path.addLine(to: p(26, 40))
+        path.addLine(to: p(48, 64))
+        path.addLine(to: p(70, 40))
+        path.addLine(to: p(70, 64))
+        path.addLine(to: p(92, 40))
+        path.addLine(to: p(92, 88))
+        return path
+    }
+}
+
+private struct OnboardingProgressHeader: View {
+    let step: Int          // 1 or 2
+    let trailingLabel: String
+    let onBack: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Button(action: onBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .frame(width: 32, height: 32, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            HStack(spacing: 7) {
+                Capsule().fill(step == 1 ? AppColors.indigo : Color(red: 0.85, green: 0.83, blue: 0.80))
+                    .frame(width: step == 1 ? 26 : 8, height: 6)
+                Capsule().fill(step == 2 ? AppColors.indigo : Color(red: 0.85, green: 0.83, blue: 0.80))
+                    .frame(width: step == 2 ? 26 : 8, height: 6)
+                Spacer()
+                Text(trailingLabel)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.tertiaryLabel)
+            }
+        }
+    }
+}
+
+private struct OnboardingFieldLabel: View {
+    let text: String
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 12, weight: .bold, design: .rounded))
+            .tracking(1)
+            .foregroundColor(AppColors.tertiaryLabel)
+    }
+}
+
+private struct OnboardingIconTile: View {
+    let systemName: String
+    var body: some View {
+        RoundedRectangle(cornerRadius: 11)
+            .fill(AppColors.indigo.opacity(0.12))
+            .frame(width: 38, height: 38)
+            .overlay(
+                Image(systemName: systemName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(AppColors.indigo)
+            )
+    }
+}
+
+// MARK: Onboarding · 1 · Splash
+
+struct OnboardingSplashView: View {
+    var onNext: () -> Void
+
+    @State private var drawn = false
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 63/255, green: 61/255, blue: 158/255),
+                    Color(red: 74/255, green: 63/255, blue: 160/255),
+                    Color(red: 91/255, green: 71/255, blue: 166/255)
+                ]),
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            .edgesIgnoringSafeArea(.all)
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(AppColors.mint.opacity(0.28))
+                        .frame(width: 132, height: 132)
+                        .blur(radius: 26)
+                        .scaleEffect(pulse ? 1.08 : 0.92)
+                    MatMindMarkShape()
+                        .trim(from: 0, to: drawn ? 1 : 0)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round))
+                        .frame(width: 118, height: 118)
+                    Circle()
+                        .fill(AppColors.mint)
+                        .frame(width: 13, height: 13)
+                        .offset(x: 0, y: -19)
+                        .opacity(drawn ? 1 : 0)
+                        .scaleEffect(pulse ? 1.15 : 1.0)
+                }
+                .frame(width: 148, height: 148)
+                .padding(.bottom, 34)
+
+                VStack(spacing: 14) {
+                    Text("MAT MIND")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .tracking(2)
+                        .foregroundColor(Color.white.opacity(0.62))
+                    Text("Train with\nintention.")
+                        .font(.system(size: 34, weight: .black, design: .rounded))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                    Text("Make progress faster.")
+                        .font(.system(size: 21, weight: .bold, design: .rounded))
+                        .foregroundColor(Color.white.opacity(0.72))
+                }
+
+                Spacer()
+
+                VStack(spacing: 18) {
+                    Button(action: onNext) {
+                        HStack(spacing: 9) {
+                            Text("Next")
+                                .font(.system(size: 17, weight: .black, design: .rounded))
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .foregroundColor(AppColors.indigo)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(Color.white)
+                        .cornerRadius(18)
+                        .shadow(color: Color.black.opacity(0.28), radius: 20, x: 0, y: 12)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Text("No account needed. Nothing to sign up for.")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+                .padding(.horizontal, 30)
+                .padding(.bottom, 44)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.4)) { drawn = true }
+            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) { pulse = true }
+        }
+    }
+}
+
+// MARK: Onboarding · 2 · Goal & task
+
+struct OnboardingGoalStepView: View {
+    @Binding var goalName: String
+    @Binding var firstTask: String
+    @Binding var firstTaskDescription: String
+    var onBack: () -> Void
+    var onNext: () -> Void
+
+    private var canContinue: Bool {
+        goalName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            && firstTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    OnboardingProgressHeader(step: 1, trailingLabel: "Required", onBack: onBack)
+                        .padding(.top, 8)
+
+                    VStack(alignment: .leading, spacing: 11) {
+                        Text("What do you\nwant to get\nbetter at?")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                            .lineSpacing(1)
+                        Text("Name one focus to train. Add the tasks you’ll drill inside it — you can change all of this later.")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppColors.secondaryLabel)
+                            .lineSpacing(2)
+                    }
+                    .padding(.top, 22)
+                    .padding(.bottom, 26)
+
+                    // Goal
+                    OnboardingFieldLabel(text: "Your goal")
+                        .padding(.bottom, 9)
+                    HStack(spacing: 11) {
+                        OnboardingIconTile(systemName: "target")
+                        TextField("Closed Guard", text: $goalName)
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                            .accentColor(AppColors.indigo)
+                    }
+                    .padding(16)
+                    .background(AppColors.background)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.indigo, lineWidth: 2))
+                    .cornerRadius(16)
+                    .shadow(color: AppColors.indigo.opacity(0.18), radius: 12, x: 0, y: 4)
+                    .padding(.bottom, 22)
+
+                    // First task
+                    OnboardingFieldLabel(text: "First task to work on")
+                        .padding(.bottom, 9)
+                    HStack(spacing: 11) {
+                        OnboardingIconTile(systemName: "pencil")
+                        TextField("Standup", text: $firstTask)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                            .accentColor(AppColors.indigo)
+                    }
+                    .padding(15)
+                    .background(AppColors.background)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1.5))
+                    .cornerRadius(16)
+
+                    // Example tasks — static, illustrative examples shown under the first-task
+                    // field (not tappable, and independent of the goal text so typing above never
+                    // rebuilds this section).
+                    Text("Example tasks")
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.tertiaryLabel)
+                        .padding(.top, 14)
+                        .padding(.bottom, 10)
+
+                    WrappingHStack(items: OnboardingSuggestions.examples.map { IdentifiableString($0) }) { item in
+                        Text(item.value)
+                            .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                            .foregroundColor(AppColors.indigo)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppColors.indigo.opacity(0.1))
+                            .cornerRadius(14)
+                    }
+                    .allowsHitTesting(false)
+
+                    // Task description (free-form, optional)
+                    OnboardingFieldLabel(text: "Task description")
+                        .padding(.top, 22)
+                        .padding(.bottom, 9)
+                    TrainingTextView(text: $firstTaskDescription, placeholder: "Pin their shoulders to the ground")
+                        .frame(minHeight: 92)
+
+                    // Session peek
+                    VStack(alignment: .leading, spacing: 7) {
+                        Divider()
+                            .padding(.bottom, 17)
+                        OnboardingFieldLabel(text: "Plan your first session")
+                        Text("Next you’ll pick when you’ll train it ↓")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppColors.tertiaryLabel)
+                    }
+                    .padding(.top, 30)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+            }
+
+            // Next CTA
+            Button(action: onNext) {
+                HStack(spacing: 9) {
+                    Text("Next")
+                        .font(.system(size: 17, weight: .black, design: .rounded))
+                    Image(systemName: "arrow.right").font(.system(size: 16, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(canContinue ? AppColors.indigo : Color(.systemGray3))
+                .cornerRadius(18)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(!canContinue)
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            .padding(.bottom, 30)
+            .background(AppColors.background.edgesIgnoringSafeArea(.bottom))
+        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
+    }
+}
+
+/// Small Identifiable wrapper so `String` suggestions work with `FlowWrap`.
+struct IdentifiableString: Identifiable {
+    let value: String
+    var id: String { value }
+    init(_ value: String) { self.value = value }
+}
+
+// MARK: Onboarding · 3 · Plan session
+
+struct OnboardingSessionStepView: View {
+    let goalName: String
+    let firstTask: String
+    @Binding var extraTasks: [String]
+    @Binding var sessionDay: Date
+    @Binding var reminderEnabled: Bool
+    @Binding var reminderHour: Int
+    @Binding var reminderMinute: Int
+    var onBack: () -> Void
+    var onSkip: () -> Void
+    var onStart: () -> Void
+
+    @State private var showDayPicker = false
+    @State private var showTimePicker = false
+
+    private var timeLabel: String {
+        let h = reminderHour % 12 == 0 ? 12 : reminderHour % 12
+        let period = reminderHour < 12 ? "AM" : "PM"
+        return String(format: "%d:%02d %@", h, reminderMinute, period)
+    }
+
+    private var dayLabel: String {
+        if Calendar.current.isDateInToday(sessionDay) {
+            let f = DateFormatter(); f.dateFormat = "MMM d"
+            return "Today, \(f.string(from: sessionDay))"
+        }
+        let f = DateFormatter(); f.dateFormat = "EEE, MMM d"
+        return f.string(from: sessionDay)
+    }
+
+    private var timeBinding: Binding<Date> {
+        Binding<Date>(
+            get: { Calendar.current.date(bySettingHour: reminderHour, minute: reminderMinute, second: 0, of: Date()) ?? Date() },
+            set: {
+                reminderHour = Calendar.current.component(.hour, from: $0)
+                reminderMinute = Calendar.current.component(.minute, from: $0)
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        OnboardingProgressHeader(step: 2, trailingLabel: "", onBack: onBack)
+                        Spacer()
+                        Button(action: onSkip) {
+                            Text("Skip")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundColor(AppColors.tertiaryLabel)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.top, 48)
+                    }
+                    .padding(.top, 8)
+
+                    VStack(alignment: .leading, spacing: 11) {
+                        Text("When will you\ntrain it?")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                            .lineSpacing(1)
+                        Text("Plan your first session. We’ll have it ready on Home when you step on the mat.")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppColors.secondaryLabel)
+                            .lineSpacing(2)
+                    }
+                    .padding(.top, 22)
+                    .padding(.bottom, 22)
+
+                    sessionCard
+
+                    // Reminder toggle
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 11)
+                            .fill(AppColors.mint.opacity(0.18))
+                            .frame(width: 38, height: 38)
+                            .overlay(
+                                Image(systemName: "bell.fill")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(Color(red: 61/255, green: 161/255, blue: 147/255))
+                            )
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Remind me at \(timeLabel)")
+                                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                .foregroundColor(AppColors.label)
+                            Text("A gentle nudge, never a guilt trip")
+                                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                                .foregroundColor(AppColors.tertiaryLabel)
+                        }
+                        Spacer()
+                        OnboardingPillToggle(isOn: $reminderEnabled)
+                    }
+                    .padding(15)
+                    .background(AppColors.background)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 1))
+                    .cornerRadius(16)
+                    .padding(.top, 16)
+
+                    // Start CTA
+                    Button(action: onStart) {
+                        HStack(spacing: 9) {
+                            Text("Start training")
+                                .font(.system(size: 17, weight: .black, design: .rounded))
+                            Image(systemName: "arrow.right").font(.system(size: 16, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(AppColors.indigo)
+                        .cornerRadius(18)
+                        .shadow(color: AppColors.indigo.opacity(0.5), radius: 18, x: 0, y: 12)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.top, 22)
+
+                    Text("Everything stays on your device.\nNo account, no cloud, no sign-in.")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppColors.tertiaryLabel)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 14)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 30)
+            }
+        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
+    }
+
+    private var sessionCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
+                Circle().fill(AppColors.mint).frame(width: 7, height: 7)
+                Text("FIRST SESSION")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(1.4)
+                    .foregroundColor(Color.white.opacity(0.72))
+            }
+
+            Text(goalName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Your goal" : goalName)
+                .font(.system(size: 24, weight: .black, design: .rounded))
+                .foregroundColor(.white)
+                .padding(.top, 14)
+
+            // Day + Time
+            HStack(spacing: 10) {
+                pickerTile(title: "Day", value: dayLabel, expanded: showDayPicker) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showDayPicker.toggle(); if showDayPicker { showTimePicker = false }
+                    }
+                }
+                pickerTile(title: "Time", value: timeLabel, expanded: showTimePicker) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showTimePicker.toggle(); if showTimePicker { showDayPicker = false }
+                    }
+                }
+                .frame(width: 128)
+            }
+            .padding(.top, 16)
+
+            if showDayPicker {
+                DatePicker("", selection: $sessionDay, in: Date()..., displayedComponents: .date)
+                    .datePickerStyle(WheelDatePickerStyle())
+                    .labelsHidden()
+                    .colorScheme(.dark)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+            }
+            if showTimePicker {
+                DatePicker("", selection: timeBinding, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(WheelDatePickerStyle())
+                    .labelsHidden()
+                    .colorScheme(.dark)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+            }
+
+            // Tasks
+            Text("TASKS")
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(1.2)
+                .foregroundColor(Color.white.opacity(0.6))
+                .padding(.top, 20)
+                .padding(.bottom, 10)
+
+            VStack(spacing: 8) {
+                taskRow(firstTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "First task" : firstTask)
+                ForEach(extraTasks.indices, id: \.self) { i in
+                    taskRow(extraTasks[i])
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 63/255, green: 61/255, blue: 158/255),
+                    Color(red: 77/255, green: 63/255, blue: 159/255),
+                    Color(red: 91/255, green: 71/255, blue: 166/255)
+                ]),
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(24)
+        .shadow(color: AppColors.indigo.opacity(0.5), radius: 26, x: 0, y: 16)
+    }
+
+    private func pickerTile(title: String, value: String, expanded: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(0.6)
+                    .foregroundColor(Color.white.opacity(0.6))
+                HStack(spacing: 6) {
+                    Text(value)
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .background(Color.white.opacity(0.12))
+            .cornerRadius(14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func taskRow(_ name: String) -> some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(AppColors.mint)
+                .frame(width: 18, height: 18)
+                .overlay(
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(AppColors.indigo)
+                )
+            Text(name)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+            Spacer()
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .background(Color.white.opacity(0.1))
+        .cornerRadius(12)
+    }
+}
+
+/// Indigo pill switch matching the onboarding prototype (avoids iOS-14-only tinted `SwitchToggleStyle`).
+struct OnboardingPillToggle: View {
+    @Binding var isOn: Bool
+    var body: some View {
+        Button(action: { withAnimation(.easeInOut(duration: 0.18)) { isOn.toggle() } }) {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isOn ? AppColors.indigo : Color(.systemGray4))
+                    .frame(width: 48, height: 28)
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 22, height: 22)
+                    .shadow(color: Color.black.opacity(0.3), radius: 1.5, x: 0, y: 1)
+                    .padding(3)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -2213,6 +3217,10 @@ struct HomeView: View {
                 EditSessionView(store: store, session: session) { sheet = nil }
             case .feedback(let reflection):
                 FeedbackPreviewView(store: store, reflection: reflection, onClose: { sheet = nil })
+            case .newBounty:
+                BountyFlowView(store: store, onClose: { sheet = nil })
+            case .collection:
+                BountyCollectionView(store: store, onClose: { sheet = nil })
             }
         }
     }
@@ -2274,20 +3282,22 @@ struct HomeView: View {
                 Spacer()
             }
 
-            Button(action: { sheet = .settings }) {
-                HStack(spacing: 6) {
-                    Text("🏆 \(bountyCount) bounty collected")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.8))
+            if bountyCount > 0 {
+                Button(action: { sheet = .collection }) {
+                    HStack(spacing: 6) {
+                        Text("🏆 \(bountyCount) \(bountyCount == 1 ? "bounty" : "bounties") collected")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color.white.opacity(0.18)))
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.white.opacity(0.18)))
+                .buttonStyle(PlainButtonStyle())
             }
-            .buttonStyle(PlainButtonStyle())
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2320,13 +3330,24 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Bounty (visual stub)
+    // MARK: - Bounty
 
+    /// The single Home slot for bounties. Renders nothing until a goal qualifies,
+    /// then the "set a challenge" card, then the full coral hero while a hunt is live.
+    @ViewBuilder
     private var bountyCard: some View {
+        if let bounty = store.activeBounty {
+            activeBountyHero(bounty)
+        } else if store.isBountyUnlocked {
+            bountyUnlockedCard
+        }
+    }
+
+    private var bountyUnlockedCard: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 3).fill(AppColors.coral).frame(width: 5).padding(.vertical, 6)
             VStack(alignment: .leading, spacing: 2) {
-                Text("🎯 Bounty Unlocked")
+                Text("🎯 Bounty unlocked")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 Text("You've put in the reps — set a challenge.")
@@ -2334,18 +3355,115 @@ struct HomeView: View {
                     .foregroundColor(AppColors.secondaryLabel)
             }
             Spacer()
-            Button(action: { sheet = .settings }) {
+            Button(action: { sheet = .newBounty }) {
                 Text("Set")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
-                    .background(Capsule().fill(AppColors.coral))
+                    .background(Capsule().fill(AppColors.coralDeep))
             }
             .buttonStyle(PlainButtonStyle())
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+    }
+
+    private func activeBountyHero(_ bounty: Bounty) -> some View {
+        let stats = store.bountyStats(bounty)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "target").font(.system(size: 12, weight: .bold))
+                Text("BOUNTY ACTIVE")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(0.6)
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Capsule().fill(Color.white.opacity(0.22)))
+
+            Text(store.bountyTitle(bounty) + ".")
+                .font(.system(size: 23, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Text("PROGRESS")
+                Spacer()
+                Text("\(bounty.hitCount) / \(bounty.requiredHits)")
+            }
+            .font(.system(size: 11, weight: .heavy, design: .rounded))
+            .foregroundColor(.white.opacity(0.9))
+
+            bountyProgress(bounty)
+
+            Button(action: {
+                let updated = store.recordBountyHit(id: bounty.id)
+                if updated?.status == .collected {
+                    sheet = .collection
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark")
+                    Text("I hit it")
+                }
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.coralDeep)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color.white))
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Text("Tap the moment you land it · Day \(stats.days) of the hunt")
+                .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.85))
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [AppColors.coral, AppColors.coralDeep]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(20)
+    }
+
+    /// Progress dots for small targets; a filling bar once the target grows past 6.
+    @ViewBuilder
+    private func bountyProgress(_ bounty: Bounty) -> some View {
+        if bounty.requiredHits <= 6 {
+            HStack(spacing: 8) {
+                ForEach(0..<bounty.requiredHits, id: \.self) { i in
+                    let landed = i < bounty.hitCount
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(landed ? Color.white.opacity(0.95) : Color.clear)
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(landed ? 0 : 0.4), style: StrokeStyle(lineWidth: 1.5, dash: landed ? [] : [4, 3]))
+                        if landed, i < bounty.hitDates.count {
+                            Text(DateFormatter.monthDay.string(from: bounty.hitDates[i]))
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundColor(AppColors.coralDeep)
+                        }
+                    }
+                    .frame(height: 40)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        } else {
+            let fraction = CGFloat(bounty.hitCount) / CGFloat(bounty.requiredHits)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.25))
+                    Capsule().fill(Color.white).frame(width: max(10, geo.size.width * fraction))
+                }
+            }
+            .frame(height: 10)
+        }
     }
 
     // MARK: - Next Session
@@ -2578,7 +3696,7 @@ struct HomeView: View {
     }
     private var totalReflections: Int { store.notebook.reflections.count }
     private var favoritesCount: Int { store.notebook.reflections.filter { $0.isFavorite }.count }
-    private var bountyCount: Int { max(0, completedAllTime / 3) }
+    private var bountyCount: Int { store.collectedBountyCount }
 
     /// Consecutive weeks with at least one completed session, counting back from the current week.
     private var trainingStreak: Int {
@@ -2673,15 +3791,568 @@ struct HomeView: View {
     private func shortDateLabel(_ d: Date) -> String { let f = DateFormatter(); f.dateFormat = "MMM d"; return f.string(from: d) }
 }
 
+// MARK: - Bounty Flow
+
+/// New Bounty flow: pick shape → pick technique → set the target. Presented as a
+/// sheet from Home. Creates the bounty and dismisses on "Start Bounty".
+struct BountyFlowView: View {
+    @ObservedObject var store: NotebookStore
+    var onClose: () -> Void
+
+    @State private var step = 0
+    @State private var kind: BountyKind?
+    @State private var selectedTaskId: String?
+    @State private var count = 5
+    @State private var partner = ""
+
+    private var eligible: [(task: TrainingTask, goal: TrainingGoal, sessionCount: Int)] {
+        store.bountyEligibleTasks()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    switch step {
+                    case 0: pickChallengeStep
+                    case 1: pickTechniqueStep
+                    default: setTargetStep
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+            }
+            footer
+        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
+    }
+
+    private var header: some View {
+        HStack {
+            Button(action: { if step == 0 { onClose() } else { step -= 1 } }) {
+                HStack(spacing: 3) {
+                    Image(systemName: step == 0 ? "xmark" : "chevron.left")
+                    Text(step == 0 ? "Cancel" : "Back")
+                }
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(step == 0 ? AppColors.secondaryLabel : AppColors.indigo)
+            }
+            Spacer()
+            Text("New Bounty")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.label)
+            Spacer()
+            Color.clear.frame(width: 56, height: 1)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 18)
+        .padding(.bottom, 12)
+    }
+
+    // Step 1
+    private var pickChallengeStep: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Pick your challenge")
+                .font(.system(size: 27, weight: .heavy, design: .rounded))
+                .foregroundColor(AppColors.label)
+            Text("What do you want to hunt?")
+                .font(.matMindBody(size: 14))
+                .foregroundColor(AppColors.secondaryLabel)
+                .padding(.top, 8)
+            VStack(spacing: 14) {
+                ForEach(BountyKind.allCases) { k in
+                    bountyChoiceCard(k)
+                }
+            }
+            .padding(.top, 20)
+        }
+    }
+
+    private func bountyChoiceCard(_ k: BountyKind) -> some View {
+        let selected = kind == k
+        return Button(action: { kind = k }) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(AppColors.coral.opacity(selected ? 0.22 : 0.14))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: k.symbol)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(AppColors.coralDeep)
+                    }
+                    Spacer()
+                    if selected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(AppColors.coralDeep)
+                    }
+                }
+                Text(k.title)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                    .padding(.top, 12)
+                Text(k.blurb)
+                    .font(.matMindBody(size: 13))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .padding(.top, 3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(selected ? AppColors.coral.opacity(0.08) : AppColors.cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(selected ? AppColors.coral : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // Step 2
+    private var pickTechniqueStep: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Which technique?")
+                .font(.system(size: 27, weight: .heavy, design: .rounded))
+                .foregroundColor(AppColors.label)
+            Text("Tasks from goals you've trained for 2+ weeks.")
+                .font(.matMindBody(size: 14))
+                .foregroundColor(AppColors.secondaryLabel)
+                .padding(.top, 8)
+            if eligible.isEmpty {
+                Text("No eligible techniques yet. Keep training a goal for two weeks to unlock the hunt.")
+                    .font(.matMindBody(size: 14))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .padding(.top, 20)
+            } else {
+                VStack(spacing: 11) {
+                    ForEach(eligible, id: \.task.id) { item in
+                        techniqueRow(item)
+                    }
+                }
+                .padding(.top, 16)
+            }
+        }
+    }
+
+    private func techniqueRow(_ item: (task: TrainingTask, goal: TrainingGoal, sessionCount: Int)) -> some View {
+        let selected = selectedTaskId == item.task.id
+        return Button(action: { selectedTaskId = item.task.id }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.task.name)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    Text(item.goal.name)
+                        .font(.matMindBody(size: 12.5))
+                        .foregroundColor(AppColors.secondaryLabel)
+                }
+                Spacer()
+                Text("\(item.sessionCount) \(item.sessionCount == 1 ? "session" : "sessions")")
+                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppColors.tertiaryLabel)
+            }
+            .padding(.horizontal, 15).padding(.vertical, 13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(selected ? AppColors.coral.opacity(0.08) : AppColors.cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(selected ? AppColors.coral : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // Step 3
+    private var setTargetStep: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Set the target")
+                .font(.system(size: 27, weight: .heavy, design: .rounded))
+                .foregroundColor(AppColors.label)
+            Text("How many, and on who? Leave blank for either.")
+                .font(.matMindBody(size: 14))
+                .foregroundColor(AppColors.secondaryLabel)
+                .padding(.top, 8)
+
+            Text("HIT IT · HOW MANY TIMES")
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(0.6)
+                .foregroundColor(AppColors.secondaryLabel)
+                .padding(.top, 24).padding(.bottom, 10)
+            HStack {
+                stepperButton("minus") { if count > 1 { count -= 1 } }
+                Spacer()
+                VStack(spacing: 2) {
+                    Text("\(count)")
+                        .font(.system(size: 30, weight: .heavy, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    Text("TIMES")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .tracking(1)
+                        .foregroundColor(AppColors.secondaryLabel)
+                }
+                Spacer()
+                stepperButton("plus") { count += 1 }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+
+            HStack {
+                Text("WHO ARE YOU HUNTING?")
+                Spacer()
+                Text(kind == .hitCount ? "OPTIONAL" : "REQUIRED").foregroundColor(AppColors.tertiaryLabel)
+            }
+            .font(.system(size: 11, weight: .heavy, design: .rounded))
+            .foregroundColor(AppColors.secondaryLabel)
+            .padding(.top, 22).padding(.bottom, 10)
+            TextField("Name a partner", text: $partner)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundColor(AppColors.label)
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(AppColors.cardBackground))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("PREVIEW")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(0.8)
+                    .foregroundColor(AppColors.coralDeep)
+                Text(previewText())
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("No deadline. Hunt at your own pace.")
+                    .font(.matMindBody(size: 12.5))
+                    .foregroundColor(AppColors.secondaryLabel)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(AppColors.coral)
+                    .frame(width: 4)
+                    .frame(maxWidth: .infinity, alignment: .leading),
+                alignment: .leading
+            )
+            .padding(.top, 20)
+        }
+    }
+
+    private func stepperButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(AppColors.label)
+                .frame(width: 44, height: 44)
+                .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.secondaryBackground))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func previewText() -> String {
+        let name = store.task(id: selectedTaskId ?? "")?.name ?? "it"
+        var s = "Hit \(name)"
+        if let p = partner.nilIfBlank { s += " on \(p)" }
+        if count > 1 { s += ", \(count)×" }
+        return s + "."
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Button(action: advance) {
+                Text(step == 2 ? "Start Bounty" : "Next")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(step == 2 ? AppColors.coralDeep : AppColors.indigo))
+                    .opacity(canAdvance ? 1 : 0.4)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(!canAdvance)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 24)
+        .background(AppColors.background)
+    }
+
+    private var canAdvance: Bool {
+        switch step {
+        case 0: return kind != nil
+        case 1: return selectedTaskId != nil
+        default:
+            // Hit count doesn't need a partner; targeting a partner does.
+            return kind == .hitCount || partner.nilIfBlank != nil
+        }
+    }
+
+    private func advance() {
+        guard canAdvance else { return }
+        if step < 2 {
+            step += 1
+        } else if let taskId = selectedTaskId, let kind = kind {
+            store.createBounty(taskId: taskId, kind: kind, targetCount: count, targetPartner: partner)
+            onClose()
+        }
+    }
+}
+
+// MARK: - Bounty Collection
+
+/// Trophy shelf of collected bounties, plus a celebration hero for the most recent.
+struct BountyCollectionView: View {
+    @ObservedObject var store: NotebookStore
+    var onClose: () -> Void
+
+    @State private var showFlow = false
+
+    private var collected: [Bounty] { store.collectedBounties }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let latest = collected.first {
+                        celebrationHero(latest)
+                        featuredTrophy(latest)
+                        if collected.count > 1 {
+                            miniGrid(Array(collected.dropFirst()))
+                        }
+                    } else {
+                        emptyState
+                    }
+                    newBountyButton
+                        .padding(.top, 22)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+                .padding(.bottom, 30)
+            }
+        }
+        .background(AppColors.background.edgesIgnoringSafeArea(.all))
+        .sheet(isPresented: $showFlow) {
+            BountyFlowView(store: store, onClose: { showFlow = false })
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Button(action: onClose) {
+                HStack(spacing: 3) {
+                    Image(systemName: "chevron.left")
+                    Text("Home")
+                }
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(AppColors.indigo)
+            }
+            Spacer()
+            Text("Collection")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.label)
+            Spacer()
+            Color.clear.frame(width: 56, height: 1)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 18)
+        .padding(.bottom, 8)
+    }
+
+    private func celebrationHero(_ bounty: Bounty) -> some View {
+        let stats = store.bountyStats(bounty)
+        let name = store.task(id: bounty.taskId)?.name ?? "your technique"
+        var summary = "\(name.capitalizedFirst), landed \(stats.hits)×"
+        if let p = bounty.targetPartner?.nilIfBlank { summary += " on \(p)" }
+        summary += " over \(stats.days) \(stats.days == 1 ? "day" : "days")."
+        return VStack(spacing: 6) {
+            Text("🏆")
+                .font(.system(size: 60))
+                .padding(.top, 6)
+            Text("BOUNTY COLLECTED")
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(1.2)
+                .foregroundColor(AppColors.gold)
+            Text("You hunted it down.")
+                .font(.system(size: 24, weight: .heavy, design: .rounded))
+                .foregroundColor(AppColors.label)
+                .padding(.top, 4)
+            Text(summary)
+                .font(.matMindBody(size: 13))
+                .foregroundColor(AppColors.secondaryLabel)
+                .multilineTextAlignment(.center)
+                .padding(.top, 4)
+            HStack(spacing: 6) {
+                Text("🏆 \(collected.count) \(collected.count == 1 ? "bounty" : "bounties") collected")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.gold)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(Capsule().fill(AppColors.gold.opacity(0.16)))
+            .padding(.top, 10)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func featuredTrophy(_ bounty: Bounty) -> some View {
+        let stats = store.bountyStats(bounty)
+        let name = store.task(id: bounty.taskId)?.name ?? "Technique"
+        var sub = "\(bounty.hitCount) \(bounty.hitCount == 1 ? "hit" : "hits")"
+        if let p = bounty.targetPartner?.nilIfBlank { sub = "on \(p) · " + sub }
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(collectedMeta(bounty))
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(0.6)
+                .foregroundColor(AppColors.gold)
+            Text(name)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.label)
+            Text(sub)
+                .font(.matMindBody(size: 13))
+                .foregroundColor(AppColors.secondaryLabel)
+            HStack(spacing: 8) {
+                statBox("SESSIONS", stats.sessions)
+                statBox("DAYS", stats.days)
+                statBox("HITS", stats.hits)
+            }
+            .padding(.top, 6)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AppColors.gold)
+                .frame(height: 3)
+                .frame(maxWidth: .infinity, alignment: .top),
+            alignment: .top
+        )
+        .padding(.top, 16)
+    }
+
+    private func statBox(_ label: String, _ value: Int) -> some View {
+        VStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(0.5)
+                .foregroundColor(AppColors.secondaryLabel)
+            Text("\(value)")
+                .font(.system(size: 19, weight: .heavy, design: .rounded))
+                .foregroundColor(AppColors.label)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
+        .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.secondaryBackground))
+    }
+
+    private func miniGrid(_ bounties: [Bounty]) -> some View {
+        VStack(spacing: 10) {
+            ForEach(Array(stride(from: 0, to: bounties.count, by: 2)), id: \.self) { i in
+                HStack(spacing: 10) {
+                    miniCard(bounties[i])
+                    if i + 1 < bounties.count {
+                        miniCard(bounties[i + 1])
+                    } else {
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
+        .padding(.top, 12)
+    }
+
+    private func miniCard(_ bounty: Bounty) -> some View {
+        let name = store.task(id: bounty.taskId)?.name ?? "Technique"
+        var sub = DateFormatter.monthDay.string(from: bounty.collectedAt ?? bounty.createdAt)
+        if let p = bounty.targetPartner?.nilIfBlank {
+            sub += " · on \(p)"
+        } else {
+            sub += " · \(bounty.hitCount)×"
+        }
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("🏆").font(.system(size: 20))
+            Text(name)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.label)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(sub)
+                .font(.matMindBody(size: 11))
+                .foregroundColor(AppColors.secondaryLabel)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(AppColors.cardBackground))
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Text("🏆").font(.system(size: 52)).opacity(0.5)
+            Text("No bounties collected yet")
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.label)
+            Text("Land your first hunt and it'll live here.")
+                .font(.matMindBody(size: 13))
+                .foregroundColor(AppColors.secondaryLabel)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 40)
+    }
+
+    @ViewBuilder
+    private var newBountyButton: some View {
+        if store.activeBounty == nil && store.hasBountyEligibleGoal {
+            Button(action: { showFlow = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                    Text("New bounty")
+                }
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.coralDeep))
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else if store.activeBounty != nil {
+            Text("Finish your active hunt before starting a new one.")
+                .font(.matMindBody(size: 12.5))
+                .foregroundColor(AppColors.secondaryLabel)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+    }
+
+    private func collectedMeta(_ bounty: Bounty) -> String {
+        let d = bounty.collectedAt ?? bounty.createdAt
+        let f = DateFormatter()
+        f.dateFormat = "MMM d · h:mm a"
+        return f.string(from: d).uppercased()
+    }
+}
+
 enum HomeSheet: Identifiable {
     case settings
     case editSession(PlannedSession)
     case feedback(Reflection)
+    case newBounty
+    case collection
     var id: String {
         switch self {
         case .settings: return "settings"
         case .editSession(let s): return "edit-\(s.id)"
         case .feedback(let r): return "feedback-\(r.id)"
+        case .newBounty: return "new-bounty"
+        case .collection: return "collection"
         }
     }
 }
@@ -4034,6 +5705,7 @@ struct PlanListView: View {
     @State private var editingSession: PlannedSession?
     @State private var showDeleteConfirm = false
     @State private var sessionToDelete: PlannedSession?
+    @State private var feedbackReflection: Reflection?
 
     private var cal: Calendar { Calendar.current }
 
@@ -4069,6 +5741,9 @@ struct PlanListView: View {
             EditSessionView(store: store, session: session) {
                 editingSession = nil
             }
+        }
+        .sheet(item: $feedbackReflection) { reflection in
+            FeedbackPreviewView(store: store, reflection: reflection, onClose: { feedbackReflection = nil })
         }
         .alert(isPresented: $showDeleteConfirm) {
             Alert(
@@ -4209,14 +5884,24 @@ struct PlanListView: View {
                 .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
             } else {
                 ForEach(daySessions) { session in
-                    SessionCardView(
-                        store: store,
-                        session: session,
-                        onReflect: { onReflect(session.id) },
-                        onEdit: { editingSession = session },
-                        onDelete: { sessionToDelete = session; showDeleteConfirm = true }
-                    )
-                    .zIndex(1)
+                    if let reflection = store.reflection(forSessionId: session.id) {
+                        ReflectionCardView(
+                            store: store,
+                            reflection: reflection,
+                            onReflect: { onReflect(session.id) },
+                            onDelete: { store.deleteReflection(id: reflection.id) },
+                            onShareFeedback: { feedbackReflection = reflection }
+                        )
+                    } else {
+                        SessionCardView(
+                            store: store,
+                            session: session,
+                            onReflect: { onReflect(session.id) },
+                            onEdit: { editingSession = session },
+                            onDelete: { sessionToDelete = session; showDeleteConfirm = true }
+                        )
+                        .zIndex(1)
+                    }
                 }
             }
         }
@@ -6016,7 +7701,6 @@ struct GoalListView: View {
 
     @State private var sheet: GoalSheet?
     @State private var expandedGoalIds: Set<String> = []
-    @State private var confirmDeleteGoalId: String?
     @State private var pendingNewGoalId: String?
     @State private var didInit = false
 
@@ -6066,7 +7750,6 @@ struct GoalListView: View {
                             }
                         },
                         onEdit: { sheet = .edit(goal.id) },
-                        onDelete: { confirmDeleteGoalId = goal.id },
                         onShowReflections: { taskId in sheet = .reflections(taskId) }
                     )
                     .zIndex(expandedGoalIds.contains(goal.id) ? 1 : 0)
@@ -6091,19 +7774,6 @@ struct GoalListView: View {
                 didInit = true
                 if let first = store.activeGoals.first { expandedGoalIds = [first.id] }
             }
-        }
-        .alert(item: Binding(
-            get: { confirmDeleteGoalId.map(GoalEditToken.init(id:)) },
-            set: { confirmDeleteGoalId = $0?.id }
-        )) { token in
-            let goal = store.goal(id: token.id)
-            let summary = store.goalCascadeSummary(goalId: token.id)
-            return Alert(
-                title: Text("Delete \"\(goal?.name ?? "goal")\"?"),
-                message: Text("\(summary.taskCount) tasks, \(summary.sessionCount) sessions, and \(summary.reflectionCount) reflections will be deleted."),
-                primaryButton: .destructive(Text("Delete")) { store.deleteGoalCascade(goalId: token.id) },
-                secondaryButton: .cancel()
-            )
         }
         .sheet(item: $sheet, onDismiss: discardDraftIfUnsaved) { which in
             switch which {
@@ -6132,11 +7802,11 @@ struct GoalCard: View {
     let isExpanded: Bool
     var onToggle: () -> Void
     var onEdit: () -> Void
-    var onDelete: () -> Void
     var onShowReflections: (String) -> Void
 
     @State private var expandedTaskIds: Set<String> = []
     @State private var menuOpen = false
+    @State private var confirmDelete = false
 
     private var cal: Calendar { Calendar.current }
 
@@ -6169,6 +7839,24 @@ struct GoalCard: View {
         )
         .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
         .overlay(menuOverlay, alignment: .topTrailing)
+        // Owned here (not on GoalListView) so it doesn't collide with that view's `.sheet`,
+        // which previously stopped the goal-delete confirmation from ever presenting.
+        .alert(isPresented: $confirmDelete) {
+            let summary = store.goalCascadeSummary(goalId: goal.id)
+            return Alert(
+                title: Text("Delete \"\(goal.name)\"?"),
+                message: Text(goalDeleteMessage(summary)),
+                primaryButton: .destructive(Text("Delete")) { store.deleteGoalCascade(goalId: goal.id) },
+                secondaryButton: .cancel()
+            )
+        }
+    }
+
+    private func goalDeleteMessage(_ s: GoalCascadeSummary) -> String {
+        func plural(_ n: Int, _ noun: String) -> String { "\(n) \(noun)\(n == 1 ? "" : "s")" }
+        return "This will permanently delete the goal along with its \(plural(s.taskCount, "task")), "
+            + "\(plural(s.sessionCount, "training session")), and \(plural(s.reflectionCount, "reflection")). "
+            + "This can't be undone."
     }
 
     // MARK: Header
@@ -6401,7 +8089,7 @@ struct GoalCard: View {
                 VStack(spacing: 0) {
                     menuRow(icon: "pencil", label: "Edit goal", color: AppColors.label) { menuOpen = false; onEdit() }
                     Divider().padding(.horizontal, 10)
-                    menuRow(icon: "trash", label: "Delete goal", color: AppColors.coral) { menuOpen = false; onDelete() }
+                    menuRow(icon: "trash", label: "Delete goal", color: AppColors.coral) { menuOpen = false; confirmDelete = true }
                 }
                 .background(AppColors.background)
                 .cornerRadius(12)
