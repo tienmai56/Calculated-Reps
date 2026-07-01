@@ -136,7 +136,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         let task = store.addTask(goalId: goal.id, name: " Entries ")!
         let proposals = store.proposeSessions(date: day("2026-05-09"), selectedGoalIds: [goal.id], selectedTaskIds: [task.id])
         let session = store.planSessions(proposals, overrideConflicts: false).first!
-        let reflection = store.saveReflection(sessionId: session.id, mood: .good, workedText: " Clean entry ", stuckText: " Knee line ")!
+        let reflection = store.saveReflection(sessionId: session.id, mood: .good, workedText: " Clean entry ", stuckText: " Knee line ", tryNextText: "")!
 
         XCTAssertEqual(goal.name, "Leg Locks")
         XCTAssertEqual(task.name, "Entries")
@@ -150,7 +150,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         let task = store.addTask(goalId: goal.id, name: "Frames")!
         let proposal = store.proposeSessions(date: day("2026-05-09"), selectedGoalIds: [goal.id], selectedTaskIds: [task.id])
         let first = store.planSessions(proposal, overrideConflicts: false).first!
-        _ = store.saveReflection(sessionId: first.id, mood: .neutral, workedText: "Ok", stuckText: "Late")
+        _ = store.saveReflection(sessionId: first.id, mood: .neutral, workedText: "Ok", stuckText: "Late", tryNextText: "")
 
         XCTAssertEqual(store.duplicateConflicts(for: proposal).count, 1)
 
@@ -181,7 +181,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
             store.proposeSessions(date: day("2026-05-09"), selectedGoalIds: [goal.id], selectedTaskIds: []),
             overrideConflicts: false
         ).first!
-        let reflection = store.saveReflection(sessionId: session.id, mood: .great, workedText: "Good pressure", stuckText: "")!
+        let reflection = store.saveReflection(sessionId: session.id, mood: .great, workedText: "Good pressure", stuckText: "", tryNextText: "")!
 
         store.deleteReflection(id: reflection.id)
 
@@ -202,7 +202,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
             store.proposeSessions(date: day("2026-05-10"), selectedGoalIds: [goal.id], selectedTaskIds: [keepTask.id]),
             overrideConflicts: false
         ).first!
-        _ = store.saveReflection(sessionId: removeSession.id, mood: .frustrated, workedText: "", stuckText: "Late frames")
+        _ = store.saveReflection(sessionId: removeSession.id, mood: .frustrated, workedText: "", stuckText: "Late frames", tryNextText: "")
 
         XCTAssertEqual(store.cascadeSummary(forTask: deleteTask.id), TaskCascadeSummary(sessionCount: 1, reflectionCount: 1))
 
@@ -223,8 +223,8 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         let first = store.planSessions(store.proposeSessions(date: monday, selectedGoalIds: [goal.id], selectedTaskIds: [task.id]), overrideConflicts: false).first!
         _ = store.planSessions(store.proposeSessions(date: monday, selectedGoalIds: [goal.id], selectedTaskIds: [task.id]), overrideConflicts: false)
         let third = store.planSessions(store.proposeSessions(date: tuesday, selectedGoalIds: [goal.id], selectedTaskIds: [task.id]), overrideConflicts: false).first!
-        _ = store.saveReflection(sessionId: first.id, mood: .good, workedText: "A", stuckText: "")
-        _ = store.saveReflection(sessionId: third.id, mood: .good, workedText: "B", stuckText: "")
+        _ = store.saveReflection(sessionId: first.id, mood: .good, workedText: "A", stuckText: "", tryNextText: "")
+        _ = store.saveReflection(sessionId: third.id, mood: .good, workedText: "B", stuckText: "", tryNextText: "")
 
         XCTAssertEqual(store.sessions(forTask: task.id, goalId: goal.id).first?.date, tuesday)
         XCTAssertEqual(store.taskWeekDoneDayCount(taskId: task.id, goalId: goal.id, anchor: monday), 2)
