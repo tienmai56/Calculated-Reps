@@ -539,8 +539,6 @@ struct BountyCollectionView: View {
 
     private func collectedMeta(_ bounty: Bounty) -> String {
         let d = bounty.collectedAt ?? bounty.createdAt
-        let f = DateFormatter()
-        f.dateFormat = "MMM d · h:mm a"
-        return f.string(from: d).uppercased()
+        return DateFormatter.monthDayTime.string(from: d).uppercased()
     }
 }

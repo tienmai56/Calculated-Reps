@@ -571,7 +571,7 @@ struct HomeView: View {
         guard let day = nextSessionDay else { return "" }
         if cal.isDateInToday(day) { return "Today" }
         if cal.isDateInTomorrow(day) { return "Tomorrow" }
-        let f = DateFormatter(); f.dateFormat = "EEE, MMM d"; return f.string(from: day)
+        return DateFormatter.weekdayShortDate.string(from: day)
     }
 
     // MARK: - Reflection helpers
@@ -613,9 +613,9 @@ struct HomeView: View {
 
     // MARK: - Labels
 
-    private func weekLabel(_ d: Date) -> String { let f = DateFormatter(); f.dateFormat = "MMM d"; return f.string(from: d) }
-    private func weekdayLabel(_ d: Date) -> String { let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"; return f.string(from: d) }
-    private func shortDateLabel(_ d: Date) -> String { let f = DateFormatter(); f.dateFormat = "MMM d"; return f.string(from: d) }
+    private func weekLabel(_ d: Date) -> String { DateFormatter.monthDay.string(from: d) }
+    private func weekdayLabel(_ d: Date) -> String { DateFormatter.weekdayLongDate.string(from: d) }
+    private func shortDateLabel(_ d: Date) -> String { DateFormatter.monthDay.string(from: d) }
 }
 
 // MARK: - Bounty Flow

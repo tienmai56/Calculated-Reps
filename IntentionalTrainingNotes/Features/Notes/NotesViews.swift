@@ -175,9 +175,7 @@ struct NoteRowView: View {
     private var dateLabel: String {
         let cal = Calendar.current
         if cal.isDateInToday(note.updatedAt) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "h:mm a"
-            return formatter.string(from: note.updatedAt)
+            return DateFormatter.clockTime.string(from: note.updatedAt)
         } else if cal.isDateInYesterday(note.updatedAt) {
             return "Yesterday"
         } else {
@@ -375,9 +373,7 @@ struct NoteEditorView: View {
     }
 
     private func noteDateStamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM d, yyyy 'at' h:mm a"
-        return formatter.string(from: date)
+        return DateFormatter.fullDateTimeAt.string(from: date)
     }
 
     private func createNoteIfNeeded() -> String? {

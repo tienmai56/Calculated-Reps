@@ -106,9 +106,7 @@ struct HomeNextSessionSection: View {
         guard let session = sessions.first else { return "" }
         if cal.isDateInToday(session.date) { return "Today" }
         if cal.isDateInTomorrow(session.date) { return "Tomorrow" }
-        let fmt = DateFormatter()
-        fmt.dateFormat = "EEEE, MMM d"
-        return fmt.string(from: session.date)
+        return DateFormatter.weekdayLongDate.string(from: session.date)
     }
 
     /// Groups sessions by goalId, preserving order of first appearance.

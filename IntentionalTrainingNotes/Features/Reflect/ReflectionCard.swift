@@ -92,9 +92,7 @@ struct ReflectionCardView: View {
     }
 
     private static func dateLabel(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, MMM d"
-        return formatter.string(from: date)
+        return DateFormatter.weekdayShortDate.string(from: date)
     }
 
     private func shows(_ kind: PatternKind) -> Bool {
@@ -282,7 +280,7 @@ struct FeedbackPreviewView: View {
         return store.goal(id: s.goalId)?.name ?? "Training"
     }
     private var dateLabel: String {
-        let f = DateFormatter(); f.dateFormat = "EEE, MMM d, yyyy"; return f.string(from: reflection.date)
+        return DateFormatter.weekdayShortDateYear.string(from: reflection.date)
     }
     private var card: FeedbackCardView {
         FeedbackCardView(goalName: goalName, tryNextText: reflection.tryNextText, mood: reflection.mood, dateLabel: dateLabel, recipient: recipient, accent: accent)

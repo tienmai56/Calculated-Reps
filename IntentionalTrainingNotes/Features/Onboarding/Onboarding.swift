@@ -434,11 +434,9 @@ struct OnboardingSessionStepView: View {
 
     private var dayLabel: String {
         if Calendar.current.isDateInToday(sessionDay) {
-            let f = DateFormatter(); f.dateFormat = "MMM d"
-            return "Today, \(f.string(from: sessionDay))"
+            return "Today, \(DateFormatter.monthDay.string(from: sessionDay))"
         }
-        let f = DateFormatter(); f.dateFormat = "EEE, MMM d"
-        return f.string(from: sessionDay)
+        return DateFormatter.weekdayShortDate.string(from: sessionDay)
     }
 
     private var timeBinding: Binding<Date> {

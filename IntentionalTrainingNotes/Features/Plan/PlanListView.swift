@@ -222,15 +222,11 @@ struct PlanListView: View {
     }
 
     private var monthTitle: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "MMMM yyyy"
-        return fmt.string(from: monthFirst)
+        return DateFormatter.monthYear.string(from: monthFirst)
     }
 
     private var longDateLabel: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "EEE, MMM d, yyyy"
-        return fmt.string(from: selectedDate)
+        return DateFormatter.weekdayShortDateYear.string(from: selectedDate)
     }
 
     private var gridDays: [Date?] {

@@ -23,6 +23,22 @@ extension DateFormatter {
         formatter.dateFormat = "MMM d"
         return formatter
     }()
+
+    /// Display formatters (current locale, matching the previous inline usages).
+    static let weekdayShortDate = make("EEE, MMM d")          // Mon, Jun 30
+    static let weekdayLongDate = make("EEEE, MMM d")          // Monday, Jun 30
+    static let weekdayShortDateYear = make("EEE, MMM d, yyyy") // Mon, Jun 30, 2026
+    static let monthYear = make("MMMM yyyy")                  // June 2026
+    static let weekdayAbbrev = make("EEE")                    // Mon
+    static let clockTime = make("h:mm a")                     // 8:00 PM
+    static let monthDayTime = make("MMM d · h:mm a")          // Jun 30 · 8:00 PM
+    static let fullDateTimeAt = make("MMMM d, yyyy 'at' h:mm a") // June 30, 2026 at 8:00 PM
+
+    private static func make(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = format
+        return formatter
+    }
 }
 
 extension Calendar {

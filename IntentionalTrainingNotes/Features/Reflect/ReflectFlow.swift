@@ -336,7 +336,7 @@ struct ReflectMoodStep: View {
     }
 
     private func longDate(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"; return f.string(from: d)
+        return DateFormatter.weekdayLongDate.string(from: d)
     }
 }
 

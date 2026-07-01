@@ -393,7 +393,7 @@ struct PlanTrainingView: View {
     }
 
     private var monthTitle: String {
-        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"; return f.string(from: monthFirst)
+        DateFormatter.monthYear.string(from: monthFirst)
     }
 
     private var gridDays: [Date?] {
@@ -422,11 +422,11 @@ struct PlanTrainingView: View {
     }
 
     private func dowString(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "EEE"; return f.string(from: d).uppercased()
+        DateFormatter.weekdayAbbrev.string(from: d).uppercased()
     }
 
     private func mdString(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "MMM d"; return f.string(from: d)
+        DateFormatter.monthDay.string(from: d)
     }
 }
 

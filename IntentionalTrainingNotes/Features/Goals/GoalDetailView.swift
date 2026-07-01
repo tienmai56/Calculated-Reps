@@ -170,9 +170,7 @@ struct TaskTimelineView: View {
         func weekLabel(for monday: Date) -> String {
             if monday == thisWeekMonday { return "This Week" }
             if monday == lastWeekMonday { return "Last Week" }
-            let fmt = DateFormatter()
-            fmt.dateFormat = "MMM d"
-            return "Week of \(fmt.string(from: monday))"
+            return "Week of \(DateFormatter.monthDay.string(from: monday))"
         }
 
         return VStack(spacing: 0) {

@@ -42,9 +42,7 @@ struct EditSessionView: View {
                             .foregroundColor(AppColors.secondaryLabel)
                         Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showDatePicker.toggle() } }) {
                             HStack {
-                                let fmt = DateFormatter()
-                                let _ = fmt.dateFormat = "EEE, MMM d"
-                                Text(fmt.string(from: selectedDate))
+                                Text(DateFormatter.weekdayShortDate.string(from: selectedDate))
                                     .font(.body)
                                     .foregroundColor(AppColors.label)
                                 Spacer()
@@ -254,9 +252,7 @@ struct EditSessionView: View {
     }
 
     private func monthYearLabel(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "MMMM yyyy"
-        return fmt.string(from: date)
+        return DateFormatter.monthYear.string(from: date)
     }
 }
 
