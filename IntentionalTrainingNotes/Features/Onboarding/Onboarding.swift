@@ -29,7 +29,6 @@ struct OnboardingContainerView: View {
     @State private var goalName = ""
     @State private var firstTask = ""
     @State private var firstTaskDescription = ""
-    @State private var extraTasks: [String] = []
     @State private var sessionDay: Date = Calendar.current.normalizedTrainingDay(Date())
     @State private var reminderEnabled = true
     @State private var reminderHour = 8
@@ -53,7 +52,6 @@ struct OnboardingContainerView: View {
                 OnboardingSessionStepView(
                     goalName: goalName,
                     firstTask: firstTask,
-                    extraTasks: $extraTasks,
                     sessionDay: $sessionDay,
                     reminderEnabled: $reminderEnabled,
                     reminderHour: $reminderHour,
@@ -88,9 +86,7 @@ struct OnboardingContainerView: View {
 
     private func finish(useDefaults: Bool) {
         let goal = goalName.trimmingCharacters(in: .whitespacesAndNewlines)
-        var tasks = [firstTask.trimmingCharacters(in: .whitespacesAndNewlines)]
-        tasks.append(contentsOf: extraTasks.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-        tasks = tasks.filter { !$0.isEmpty }
+        let tasks = [firstTask.trimmingCharacters(in: .whitespacesAndNewlines)].filter { !$0.isEmpty }
 
         let day = useDefaults ? Calendar.current.normalizedTrainingDay(Date()) : sessionDay
         let hour = useDefaults ? 8 : reminderHour
@@ -419,7 +415,6 @@ struct IdentifiableString: Identifiable {
 struct OnboardingSessionStepView: View {
     let goalName: String
     let firstTask: String
-    @Binding var extraTasks: [String]
     @Binding var sessionDay: Date
     @Binding var reminderEnabled: Bool
     @Binding var reminderHour: Int
@@ -604,9 +599,6 @@ struct OnboardingSessionStepView: View {
 
             VStack(spacing: 8) {
                 taskRow(firstTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "First task" : firstTask)
-                ForEach(extraTasks.indices, id: \.self) { i in
-                    taskRow(extraTasks[i])
-                }
             }
         }
         .padding(20)

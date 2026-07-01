@@ -131,10 +131,6 @@ private struct TaskDeleteAlertToken: Identifiable {
     var id: String
 }
 
-private struct GoalDeleteAlertToken: Identifiable {
-    var id: String
-}
-
 struct GoalEditToken: Identifiable {
     var id: String
 }
