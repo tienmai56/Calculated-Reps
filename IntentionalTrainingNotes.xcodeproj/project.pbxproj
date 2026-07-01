@@ -26,10 +26,12 @@
 		8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */; };
 		8E454FF693A12B62A5416C8F /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181B4AF9A80C2324DA2254DB /* AppColors.swift */; };
 		9F0748E7B63DBC076357B6F9 /* NotebookStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */; };
+		BB6C43A5B9E5A882A0496919 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27384C12B79721CB36EB3316 /* SharedViews.swift */; };
 		CB6E41B5B2D8AFD2988CF741 /* TrainingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B94804BDF66C5DD8081BDB /* TrainingModels.swift */; };
 		D12343ACB562C9C5EC3AF226 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B864AEBA2F969472DC6E008 /* Account.swift */; };
 		D4A44B73BDAD8CFA931502D0 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37864580BA5D4B9811E21CC8 /* AuthService.swift */; };
 		E51C4262A228ACD9BEBE661E /* KeychainAccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC84A54BEC8701A1983BFA0 /* KeychainAccountStore.swift */; };
+		EB3F49ADA11C091C3B5C0723 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5144D590323BEFB368EA1C /* ActivityView.swift */; };
 		FA00FA00FA00FA00FA000001 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */; };
 		FA00FA00FA00FA00FA000002 /* Fraunces-Italic-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */; };
 		FB8B49B8A2B066635CB1175C /* NetworkStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534C4A4A8F5712500788773C /* NetworkStatusStore.swift */; };
@@ -60,6 +62,7 @@
 		111111111111111111111011 /* IntentionalTrainingNotes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IntentionalTrainingNotes.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntentionalTrainingNotesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		181B4AF9A80C2324DA2254DB /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppColors.swift; path = IntentionalTrainingNotes/Core/DesignSystem/AppColors.swift; sourceTree = SOURCE_ROOT; };
+		27384C12B79721CB36EB3316 /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedViews.swift; path = IntentionalTrainingNotes/Shared/SharedViews.swift; sourceTree = SOURCE_ROOT; };
 		28B943379002E1CB5D0E1689 /* Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Enums.swift; path = IntentionalTrainingNotes/Core/Models/Enums.swift; sourceTree = SOURCE_ROOT; };
 		2B864AEBA2F969472DC6E008 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Account.swift; path = IntentionalTrainingNotes/Core/Models/Account.swift; sourceTree = SOURCE_ROOT; };
 		37864580BA5D4B9811E21CC8 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IntentionalTrainingNotes/Core/Services/AuthService.swift; sourceTree = SOURCE_ROOT; };
@@ -67,6 +70,7 @@
 		534C4A4A8F5712500788773C /* NetworkStatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NetworkStatusStore.swift; path = IntentionalTrainingNotes/Core/Services/NetworkStatusStore.swift; sourceTree = SOURCE_ROOT; };
 		57BB4BC0A82D0D4405E29438 /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Icons.swift; path = IntentionalTrainingNotes/Core/DesignSystem/Icons.swift; sourceTree = SOURCE_ROOT; };
 		5EC84A54BEC8701A1983BFA0 /* KeychainAccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeychainAccountStore.swift; path = IntentionalTrainingNotes/Core/Persistence/KeychainAccountStore.swift; sourceTree = SOURCE_ROOT; };
+		5F5144D590323BEFB368EA1C /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ActivityView.swift; path = IntentionalTrainingNotes/Shared/ActivityView.swift; sourceTree = SOURCE_ROOT; };
 		8ACD4063A060E2F84A640C3B /* Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Support.swift; path = IntentionalTrainingNotes/Core/Models/Support.swift; sourceTree = SOURCE_ROOT; };
 		8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookStore.swift; path = IntentionalTrainingNotes/Core/Stores/NotebookStore.swift; sourceTree = SOURCE_ROOT; };
@@ -104,6 +108,7 @@
 				111111111111111111111120 /* IntentionalTrainingNotesTests */,
 				111111111111111111111130 /* Products */,
 				1BA7460FA449B381FB01E1E4 /* Core */,
+				CFDB4B1D89C8D1D15216BF65 /* Shared */,
 			);
 			sourceTree = "<group>";
 		};
@@ -195,6 +200,16 @@
 			);
 			name = Models;
 			path = IntentionalTrainingNotes/Core/Models;
+			sourceTree = "<group>";
+		};
+		CFDB4B1D89C8D1D15216BF65 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				5F5144D590323BEFB368EA1C /* ActivityView.swift */,
+				27384C12B79721CB36EB3316 /* SharedViews.swift */,
+			);
+			name = Shared;
+			path = IntentionalTrainingNotes/Shared;
 			sourceTree = "<group>";
 		};
 		E3514A809CEA7ED90B87710B /* Foundation */ = {
@@ -353,6 +368,8 @@
 				E51C4262A228ACD9BEBE661E /* KeychainAccountStore.swift in Sources */,
 				0DE54D7785BC7738A8F06E1C /* AppSessionStore.swift in Sources */,
 				9F0748E7B63DBC076357B6F9 /* NotebookStore.swift in Sources */,
+				EB3F49ADA11C091C3B5C0723 /* ActivityView.swift in Sources */,
+				BB6C43A5B9E5A882A0496919 /* SharedViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
