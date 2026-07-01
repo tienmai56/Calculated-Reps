@@ -14,27 +14,43 @@
 		111111111111111111111102 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111002 /* SceneDelegate.swift */; };
 		111111111111111111111103 /* IntentionalTrainingNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111003 /* IntentionalTrainingNotes.swift */; };
 		111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111005 /* IntentionalTrainingNotesTests.swift */; };
+		210045E0A1D808B19738D210 /* ReflectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70B54BB9A424AA9368BCAAD5 /* ReflectionCard.swift */; };
 		28734150AA320F22865D545B /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00D9410DAE471A52E02E873C /* Formatters.swift */; };
+		2A814716A96EBC36789392DF /* ReflectFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928B4B84ADF392A8E89DA8C8 /* ReflectFlow.swift */; };
 		2DE74EBEAE24F1090F57A7E5 /* Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B943379002E1CB5D0E1689 /* Enums.swift */; };
 		30354528AA4374088CE905F9 /* AppTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01874984A7A67C246DE559D8 /* AppTypography.swift */; };
+		3B544871A8D6F72180B495E2 /* BountyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E24E279FD368FAEE345E24 /* BountyViews.swift */; };
 		4E8C4801AFA9FB9AD61499B9 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = E546412F93FBD09E706BD6AB /* Styles.swift */; };
 		517745A58AD9136DFC15CF3B /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E44B2498F4434DE59E9F1E /* Typography.swift */; };
 		60DA466CBD10FC7443390CFA /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3384E529239898B88FDF77C /* ReminderScheduler.swift */; };
 		6A804283A0F9BA9984C5CD91 /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57BB4BC0A82D0D4405E29438 /* Icons.swift */; };
 		6AB447E8948674C1E59C5AE8 /* Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACD4063A060E2F84A640C3B /* Support.swift */; };
+		6D954EFFBC9F52A672B0B11E /* AddGoalSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F046496389680A172FAB118F /* AddGoalSheet.swift */; };
 		6F6B4F55B0B20F996EB0D490 /* NotebookPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F274C908A3954EC933DE3B3 /* NotebookPersistence.swift */; };
+		87154057BC5D56EA900AD0D4 /* PlanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */; };
+		88A5460E97DEBB14250776BA /* HomeSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3322472B8E0B7031ACE6017B /* HomeSections.swift */; };
 		8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */; };
 		8E454FF693A12B62A5416C8F /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181B4AF9A80C2324DA2254DB /* AppColors.swift */; };
+		987E4E799B2807030BAC4469 /* GoalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853435CA176C81CBE8EFADF /* GoalListView.swift */; };
 		9F0748E7B63DBC076357B6F9 /* NotebookStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */; };
+		ACC44ACCAB445B94738DDEA0 /* NotesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43F54D5A918709C4A93EF325 /* NotesViews.swift */; };
+		B45F4CC0AB8F8930EDB010CF /* PlanTrainingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32E4759B699C4010003F9AC /* PlanTrainingView.swift */; };
 		BB6C43A5B9E5A882A0496919 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27384C12B79721CB36EB3316 /* SharedViews.swift */; };
+		BDD14C2F966F605858BD2F87 /* Onboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5278404089CCE534F92E5776 /* Onboarding.swift */; };
+		C39243EBA250774B3CD86259 /* SettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66F43B18776CD6B84EED920 /* SettingsViews.swift */; };
 		CB6E41B5B2D8AFD2988CF741 /* TrainingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B94804BDF66C5DD8081BDB /* TrainingModels.swift */; };
+		D067483299C7BF09D1304B25 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60F147CF8701015D9FA2778D /* HomeView.swift */; };
 		D12343ACB562C9C5EC3AF226 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B864AEBA2F969472DC6E008 /* Account.swift */; };
+		D4654CE6B3F842E41081D5FA /* EditSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726B458897F1755CA223241C /* EditSessionView.swift */; };
 		D4A44B73BDAD8CFA931502D0 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37864580BA5D4B9811E21CC8 /* AuthService.swift */; };
 		E51C4262A228ACD9BEBE661E /* KeychainAccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC84A54BEC8701A1983BFA0 /* KeychainAccountStore.swift */; };
 		EB3F49ADA11C091C3B5C0723 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5144D590323BEFB368EA1C /* ActivityView.swift */; };
+		F53544A084814341DFAF6F37 /* GoalDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */; };
+		F5F048E0B431451C7C972B3C /* SessionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C3492E911F807C0A6C2EEE /* SessionCardView.swift */; };
 		FA00FA00FA00FA00FA000001 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */; };
 		FA00FA00FA00FA00FA000002 /* Fraunces-Italic-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */; };
 		FB8B49B8A2B066635CB1175C /* NetworkStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534C4A4A8F5712500788773C /* NetworkStatusStore.swift */; };
+		FCC34BEEAFE4315EC462E806 /* EditGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34054973AF74DF97EC9FB9E7 /* EditGoalView.swift */; };
 		FF9D41E4984D999850CCDA56 /* NotebookMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBD748A9B80AF0639DDEF66B /* NotebookMigration.swift */; };
 /* End PBXBuildFile section */
 
@@ -65,19 +81,35 @@
 		27384C12B79721CB36EB3316 /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedViews.swift; path = IntentionalTrainingNotes/Shared/SharedViews.swift; sourceTree = SOURCE_ROOT; };
 		28B943379002E1CB5D0E1689 /* Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Enums.swift; path = IntentionalTrainingNotes/Core/Models/Enums.swift; sourceTree = SOURCE_ROOT; };
 		2B864AEBA2F969472DC6E008 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Account.swift; path = IntentionalTrainingNotes/Core/Models/Account.swift; sourceTree = SOURCE_ROOT; };
+		3322472B8E0B7031ACE6017B /* HomeSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeSections.swift; path = IntentionalTrainingNotes/Features/Home/HomeSections.swift; sourceTree = SOURCE_ROOT; };
+		34054973AF74DF97EC9FB9E7 /* EditGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditGoalView.swift; path = IntentionalTrainingNotes/Features/Goals/EditGoalView.swift; sourceTree = SOURCE_ROOT; };
 		37864580BA5D4B9811E21CC8 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IntentionalTrainingNotes/Core/Services/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		37B94804BDF66C5DD8081BDB /* TrainingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrainingModels.swift; path = IntentionalTrainingNotes/Core/Models/TrainingModels.swift; sourceTree = SOURCE_ROOT; };
+		43F54D5A918709C4A93EF325 /* NotesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotesViews.swift; path = IntentionalTrainingNotes/Features/Notes/NotesViews.swift; sourceTree = SOURCE_ROOT; };
+		5278404089CCE534F92E5776 /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Onboarding.swift; path = IntentionalTrainingNotes/Features/Onboarding/Onboarding.swift; sourceTree = SOURCE_ROOT; };
 		534C4A4A8F5712500788773C /* NetworkStatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NetworkStatusStore.swift; path = IntentionalTrainingNotes/Core/Services/NetworkStatusStore.swift; sourceTree = SOURCE_ROOT; };
 		57BB4BC0A82D0D4405E29438 /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Icons.swift; path = IntentionalTrainingNotes/Core/DesignSystem/Icons.swift; sourceTree = SOURCE_ROOT; };
 		5EC84A54BEC8701A1983BFA0 /* KeychainAccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeychainAccountStore.swift; path = IntentionalTrainingNotes/Core/Persistence/KeychainAccountStore.swift; sourceTree = SOURCE_ROOT; };
 		5F5144D590323BEFB368EA1C /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ActivityView.swift; path = IntentionalTrainingNotes/Shared/ActivityView.swift; sourceTree = SOURCE_ROOT; };
+		60F147CF8701015D9FA2778D /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = IntentionalTrainingNotes/Features/Home/HomeView.swift; sourceTree = SOURCE_ROOT; };
+		6853435CA176C81CBE8EFADF /* GoalListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoalListView.swift; path = IntentionalTrainingNotes/Features/Goals/GoalListView.swift; sourceTree = SOURCE_ROOT; };
+		70B54BB9A424AA9368BCAAD5 /* ReflectionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReflectionCard.swift; path = IntentionalTrainingNotes/Features/Reflect/ReflectionCard.swift; sourceTree = SOURCE_ROOT; };
+		726B458897F1755CA223241C /* EditSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditSessionView.swift; path = IntentionalTrainingNotes/Features/Plan/EditSessionView.swift; sourceTree = SOURCE_ROOT; };
 		8ACD4063A060E2F84A640C3B /* Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Support.swift; path = IntentionalTrainingNotes/Core/Models/Support.swift; sourceTree = SOURCE_ROOT; };
 		8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		928B4B84ADF392A8E89DA8C8 /* ReflectFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReflectFlow.swift; path = IntentionalTrainingNotes/Features/Reflect/ReflectFlow.swift; sourceTree = SOURCE_ROOT; };
+		A32E4759B699C4010003F9AC /* PlanTrainingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlanTrainingView.swift; path = IntentionalTrainingNotes/Features/Plan/PlanTrainingView.swift; sourceTree = SOURCE_ROOT; };
+		B3C3492E911F807C0A6C2EEE /* SessionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionCardView.swift; path = IntentionalTrainingNotes/Features/Plan/SessionCardView.swift; sourceTree = SOURCE_ROOT; };
+		B8E24E279FD368FAEE345E24 /* BountyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BountyViews.swift; path = IntentionalTrainingNotes/Features/Bounty/BountyViews.swift; sourceTree = SOURCE_ROOT; };
+		C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoalDetailView.swift; path = IntentionalTrainingNotes/Features/Goals/GoalDetailView.swift; sourceTree = SOURCE_ROOT; };
 		C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookStore.swift; path = IntentionalTrainingNotes/Core/Stores/NotebookStore.swift; sourceTree = SOURCE_ROOT; };
 		C3384E529239898B88FDF77C /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReminderScheduler.swift; path = IntentionalTrainingNotes/Core/Services/ReminderScheduler.swift; sourceTree = SOURCE_ROOT; };
+		D66F43B18776CD6B84EED920 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsViews.swift; path = IntentionalTrainingNotes/Features/Settings/SettingsViews.swift; sourceTree = SOURCE_ROOT; };
 		E546412F93FBD09E706BD6AB /* Styles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Styles.swift; path = IntentionalTrainingNotes/Core/DesignSystem/Styles.swift; sourceTree = SOURCE_ROOT; };
 		E7E44B2498F4434DE59E9F1E /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Typography.swift; path = IntentionalTrainingNotes/Core/Foundation/Typography.swift; sourceTree = SOURCE_ROOT; };
 		F0234C4F8FEEA9BBC16BFD3B /* Bounty.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Bounty.swift; path = IntentionalTrainingNotes/Core/Models/Bounty.swift; sourceTree = SOURCE_ROOT; };
+		F046496389680A172FAB118F /* AddGoalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddGoalSheet.swift; path = IntentionalTrainingNotes/Features/Goals/AddGoalSheet.swift; sourceTree = SOURCE_ROOT; };
+		F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlanListView.swift; path = IntentionalTrainingNotes/Features/Plan/PlanListView.swift; sourceTree = SOURCE_ROOT; };
 		FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-VariableFont.ttf"; sourceTree = "<group>"; };
 		FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Italic-VariableFont.ttf"; sourceTree = "<group>"; };
 		FBD748A9B80AF0639DDEF66B /* NotebookMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookMigration.swift; path = IntentionalTrainingNotes/Core/Persistence/NotebookMigration.swift; sourceTree = SOURCE_ROOT; };
@@ -109,6 +141,7 @@
 				111111111111111111111130 /* Products */,
 				1BA7460FA449B381FB01E1E4 /* Core */,
 				CFDB4B1D89C8D1D15216BF65 /* Shared */,
+				6ACA49B8A23D7F4F60115B0C /* Features */,
 			);
 			sourceTree = "<group>";
 		};
@@ -142,6 +175,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		17C747ED971FE88E70EA6CED /* Reflect */ = {
+			isa = PBXGroup;
+			children = (
+				70B54BB9A424AA9368BCAAD5 /* ReflectionCard.swift */,
+				928B4B84ADF392A8E89DA8C8 /* ReflectFlow.swift */,
+			);
+			name = Reflect;
+			path = IntentionalTrainingNotes/Features/Reflect;
+			sourceTree = "<group>";
+		};
 		1BA7460FA449B381FB01E1E4 /* Core */ = {
 			isa = PBXGroup;
 			children = (
@@ -156,6 +199,15 @@
 			path = IntentionalTrainingNotes/Core;
 			sourceTree = "<group>";
 		};
+		1C224C0285E7DCBE517DD0D1 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				5278404089CCE534F92E5776 /* Onboarding.swift */,
+			);
+			name = Onboarding;
+			path = IntentionalTrainingNotes/Features/Onboarding;
+			sourceTree = "<group>";
+		};
 		66064CC59AD8BB6424B02960 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
@@ -164,6 +216,22 @@
 			);
 			name = Stores;
 			path = IntentionalTrainingNotes/Core/Stores;
+			sourceTree = "<group>";
+		};
+		6ACA49B8A23D7F4F60115B0C /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				1C224C0285E7DCBE517DD0D1 /* Onboarding */,
+				C701433EBA85D547B2720218 /* Home */,
+				E3E54F61A77CEB514E3516D0 /* Bounty */,
+				9CDE420F84C73C92D88B5E8F /* Settings */,
+				17C747ED971FE88E70EA6CED /* Reflect */,
+				DDB440788F78BC3B77F25B82 /* Plan */,
+				ED7347DA835DE47C40BB46B4 /* Goals */,
+				CB004773993174EDAF9D85C8 /* Notes */,
+			);
+			name = Features;
+			path = IntentionalTrainingNotes/Features;
 			sourceTree = "<group>";
 		};
 		734A4A6989355750760254B2 /* Persistence */ = {
@@ -202,6 +270,34 @@
 			path = IntentionalTrainingNotes/Core/Models;
 			sourceTree = "<group>";
 		};
+		9CDE420F84C73C92D88B5E8F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				D66F43B18776CD6B84EED920 /* SettingsViews.swift */,
+			);
+			name = Settings;
+			path = IntentionalTrainingNotes/Features/Settings;
+			sourceTree = "<group>";
+		};
+		C701433EBA85D547B2720218 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				60F147CF8701015D9FA2778D /* HomeView.swift */,
+				3322472B8E0B7031ACE6017B /* HomeSections.swift */,
+			);
+			name = Home;
+			path = IntentionalTrainingNotes/Features/Home;
+			sourceTree = "<group>";
+		};
+		CB004773993174EDAF9D85C8 /* Notes */ = {
+			isa = PBXGroup;
+			children = (
+				43F54D5A918709C4A93EF325 /* NotesViews.swift */,
+			);
+			name = Notes;
+			path = IntentionalTrainingNotes/Features/Notes;
+			sourceTree = "<group>";
+		};
 		CFDB4B1D89C8D1D15216BF65 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
@@ -212,6 +308,18 @@
 			path = IntentionalTrainingNotes/Shared;
 			sourceTree = "<group>";
 		};
+		DDB440788F78BC3B77F25B82 /* Plan */ = {
+			isa = PBXGroup;
+			children = (
+				B3C3492E911F807C0A6C2EEE /* SessionCardView.swift */,
+				F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */,
+				726B458897F1755CA223241C /* EditSessionView.swift */,
+				A32E4759B699C4010003F9AC /* PlanTrainingView.swift */,
+			);
+			name = Plan;
+			path = IntentionalTrainingNotes/Features/Plan;
+			sourceTree = "<group>";
+		};
 		E3514A809CEA7ED90B87710B /* Foundation */ = {
 			isa = PBXGroup;
 			children = (
@@ -220,6 +328,27 @@
 			);
 			name = Foundation;
 			path = IntentionalTrainingNotes/Core/Foundation;
+			sourceTree = "<group>";
+		};
+		E3E54F61A77CEB514E3516D0 /* Bounty */ = {
+			isa = PBXGroup;
+			children = (
+				B8E24E279FD368FAEE345E24 /* BountyViews.swift */,
+			);
+			name = Bounty;
+			path = IntentionalTrainingNotes/Features/Bounty;
+			sourceTree = "<group>";
+		};
+		ED7347DA835DE47C40BB46B4 /* Goals */ = {
+			isa = PBXGroup;
+			children = (
+				34054973AF74DF97EC9FB9E7 /* EditGoalView.swift */,
+				F046496389680A172FAB118F /* AddGoalSheet.swift */,
+				6853435CA176C81CBE8EFADF /* GoalListView.swift */,
+				C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */,
+			);
+			name = Goals;
+			path = IntentionalTrainingNotes/Features/Goals;
 			sourceTree = "<group>";
 		};
 		F88F4F3687B2B6F6CC009ABE /* DesignSystem */ = {
@@ -370,6 +499,22 @@
 				9F0748E7B63DBC076357B6F9 /* NotebookStore.swift in Sources */,
 				EB3F49ADA11C091C3B5C0723 /* ActivityView.swift in Sources */,
 				BB6C43A5B9E5A882A0496919 /* SharedViews.swift in Sources */,
+				BDD14C2F966F605858BD2F87 /* Onboarding.swift in Sources */,
+				D067483299C7BF09D1304B25 /* HomeView.swift in Sources */,
+				88A5460E97DEBB14250776BA /* HomeSections.swift in Sources */,
+				3B544871A8D6F72180B495E2 /* BountyViews.swift in Sources */,
+				C39243EBA250774B3CD86259 /* SettingsViews.swift in Sources */,
+				210045E0A1D808B19738D210 /* ReflectionCard.swift in Sources */,
+				2A814716A96EBC36789392DF /* ReflectFlow.swift in Sources */,
+				F5F048E0B431451C7C972B3C /* SessionCardView.swift in Sources */,
+				87154057BC5D56EA900AD0D4 /* PlanListView.swift in Sources */,
+				D4654CE6B3F842E41081D5FA /* EditSessionView.swift in Sources */,
+				B45F4CC0AB8F8930EDB010CF /* PlanTrainingView.swift in Sources */,
+				FCC34BEEAFE4315EC462E806 /* EditGoalView.swift in Sources */,
+				6D954EFFBC9F52A672B0B11E /* AddGoalSheet.swift in Sources */,
+				987E4E799B2807030BAC4469 /* GoalListView.swift in Sources */,
+				F53544A084814341DFAF6F37 /* GoalDetailView.swift in Sources */,
+				ACC44ACCAB445B94738DDEA0 /* NotesViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
