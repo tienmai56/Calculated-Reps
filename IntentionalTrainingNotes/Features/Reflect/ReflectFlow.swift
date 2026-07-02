@@ -387,9 +387,6 @@ struct ReflectNotesStep: View {
     var onUseVoice: () -> Void
     var onFinish: () -> Void
 
-    @State private var showLinkField = false
-    @State private var showPhotoPicker = false
-
     private var canFinish: Bool { tryNext.nilIfBlank != nil }
 
     var body: some View {
@@ -422,7 +419,6 @@ struct ReflectNotesStep: View {
                     labeledField($stuck, "Where I got stuck", AppColors.stuckCoral, "What didn't work, what felt off, what to adjust...")
                     labeledField($tryNext, "What I'll try next *", AppColors.indigo, "A different angle, a drill to try, something to focus on...")
 
-                    linkRow
                     photosRow
                 }
                 .padding(16)
@@ -433,13 +429,6 @@ struct ReflectNotesStep: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
                 .padding(.bottom, 30)
-        }
-        .sheet(isPresented: $showPhotoPicker) {
-            NoteImagePicker { data in
-                if let sid = sessionId, let fn = store.addReflectionImage(sessionId: sid, imageData: data) {
-                    imageFileNames.append(fn)
-                }
-            }
         }
     }
 
@@ -461,56 +450,42 @@ struct ReflectNotesStep: View {
     }
 
     @ViewBuilder
-    private var linkRow: some View {
-        if showLinkField || link.nilIfBlank != nil {
-            HStack(spacing: 8) {
-                Image(systemName: "link").foregroundColor(AppColors.secondaryLabel)
-                TextField("Paste link...", text: $link).font(.matMindBody(size: 14))
-            }
-            .padding(11)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray3), lineWidth: 1))
-        } else {
-            Button(action: { showLinkField = true }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "link.badge.plus")
-                    Text("Add link").font(.system(size: 15, weight: .medium, design: .rounded))
-                }
-                .foregroundColor(AppColors.label)
-            }
-            .buttonStyle(PlainButtonStyle())
-        }
-    }
-
     private var photosRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "photo.on.rectangle")
-                Text("Attach photos").font(.system(size: 15, weight: .medium, design: .rounded))
-            }
-            .foregroundColor(AppColors.label)
-
             if !imageFileNames.isEmpty, let sid = sessionId {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(imageFileNames, id: \.self) { fn in
-                            thumbnail(sid: sid, fn: fn)
-                        }
+                VStack(spacing: 8) {
+                    ForEach(imageFileNames, id: \.self) { fn in
+                        thumbnail(sid: sid, fn: fn)
                     }
                 }
             }
 
-            Button(action: { showPhotoPicker = true }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus.circle.fill").font(.system(size: 20))
-                    Text("Choose from album").font(.system(size: 16, weight: .medium, design: .rounded))
+            HStack(spacing: 10) {
+                chipButton(icon: "photo", label: "Photo") {
+                    guard let sid = sessionId else { return }
+                    UIKitImagePicker.present { data in
+                        if let fn = store.addReflectionImage(sessionId: sid, imageData: data) {
+                            imageFileNames.append(fn)
+                        }
+                    }
                 }
-                .foregroundColor(AppColors.indigo)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.indigo.opacity(0.08)))
+                Spacer()
             }
-            .buttonStyle(PlainButtonStyle())
         }
+    }
+
+    private func chipButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 13))
+                Text(label).font(.system(size: 15, weight: .medium, design: .rounded))
+            }
+            .foregroundColor(AppColors.secondaryLabel)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color(.systemGray6)))
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     private func thumbnail(sid: String, fn: String) -> some View {
@@ -519,19 +494,20 @@ struct ReflectNotesStep: View {
                 Image(uiImage: ui)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 84, height: 84)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 160)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             } else {
-                RoundedRectangle(cornerRadius: 8).fill(Color(.systemGray5)).frame(width: 84, height: 84)
+                RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray5)).frame(maxWidth: .infinity).frame(height: 160)
             }
             Button(action: { imageFileNames.removeAll { $0 == fn } }) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 22))
                     .foregroundColor(.white)
-                    .background(Circle().fill(Color.black.opacity(0.4)))
+                    .background(Circle().fill(Color.black.opacity(0.45)))
             }
             .buttonStyle(PlainButtonStyle())
-            .padding(4)
+            .padding(8)
         }
     }
 }
