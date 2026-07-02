@@ -585,11 +585,11 @@ final class NotebookStore: ObservableObject {
     }
 
     /// TEMPORARY demo data for testing. Re-seeds when `seedVersion` changes. Remove before shipping.
-    func seedDemoDataIfEmpty() {
+    func seedDemoDataIfEmpty(force: Bool = false) {
         let seedKey = "matmind.debugSeedVersion"
-        let seedVersion = "v3-2goals-3sessions-2reflections-photos"
+        let seedVersion = "v4-bounty-2goals-collected"
         let alreadySeeded = UserDefaults.standard.string(forKey: seedKey) == seedVersion
-        if alreadySeeded && !notebook.goals.isEmpty { return }
+        if alreadySeeded && !notebook.goals.isEmpty && !force { return }
 
         let acct = notebook.accountId
         func day(_ offset: Int) -> Date {
@@ -632,7 +632,8 @@ final class NotebookStore: ObservableObject {
         let mintUI = UIColor(red: 94/255, green: 196/255, blue: 182/255, alpha: 1)
 
         // Goal 1 — Passing open guard (indigo); first task has a description + photo.
-        let g1 = TrainingGoal(accountId: acct, name: "Passing open guard", iconName: "target", colorName: "indigo")
+        // Created 24 days ago so it's past the 2-week bounty-unlock threshold.
+        let g1 = TrainingGoal(accountId: acct, name: "Passing open guard", iconName: "target", colorName: "indigo", createdAt: day(-24))
         var chaseHip = TrainingTask(goalId: g1.id, name: "Chase hip/torso",
             notes: "Clear whatever obstacle blocks the torso. Control the hip first with a leg on their tailbone, then address their arm framing before stepping around.")
         chaseHip.imageFileNames = savePhoto(chaseHip.id, indigoUI, "Hip control drill")
@@ -640,20 +641,24 @@ final class NotebookStore: ObservableObject {
             notes: "Create the gap between their knee and elbow, then drive your hips through to begin the pass.")
 
         // Goal 2 — Leg locks (mint); first task has a description + photo.
-        let g2 = TrainingGoal(accountId: acct, name: "Leg locks", iconName: "bolt.fill", colorName: "mint")
+        let g2 = TrainingGoal(accountId: acct, name: "Leg locks", iconName: "bolt.fill", colorName: "mint", createdAt: day(-21))
         var insideHeel = TrainingTask(goalId: g2.id, name: "Inside heel hook",
             notes: "Control the knee line, expose the heel, and rotate from your hips — never the hands. Stay tight to kill their rotation.")
         insideHeel.imageFileNames = savePhoto(insideHeel.id, mintUI, "Heel exposure")
         let ashiEntry = TrainingTask(goalId: g2.id, name: "Ashi garami entry",
             notes: "Off-balance them, secure the outside leg, and establish ashi garami before attacking the foot.")
 
-        // 3 sessions: one planned today (Next Session) + two completed past days (with reflections).
+        // Sessions spanning ~3 weeks so goals read as "worked 2+ weeks" (bounty-eligible):
+        // one planned today (Next Session) + several completed past days.
         func sess(_ goal: TrainingGoal, _ offset: Int, _ taskIds: [String], _ status: SessionStatus = .planned) -> PlannedSession {
             PlannedSession(goalId: goal.id, date: day(offset), taskIds: taskIds, status: status, createdAt: day(offset))
         }
         let s1 = sess(g1, 0, [chaseHip.id, sepKnee.id])
         let s2 = sess(g1, -2, [chaseHip.id], .done)
         let s3 = sess(g2, -4, [insideHeel.id], .done)
+        let s4 = sess(g1, -9, [chaseHip.id, sepKnee.id], .done)
+        let s5 = sess(g1, -16, [chaseHip.id], .done)
+        let s6 = sess(g2, -12, [insideHeel.id, ashiEntry.id], .done)
 
         // Two reflections so Latest Entry + Patterns are populated for testing.
         let r1 = Reflection(
@@ -675,11 +680,28 @@ final class NotebookStore: ObservableObject {
             isFavorite: false
         )
 
+        // Two already-collected bounties so the "bounties collected" pill + trophy shelf
+        // are populated. No active bounty, so the "Bounty unlocked" card still shows and
+        // the full create flow can be tested.
+        let b1 = Bounty(
+            accountId: acct, goalId: g1.id, taskId: chaseHip.id,
+            kind: .hitCount, targetCount: 3, targetPartner: nil,
+            hitDates: [day(-11), day(-7), day(-3)],
+            status: .collected, createdAt: day(-14), collectedAt: day(-3)
+        )
+        let b2 = Bounty(
+            accountId: acct, goalId: g2.id, taskId: insideHeel.id,
+            kind: .targetPartner, targetCount: 1, targetPartner: "Marcus",
+            hitDates: [day(-6)],
+            status: .collected, createdAt: day(-9), collectedAt: day(-6)
+        )
+
         mutate {
             notebook.goals = [g1, g2]
             notebook.tasks = [chaseHip, sepKnee, insideHeel, ashiEntry]
-            notebook.sessions = [s1, s2, s3]
+            notebook.sessions = [s1, s2, s3, s4, s5, s6]
             notebook.reflections = [r1, r2]
+            notebook.bounties = [b1, b2]
         }
         UserDefaults.standard.set(seedVersion, forKey: seedKey)
     }

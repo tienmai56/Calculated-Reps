@@ -123,13 +123,21 @@ final class AppSessionStore: ObservableObject {
         }
 
         // First-run onboarding: show the goal → task → session flow until it's completed once.
+        #if DEBUG
+        // `SEED_DEMO=1` force-loads bounty-ready demo data (overwriting current data) and
+        // skips onboarding, so the feature can be exercised without erasing the app.
+        let forceSeed = ProcessInfo.processInfo.environment["SEED_DEMO"] == "1"
+        if forceSeed {
+            UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
+        }
+        #endif
         if UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
             self.route = .ready
             #if DEBUG
-            // Only seed demo data when there's nothing yet, so it never overwrites
-            // a real notebook created through onboarding.
-            if store.notebook.goals.isEmpty {
-                store.seedDemoDataIfEmpty()
+            // Seed demo data when there's nothing yet (so it never overwrites a real
+            // notebook created through onboarding), or when SEED_DEMO=1 forces a refresh.
+            if store.notebook.goals.isEmpty || forceSeed {
+                store.seedDemoDataIfEmpty(force: forceSeed)
             }
             #endif
         } else {
