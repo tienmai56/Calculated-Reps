@@ -411,9 +411,24 @@ final class NotebookStore: ObservableObject {
 
     // MARK: - Bounties
 
-    /// A goal qualifies for a bounty once it's been worked for 2+ weeks: created at
-    /// least 14 days ago and has at least one completed session. The `MATMIND_FORCE_BOUNTY`
-    /// launch env var force-unlocks eligibility for QA.
+    /// Number of distinct training days required on a single goal before its bounty unlocks.
+    static let bountyUnlockDays = 14
+
+    /// Distinct calendar days (up to today) on which this goal was trained. Reflection is
+    /// NOT required — any planned/logged session on a day counts as a training day.
+    func daysTrainedForGoal(_ goalId: String) -> Int {
+        let today = calendar.startOfDay(for: Date())
+        let days = Set(
+            notebook.sessions
+                .filter { $0.goalId == goalId && calendar.startOfDay(for: $0.date) <= today }
+                .map { calendar.startOfDay(for: $0.date) }
+        )
+        return days.count
+    }
+
+    /// A goal qualifies for a bounty once it's been trained on `bountyUnlockDays` distinct days
+    /// (≈ two weeks of training). Reflection is not required. `MATMIND_FORCE_BOUNTY` force-unlocks
+    /// eligibility for QA.
     func isGoalBountyEligible(_ goalId: String) -> Bool {
         guard let goal = goal(id: goalId), !goal.isArchived, goal.name.nilIfBlank != nil else { return false }
         #if DEBUG
@@ -421,13 +436,23 @@ final class NotebookStore: ObservableObject {
             return notebook.sessions.contains { $0.goalId == goalId }
         }
         #endif
-        guard let twoWeeksAgo = calendar.date(byAdding: .day, value: -14, to: Date()) else { return false }
-        let hasActivity = notebook.sessions.contains { $0.goalId == goalId && $0.status == .done }
-        return goal.createdAt <= twoWeeksAgo && hasActivity
+        return daysTrainedForGoal(goalId) >= Self.bountyUnlockDays
     }
 
     var hasBountyEligibleGoal: Bool {
         activeGoals.contains { isGoalBountyEligible($0.id) }
+    }
+
+    /// Goals the user is actively building toward bounty eligibility: trained on at least one
+    /// day but not yet at the unlock threshold. Drives the "Bounty locked" progress card.
+    var bountyProgressGoals: [(goal: TrainingGoal, daysTrained: Int)] {
+        activeGoals
+            .compactMap { g -> (goal: TrainingGoal, daysTrained: Int)? in
+                let days = daysTrainedForGoal(g.id)
+                guard days >= 1, days < Self.bountyUnlockDays else { return nil }
+                return (goal: g, daysTrained: days)
+            }
+            .sorted { $0.daysTrained > $1.daysTrained }
     }
 
     /// Tasks the user can turn into a bounty: any task under a goal worked 2+ weeks,
@@ -450,6 +475,12 @@ final class NotebookStore: ObservableObject {
     /// is no bounty already in flight.
     var isBountyUnlocked: Bool {
         activeBounty == nil && hasBountyEligibleGoal
+    }
+
+    /// Show the "Bounty locked" progress card when nothing qualifies yet but the user is
+    /// building toward it (at least one goal in progress).
+    var isBountyLocked: Bool {
+        activeBounty == nil && !hasBountyEligibleGoal && !bountyProgressGoals.isEmpty
     }
 
     var collectedBounties: [Bounty] {
@@ -587,7 +618,7 @@ final class NotebookStore: ObservableObject {
     /// TEMPORARY demo data for testing. Re-seeds when `seedVersion` changes. Remove before shipping.
     func seedDemoDataIfEmpty(force: Bool = false) {
         let seedKey = "matmind.debugSeedVersion"
-        let seedVersion = "v4-bounty-2goals-collected"
+        let seedVersion = "v5-bounty-locked-inprogress"
         let alreadySeeded = UserDefaults.standard.string(forKey: seedKey) == seedVersion
         if alreadySeeded && !notebook.goals.isEmpty && !force { return }
 
@@ -648,8 +679,8 @@ final class NotebookStore: ObservableObject {
         let ashiEntry = TrainingTask(goalId: g2.id, name: "Ashi garami entry",
             notes: "Off-balance them, secure the outside leg, and establish ashi garami before attacking the foot.")
 
-        // Sessions spanning ~3 weeks so goals read as "worked 2+ weeks" (bounty-eligible):
-        // one planned today (Next Session) + several completed past days.
+        // Training days build toward the 14-day bounty unlock (reflection not required).
+        // Passing open guard: 6 distinct days · Leg locks: 3 distinct days → both "in progress".
         func sess(_ goal: TrainingGoal, _ offset: Int, _ taskIds: [String], _ status: SessionStatus = .planned) -> PlannedSession {
             PlannedSession(goalId: goal.id, date: day(offset), taskIds: taskIds, status: status, createdAt: day(offset))
         }
@@ -659,6 +690,9 @@ final class NotebookStore: ObservableObject {
         let s4 = sess(g1, -9, [chaseHip.id, sepKnee.id], .done)
         let s5 = sess(g1, -16, [chaseHip.id], .done)
         let s6 = sess(g2, -12, [insideHeel.id, ashiEntry.id], .done)
+        let s7 = sess(g1, -5, [chaseHip.id], .done)
+        let s8 = sess(g1, -13, [sepKnee.id], .done)
+        let s9 = sess(g2, -7, [insideHeel.id], .done)
 
         // Two reflections so Latest Entry + Patterns are populated for testing.
         let r1 = Reflection(
@@ -680,28 +714,14 @@ final class NotebookStore: ObservableObject {
             isFavorite: false
         )
 
-        // Two already-collected bounties so the "bounties collected" pill + trophy shelf
-        // are populated. No active bounty, so the "Bounty unlocked" card still shows and
-        // the full create flow can be tested.
-        let b1 = Bounty(
-            accountId: acct, goalId: g1.id, taskId: chaseHip.id,
-            kind: .hitCount, targetCount: 3, targetPartner: nil,
-            hitDates: [day(-11), day(-7), day(-3)],
-            status: .collected, createdAt: day(-14), collectedAt: day(-3)
-        )
-        let b2 = Bounty(
-            accountId: acct, goalId: g2.id, taskId: insideHeel.id,
-            kind: .targetPartner, targetCount: 1, targetPartner: "Marcus",
-            hitDates: [day(-6)],
-            status: .collected, createdAt: day(-9), collectedAt: day(-6)
-        )
-
+        // Bounty "before eligible" empty state: goals are in progress (< 14 training days),
+        // no bounty set or collected yet. Use MATMIND_FORCE_BOUNTY=1 to jump to the unlocked flow.
         mutate {
             notebook.goals = [g1, g2]
             notebook.tasks = [chaseHip, sepKnee, insideHeel, ashiEntry]
-            notebook.sessions = [s1, s2, s3, s4, s5, s6]
+            notebook.sessions = [s1, s2, s3, s4, s5, s6, s7, s8, s9]
             notebook.reflections = [r1, r2]
-            notebook.bounties = [b1, b2]
+            notebook.bounties = []
         }
         UserDefaults.standard.set(seedVersion, forKey: seedKey)
     }

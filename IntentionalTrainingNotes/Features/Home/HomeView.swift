@@ -19,6 +19,7 @@ struct HomeView: View {
     @State private var goalFilterOpen = false
     @State private var showFavoritesOnly = false
     @State private var sheet: HomeSheet?
+    @State private var bountyLockedExpanded = true
 
     private var cal: Calendar { Calendar.current }
 
@@ -28,8 +29,11 @@ struct HomeView: View {
                 streakHeader
                 bountyCard
                 nextSessionSection
+                    .zIndex(3)
                 latestEntrySection
+                    .zIndex(2)
                 patternsSection
+                    .zIndex(1)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -56,10 +60,13 @@ struct HomeView: View {
 
     private var streakHeader: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                Text("🔥 \(trainingStreak == 1 ? "1 week streak" : "\(trainingStreak) week streak")")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+            HStack(alignment: .center) {
+                ScreenHeader(
+                    titleLead: "🔥 \(trainingStreak) week",
+                    titleAccent: "streak",
+                    onDark: true,
+                    titleSize: 26
+                )
                 Spacer()
                 Button(action: { sheet = .settings }) {
                     Image(systemName: "gearshape.fill")
@@ -159,15 +166,118 @@ struct HomeView: View {
 
     // MARK: - Bounty
 
-    /// The single Home slot for bounties. Renders nothing until a goal qualifies,
-    /// then the "set a challenge" card, then the full coral hero while a hunt is live.
+    /// The single Home slot for bounties. Renders nothing until the user starts training,
+    /// then the "locked" progress card, then "set a challenge", then the live hunt hero.
     @ViewBuilder
     private var bountyCard: some View {
         if let bounty = store.activeBounty {
             activeBountyHero(bounty)
         } else if store.isBountyUnlocked {
             bountyUnlockedCard
+        } else if store.isBountyLocked {
+            bountyLockedCard
         }
+    }
+
+    // MARK: Bounty · locked (building toward eligibility)
+
+    private var bountyLockedCard: some View {
+        let goals = store.bountyProgressGoals
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(AppColors.coral.opacity(0.16))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 17))
+                            .foregroundColor(AppColors.coralDeep)
+                    )
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("BOUNTY LOCKED")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundColor(AppColors.coralDeep)
+                    Text("Make training progress to unlock the hunt")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { bountyLockedExpanded.toggle() } }) {
+                    Image(systemName: bountyLockedExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            if bountyLockedExpanded {
+                HStack {
+                    Text("GOALS IN PROGRESS")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .tracking(0.6)
+                        .foregroundColor(AppColors.secondaryLabel)
+                    Spacer()
+                    Text("\(goals.count)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(AppColors.secondaryBackground))
+                }
+
+                VStack(spacing: 10) {
+                    ForEach(goals, id: \.goal.id) { item in
+                        bountyProgressRow(goal: item.goal, daysTrained: item.daysTrained)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 20).fill(AppColors.cardBackground))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(AppColors.coral.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+        )
+    }
+
+    private func bountyProgressRow(goal: TrainingGoal, daysTrained: Int) -> some View {
+        let target = NotebookStore.bountyUnlockDays
+        let fraction = min(1, CGFloat(daysTrained) / CGFloat(target))
+        return HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2).fill(goal.goalColor).frame(width: 3)
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 8) {
+                    Circle().fill(goal.goalColor).frame(width: 8, height: 8)
+                    Text(goal.name)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                    Spacer(minLength: 0)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(AppColors.separator.opacity(0.6))
+                        Capsule().fill(AppColors.coral).frame(width: max(6, geo.size.width * fraction))
+                    }
+                }
+                .frame(height: 6)
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppColors.secondaryLabel)
+                    Text("\(daysTrained) / \(target) days trained")
+                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                }
+            }
+            .padding(.leading, 12)
+            .padding(.vertical, 12)
+        }
+        .padding(.trailing, 14)
+        .background(RoundedRectangle(cornerRadius: 14).fill(AppColors.secondaryBackground.opacity(0.55)))
     }
 
     private var bountyUnlockedCard: some View {
@@ -328,7 +438,7 @@ struct HomeView: View {
                 .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
             } else {
                 ForEach(nextSessions) { session in
-                    SessionCardView(
+                    PlannedSessionCard(
                         store: store,
                         session: session,
                         onReflect: { onReflect(session.id) },
@@ -553,9 +663,16 @@ struct HomeView: View {
 
     // MARK: - Next session helpers
 
+    /// A planned session belongs in "Next session" only until it has been
+    /// reflected on. Once a reflection exists, it drops off the list.
+    private func isReflected(_ session: PlannedSession) -> Bool {
+        store.reflection(forSessionId: session.id) != nil
+    }
+
     private var nextSessionDay: Date? {
         let today = cal.startOfDay(for: Date())
         return store.notebook.sessions
+            .filter { !isReflected($0) }
             .map { cal.startOfDay(for: $0.date) }
             .filter { $0 >= today }
             .sorted()
@@ -564,7 +681,7 @@ struct HomeView: View {
     private var nextSessions: [PlannedSession] {
         guard let day = nextSessionDay else { return [] }
         return store.notebook.sessions
-            .filter { cal.isDate($0.date, inSameDayAs: day) }
+            .filter { cal.isDate($0.date, inSameDayAs: day) && !isReflected($0) }
             .sorted { $0.createdAt < $1.createdAt }
     }
     private var nextSessionLabel: String {
