@@ -97,10 +97,30 @@ private final class PreviewPersistence: NotebookPersistence {
 
     init() {
         let accountId = "google_preview"
-        let goal = TrainingGoal(accountId: accountId, name: "Leg Locks")
+        func day(_ offset: Int) -> Date { Calendar.current.date(byAdding: .day, value: offset, to: Date()) ?? Date() }
+
+        let goal = TrainingGoal(accountId: accountId, name: "Leg Locks", iconName: "bolt.fill", colorName: "mint")
         let task = TrainingTask(goalId: goal.id, name: "Entry from half guard")
-        let session = PlannedSession(goalId: goal.id, date: Date(), taskIds: [task.id], status: .planned)
-        self.notebook = TrainingNotebook(accountId: accountId, goals: [goal], tasks: [task], sessions: [session])
+
+        // Upcoming session for the Next Session card.
+        let planned = PlannedSession(goalId: goal.id, date: day(0), taskIds: [task.id], status: .planned)
+
+        // Three reflected past sessions so the "Bounty locked" progress card renders
+        // in the canvas (3 / 8 sessions reflected — not yet qualified).
+        let s1 = PlannedSession(goalId: goal.id, date: day(-2), taskIds: [task.id], status: .done)
+        let s2 = PlannedSession(goalId: goal.id, date: day(-5), taskIds: [task.id], status: .done)
+        let s3 = PlannedSession(goalId: goal.id, date: day(-9), taskIds: [task.id], status: .done)
+        let r1 = Reflection(sessionId: s1.id, date: day(-2), workedText: "Tight ashi control.", stuckText: "", mood: .good)
+        let r2 = Reflection(sessionId: s2.id, date: day(-5), workedText: "Clean entry off the underhook.", stuckText: "", mood: .neutral)
+        let r3 = Reflection(sessionId: s3.id, date: day(-9), workedText: "Kept the knee line.", stuckText: "", mood: .good)
+
+        self.notebook = TrainingNotebook(
+            accountId: accountId,
+            goals: [goal],
+            tasks: [task],
+            sessions: [planned, s1, s2, s3],
+            reflections: [r1, r2, r3]
+        )
     }
 
     func load(accountId: String) throws -> TrainingNotebook {
