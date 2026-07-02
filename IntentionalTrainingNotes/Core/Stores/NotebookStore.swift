@@ -456,17 +456,17 @@ final class NotebookStore: ObservableObject {
     /// Number of training sessions required on a single goal before its bounty unlocks.
     static let bountyUnlockSessions = 8
 
-    /// Number of training sessions logged for this goal, up to today. Reflection is NOT
-    /// required — any planned/logged session counts.
-    func sessionsTrainedForGoal(_ goalId: String) -> Int {
-        let today = calendar.startOfDay(for: Date())
+    /// Number of *reflected* sessions for this goal. A session only counts toward the bounty
+    /// once the user has reflected on it (i.e. it's marked done with a saved reflection).
+    func reflectedSessionsForGoal(_ goalId: String) -> Int {
+        let reflectedSessionIds = Set(notebook.reflections.map { $0.sessionId })
         return notebook.sessions
-            .filter { $0.goalId == goalId && calendar.startOfDay(for: $0.date) <= today }
+            .filter { $0.goalId == goalId && reflectedSessionIds.contains($0.id) }
             .count
     }
 
-    /// A goal qualifies for a bounty once it's been trained for `bountyUnlockSessions` sessions.
-    /// Reflection is not required. `MATMIND_FORCE_BOUNTY` force-unlocks eligibility for QA.
+    /// A goal qualifies for a bounty once `bountyUnlockSessions` of its sessions have been
+    /// reflected on. `MATMIND_FORCE_BOUNTY` force-unlocks eligibility for QA.
     func isGoalBountyEligible(_ goalId: String) -> Bool {
         guard let goal = goal(id: goalId), !goal.isArchived, goal.name.nilIfBlank != nil else { return false }
         #if DEBUG
@@ -474,23 +474,23 @@ final class NotebookStore: ObservableObject {
             return notebook.sessions.contains { $0.goalId == goalId }
         }
         #endif
-        return sessionsTrainedForGoal(goalId) >= Self.bountyUnlockSessions
+        return reflectedSessionsForGoal(goalId) >= Self.bountyUnlockSessions
     }
 
     var hasBountyEligibleGoal: Bool {
         activeGoals.contains { isGoalBountyEligible($0.id) }
     }
 
-    /// Goals the user is actively building toward bounty eligibility: at least one session
-    /// trained but not yet at the unlock threshold. Drives the "Bounty locked" progress card.
-    var bountyProgressGoals: [(goal: TrainingGoal, sessionsTrained: Int)] {
+    /// Goals the user is actively building toward bounty eligibility: at least one reflected
+    /// session but not yet at the unlock threshold. Drives the "Bounty locked" progress card.
+    var bountyProgressGoals: [(goal: TrainingGoal, sessionsReflected: Int)] {
         activeGoals
-            .compactMap { g -> (goal: TrainingGoal, sessionsTrained: Int)? in
-                let n = sessionsTrainedForGoal(g.id)
+            .compactMap { g -> (goal: TrainingGoal, sessionsReflected: Int)? in
+                let n = reflectedSessionsForGoal(g.id)
                 guard n >= 1, n < Self.bountyUnlockSessions else { return nil }
-                return (goal: g, sessionsTrained: n)
+                return (goal: g, sessionsReflected: n)
             }
-            .sorted { $0.sessionsTrained > $1.sessionsTrained }
+            .sorted { $0.sessionsReflected > $1.sessionsReflected }
     }
 
     /// Tasks the user can turn into a bounty: any task under a goal that qualifies,

@@ -230,7 +230,7 @@ struct HomeView: View {
 
                 VStack(spacing: 10) {
                     ForEach(goals, id: \.goal.id) { item in
-                        bountyProgressRow(goal: item.goal, sessionsTrained: item.sessionsTrained)
+                        bountyProgressRow(goal: item.goal, sessionsReflected: item.sessionsReflected)
                     }
                 }
             }
@@ -244,9 +244,9 @@ struct HomeView: View {
         )
     }
 
-    private func bountyProgressRow(goal: TrainingGoal, sessionsTrained: Int) -> some View {
+    private func bountyProgressRow(goal: TrainingGoal, sessionsReflected: Int) -> some View {
         let target = NotebookStore.bountyUnlockSessions
-        let fraction = min(1, CGFloat(sessionsTrained) / CGFloat(target))
+        let fraction = min(1, CGFloat(sessionsReflected) / CGFloat(target))
         return HStack(spacing: 0) {
             RoundedRectangle(cornerRadius: 2).fill(goal.goalColor).frame(width: 3)
             VStack(alignment: .leading, spacing: 9) {
@@ -268,7 +268,7 @@ struct HomeView: View {
                     Image(systemName: "figure.martial.arts")
                         .font(.system(size: 11))
                         .foregroundColor(AppColors.secondaryLabel)
-                    Text("\(sessionsTrained) / \(target) sessions trained")
+                    Text("\(sessionsReflected) / \(target) sessions reflected")
                         .font(.system(size: 12.5, weight: .medium, design: .rounded))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
