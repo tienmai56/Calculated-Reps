@@ -263,30 +263,28 @@ struct GoalCard: View {
         let isOpen = expandedTaskIds.contains(task.id)
         let reflCount = store.reflections(forTaskId: task.id).count
         VStack(alignment: .leading, spacing: 0) {
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { toggleTask(task.id) } }) {
-                HStack(spacing: 12) {
-                    checkbox(trained, color)
-                    Text(task.name)
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.label)
-                    Spacer()
-                    if reflCount > 0 {
-                        reflectionBadge(reflCount)
-                    }
-                    if task.link.nilIfBlank != nil {
-                        Image(systemName: "link").font(.system(size: 13)).foregroundColor(AppColors.tertiaryLabel)
-                    }
-                    if !task.imageFileNames.isEmpty {
-                        Image(systemName: "photo").font(.system(size: 13)).foregroundColor(AppColors.tertiaryLabel)
-                    }
-                    Image(systemName: isOpen ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(AppColors.tertiaryLabel)
+            HStack(spacing: 12) {
+                checkbox(trained, color)
+                Text(task.name)
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                Spacer()
+                if reflCount > 0 {
+                    reflectionBadge(reflCount)
                 }
-                .padding(.vertical, 13)
-                .contentShape(Rectangle())
+                if task.link.nilIfBlank != nil {
+                    Image(systemName: "link").font(.system(size: 13)).foregroundColor(AppColors.tertiaryLabel)
+                }
+                if !task.imageFileNames.isEmpty {
+                    Image(systemName: "photo").font(.system(size: 13)).foregroundColor(AppColors.tertiaryLabel)
+                }
+                Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppColors.tertiaryLabel)
             }
-            .buttonStyle(PlainButtonStyle())
+            .padding(.vertical, 13)
+            .contentShape(Rectangle())
+            .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { toggleTask(task.id) } }
 
             if isOpen {
                 taskDetail(task, color)
