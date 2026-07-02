@@ -137,20 +137,20 @@ struct NotesListView: View {
                 isCreatingNote = false
             })
         }
-        .alert(isPresented: Binding(
-            get: { confirmDeleteNoteId != nil },
-            set: { if !$0 { confirmDeleteNoteId = nil } }
-        )) {
-            Alert(
-                title: Text("Delete Note"),
-                message: Text("This note will be permanently deleted."),
-                primaryButton: .destructive(Text("Delete")) {
-                    if let id = confirmDeleteNoteId {
-                        store.deleteNote(id: id)
-                    }
+        .overlay(noteDeleteDialog)
+    }
+
+    @ViewBuilder
+    private var noteDeleteDialog: some View {
+        if let id = confirmDeleteNoteId {
+            ConfirmDialog(
+                title: "Delete Note",
+                message: "This note will be permanently deleted.",
+                onConfirm: {
+                    store.deleteNote(id: id)
                     confirmDeleteNoteId = nil
                 },
-                secondaryButton: .cancel()
+                onCancel: { confirmDeleteNoteId = nil }
             )
         }
     }
@@ -307,20 +307,7 @@ struct NoteEditorView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
-        .alert(isPresented: $showDeleteConfirm) {
-            Alert(
-                title: Text("Delete Note"),
-                message: Text("This note will be permanently deleted."),
-                primaryButton: .destructive(Text("Delete")) {
-                    noteWasDeleted = true
-                    if let id = effectiveNoteId {
-                        store.deleteNote(id: id)
-                    }
-                    onDone()
-                },
-                secondaryButton: .cancel()
-            )
-        }
+        .overlay(deleteDialog)
         .sheet(isPresented: $showImagePicker) {
             NoteImagePicker(onImageSelected: { imageData in
                 if let id = effectiveNoteId ?? createNoteIfNeeded(),
@@ -338,6 +325,25 @@ struct NoteEditorView: View {
                     scheduleSave()
                 }
             })
+        }
+    }
+
+    @ViewBuilder
+    private var deleteDialog: some View {
+        if showDeleteConfirm {
+            ConfirmDialog(
+                title: "Delete Note",
+                message: "This note will be permanently deleted.",
+                onConfirm: {
+                    noteWasDeleted = true
+                    if let id = effectiveNoteId {
+                        store.deleteNote(id: id)
+                    }
+                    showDeleteConfirm = false
+                    onDone()
+                },
+                onCancel: { showDeleteConfirm = false }
+            )
         }
     }
 

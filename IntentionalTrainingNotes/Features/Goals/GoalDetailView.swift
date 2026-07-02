@@ -109,26 +109,26 @@ struct GoalDetailView: View {
                 .padding(16)
             }
         }
-        .alert(item: Binding(
-            get: { confirmTaskId.map(TaskDeleteAlertToken.init(id:)) },
-            set: { confirmTaskId = $0?.id }
-        )) { token in
-            let task = store.task(id: token.id)
-            let summary = store.cascadeSummary(forTask: token.id)
-            return Alert(
-                title: Text("Delete \"\(task?.name ?? "task")\"?"),
-                message: Text("\(summary.sessionCount) planned sessions and \(summary.reflectionCount) reflections will be deleted."),
-                primaryButton: .destructive(Text("Delete task")) {
-                    store.deleteTaskCascade(taskId: token.id)
+        .overlay(taskDeleteDialog)
+    }
+
+    @ViewBuilder
+    private var taskDeleteDialog: some View {
+        if let id = confirmTaskId {
+            let task = store.task(id: id)
+            let summary = store.cascadeSummary(forTask: id)
+            ConfirmDialog(
+                title: "Delete \"\(task?.name ?? "task")\"?",
+                message: "\(summary.sessionCount) planned sessions and \(summary.reflectionCount) reflections will be deleted.",
+                confirmTitle: "Delete task",
+                onConfirm: {
+                    store.deleteTaskCascade(taskId: id)
+                    confirmTaskId = nil
                 },
-                secondaryButton: .cancel()
+                onCancel: { confirmTaskId = nil }
             )
         }
     }
-}
-
-private struct TaskDeleteAlertToken: Identifiable {
-    var id: String
 }
 
 struct GoalEditToken: Identifiable {

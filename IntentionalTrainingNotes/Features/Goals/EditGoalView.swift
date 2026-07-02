@@ -95,7 +95,37 @@ struct EditGoalView: View {
             }
         }
         .background(AppColors.background.edgesIgnoringSafeArea(.all))
-        .alert(item: $activeAlert, content: alert(for:))
+        .overlay(alertDialog)
+    }
+
+    @ViewBuilder
+    private var alertDialog: some View {
+        if let alert = activeAlert {
+            switch alert {
+            case .deleteTask(let taskId):
+                ConfirmDialog(
+                    title: "Delete Task",
+                    message: "Are you sure you want to delete this task?",
+                    onConfirm: {
+                        store.deleteTaskCascade(taskId: taskId)
+                        activeAlert = nil
+                    },
+                    onCancel: { activeAlert = nil }
+                )
+            case .deleteGoal:
+                let summary = store.goalCascadeSummary(goalId: goalId)
+                ConfirmDialog(
+                    title: "Delete \"\(goalName)\"?",
+                    message: "\(summary.taskCount) tasks, \(summary.sessionCount) sessions, and \(summary.reflectionCount) reflections will be deleted.",
+                    onConfirm: {
+                        store.deleteGoalCascade(goalId: goalId)
+                        activeAlert = nil
+                        onDismiss()
+                    },
+                    onCancel: { activeAlert = nil }
+                )
+            }
+        }
     }
 
     private var previewHeader: some View {
@@ -204,31 +234,6 @@ struct EditGoalView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .padding(.top, 8)
-    }
-
-    private func alert(for alert: EditGoalAlert) -> Alert {
-        switch alert {
-        case .deleteTask(let taskId):
-            return Alert(
-                title: Text("Delete Task"),
-                message: Text("Are you sure you want to delete this task?"),
-                primaryButton: .destructive(Text("Delete")) {
-                    store.deleteTaskCascade(taskId: taskId)
-                },
-                secondaryButton: .cancel()
-            )
-        case .deleteGoal:
-            let summary = store.goalCascadeSummary(goalId: goalId)
-            return Alert(
-                title: Text("Delete \"\(goalName)\"?"),
-                message: Text("\(summary.taskCount) tasks, \(summary.sessionCount) sessions, and \(summary.reflectionCount) reflections will be deleted."),
-                primaryButton: .destructive(Text("Delete")) {
-                    store.deleteGoalCascade(goalId: goalId)
-                    onDismiss()
-                },
-                secondaryButton: .cancel()
-            )
-        }
     }
 
     private func saveAndDismiss() {
