@@ -71,12 +71,13 @@ struct PlanTrainingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Plan your training")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(AppColors.label)
-                        Text("Tap the days you want to train, then pick your goals.")
-                            .font(.matMindBody(size: 16))
-                            .foregroundColor(AppColors.secondaryLabel)
+                        ScreenHeader(
+                            eyebrow: "This Week",
+                            titleLead: "Plan your",
+                            titleAccent: "training",
+                            subtitle: "Tap the days you want to train, then pick your goals.",
+                            accent: AppColors.coralDeep
+                        )
                     }
                     monthCalendar
                     Text(daysSelectedLabel)
@@ -143,12 +144,13 @@ struct PlanTrainingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("What will you drill?")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(AppColors.label)
-                        Text(drillSubtitle)
-                            .font(.matMindBody(size: 16))
-                            .foregroundColor(AppColors.secondaryLabel)
+                        ScreenHeader(
+                            eyebrow: "Step 2",
+                            titleLead: "What will you",
+                            titleAccent: "drill?",
+                            subtitle: drillSubtitle,
+                            accent: AppColors.coralDeep
+                        )
                     }
                     ForEach(sortedDays, id: \.self) { day in
                         dayTaskCard(day)

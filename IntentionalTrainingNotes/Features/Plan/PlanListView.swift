@@ -50,17 +50,24 @@ struct PlanListView: View {
         .sheet(item: $feedbackReflection) { reflection in
             FeedbackPreviewView(store: store, reflection: reflection, onClose: { feedbackReflection = nil })
         }
-        .alert(isPresented: $showDeleteConfirm) {
-            Alert(
-                title: Text("Delete Session"),
-                message: Text("This will permanently delete this planned session and any associated reflection."),
-                primaryButton: .destructive(Text("Delete")) {
-                    if let s = sessionToDelete {
-                        store.deleteSession(id: s.id)
-                        sessionToDelete = nil
-                    }
+        .overlay(deleteDialog)
+    }
+
+    @ViewBuilder
+    private var deleteDialog: some View {
+        if showDeleteConfirm, let session = sessionToDelete {
+            ConfirmDialog(
+                title: "Delete Session",
+                message: "This will permanently delete this planned session and any associated reflection.",
+                onConfirm: {
+                    store.deleteSession(id: session.id)
+                    sessionToDelete = nil
+                    showDeleteConfirm = false
                 },
-                secondaryButton: .cancel { sessionToDelete = nil }
+                onCancel: {
+                    sessionToDelete = nil
+                    showDeleteConfirm = false
+                }
             )
         }
     }

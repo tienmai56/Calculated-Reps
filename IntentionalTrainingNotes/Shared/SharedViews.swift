@@ -42,6 +42,63 @@ struct HeaderView: View {
     }
 }
 
+/// Compact screen header: an uppercase, letter-spaced colored eyebrow above a
+/// Fraunces serif title with a single italic accent word. Reads as "smaller but
+/// still noticeable" — the eyebrow carries the emphasis so the title can shrink.
+struct ScreenHeader: View {
+    var eyebrow: String?
+    var titleLead: String
+    var titleAccent: String
+    var subtitle: String?
+    var accent: Color = AppColors.indigo
+    var onDark: Bool = false
+    var titleSize: CGFloat = 25
+
+    init(eyebrow: String? = nil,
+         titleLead: String,
+         titleAccent: String,
+         subtitle: String? = nil,
+         accent: Color = AppColors.indigo,
+         onDark: Bool = false,
+         titleSize: CGFloat = 25) {
+        self.eyebrow = eyebrow
+        self.titleLead = titleLead
+        self.titleAccent = titleAccent
+        self.subtitle = subtitle
+        self.accent = accent
+        self.onDark = onDark
+        self.titleSize = titleSize
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if let eyebrow = eyebrow {
+                Text(eyebrow.uppercased())
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(1.6)
+                    .foregroundColor(onDark ? Color.white.opacity(0.72) : accent)
+            }
+
+            (
+                Text(titleLead + " ")
+                    .font(.matMindBody(size: titleSize, weight: .semibold))
+                    .foregroundColor(onDark ? .white : AppColors.label)
+                + Text(titleAccent)
+                    .font(.matMindItalic(size: titleSize, weight: .medium))
+                    .foregroundColor(onDark ? .white : accent)
+            )
+
+            if let subtitle = subtitle {
+                Text(subtitle)
+                    .font(.matMindBody(size: 15))
+                    .foregroundColor(onDark ? Color.white.opacity(0.8) : AppColors.secondaryLabel)
+                    .padding(.top, 1)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 struct WeekStripView: View {
     var dayStates: [String: SessionStatus]
     @State private var anchor = Date()
@@ -441,6 +498,74 @@ struct TrainingTextView: UIViewRepresentable {
                 textView.textColor = .placeholderText
                 parent.text = ""
             }
+        }
+    }
+}
+
+// MARK: - Confirmation Dialog
+
+/// A state-driven confirmation modal used for destructive actions.
+///
+/// Deliberately built from plain views (a dimmed ZStack overlay) instead of a
+/// native `.alert`/`.confirmationDialog`. Several screens already stack a
+/// `.sheet` (and sometimes two) on the same view, and adding a native alert
+/// there silently fails to present. Because this is just a view driven by
+/// state, it always renders when its flag is set.
+struct ConfirmDialog: View {
+    let title: String
+    let message: String
+    var confirmTitle: String = "Delete"
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.45)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture(perform: onCancel)
+
+            VStack(spacing: 0) {
+                VStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.label)
+                        .multilineTextAlignment(.center)
+                    Text(message)
+                        .font(.matMindBody(size: 14))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(20)
+
+                Divider()
+
+                HStack(spacing: 0) {
+                    Button(action: onCancel) {
+                        Text("Cancel")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(AppColors.label)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Divider().frame(height: 46)
+
+                    Button(action: onConfirm) {
+                        Text(confirmTitle)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(AppColors.stuckCoral)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .frame(width: 280)
+            .background(AppColors.background)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: Color.black.opacity(0.25), radius: 24, x: 0, y: 8)
         }
     }
 }

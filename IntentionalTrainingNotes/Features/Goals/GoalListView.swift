@@ -14,14 +14,13 @@ struct GoalListView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Active goals")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(AppColors.label)
-                        Text("What are you working on right now?")
-                            .font(.matMindBody(size: 16))
-                            .foregroundColor(AppColors.secondaryLabel)
-                    }
+                    ScreenHeader(
+                        titleLead: "Active",
+                        titleAccent: "goals",
+                        subtitle: "What are you working on right now?",
+                        accent: AppColors.indigo,
+                        titleSize: 21
+                    )
                     Spacer()
                     Button(action: {
                         let draft = store.createDraftGoal()
@@ -90,19 +89,25 @@ struct GoalListView: View {
                 TaskReflectionsView(store: store, taskId: taskId, onClose: { sheet = nil })
             }
         }
-        // Presented from the parent (like PlanListView's session-delete alert) so it
-        // reliably fires; a `.alert` on the GoalCard itself inside the ForEach did not.
-        .alert(isPresented: $showGoalDeleteConfirm) {
-            guard let goal = goalToDelete else { return Alert(title: Text("")) }
+        .overlay(deleteDialog)
+    }
+
+    @ViewBuilder
+    private var deleteDialog: some View {
+        if showGoalDeleteConfirm, let goal = goalToDelete {
             let summary = store.goalCascadeSummary(goalId: goal.id)
-            return Alert(
-                title: Text("Delete \"\(goal.name)\"?"),
-                message: Text(goalDeleteMessage(summary)),
-                primaryButton: .destructive(Text("Delete")) {
+            ConfirmDialog(
+                title: "Delete \"\(goal.name)\"?",
+                message: goalDeleteMessage(summary),
+                onConfirm: {
                     store.deleteGoalCascade(goalId: goal.id)
                     goalToDelete = nil
+                    showGoalDeleteConfirm = false
                 },
-                secondaryButton: .cancel { goalToDelete = nil }
+                onCancel: {
+                    goalToDelete = nil
+                    showGoalDeleteConfirm = false
+                }
             )
         }
     }
