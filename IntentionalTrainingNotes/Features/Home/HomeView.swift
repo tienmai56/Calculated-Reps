@@ -19,7 +19,7 @@ struct HomeView: View {
     @State private var goalFilterOpen = false
     @State private var showFavoritesOnly = false
     @State private var sheet: HomeSheet?
-    @State private var bountyLockedExpanded = true
+    @State private var bountyLockedExpanded = false
 
     private var cal: Calendar { Calendar.current }
 
@@ -199,8 +199,8 @@ struct HomeView: View {
                         .tracking(0.8)
                         .foregroundColor(AppColors.coralDeep)
                     Text("Make training progress to unlock the hunt")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundColor(AppColors.label)
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
