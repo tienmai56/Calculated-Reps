@@ -107,39 +107,29 @@ final class AppSessionStore: ObservableObject {
         // onboarding can be re-tested repeatedly without deleting the app. Never present in release.
         if ProcessInfo.processInfo.environment["RESET_ONBOARDING"] != nil {
             UserDefaults.standard.removeObject(forKey: AppSessionStore.onboardingCompletedKey)
-            UserDefaults.standard.removeObject(forKey: "matmind.debugSeedVersion")
             store.resetForOnboardingTestingDEBUG()
         }
         #endif
 
         // Upgrading users already have a notebook — never send them through first-run onboarding
-        // (it would add a stray goal/task/session on top of their real data). Treat any existing
-        // data as "already onboarded" and persist that so the check only runs once.
+        // (it would add a stray goal/task/session on top of their real data). Treat ANY existing
+        // user content as "already onboarded" and persist that so the check only runs once. This
+        // is the safety net that guarantees an app update never re-triggers onboarding for a
+        // returning user, even if the completion flag were somehow missing (e.g. pre-flag builds).
         let hasExistingData = !store.notebook.goals.isEmpty
+            || !store.notebook.tasks.isEmpty
             || !store.notebook.sessions.isEmpty
+            || !store.notebook.reflections.isEmpty
+            || !store.notebook.notes.isEmpty
+            || !store.notebook.bounties.isEmpty
             || store.notebook.profile != nil
         if hasExistingData && !UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
             UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
         }
 
         // First-run onboarding: show the goal → task → session flow until it's completed once.
-        #if DEBUG
-        // `SEED_DEMO=1` force-loads bounty-ready demo data (overwriting current data) and
-        // skips onboarding, so the feature can be exercised without erasing the app.
-        let forceSeed = ProcessInfo.processInfo.environment["SEED_DEMO"] == "1"
-        if forceSeed {
-            UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
-        }
-        #endif
         if UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
             self.route = .ready
-            #if DEBUG
-            // Seed demo data when there's nothing yet (so it never overwrites a real
-            // notebook created through onboarding), or when SEED_DEMO=1 forces a refresh.
-            if store.notebook.goals.isEmpty || forceSeed {
-                store.seedDemoDataIfEmpty(force: forceSeed)
-            }
-            #endif
         } else {
             self.route = .onboarding
         }
