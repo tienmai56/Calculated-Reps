@@ -122,10 +122,20 @@ struct ReflectionCardView: View {
     private var menuOverlay: some View {
         if menuOpen {
             ZStack(alignment: .topTrailing) {
-                Color.black.opacity(0.001)
-                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-                    .fixedSize()
-                    .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { menuOpen = false } }
+                // Full-screen tap-catcher, positioned in global space so it
+                // covers the whole screen regardless of where this card sits
+                // (a card-anchored frame gets offset/clipped and misses taps).
+                GeometryReader { geo in
+                    let f = geo.frame(in: .global)
+                    Color.black.opacity(0.001)
+                        .frame(width: UIScreen.main.bounds.width,
+                               height: UIScreen.main.bounds.height)
+                        .contentShape(Rectangle())
+                        .position(x: UIScreen.main.bounds.midX - f.minX,
+                                  y: UIScreen.main.bounds.midY - f.minY)
+                        .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { menuOpen = false } }
+                }
+                .edgesIgnoringSafeArea(.all)
 
                 VStack(alignment: .leading, spacing: 0) {
                     Button(action: { menuOpen = false; onReflect() }) {
@@ -151,7 +161,7 @@ struct ReflectionCardView: View {
     private func menuRowLabel(icon: String, label: String, color: Color) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon).font(.matMindBody(size: 14)).foregroundColor(color)
-            Text(label).font(.matMindBody(size: 15)).foregroundColor(color)
+            Text(label).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color)
             Spacer()
         }
         .padding(.horizontal, 14)
@@ -238,16 +248,6 @@ struct FeedbackCardView: View {
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundColor(accent)
             }
-            Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
-            VStack(spacing: 2) {
-                Text("Mat Mind")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(accent)
-                Text("matmind.com")
-                    .font(.system(size: 13, design: .rounded))
-                    .foregroundColor(Color(red: 165/255, green: 161/255, blue: 155/255))
-            }
-            .frame(maxWidth: .infinity)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -107,7 +107,7 @@ struct PlannedSessionCard: View {
 
         VStack(alignment: .leading, spacing: 5) {
             Text(task.name)
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.system(size: 16, weight: .regular, design: .rounded))
                 .foregroundColor(AppColors.label)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -197,7 +197,7 @@ struct PlannedSessionCard: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.matMindBody(size: 14)).foregroundColor(color)
-                Text(label).font(.matMindBody(size: 15)).foregroundColor(color)
+                Text(label).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color)
                 Spacer()
             }
             .padding(.horizontal, 14)

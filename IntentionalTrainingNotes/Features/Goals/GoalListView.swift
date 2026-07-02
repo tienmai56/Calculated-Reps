@@ -270,7 +270,7 @@ struct GoalCard: View {
                     .foregroundColor(AppColors.label)
                 Spacer()
                 if reflCount > 0 {
-                    reflectionBadge(reflCount)
+                    Image(systemName: "text.bubble").font(.system(size: 13)).foregroundColor(AppColors.tertiaryLabel)
                 }
                 if task.link.nilIfBlank != nil {
                     Image(systemName: "link").font(.system(size: 13)).foregroundColor(AppColors.tertiaryLabel)
@@ -338,17 +338,6 @@ struct GoalCard: View {
         }
         .padding(.leading, 38)
         .padding(.bottom, 14)
-    }
-
-    private func reflectionBadge(_ count: Int) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: "text.bubble").font(.system(size: 10))
-            Text("\(count)").font(.system(size: 12, weight: .semibold, design: .rounded))
-        }
-        .foregroundColor(AppColors.winGreen)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(Capsule().fill(AppColors.winGreen.opacity(0.15)))
     }
 
     private func viewAllReflectionsCTA(taskId: String, count: Int) -> some View {
@@ -419,7 +408,7 @@ struct GoalCard: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.system(size: 14)).foregroundColor(color)
-                Text(label).font(.matMindBody(size: 15)).foregroundColor(color)
+                Text(label).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color)
                 Spacer()
             }
             .padding(.horizontal, 14)
