@@ -50,6 +50,8 @@ struct RootView: View {
         }
     }
 }
+
+#if DEBUG
 struct RootView_Previews: PreviewProvider {
     static var previews: some View {
         RootView(sessionStore: previewSessionStore())
@@ -137,3 +139,4 @@ private final class PreviewPersistence: NotebookPersistence {
         self.notebook = notebook
     }
 }
+#endif
