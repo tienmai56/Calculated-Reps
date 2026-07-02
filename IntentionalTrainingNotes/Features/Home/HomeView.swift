@@ -199,7 +199,7 @@ struct HomeView: View {
                         .tracking(0.8)
                         .foregroundColor(AppColors.coralDeep)
                     Text("Make training progress to unlock the hunt")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(AppColors.secondaryLabel)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -230,7 +230,7 @@ struct HomeView: View {
 
                 VStack(spacing: 10) {
                     ForEach(goals, id: \.goal.id) { item in
-                        bountyProgressRow(goal: item.goal, daysTrained: item.daysTrained)
+                        bountyProgressRow(goal: item.goal, sessionsTrained: item.sessionsTrained)
                     }
                 }
             }
@@ -244,9 +244,9 @@ struct HomeView: View {
         )
     }
 
-    private func bountyProgressRow(goal: TrainingGoal, daysTrained: Int) -> some View {
-        let target = NotebookStore.bountyUnlockDays
-        let fraction = min(1, CGFloat(daysTrained) / CGFloat(target))
+    private func bountyProgressRow(goal: TrainingGoal, sessionsTrained: Int) -> some View {
+        let target = NotebookStore.bountyUnlockSessions
+        let fraction = min(1, CGFloat(sessionsTrained) / CGFloat(target))
         return HStack(spacing: 0) {
             RoundedRectangle(cornerRadius: 2).fill(goal.goalColor).frame(width: 3)
             VStack(alignment: .leading, spacing: 9) {
@@ -265,10 +265,10 @@ struct HomeView: View {
                 }
                 .frame(height: 6)
                 HStack(spacing: 5) {
-                    Image(systemName: "calendar")
+                    Image(systemName: "figure.martial.arts")
                         .font(.system(size: 11))
                         .foregroundColor(AppColors.secondaryLabel)
-                    Text("\(daysTrained) / \(target) days trained")
+                    Text("\(sessionsTrained) / \(target) sessions trained")
                         .font(.system(size: 12.5, weight: .medium, design: .rounded))
                         .foregroundColor(AppColors.secondaryLabel)
                 }

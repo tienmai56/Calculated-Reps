@@ -363,6 +363,48 @@ final class NotebookStore: ObservableObject {
         }
     }
 
+    /// Saves an edited session so that each goal becomes its own session (card) on
+    /// the given date. The existing session id is reused for one goal (preferring
+    /// its current goal) so any reflection stays linked; remaining goals get new
+    /// sessions. Tasks are grouped by their owning goal.
+    func updateSessionSplittingByGoal(id: String, taskIds: [String], date: Date) {
+        guard let idx = notebook.sessions.firstIndex(where: { $0.id == id }) else { return }
+        let day = Calendar.current.normalizedTrainingDay(date)
+
+        // Group selected tasks by their owning goal.
+        var tasksByGoal: [String: [String]] = [:]
+        for tid in taskIds {
+            guard let gid = notebook.tasks.first(where: { $0.id == tid })?.goalId else { continue }
+            tasksByGoal[gid, default: []].append(tid)
+        }
+
+        mutate {
+            // No tasks selected: keep the session on its current goal, cleared.
+            guard !tasksByGoal.isEmpty else {
+                notebook.sessions[idx].taskIds = []
+                notebook.sessions[idx].date = day
+                notebook.sessions[idx].updatedAt = Date()
+                return
+            }
+
+            // Reuse the existing session for one goal (its current one if it still
+            // has tasks, otherwise any of the selected goals).
+            let currentGoal = notebook.sessions[idx].goalId
+            let reuseGoal = tasksByGoal[currentGoal] != nil ? currentGoal : tasksByGoal.keys.sorted().first!
+
+            notebook.sessions[idx].goalId = reuseGoal
+            notebook.sessions[idx].taskIds = tasksByGoal[reuseGoal] ?? []
+            notebook.sessions[idx].date = day
+            notebook.sessions[idx].updatedAt = Date()
+
+            // Remaining goals each become a new session on the same day.
+            for gid in tasksByGoal.keys.sorted() where gid != reuseGoal {
+                let session = PlannedSession(goalId: gid, date: day, taskIds: tasksByGoal[gid] ?? [])
+                notebook.sessions.append(session)
+            }
+        }
+    }
+
     func deleteSession(id: String) {
         mutate {
             notebook.sessions.removeAll { $0.id == id }
@@ -411,24 +453,20 @@ final class NotebookStore: ObservableObject {
 
     // MARK: - Bounties
 
-    /// Number of distinct training days required on a single goal before its bounty unlocks.
-    static let bountyUnlockDays = 14
+    /// Number of training sessions required on a single goal before its bounty unlocks.
+    static let bountyUnlockSessions = 8
 
-    /// Distinct calendar days (up to today) on which this goal was trained. Reflection is
-    /// NOT required — any planned/logged session on a day counts as a training day.
-    func daysTrainedForGoal(_ goalId: String) -> Int {
+    /// Number of training sessions logged for this goal, up to today. Reflection is NOT
+    /// required — any planned/logged session counts.
+    func sessionsTrainedForGoal(_ goalId: String) -> Int {
         let today = calendar.startOfDay(for: Date())
-        let days = Set(
-            notebook.sessions
-                .filter { $0.goalId == goalId && calendar.startOfDay(for: $0.date) <= today }
-                .map { calendar.startOfDay(for: $0.date) }
-        )
-        return days.count
+        return notebook.sessions
+            .filter { $0.goalId == goalId && calendar.startOfDay(for: $0.date) <= today }
+            .count
     }
 
-    /// A goal qualifies for a bounty once it's been trained on `bountyUnlockDays` distinct days
-    /// (≈ two weeks of training). Reflection is not required. `MATMIND_FORCE_BOUNTY` force-unlocks
-    /// eligibility for QA.
+    /// A goal qualifies for a bounty once it's been trained for `bountyUnlockSessions` sessions.
+    /// Reflection is not required. `MATMIND_FORCE_BOUNTY` force-unlocks eligibility for QA.
     func isGoalBountyEligible(_ goalId: String) -> Bool {
         guard let goal = goal(id: goalId), !goal.isArchived, goal.name.nilIfBlank != nil else { return false }
         #if DEBUG
@@ -436,26 +474,26 @@ final class NotebookStore: ObservableObject {
             return notebook.sessions.contains { $0.goalId == goalId }
         }
         #endif
-        return daysTrainedForGoal(goalId) >= Self.bountyUnlockDays
+        return sessionsTrainedForGoal(goalId) >= Self.bountyUnlockSessions
     }
 
     var hasBountyEligibleGoal: Bool {
         activeGoals.contains { isGoalBountyEligible($0.id) }
     }
 
-    /// Goals the user is actively building toward bounty eligibility: trained on at least one
-    /// day but not yet at the unlock threshold. Drives the "Bounty locked" progress card.
-    var bountyProgressGoals: [(goal: TrainingGoal, daysTrained: Int)] {
+    /// Goals the user is actively building toward bounty eligibility: at least one session
+    /// trained but not yet at the unlock threshold. Drives the "Bounty locked" progress card.
+    var bountyProgressGoals: [(goal: TrainingGoal, sessionsTrained: Int)] {
         activeGoals
-            .compactMap { g -> (goal: TrainingGoal, daysTrained: Int)? in
-                let days = daysTrainedForGoal(g.id)
-                guard days >= 1, days < Self.bountyUnlockDays else { return nil }
-                return (goal: g, daysTrained: days)
+            .compactMap { g -> (goal: TrainingGoal, sessionsTrained: Int)? in
+                let n = sessionsTrainedForGoal(g.id)
+                guard n >= 1, n < Self.bountyUnlockSessions else { return nil }
+                return (goal: g, sessionsTrained: n)
             }
-            .sorted { $0.daysTrained > $1.daysTrained }
+            .sorted { $0.sessionsTrained > $1.sessionsTrained }
     }
 
-    /// Tasks the user can turn into a bounty: any task under a goal worked 2+ weeks,
+    /// Tasks the user can turn into a bounty: any task under a goal that qualifies,
     /// paired with its goal and how many sessions have drilled it.
     func bountyEligibleTasks() -> [(task: TrainingTask, goal: TrainingGoal, sessionCount: Int)] {
         activeGoals
@@ -679,8 +717,8 @@ final class NotebookStore: ObservableObject {
         let ashiEntry = TrainingTask(goalId: g2.id, name: "Ashi garami entry",
             notes: "Off-balance them, secure the outside leg, and establish ashi garami before attacking the foot.")
 
-        // Training days build toward the 14-day bounty unlock (reflection not required).
-        // Passing open guard: 6 distinct days · Leg locks: 3 distinct days → both "in progress".
+        // Sessions build toward the 8-session bounty unlock (reflection not required).
+        // Passing open guard: 6 sessions · Leg locks: 3 sessions → both "in progress".
         func sess(_ goal: TrainingGoal, _ offset: Int, _ taskIds: [String], _ status: SessionStatus = .planned) -> PlannedSession {
             PlannedSession(goalId: goal.id, date: day(offset), taskIds: taskIds, status: status, createdAt: day(offset))
         }
