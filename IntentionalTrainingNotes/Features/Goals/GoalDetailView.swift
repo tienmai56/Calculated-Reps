@@ -269,6 +269,8 @@ struct TimelineRow: View {
     var onToggleExpand: () -> Void
     var onDeleteReflection: (String) -> Void
 
+    @State private var showDeleteConfirm = false
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -359,7 +361,7 @@ struct TimelineRow: View {
                             .foregroundColor(AppColors.label)
                     }
                     Button("Delete reflection") {
-                        onDeleteReflection(reflection.id)
+                        showDeleteConfirm = true
                     }
                     .font(.caption)
                     .foregroundColor(AppColors.label)
@@ -372,6 +374,26 @@ struct TimelineRow: View {
             }
         }
         .cardBackground()
+        .overlay(deleteConfirmOverlay)
+    }
+
+    @ViewBuilder
+    private var deleteConfirmOverlay: some View {
+        if showDeleteConfirm, let reflection = reflection {
+            GeometryReader { geo in
+                let f = geo.frame(in: .global)
+                ConfirmDialog(
+                    title: "Delete Entry",
+                    message: "This reflection entry will be permanently deleted.",
+                    onConfirm: { showDeleteConfirm = false; onDeleteReflection(reflection.id) },
+                    onCancel: { showDeleteConfirm = false }
+                )
+                .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                .position(x: UIScreen.main.bounds.midX - f.minX,
+                          y: UIScreen.main.bounds.midY - f.minY)
+            }
+            .edgesIgnoringSafeArea(.all)
+        }
     }
 
     private func shortDate(_ date: Date) -> String {

@@ -18,6 +18,7 @@ struct ReflectionCardView: View {
     var showMenu: Bool = true
 
     @State private var menuOpen = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         let session = store.notebook.sessions.first { $0.id == reflection.sessionId }
@@ -89,6 +90,7 @@ struct ReflectionCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
         .overlay(menuOverlay, alignment: .topTrailing)
+        .overlay(deleteConfirmOverlay)
     }
 
     private static func dateLabel(_ date: Date) -> String {
@@ -143,7 +145,7 @@ struct ReflectionCardView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     Divider().padding(.horizontal, 10)
-                    Button(action: { menuOpen = false; onDelete() }) {
+                    Button(action: { menuOpen = false; showDeleteConfirm = true }) {
                         menuRowLabel(icon: "trash", label: "Delete", color: AppColors.coral)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -155,6 +157,25 @@ struct ReflectionCardView: View {
                 .padding(.top, 40)
                 .padding(.trailing, 6)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var deleteConfirmOverlay: some View {
+        if showDeleteConfirm {
+            GeometryReader { geo in
+                let f = geo.frame(in: .global)
+                ConfirmDialog(
+                    title: "Delete Entry",
+                    message: "This reflection entry will be permanently deleted.",
+                    onConfirm: { showDeleteConfirm = false; onDelete() },
+                    onCancel: { showDeleteConfirm = false }
+                )
+                .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                .position(x: UIScreen.main.bounds.midX - f.minX,
+                          y: UIScreen.main.bounds.midY - f.minY)
+            }
+            .edgesIgnoringSafeArea(.all)
         }
     }
 
