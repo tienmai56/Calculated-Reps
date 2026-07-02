@@ -72,11 +72,11 @@ struct PlanTrainingView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         ScreenHeader(
-                            eyebrow: "This Week",
                             titleLead: "Plan your",
                             titleAccent: "training",
                             subtitle: "Tap the days you want to train, then pick your goals.",
-                            accent: AppColors.coralDeep
+                            accent: AppColors.coralDeep,
+                            titleSize: 21
                         )
                     }
                     monthCalendar
@@ -145,11 +145,11 @@ struct PlanTrainingView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
                         ScreenHeader(
-                            eyebrow: "Step 2",
                             titleLead: "What will you",
                             titleAccent: "drill?",
                             subtitle: drillSubtitle,
-                            accent: AppColors.coralDeep
+                            accent: AppColors.coralDeep,
+                            titleSize: 21
                         )
                     }
                     ForEach(sortedDays, id: \.self) { day in

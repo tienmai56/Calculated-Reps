@@ -114,9 +114,8 @@ struct GoalListView: View {
 
     private func goalDeleteMessage(_ s: GoalCascadeSummary) -> String {
         func plural(_ n: Int, _ noun: String) -> String { "\(n) \(noun)\(n == 1 ? "" : "s")" }
-        return "This will permanently delete the goal along with its \(plural(s.taskCount, "task")), "
-            + "\(plural(s.sessionCount, "training session")), and \(plural(s.reflectionCount, "reflection")). "
-            + "This can't be undone."
+        return "This will permanently delete the goal with \(plural(s.taskCount, "task")) "
+            + "and \(plural(s.sessionCount, "training session"))."
     }
 
     /// When the add-goal flow closes, drop the draft goal if it was never named (i.e. discarded
@@ -313,11 +312,15 @@ struct GoalCard: View {
                 VStack(spacing: 8) {
                     ForEach(task.imageFileNames, id: \.self) { fn in
                         if let data = store.taskImageData(taskId: task.id, fileName: fn), let ui = UIImage(data: data) {
-                            Image(uiImage: ui)
-                                .resizable()
-                                .scaledToFill()
+                            Rectangle()
+                                .fill(Color.clear)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 180)
+                                .overlay(
+                                    Image(uiImage: ui)
+                                        .resizable()
+                                        .scaledToFill()
+                                )
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }

@@ -81,16 +81,16 @@ struct ScreenHeader: View {
 
             (
                 Text(titleLead + " ")
-                    .font(.matMindBody(size: titleSize, weight: .semibold))
+                    .font(.matMindSerif(size: titleSize, weight: .semibold))
                     .foregroundColor(onDark ? .white : AppColors.label)
                 + Text(titleAccent)
-                    .font(.matMindItalic(size: titleSize, weight: .medium))
+                    .font(.matMindSerifItalic(size: titleSize, weight: .medium))
                     .foregroundColor(onDark ? .white : accent)
             )
 
             if let subtitle = subtitle {
                 Text(subtitle)
-                    .font(.matMindBody(size: 15))
+                    .font(.matMindSerif(size: 15))
                     .foregroundColor(onDark ? Color.white.opacity(0.8) : AppColors.secondaryLabel)
                     .padding(.top, 1)
             }

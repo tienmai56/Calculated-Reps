@@ -29,6 +29,7 @@
 		6F6B4F55B0B20F996EB0D490 /* NotebookPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F274C908A3954EC933DE3B3 /* NotebookPersistence.swift */; };
 		87154057BC5D56EA900AD0D4 /* PlanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */; };
 		88A5460E97DEBB14250776BA /* HomeSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3322472B8E0B7031ACE6017B /* HomeSections.swift */; };
+		FA00FA00FA00FA00FA000020 /* PlannedSessionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000021 /* PlannedSessionCard.swift */; };
 		8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */; };
 		8E454FF693A12B62A5416C8F /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181B4AF9A80C2324DA2254DB /* AppColors.swift */; };
 		987E4E799B2807030BAC4469 /* GoalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853435CA176C81CBE8EFADF /* GoalListView.swift */; };
@@ -48,9 +49,10 @@
 		E51C4262A228ACD9BEBE661E /* KeychainAccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC84A54BEC8701A1983BFA0 /* KeychainAccountStore.swift */; };
 		EB3F49ADA11C091C3B5C0723 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5144D590323BEFB368EA1C /* ActivityView.swift */; };
 		F53544A084814341DFAF6F37 /* GoalDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */; };
-		F5F048E0B431451C7C972B3C /* SessionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C3492E911F807C0A6C2EEE /* SessionCardView.swift */; };
-		FA00FA00FA00FA00FA000001 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */; };
-		FA00FA00FA00FA00FA000002 /* Fraunces-Italic-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */; };
+		FA00FA00FA00FA00FA000001 /* Fraunces-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000003 /* Fraunces-Regular.ttf */; };
+		FA00FA00FA00FA00FA000002 /* Fraunces-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000004 /* Fraunces-Italic.ttf */; };
+		FA00FA00FA00FA00FA000005 /* Fraunces-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000007 /* Fraunces-SemiBold.ttf */; };
+		FA00FA00FA00FA00FA000006 /* Fraunces-MediumItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000008 /* Fraunces-MediumItalic.ttf */; };
 		FB8B49B8A2B066635CB1175C /* NetworkStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534C4A4A8F5712500788773C /* NetworkStatusStore.swift */; };
 		FCC34BEEAFE4315EC462E806 /* EditGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34054973AF74DF97EC9FB9E7 /* EditGoalView.swift */; };
 		FF9D41E4984D999850CCDA56 /* NotebookMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBD748A9B80AF0639DDEF66B /* NotebookMigration.swift */; };
@@ -83,6 +85,7 @@
 		28B943379002E1CB5D0E1689 /* Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Enums.swift; path = IntentionalTrainingNotes/Core/Models/Enums.swift; sourceTree = SOURCE_ROOT; };
 		2B864AEBA2F969472DC6E008 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Account.swift; path = IntentionalTrainingNotes/Core/Models/Account.swift; sourceTree = SOURCE_ROOT; };
 		3322472B8E0B7031ACE6017B /* HomeSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeSections.swift; path = IntentionalTrainingNotes/Features/Home/HomeSections.swift; sourceTree = SOURCE_ROOT; };
+		FA00FA00FA00FA00FA000021 /* PlannedSessionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlannedSessionCard.swift; path = IntentionalTrainingNotes/Features/Home/PlannedSessionCard.swift; sourceTree = SOURCE_ROOT; };
 		34054973AF74DF97EC9FB9E7 /* EditGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditGoalView.swift; path = IntentionalTrainingNotes/Features/Goals/EditGoalView.swift; sourceTree = SOURCE_ROOT; };
 		37864580BA5D4B9811E21CC8 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IntentionalTrainingNotes/Core/Services/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		37B94804BDF66C5DD8081BDB /* TrainingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrainingModels.swift; path = IntentionalTrainingNotes/Core/Models/TrainingModels.swift; sourceTree = SOURCE_ROOT; };
@@ -102,7 +105,6 @@
 		A2854940A7D05871D8767A0B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = IntentionalTrainingNotes/App/RootView.swift; sourceTree = SOURCE_ROOT; };
 		A32E4759B699C4010003F9AC /* PlanTrainingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlanTrainingView.swift; path = IntentionalTrainingNotes/Features/Plan/PlanTrainingView.swift; sourceTree = SOURCE_ROOT; };
 		A4EA424CA1524256815D9DF1 /* AuthViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthViews.swift; path = IntentionalTrainingNotes/App/AuthViews.swift; sourceTree = SOURCE_ROOT; };
-		B3C3492E911F807C0A6C2EEE /* SessionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionCardView.swift; path = IntentionalTrainingNotes/Features/Plan/SessionCardView.swift; sourceTree = SOURCE_ROOT; };
 		B8E24E279FD368FAEE345E24 /* BountyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BountyViews.swift; path = IntentionalTrainingNotes/Features/Bounty/BountyViews.swift; sourceTree = SOURCE_ROOT; };
 		C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoalDetailView.swift; path = IntentionalTrainingNotes/Features/Goals/GoalDetailView.swift; sourceTree = SOURCE_ROOT; };
 		C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookStore.swift; path = IntentionalTrainingNotes/Core/Stores/NotebookStore.swift; sourceTree = SOURCE_ROOT; };
@@ -114,8 +116,10 @@
 		F0234C4F8FEEA9BBC16BFD3B /* Bounty.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Bounty.swift; path = IntentionalTrainingNotes/Core/Models/Bounty.swift; sourceTree = SOURCE_ROOT; };
 		F046496389680A172FAB118F /* AddGoalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddGoalSheet.swift; path = IntentionalTrainingNotes/Features/Goals/AddGoalSheet.swift; sourceTree = SOURCE_ROOT; };
 		F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlanListView.swift; path = IntentionalTrainingNotes/Features/Plan/PlanListView.swift; sourceTree = SOURCE_ROOT; };
-		FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-VariableFont.ttf"; sourceTree = "<group>"; };
-		FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Italic-VariableFont.ttf"; sourceTree = "<group>"; };
+		FA00FA00FA00FA00FA000003 /* Fraunces-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Regular.ttf"; sourceTree = "<group>"; };
+		FA00FA00FA00FA00FA000004 /* Fraunces-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Italic.ttf"; sourceTree = "<group>"; };
+		FA00FA00FA00FA00FA000007 /* Fraunces-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-SemiBold.ttf"; sourceTree = "<group>"; };
+		FA00FA00FA00FA00FA000008 /* Fraunces-MediumItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-MediumItalic.ttf"; sourceTree = "<group>"; };
 		FBD748A9B80AF0639DDEF66B /* NotebookMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookMigration.swift; path = IntentionalTrainingNotes/Core/Persistence/NotebookMigration.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -299,6 +303,7 @@
 			children = (
 				60F147CF8701015D9FA2778D /* HomeView.swift */,
 				3322472B8E0B7031ACE6017B /* HomeSections.swift */,
+				FA00FA00FA00FA00FA000021 /* PlannedSessionCard.swift */,
 			);
 			name = Home;
 			path = IntentionalTrainingNotes/Features/Home;
@@ -326,7 +331,6 @@
 		DDB440788F78BC3B77F25B82 /* Plan */ = {
 			isa = PBXGroup;
 			children = (
-				B3C3492E911F807C0A6C2EEE /* SessionCardView.swift */,
 				F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */,
 				726B458897F1755CA223241C /* EditSessionView.swift */,
 				A32E4759B699C4010003F9AC /* PlanTrainingView.swift */,
@@ -381,8 +385,10 @@
 		FA00FA00FA00FA00FA000010 /* Fonts */ = {
 			isa = PBXGroup;
 			children = (
-				FA00FA00FA00FA00FA000003 /* Fraunces-VariableFont.ttf */,
-				FA00FA00FA00FA00FA000004 /* Fraunces-Italic-VariableFont.ttf */,
+				FA00FA00FA00FA00FA000003 /* Fraunces-Regular.ttf */,
+				FA00FA00FA00FA00FA000004 /* Fraunces-Italic.ttf */,
+				FA00FA00FA00FA00FA000007 /* Fraunces-SemiBold.ttf */,
+				FA00FA00FA00FA00FA000008 /* Fraunces-MediumItalic.ttf */,
 			);
 			path = Fonts;
 			sourceTree = "<group>";
@@ -470,8 +476,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */,
-				FA00FA00FA00FA00FA000001 /* Fraunces-VariableFont.ttf in Resources */,
-				FA00FA00FA00FA00FA000002 /* Fraunces-Italic-VariableFont.ttf in Resources */,
+				FA00FA00FA00FA00FA000001 /* Fraunces-Regular.ttf in Resources */,
+				FA00FA00FA00FA00FA000002 /* Fraunces-Italic.ttf in Resources */,
+				FA00FA00FA00FA00FA000005 /* Fraunces-SemiBold.ttf in Resources */,
+				FA00FA00FA00FA00FA000006 /* Fraunces-MediumItalic.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -516,11 +524,11 @@
 				BDD14C2F966F605858BD2F87 /* Onboarding.swift in Sources */,
 				D067483299C7BF09D1304B25 /* HomeView.swift in Sources */,
 				88A5460E97DEBB14250776BA /* HomeSections.swift in Sources */,
+				FA00FA00FA00FA00FA000020 /* PlannedSessionCard.swift in Sources */,
 				3B544871A8D6F72180B495E2 /* BountyViews.swift in Sources */,
 				C39243EBA250774B3CD86259 /* SettingsViews.swift in Sources */,
 				210045E0A1D808B19738D210 /* ReflectionCard.swift in Sources */,
 				2A814716A96EBC36789392DF /* ReflectFlow.swift in Sources */,
-				F5F048E0B431451C7C972B3C /* SessionCardView.swift in Sources */,
 				87154057BC5D56EA900AD0D4 /* PlanListView.swift in Sources */,
 				D4654CE6B3F842E41081D5FA /* EditSessionView.swift in Sources */,
 				B45F4CC0AB8F8930EDB010CF /* PlanTrainingView.swift in Sources */,

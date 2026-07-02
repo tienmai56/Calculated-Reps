@@ -16,7 +16,9 @@ struct PlannedSessionCard: View {
 
     var body: some View {
         let goal = store.goal(id: session.goalId)
-        let color = goal?.goalColor ?? AppColors.indigo
+        // Next-session cards always use the app's indigo accent; the goal's
+        // user-selected color is reserved for goal cards under the Goals tab.
+        let color = AppColors.indigo
         let tasks = session.taskIds.compactMap { store.task(id: $0) }
         let reflected = store.reflection(forSessionId: session.id) != nil
 
@@ -52,11 +54,11 @@ struct PlannedSessionCard: View {
     private func header(_ goal: TrainingGoal?, _ color: Color, reflected: Bool) -> some View {
         HStack(alignment: .center, spacing: 8) {
             ZStack {
-                Circle().fill(color.opacity(0.12)).frame(width: 22, height: 22)
-                GoalIconImage(name: goal?.iconName ?? "target", color: color, size: 13)
+                Circle().fill(color.opacity(0.12)).frame(width: 24, height: 24)
+                GoalIconImage(name: goal?.iconName ?? "target", color: color, size: 14)
             }
             Text(goal?.name ?? "No goal")
-                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .font(.system(size: 16, weight: .heavy, design: .rounded))
                 .foregroundColor(color)
                 .lineLimit(1)
 
@@ -123,11 +125,15 @@ struct PlannedSessionCard: View {
             if !images.isEmpty {
                 VStack(spacing: 10) {
                     ForEach(Array(images.enumerated()), id: \.offset) { _, ui in
-                        Image(uiImage: ui)
-                            .resizable()
-                            .scaledToFill()
+                        Rectangle()
+                            .fill(Color.clear)
                             .frame(maxWidth: .infinity)
                             .frame(height: 150)
+                            .overlay(
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFill()
+                            )
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                 }

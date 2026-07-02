@@ -47,8 +47,10 @@
 	<true/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Fraunces-VariableFont.ttf</string>
-		<string>Fraunces-Italic-VariableFont.ttf</string>
+		<string>Fraunces-Regular.ttf</string>
+		<string>Fraunces-SemiBold.ttf</string>
+		<string>Fraunces-Italic.ttf</string>
+		<string>Fraunces-MediumItalic.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

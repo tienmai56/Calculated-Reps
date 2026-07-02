@@ -204,7 +204,7 @@ struct PlanListView: View {
                             onShareFeedback: { feedbackReflection = reflection }
                         )
                     } else {
-                        SessionCardView(
+                        PlannedSessionCard(
                             store: store,
                             session: session,
                             onReflect: { onReflect(session.id) },

@@ -2,21 +2,38 @@ import SwiftUI
 
 // MARK: - Mat Mind Typography
 //
-// Mat Mind pairs Apple's SF Pro Rounded with Fraunces (variable serif):
-//   • TITLES & HEADERS — SF Pro Rounded via Font.system(..., design: .rounded)
-//   • DESCRIPTIONS / BODY PROSE — Fraunces, via Font.matMindBody(size:)
-//
-// Use Fraunces only for prose: reflection notes, task notes, subtitles,
-// helper text. Keep buttons, chips, labels, and titles in rounded.
+// Mat Mind uses two typefaces:
+//   • MAIN SECTION HEADERS — Fraunces (serif), via Font.matMindSerif(size:) and
+//     Font.matMindSerifItalic(size:). Reserved for the ScreenHeader titles only.
+//   • EVERYTHING ELSE — SF Pro. Titles/labels/buttons/chips use the rounded
+//     design (Font.system(..., design: .rounded)); body prose and descriptions
+//     use plain SF Pro (not rounded) via Font.matMindBody(size:).
 extension Font {
-    /// Fraunces for descriptive prose — reflection notes, helper text, subtitles.
-    /// Variable font; defaults to regular weight (best for body).
+    /// Body / descriptive prose — reflection text, task notes, subtitles, helper
+    /// text. Plain SF Pro (system default design — intentionally NOT rounded).
     static func matMindBody(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        Font.custom("Fraunces", size: size).weight(weight)
+        Font.system(size: size, weight: weight)
     }
 
-    /// Fraunces italic for emphasis within body prose.
-    static func matMindItalic(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        Font.custom("Fraunces-Italic", size: size).weight(weight)
+    /// Fraunces serif — reserved for the main section headers (ScreenHeader).
+    /// Maps the requested weight to a bundled static Fraunces face by PostScript
+    /// name so it renders reliably on all supported iOS versions.
+    static func matMindSerif(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font.custom(frauncesName(weight: weight, italic: false), size: size)
+    }
+
+    /// Fraunces italic — the accent word in a section header title.
+    static func matMindSerifItalic(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font.custom(frauncesName(weight: weight, italic: true), size: size)
+    }
+
+    private static func frauncesName(weight: Font.Weight, italic: Bool) -> String {
+        let bold = weight == .semibold || weight == .bold || weight == .heavy || weight == .black
+        if italic {
+            return bold ? "Fraunces-MediumItalic"
+                 : (weight == .medium ? "Fraunces-MediumItalic" : "Fraunces-Italic")
+        } else {
+            return bold ? "Fraunces-SemiBold" : "Fraunces-Regular"
+        }
     }
 }

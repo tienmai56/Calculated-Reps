@@ -157,8 +157,7 @@ struct EditSessionView: View {
             .navigationBarItems(
                 leading: Button("Cancel") { onDismiss() },
                 trailing: Button(action: {
-                    let primaryGoalId = selectedGoalIds.first ?? session.goalId
-                    store.updateSession(id: session.id, goalId: primaryGoalId, taskIds: Array(selectedTaskIds), date: selectedDate)
+                    store.updateSessionSplittingByGoal(id: session.id, taskIds: Array(selectedTaskIds), date: selectedDate)
                     onDismiss()
                 }) {
                     Text("Save").font(.system(size: 17, weight: .medium, design: .rounded))
