@@ -23,6 +23,7 @@ struct EditGoalView: View {
     @State private var colorName: String
     @State private var addingTask = false
     @State private var newTaskName = ""
+    @State private var taskFieldId = UUID()
     @State private var expandedTaskIds: Set<String>
     @State private var activeAlert: EditGoalAlert?
 
@@ -162,30 +163,47 @@ struct EditGoalView: View {
     }
 
     private var tasksSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let tasks = store.tasks(forGoal: goalId)
+        let showEmptyState = tasks.isEmpty && !addingTask
+
+        return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("TASKS")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .kerning(0.5)
                     .foregroundColor(AppColors.tertiaryLabel)
                 Spacer()
-                Button(action: { addingTask = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").font(.system(size: 13, weight: .bold))
-                        Text("Add").font(.system(size: 16, weight: .semibold, design: .rounded))
+                if !tasks.isEmpty {
+                    Button(action: { newTaskName = ""; addingTask = true; taskFieldId = UUID() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus").font(.system(size: 13, weight: .bold))
+                            Text("Add").font(.system(size: 16, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(AppColors.indigo)
                     }
-                    .foregroundColor(AppColors.indigo)
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
             .padding(.bottom, 4)
 
-            let tasks = store.tasks(forGoal: goalId)
-            if tasks.isEmpty && !addingTask {
-                Text("No tasks yet.")
-                    .font(.matMindBody(size: 14))
-                    .foregroundColor(AppColors.secondaryLabel)
-                    .padding(.top, 6)
+            if showEmptyState {
+                VStack(spacing: 14) {
+                    Text("No tasks yet.")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                    Button(action: { newTaskName = ""; addingTask = true; taskFieldId = UUID() }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(width: 48, height: 48)
+                            .background(Circle().fill(AppColors.indigo))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+                .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+                .padding(.top, 4)
             }
             ForEach(tasks) { task in
                 TaskEditRow(
@@ -209,9 +227,11 @@ struct EditGoalView: View {
 
     private var addTaskField: some View {
         HStack(spacing: 8) {
-            TextField("Task name", text: $newTaskName, onCommit: commitNewTask)
+            AutoFocusTextField(text: $newTaskName, placeholder: "Task name", id: taskFieldId)
                 .font(.matMindBody(size: 16))
-                .textFieldStyle(TrainingTextFieldStyle())
+                .padding(11)
+                .background(AppColors.background)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray3), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
             Button(action: commitNewTask) {
                 Image(systemName: "checkmark.circle.fill").foregroundColor(goalColor)
             }
