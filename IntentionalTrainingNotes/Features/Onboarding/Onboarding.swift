@@ -161,7 +161,7 @@ private struct OnboardingFieldLabel: View {
         Text(text.uppercased())
             .font(.system(size: 12, weight: .bold, design: .rounded))
             .tracking(1)
-            .foregroundColor(AppColors.tertiaryLabel)
+            .foregroundColor(AppColors.indigo)
     }
 }
 
