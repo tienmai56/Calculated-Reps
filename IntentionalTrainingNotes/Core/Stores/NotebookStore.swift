@@ -481,13 +481,15 @@ final class NotebookStore: ObservableObject {
         activeGoals.contains { isGoalBountyEligible($0.id) }
     }
 
-    /// Goals the user is actively building toward bounty eligibility: at least one reflected
-    /// session but not yet at the unlock threshold. Drives the "Bounty locked" progress card.
+    /// Goals to show in the "Bounty locked" progress card: any goal that has at least one
+    /// planned/logged session and hasn't hit the unlock threshold yet. Progress counts
+    /// reflected sessions (may be 0) toward `bountyUnlockSessions`.
     var bountyProgressGoals: [(goal: TrainingGoal, sessionsReflected: Int)] {
         activeGoals
             .compactMap { g -> (goal: TrainingGoal, sessionsReflected: Int)? in
+                guard notebook.sessions.contains(where: { $0.goalId == g.id }) else { return nil }
                 let n = reflectedSessionsForGoal(g.id)
-                guard n >= 1, n < Self.bountyUnlockSessions else { return nil }
+                guard n < Self.bountyUnlockSessions else { return nil }
                 return (goal: g, sessionsReflected: n)
             }
             .sorted { $0.sessionsReflected > $1.sessionsReflected }

@@ -260,7 +260,8 @@ struct HomeView: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule().fill(AppColors.separator.opacity(0.6))
-                        Capsule().fill(AppColors.coral).frame(width: max(6, geo.size.width * fraction))
+                        Capsule().fill(AppColors.coral)
+                            .frame(width: fraction <= 0 ? 0 : max(6, geo.size.width * fraction))
                     }
                 }
                 .frame(height: 6)

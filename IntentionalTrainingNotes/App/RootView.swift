@@ -102,6 +102,11 @@ private final class PreviewPersistence: NotebookPersistence {
         let goal = TrainingGoal(accountId: accountId, name: "Leg Locks", iconName: "bolt.fill", colorName: "mint")
         let task = TrainingTask(goalId: goal.id, name: "Entry from half guard")
 
+        // Second goal with only a planned session → shows in the locked card at 0 / 8.
+        let goal2 = TrainingGoal(accountId: accountId, name: "Passing open guard", iconName: "target", colorName: "indigo")
+        let task2 = TrainingTask(goalId: goal2.id, name: "Chase hip/torso")
+        let planned2 = PlannedSession(goalId: goal2.id, date: day(1), taskIds: [task2.id], status: .planned)
+
         // Upcoming session for the Next Session card.
         let planned = PlannedSession(goalId: goal.id, date: day(0), taskIds: [task.id], status: .planned)
 
@@ -116,9 +121,9 @@ private final class PreviewPersistence: NotebookPersistence {
 
         self.notebook = TrainingNotebook(
             accountId: accountId,
-            goals: [goal],
-            tasks: [task],
-            sessions: [planned, s1, s2, s3],
+            goals: [goal, goal2],
+            tasks: [task, task2],
+            sessions: [planned, planned2, s1, s2, s3],
             reflections: [r1, r2, r3]
         )
     }
