@@ -17,8 +17,7 @@ struct PlanListView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Plan")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                ScreenHeader(titleLead: "Plan", titleAccent: "training", titleSize: 21)
                 Spacer()
                 Button(action: onAdd) {
                     Image(systemName: "plus")
