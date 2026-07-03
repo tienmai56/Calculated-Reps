@@ -52,13 +52,9 @@ struct ReflectFlowView: View {
                     ReflectMoodStep(store: store, session: selectedSession, mood: $mood, onContinue: { if mood != nil { step = 3 } })
                 } else if step == 3 {
                     ReflectNotesStep(
-                        store: store,
-                        sessionId: selectedSessionId,
                         worked: $worked,
                         stuck: $stuck,
                         tryNext: $tryNext,
-                        link: $link,
-                        imageFileNames: $images,
                         onUseVoice: { showVoice = true },
                         onFinish: saveReflection
                     )
@@ -377,13 +373,9 @@ struct LazyMoodGrid: View {
 }
 
 struct ReflectNotesStep: View {
-    @ObservedObject var store: NotebookStore
-    let sessionId: String?
     @Binding var worked: String
     @Binding var stuck: String
     @Binding var tryNext: String
-    @Binding var link: String
-    @Binding var imageFileNames: [String]
     var onUseVoice: () -> Void
     var onFinish: () -> Void
 
@@ -418,8 +410,6 @@ struct ReflectNotesStep: View {
                     labeledField($worked, "What worked today", AppColors.winGreen, "A grip, a setup, a moment that clicked...")
                     labeledField($stuck, "Where I got stuck", AppColors.stuckCoral, "What didn't work, what felt off, what to adjust...")
                     labeledField($tryNext, "What I'll try next *", AppColors.indigo, "A different angle, a drill to try, something to focus on...")
-
-                    photosRow
                 }
                 .padding(16)
             }
@@ -446,68 +436,6 @@ struct ReflectNotesStep: View {
                 .background(color)
                 .cornerRadius(8)
                 .offset(x: 8, y: -10)
-        }
-    }
-
-    @ViewBuilder
-    private var photosRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !imageFileNames.isEmpty, let sid = sessionId {
-                VStack(spacing: 8) {
-                    ForEach(imageFileNames, id: \.self) { fn in
-                        thumbnail(sid: sid, fn: fn)
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                chipButton(icon: "photo", label: "Photo") {
-                    guard let sid = sessionId else { return }
-                    UIKitImagePicker.present { data in
-                        if let fn = store.addReflectionImage(sessionId: sid, imageData: data) {
-                            imageFileNames.append(fn)
-                        }
-                    }
-                }
-                Spacer()
-            }
-        }
-    }
-
-    private func chipButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 13))
-                Text(label).font(.system(size: 15, weight: .medium, design: .rounded))
-            }
-            .foregroundColor(AppColors.secondaryLabel)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(Color(.systemGray6)))
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
-    private func thumbnail(sid: String, fn: String) -> some View {
-        ZStack(alignment: .topTrailing) {
-            if let data = store.reflectionImageData(sessionId: sid, fileName: fn), let ui = UIImage(data: data) {
-                Image(uiImage: ui)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 160)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            } else {
-                RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray5)).frame(maxWidth: .infinity).frame(height: 160)
-            }
-            Button(action: { imageFileNames.removeAll { $0 == fn } }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(.white)
-                    .background(Circle().fill(Color.black.opacity(0.45)))
-            }
-            .buttonStyle(PlainButtonStyle())
-            .padding(8)
         }
     }
 }
