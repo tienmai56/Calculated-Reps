@@ -4,6 +4,7 @@ enum MainTab {
     case home
     case plan
     case goals
+    case stat
 }
 
 enum GoalsRoute: Equatable {
@@ -35,6 +36,7 @@ struct MainAppView: View {
         switch ProcessInfo.processInfo.environment["START_TAB"] {
         case "goals": return .goals
         case "plan": return .plan
+        case "stat": return .stat
         default: return .home
         }
         #else
@@ -70,6 +72,8 @@ struct MainAppView: View {
                             requestReflect(sessionId)
                         }
                     )
+                } else if tab == .stat {
+                    StatView(store: store)
                 } else {
                     goalsScreen
                 }
@@ -86,6 +90,9 @@ struct MainAppView: View {
                 },
                 onPlan: {
                     tab = .plan
+                },
+                onStat: {
+                    tab = .stat
                 }
             )
         }
@@ -163,12 +170,14 @@ struct BottomTabsView: View {
     var onHome: () -> Void
     var onGoals: () -> Void
     var onPlan: () -> Void
+    var onStat: () -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             pillItem(title: "Home", icon: active == .home ? "house.fill" : "house", isActive: active == .home, action: onHome)
             pillItem(title: "Goals", icon: "target", isActive: active == .goals, action: onGoals)
             pillItem(title: "Plan", icon: active == .plan ? "calendar.circle.fill" : "calendar", isActive: active == .plan, action: onPlan)
+            pillItem(title: "Stat", icon: active == .stat ? "chart.bar.fill" : "chart.bar", isActive: active == .stat, action: onStat)
         }
         .padding(6)
         .background(
@@ -190,7 +199,7 @@ struct BottomTabsView: View {
                     .font(.system(size: 13, weight: isActive ? .bold : .medium, design: .rounded))
             }
             .foregroundColor(isActive ? AppColors.indigo : AppColors.secondaryLabel)
-            .frame(width: 86, height: 54)
+            .frame(width: 74, height: 54)
             .background(
                 RoundedRectangle(cornerRadius: 20)
                     .fill(isActive ? AppColors.indigo.opacity(0.12) : Color.clear)

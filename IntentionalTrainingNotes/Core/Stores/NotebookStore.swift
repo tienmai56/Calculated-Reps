@@ -281,7 +281,7 @@ final class NotebookStore: ObservableObject {
     }
 
     @discardableResult
-    func saveReflection(sessionId: String, mood: Mood?, workedText: String, stuckText: String, tryNextText: String, link: String = "", imageFileNames: [String] = []) -> Reflection? {
+    func saveReflection(sessionId: String, mood: Mood?, workedText: String, stuckText: String, tryNextText: String, workedThemes: [String] = [], stuckThemes: [String] = [], link: String = "", imageFileNames: [String] = []) -> Reflection? {
         guard let sessionIndex = notebook.sessions.firstIndex(where: { $0.id == sessionId }) else { return nil }
         let session = notebook.sessions[sessionIndex]
         let existing = notebook.reflections.first { $0.sessionId == sessionId }
@@ -292,6 +292,8 @@ final class NotebookStore: ObservableObject {
             workedText: workedText.trimmingCharacters(in: .whitespacesAndNewlines),
             stuckText: stuckText.trimmingCharacters(in: .whitespacesAndNewlines),
             tryNextText: tryNextText.trimmingCharacters(in: .whitespacesAndNewlines),
+            workedThemes: Self.normalizedThemes(workedThemes),
+            stuckThemes: Self.normalizedThemes(stuckThemes),
             mood: mood,
             isFavorite: existing?.isFavorite ?? false,
             link: link.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -305,6 +307,36 @@ final class NotebookStore: ObservableObject {
             notebook.sessions[sessionIndex].updatedAt = Date()
         }
         return reflection
+    }
+
+    /// Trims, drops blanks, and de-duplicates theme labels case-insensitively while
+    /// preserving the first-seen original casing and input order.
+    static func normalizedThemes(_ themes: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for raw in themes {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            if seen.insert(key).inserted { result.append(trimmed) }
+        }
+        return result
+    }
+
+    /// All distinct theme labels the user has used across every reflection, most
+    /// frequently used first — used to power theme-chip autocomplete.
+    func allThemeSuggestions() -> [String] {
+        var counts: [String: Int] = [:]
+        var display: [String: String] = [:]
+        for r in notebook.reflections {
+            for theme in r.workedThemes + r.stuckThemes {
+                let key = theme.lowercased()
+                counts[key, default: 0] += 1
+                if display[key] == nil { display[key] = theme }
+            }
+        }
+        return counts.sorted { $0.value != $1.value ? $0.value > $1.value : ($0.key < $1.key) }
+            .compactMap { display[$0.key] }
     }
 
     /// Reflection rules:

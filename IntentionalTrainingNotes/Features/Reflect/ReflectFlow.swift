@@ -14,6 +14,8 @@ struct ReflectFlowView: View {
     @State private var worked: String
     @State private var stuck: String
     @State private var tryNext: String
+    @State private var workedThemes: [String]
+    @State private var stuckThemes: [String]
     @State private var link: String
     @State private var images: [String]
     @State private var showVoice = false
@@ -34,6 +36,8 @@ struct ReflectFlowView: View {
         _worked = State(initialValue: existing?.workedText ?? "")
         _stuck = State(initialValue: existing?.stuckText ?? "")
         _tryNext = State(initialValue: existing?.tryNextText ?? "")
+        _workedThemes = State(initialValue: existing?.workedThemes ?? [])
+        _stuckThemes = State(initialValue: existing?.stuckThemes ?? [])
         _link = State(initialValue: existing?.link ?? "")
         _images = State(initialValue: existing?.imageFileNames ?? [])
     }
@@ -55,6 +59,9 @@ struct ReflectFlowView: View {
                         worked: $worked,
                         stuck: $stuck,
                         tryNext: $tryNext,
+                        workedThemes: $workedThemes,
+                        stuckThemes: $stuckThemes,
+                        themeSuggestions: store.allThemeSuggestions(),
                         onUseVoice: { showVoice = true },
                         onFinish: saveReflection
                     )
@@ -95,7 +102,7 @@ struct ReflectFlowView: View {
 
     private func saveReflection() {
         guard let sessionId = selectedSessionId, mood != nil, tryNext.nilIfBlank != nil else { return }
-        _ = store.saveReflection(sessionId: sessionId, mood: mood, workedText: worked, stuckText: stuck, tryNextText: tryNext, link: link, imageFileNames: images)
+        _ = store.saveReflection(sessionId: sessionId, mood: mood, workedText: worked, stuckText: stuck, tryNextText: tryNext, workedThemes: workedThemes, stuckThemes: stuckThemes, link: link, imageFileNames: images)
         step = 4
     }
 }
@@ -376,6 +383,9 @@ struct ReflectNotesStep: View {
     @Binding var worked: String
     @Binding var stuck: String
     @Binding var tryNext: String
+    @Binding var workedThemes: [String]
+    @Binding var stuckThemes: [String]
+    var themeSuggestions: [String]
     var onUseVoice: () -> Void
     var onFinish: () -> Void
 
@@ -407,8 +417,14 @@ struct ReflectNotesStep: View {
                     }
                     .buttonStyle(PlainButtonStyle())
 
-                    labeledField($worked, "What worked today", AppColors.winGreen, "A grip, a setup, a moment that clicked...")
-                    labeledField($stuck, "Where I got stuck", AppColors.stuckCoral, "What didn't work, what felt off, what to adjust...")
+                    VStack(alignment: .leading, spacing: 8) {
+                        labeledField($worked, "What worked today", AppColors.winGreen, "A grip, a setup, a moment that clicked...")
+                        ThemeChipsField(themes: $workedThemes, suggestions: themeSuggestions, accent: AppColors.winGreen)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        labeledField($stuck, "Where I got stuck", AppColors.stuckCoral, "What didn't work, what felt off, what to adjust...")
+                        ThemeChipsField(themes: $stuckThemes, suggestions: themeSuggestions, accent: AppColors.stuckCoral)
+                    }
                     labeledField($tryNext, "What I'll try next *", AppColors.indigo, "A different angle, a drill to try, something to focus on...")
                 }
                 .padding(16)
@@ -437,6 +453,106 @@ struct ReflectNotesStep: View {
                 .cornerRadius(8)
                 .offset(x: 8, y: -10)
         }
+    }
+}
+
+/// Compact theme tagging input used under the "What worked" / "Where I got stuck"
+/// fields. Added themes power the Stat tab's frequency lists.
+struct ThemeChipsField: View {
+    @Binding var themes: [String]
+    var suggestions: [String]
+    var accent: Color
+    @State private var draft = ""
+
+    private var matches: [String] {
+        let existing = Set(themes.map { $0.lowercased() })
+        let q = draft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return suggestions.filter { s in
+            !existing.contains(s.lowercased()) && (q.isEmpty || s.lowercased().contains(q))
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !themes.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(themes, id: \.self) { theme in
+                            HStack(spacing: 5) {
+                                Text(theme)
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundColor(accent)
+                                Button(action: { remove(theme) }) {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundColor(accent.opacity(0.8))
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(accent.opacity(0.14)))
+                        }
+                    }
+                    .padding(.horizontal, 1)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "tag")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(accent)
+                TextField("Add a theme", text: $draft, onCommit: commitDraft)
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button(action: commitDraft) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(accent)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 10).fill(AppColors.cardBackground))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.cardBorder, lineWidth: 1))
+
+            if !matches.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(matches.prefix(8), id: \.self) { s in
+                            Button(action: { add(s) }) {
+                                Text(s)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundColor(AppColors.secondaryLabel)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(Capsule().fill(Color(.systemGray6)))
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 1)
+                }
+            }
+        }
+    }
+
+    private func commitDraft() { add(draft) }
+
+    private func add(_ raw: String) {
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        if !themes.contains(where: { $0.lowercased() == t.lowercased() }) {
+            themes.append(t)
+        }
+        draft = ""
+    }
+
+    private func remove(_ theme: String) {
+        themes.removeAll { $0 == theme }
     }
 }
 
