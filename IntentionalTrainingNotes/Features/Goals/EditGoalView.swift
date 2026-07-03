@@ -21,7 +21,6 @@ struct EditGoalView: View {
     @State private var goalName: String
     @State private var iconName: String
     @State private var colorName: String
-    @State private var addingTask = false
     @State private var newTaskName = ""
     @State private var taskFieldId = UUID()
     @State private var expandedTaskIds: Set<String>
@@ -164,48 +163,21 @@ struct EditGoalView: View {
 
     private var tasksSection: some View {
         let tasks = store.tasks(forGoal: goalId)
-        let showEmptyState = tasks.isEmpty && !addingTask
 
         return VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("TASKS")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .kerning(0.5)
-                    .foregroundColor(AppColors.tertiaryLabel)
-                Spacer()
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("Tasks")
+                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                    .foregroundColor(AppColors.label)
                 if !tasks.isEmpty {
-                    Button(action: { newTaskName = ""; addingTask = true; taskFieldId = UUID() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "plus").font(.system(size: 13, weight: .bold))
-                            Text("Add").font(.system(size: 16, weight: .semibold, design: .rounded))
-                        }
-                        .foregroundColor(AppColors.indigo)
-                    }
-                    .buttonStyle(PlainButtonStyle())
+                    Text("\(tasks.count)")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppColors.tertiaryLabel)
                 }
+                Spacer()
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, 6)
 
-            if showEmptyState {
-                VStack(spacing: 14) {
-                    Text("No tasks yet.")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.secondaryLabel)
-                    Button(action: { newTaskName = ""; addingTask = true; taskFieldId = UUID() }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                            .frame(width: 48, height: 48)
-                            .background(Circle().fill(AppColors.indigo))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 28)
-                .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
-                .padding(.top, 4)
-            }
             ForEach(tasks) { task in
                 TaskEditRow(
                     store: store,
@@ -222,26 +194,32 @@ struct EditGoalView: View {
                 )
                 Divider()
             }
-            if addingTask { addTaskField }
+            addTaskField
         }
     }
 
+    // 1b "soft filled field": a single always-visible input that shares the same
+    // filled treatment as task descriptions. Leading + signals "adding", the
+    // trailing arrow (or Return) submits; the field itself is the affordance, so
+    // there's no separate "Add" button competing with the section header.
     private var addTaskField: some View {
-        HStack(spacing: 8) {
-            AutoFocusTextField(text: $newTaskName, placeholder: "Task name", id: taskFieldId)
-                .font(.matMindBody(size: 16))
-                .padding(11)
-                .background(AppColors.background)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.systemGray3), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+        HStack(spacing: 10) {
+            Image(systemName: "plus")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(AppColors.indigo)
+            AutoFocusTextField(text: $newTaskName, placeholder: "Add a task", id: taskFieldId, autoFocus: false, onCommit: commitNewTask)
             Button(action: commitNewTask) {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(goalColor)
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(newTaskName.nilIfBlank == nil ? AppColors.tertiaryLabel : AppColors.indigo)
             }
+            .buttonStyle(PlainButtonStyle())
             .disabled(newTaskName.nilIfBlank == nil)
-            Button(action: { addingTask = false; newTaskName = "" }) {
-                Image(systemName: "xmark.circle").foregroundColor(AppColors.secondaryLabel)
-            }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
+        .padding(.top, 8)
     }
 
     private var deleteGoalButton: some View {
@@ -267,7 +245,6 @@ struct EditGoalView: View {
     private func commitNewTask() {
         if let task = store.addTask(goalId: goalId, name: newTaskName) {
             newTaskName = ""
-            addingTask = false
             _ = expandedTaskIds.insert(task.id)
         }
     }

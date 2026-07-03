@@ -392,6 +392,13 @@ struct AutoFocusTextField: UIViewRepresentable {
     @Binding var text: String
     var placeholder: String
     var id: UUID
+    /// When false, the field does not steal focus on appear. Focus can still be
+    /// driven by changing `id`. Used by always-visible inputs (e.g. the Edit Goal
+    /// add-task field) that shouldn't raise the keyboard the moment the screen opens.
+    var autoFocus: Bool = true
+    /// Called when the user taps Return. The field keeps focus so the caller can
+    /// support rapid multi-entry (e.g. adding several tasks in a row).
+    var onCommit: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -401,15 +408,19 @@ struct AutoFocusTextField: UIViewRepresentable {
         tf.font = UIFont.preferredFont(forTextStyle: .subheadline)
         tf.borderStyle = .none
         tf.delegate = context.coordinator
+        tf.returnKeyType = .done
         tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
         tf.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            tf.becomeFirstResponder()
+        if autoFocus {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                tf.becomeFirstResponder()
+            }
         }
         return tf
     }
 
     func updateUIView(_ uiView: UITextField, context: Context) {
+        context.coordinator.parent = self
         if uiView.text != text { uiView.text = text }
         if context.coordinator.lastId != id {
             context.coordinator.lastId = id
@@ -433,9 +444,8 @@ struct AutoFocusTextField: UIViewRepresentable {
         }
 
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            if let trimmed = parent.text.nilIfBlank, trimmed.count <= 15 {
-                // Let the button action handle adding
-            }
+            parent.onCommit?()
+            // Keep the keyboard up so callers can support rapid multi-entry.
             return false
         }
     }
