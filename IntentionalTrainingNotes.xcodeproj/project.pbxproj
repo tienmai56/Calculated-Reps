@@ -35,7 +35,7 @@
 		987E4E799B2807030BAC4469 /* GoalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853435CA176C81CBE8EFADF /* GoalListView.swift */; };
 		9A1246378C61ADCB82F8EDCF /* AuthViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EA424CA1524256815D9DF1 /* AuthViews.swift */; };
 		9F0748E7B63DBC076357B6F9 /* NotebookStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */; };
-		AB9247A2A29970576F5C7792 /* ThemeReflectionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF443869EF35C5563141DBA /* ThemeReflectionsSheet.swift */; };
+		AB9247A2A29970576F5C7792 /* ReflectionQuotesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF443869EF35C5563141DBA /* ReflectionQuotesSheet.swift */; };
 		ACC44ACCAB445B94738DDEA0 /* NotesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43F54D5A918709C4A93EF325 /* NotesViews.swift */; };
 		B45F4CC0AB8F8930EDB010CF /* PlanTrainingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32E4759B699C4010003F9AC /* PlanTrainingView.swift */; };
 		B5584A8CB9032C9DD2406D86 /* MainAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD914323941C4EEC5FA50258 /* MainAppView.swift */; };
@@ -113,7 +113,7 @@
 		C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoalDetailView.swift; path = IntentionalTrainingNotes/Features/Goals/GoalDetailView.swift; sourceTree = SOURCE_ROOT; };
 		C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookStore.swift; path = IntentionalTrainingNotes/Core/Stores/NotebookStore.swift; sourceTree = SOURCE_ROOT; };
 		C3384E529239898B88FDF77C /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReminderScheduler.swift; path = IntentionalTrainingNotes/Core/Services/ReminderScheduler.swift; sourceTree = SOURCE_ROOT; };
-		CDF443869EF35C5563141DBA /* ThemeReflectionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ThemeReflectionsSheet.swift; path = IntentionalTrainingNotes/Features/Stats/ThemeReflectionsSheet.swift; sourceTree = SOURCE_ROOT; };
+		CDF443869EF35C5563141DBA /* ReflectionQuotesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReflectionQuotesSheet.swift; path = IntentionalTrainingNotes/Features/Stats/ReflectionQuotesSheet.swift; sourceTree = SOURCE_ROOT; };
 		D66F43B18776CD6B84EED920 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsViews.swift; path = IntentionalTrainingNotes/Features/Settings/SettingsViews.swift; sourceTree = SOURCE_ROOT; };
 		DD914323941C4EEC5FA50258 /* MainAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MainAppView.swift; path = IntentionalTrainingNotes/App/MainAppView.swift; sourceTree = SOURCE_ROOT; };
 		E546412F93FBD09E706BD6AB /* Styles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Styles.swift; path = IntentionalTrainingNotes/Core/DesignSystem/Styles.swift; sourceTree = SOURCE_ROOT; };
@@ -159,7 +159,7 @@
 				218C406684B75102274B63A7 /* App */,
 				AD4F4F94851A7CF714C53D76 /* MonthStats.swift */,
 				B7294687A3A9918588C4CBAE /* StatView.swift */,
-				CDF443869EF35C5563141DBA /* ThemeReflectionsSheet.swift */,
+				CDF443869EF35C5563141DBA /* ReflectionQuotesSheet.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -551,7 +551,7 @@
 				B5584A8CB9032C9DD2406D86 /* MainAppView.swift in Sources */,
 				C9BD42D8B7BC9FD900041C27 /* MonthStats.swift in Sources */,
 				776B444B813A67490FFD86BB /* StatView.swift in Sources */,
-				AB9247A2A29970576F5C7792 /* ThemeReflectionsSheet.swift in Sources */,
+				AB9247A2A29970576F5C7792 /* ReflectionQuotesSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

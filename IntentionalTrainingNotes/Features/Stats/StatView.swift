@@ -6,15 +6,15 @@ struct StatView: View {
     @State private var selectedMonth: MonthKey = .current
     @State private var didSetInitial = false
     @State private var showMonthPicker = false
-    @State private var themeContext: ThemeReflectionsContext?
+    @State private var quoteContext: ReflectionQuotesContext?
 
     private var months: [MonthKey] { store.availableStatMonths() }
     private var stats: MonthStats { store.monthStats(for: selectedMonth) }
 
-    // Bounty gold palette (matches prototype)
-    private let goldDeep = Color(red: 138/255, green: 100/255, blue: 7/255)
-    private let goldMid = Color(red: 176/255, green: 138/255, blue: 47/255)
-    private let goldLabel = Color(red: 184/255, green: 137/255, blue: 14/255)
+    // Bounty coral palette
+    private let coralDeep = Color(red: 192/255, green: 60/255, blue: 50/255)
+    private let coralMid = Color(red: 214/255, green: 105/255, blue: 96/255)
+    private let coralLabel = Color(red: 205/255, green: 78/255, blue: 68/255)
 
     var body: some View {
         ScrollView {
@@ -47,8 +47,8 @@ struct StatView: View {
                 showMonthPicker = false
             } onClose: { showMonthPicker = false }
         }
-        .sheet(item: $themeContext) { ctx in
-            ThemeReflectionsSheet(store: store, context: ctx, onClose: { themeContext = nil })
+        .sheet(item: $quoteContext) { ctx in
+            ReflectionQuotesSheet(store: store, context: ctx, onClose: { quoteContext = nil })
         }
     }
 
@@ -56,14 +56,16 @@ struct StatView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Stat")
-                    .font(.system(size: 27, weight: .heavy, design: .rounded))
-                    .foregroundColor(AppColors.label)
-                Text("Your month at a glance")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+            (
+                Text("Your ")
                     .foregroundColor(AppColors.secondaryLabel)
-            }
+                + Text("month")
+                    .foregroundColor(AppColors.indigo)
+                    .italic()
+                + Text(" at a glance")
+                    .foregroundColor(AppColors.secondaryLabel)
+            )
+            .font(.system(size: 15, weight: .semibold, design: .rounded))
             Spacer()
             Button(action: { showMonthPicker = true }) {
                 HStack(spacing: 6) {
@@ -283,44 +285,44 @@ struct StatView: View {
 
     private var bountiesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionEyebrow(emoji: "🏆", text: "Bounties", color: goldLabel,
+            sectionEyebrow(emoji: "🏆", text: "Bounties", color: coralLabel,
                            trailing: "\(stats.collectedCount) collected · \(stats.activeCount) active")
 
             VStack(alignment: .leading, spacing: 14) {
-                goldHeadline
+                coralHeadline
                 ForEach(stats.collectedTrophies) { t in trophyRow(t) }
                 ForEach(stats.activeHunts) { h in activeHuntRow(h) }
                 if stats.collectedTrophies.isEmpty && stats.activeHunts.isEmpty {
                     Text("No bounties yet this month.")
                         .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(goldMid)
+                        .foregroundColor(coralMid)
                 }
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(LinearGradient(colors: [Color(red: 254/255, green: 247/255, blue: 230/255),
-                                                  Color(red: 253/255, green: 241/255, blue: 214/255)],
+                    .fill(LinearGradient(colors: [Color(red: 255/255, green: 244/255, blue: 242/255),
+                                                  Color(red: 254/255, green: 236/255, blue: 233/255)],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
             )
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppColors.gold.opacity(0.35), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppColors.coral.opacity(0.35), lineWidth: 1))
         }
     }
 
-    private var goldHeadline: some View {
+    private var coralHeadline: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(stats.collectedCount)")
                         .font(.system(size: 38, weight: .heavy, design: .rounded))
-                        .foregroundColor(goldDeep)
+                        .foregroundColor(coralDeep)
                     Text("collected")
                         .font(.system(size: 14, weight: .heavy, design: .rounded))
-                        .foregroundColor(goldDeep)
+                        .foregroundColor(coralDeep)
                 }
                 Text(stats.activeCount == 1 ? "1 hunt still active" : "\(stats.activeCount) hunts still active")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundColor(goldMid)
+                    .foregroundColor(coralMid)
             }
             Spacer()
             HStack(spacing: -8) {
@@ -329,7 +331,7 @@ struct StatView: View {
                         .font(.system(size: 22))
                         .frame(width: 44, height: 44)
                         .background(Circle().fill(Color.white))
-                        .overlay(Circle().stroke(AppColors.gold.opacity(0.25), lineWidth: 1))
+                        .overlay(Circle().stroke(AppColors.coral.opacity(0.25), lineWidth: 1))
                 }
             }
         }
@@ -341,16 +343,16 @@ struct StatView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(t.title)
                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(goldDeep)
+                    .foregroundColor(coralDeep)
                     .lineLimit(1)
                 Text("Collected \(DateFormatter.monthDay.string(from: t.collectedDate)) · \(t.days) \(t.days == 1 ? "day" : "days")")
                     .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(goldMid)
+                    .foregroundColor(coralMid)
             }
             Spacer(minLength: 6)
             Text(t.hitRatio)
                 .font(.system(size: 13, weight: .heavy, design: .rounded))
-                .foregroundColor(goldDeep)
+                .foregroundColor(coralDeep)
                 .padding(.horizontal, 9).padding(.vertical, 4)
                 .background(Capsule().fill(Color.white.opacity(0.7)))
         }
@@ -364,16 +366,16 @@ struct StatView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(h.title)
                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(goldDeep)
+                    .foregroundColor(coralDeep)
                     .lineLimit(1)
                 HStack(spacing: 8) {
                     Text("Active · started \(DateFormatter.monthDay.string(from: h.startedDate))")
                         .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(goldMid)
+                        .foregroundColor(coralMid)
                     HStack(spacing: 3) {
                         ForEach(0..<max(h.required, 1), id: \.self) { i in
                             Circle()
-                                .fill(i < h.hits ? AppColors.gold : AppColors.gold.opacity(0.25))
+                                .fill(i < h.hits ? AppColors.coral : AppColors.coral.opacity(0.25))
                                 .frame(width: 6, height: 6)
                         }
                     }
@@ -383,37 +385,36 @@ struct StatView: View {
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.35)))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.gold.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.coral.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
     }
 
     // MARK: - Feedback
 
     private var feedbackSection: some View {
         VStack(alignment: .leading, spacing: 22) {
-            feedbackList(title: "What's working", subtitle: "from \(stats.reflectionCount) \(stats.reflectionCount == 1 ? "reflection" : "reflections")",
-                         icon: "checkmark.circle.fill", color: AppColors.winGreen, themes: stats.workingThemes, kind: .working)
-            feedbackList(title: "Where you're stuck", subtitle: "recurring themes",
-                         icon: "exclamationmark.circle.fill", color: AppColors.stuckCoral, themes: stats.stuckThemes, kind: .stuck)
+            feedbackList(title: "What's working", subtitle: "in your own words",
+                         icon: "checkmark.circle.fill", color: AppColors.winGreen, quotes: stats.workingQuotes, kind: .working)
+            feedbackList(title: "Where you're stuck", subtitle: "in your own words",
+                         icon: "exclamationmark.circle.fill", color: AppColors.stuckCoral, quotes: stats.stuckQuotes, kind: .stuck)
         }
     }
 
-    private func feedbackList(title: String, subtitle: String, icon: String, color: Color, themes: [ThemeStat], kind: ThemeReflectionsContext.Kind) -> some View {
+    private func feedbackList(title: String, subtitle: String, icon: String, color: Color, quotes: [ReflectionQuote], kind: ReflectionQuotesContext.Kind) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionEyebrow(icon: icon, text: title, color: color, trailing: subtitle)
-            if themes.isEmpty {
-                EmptyDashedState(title: "Nothing tagged yet", subtitle: "Add themes when you reflect to spot patterns.")
+            if quotes.isEmpty {
+                EmptyDashedState(title: "Nothing here yet", subtitle: "Reflect after a session to capture this in your own words.")
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(themes.prefix(6).enumerated()), id: \.element.id) { idx, theme in
+                    ForEach(Array(quotes.enumerated()), id: \.element.id) { idx, quote in
                         Button(action: {
-                            themeContext = ThemeReflectionsContext(kind: kind, theme: theme.label,
-                                                                   reflectionIds: theme.reflectionIds, accent: color)
+                            quoteContext = ReflectionQuotesContext(kind: kind, reflectionIds: [quote.reflectionId], accent: color)
                         }) {
-                            themeRow(theme, color: color)
+                            quoteRow(quote, color: color)
                         }
                         .buttonStyle(PlainButtonStyle())
-                        if idx < min(themes.count, 6) - 1 {
-                            Divider().padding(.leading, 51)
+                        if idx < quotes.count - 1 {
+                            Divider().padding(.leading, 30)
                         }
                     }
                 }
@@ -423,31 +424,29 @@ struct StatView: View {
         }
     }
 
-    private func themeRow(_ theme: ThemeStat, color: Color) -> some View {
-        HStack(spacing: 11) {
-            Text("\(theme.count)×")
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
-                .foregroundColor(color)
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(color.opacity(0.14)))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(theme.label)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+    private func quoteRow(_ quote: ReflectionQuote, color: Color) -> some View {
+        HStack(alignment: .top, spacing: 11) {
+            Circle().fill(color).frame(width: 6, height: 6).padding(.top, 7)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\u{201C}\(quote.text)\u{201D}")
+                    .font(.matMindBody(size: 15))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
-                if let goalName = theme.goalName {
-                    Text(goalName)
-                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(theme.goalColor ?? AppColors.tertiaryLabel)
+                HStack(spacing: 5) {
+                    if let goalName = quote.goalName {
+                        Text(goalName)
+                            .foregroundColor(quote.goalColor ?? AppColors.tertiaryLabel)
+                        Text("·").foregroundColor(AppColors.tertiaryLabel)
+                    }
+                    Text(DateFormatter.monthDay.string(from: quote.date))
+                        .foregroundColor(AppColors.tertiaryLabel)
                 }
+                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
             }
             Spacer(minLength: 6)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(AppColors.tertiaryLabel)
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
+        .padding(.horizontal, 14).padding(.vertical, 11)
         .contentShape(Rectangle())
     }
 

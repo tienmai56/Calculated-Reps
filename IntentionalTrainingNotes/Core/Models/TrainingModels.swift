@@ -138,8 +138,6 @@ struct Reflection: Codable, Equatable, Identifiable {
     var workedText: String
     var stuckText: String
     var tryNextText: String
-    var workedThemes: [String]
-    var stuckThemes: [String]
     var mood: Mood?
     var isFavorite: Bool
     var link: String
@@ -154,8 +152,6 @@ struct Reflection: Codable, Equatable, Identifiable {
         workedText: String,
         stuckText: String,
         tryNextText: String = "",
-        workedThemes: [String] = [],
-        stuckThemes: [String] = [],
         mood: Mood?,
         isFavorite: Bool = false,
         link: String = "",
@@ -169,8 +165,6 @@ struct Reflection: Codable, Equatable, Identifiable {
         self.workedText = workedText
         self.stuckText = stuckText
         self.tryNextText = tryNextText
-        self.workedThemes = workedThemes
-        self.stuckThemes = stuckThemes
         self.mood = mood
         self.isFavorite = isFavorite
         self.link = link
@@ -180,7 +174,7 @@ struct Reflection: Codable, Equatable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, sessionId, date, workedText, stuckText, tryNextText, workedThemes, stuckThemes, mood, isFavorite, link, imageFileNames, createdAt, updatedAt
+        case id, sessionId, date, workedText, stuckText, tryNextText, mood, isFavorite, link, imageFileNames, createdAt, updatedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -191,8 +185,6 @@ struct Reflection: Codable, Equatable, Identifiable {
         workedText = try c.decode(String.self, forKey: .workedText)
         stuckText = try c.decode(String.self, forKey: .stuckText)
         tryNextText = try c.decodeIfPresent(String.self, forKey: .tryNextText) ?? ""
-        workedThemes = try c.decodeIfPresent([String].self, forKey: .workedThemes) ?? []
-        stuckThemes = try c.decodeIfPresent([String].self, forKey: .stuckThemes) ?? []
         mood = try c.decodeIfPresent(Mood.self, forKey: .mood)
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         link = try c.decodeIfPresent(String.self, forKey: .link) ?? ""

@@ -87,13 +87,15 @@ struct ActiveHuntStat: Identifiable {
     let required: Int
 }
 
-struct ThemeStat: Identifiable {
+/// A single verbatim line pulled from a reflection's "what worked" / "where I got
+/// stuck" text, shown as a bulleted quote in the Stat feedback lists.
+struct ReflectionQuote: Identifiable {
     let id: String
-    let label: String
-    let count: Int
+    let text: String
     let goalName: String?
     let goalColor: Color?
-    let reflectionIds: [String]
+    let date: Date
+    let reflectionId: String
 }
 
 // MARK: - Aggregated month stats
@@ -110,8 +112,8 @@ struct MonthStats {
     let goalsWorked: [GoalWorkedStat]
     let collectedTrophies: [CollectedTrophyStat]
     let activeHunts: [ActiveHuntStat]
-    let workingThemes: [ThemeStat]
-    let stuckThemes: [ThemeStat]
+    let workingQuotes: [ReflectionQuote]
+    let stuckQuotes: [ReflectionQuote]
 
     var delta: Int { sessionCount - previousSessionCount }
     var collectedCount: Int { collectedTrophies.count }
@@ -167,8 +169,8 @@ extension NotebookStore {
 
         let goalsWorked = computeGoalsWorked(monthSessions: monthSessions)
         let (trophies, hunts) = computeBounties(month: month, calendar: calendar)
-        let working = computeThemes(monthReflections, keyPath: \.workedThemes)
-        let stuck = computeThemes(monthReflections, keyPath: \.stuckThemes)
+        let working = computeQuotes(monthReflections, keyPath: \.workedText)
+        let stuck = computeQuotes(monthReflections, keyPath: \.stuckText)
 
         return MonthStats(
             month: month,
@@ -182,8 +184,8 @@ extension NotebookStore {
             goalsWorked: goalsWorked,
             collectedTrophies: trophies,
             activeHunts: hunts,
-            workingThemes: working,
-            stuckThemes: stuck
+            workingQuotes: working,
+            stuckQuotes: stuck
         )
     }
 
@@ -281,35 +283,29 @@ extension NotebookStore {
         return (trophies, hunts)
     }
 
-    private func computeThemes(_ reflections: [Reflection], keyPath: KeyPath<Reflection, [String]>) -> [ThemeStat] {
-        struct Agg { var count = 0; var display = ""; var goalCounts: [String: Int] = [:]; var reflectionIds: [String] = [] }
-        var byKey: [String: Agg] = [:]
-
-        for r in reflections {
-            let goalId = notebook.sessions.first(where: { $0.id == r.sessionId }).map { $0.goalId }
-            for theme in r[keyPath: keyPath] {
-                let key = theme.lowercased()
-                var agg = byKey[key] ?? Agg()
-                agg.count += 1
-                if agg.display.isEmpty { agg.display = theme }
-                agg.reflectionIds.append(r.id)
-                if let gid = goalId { agg.goalCounts[gid, default: 0] += 1 }
-                byKey[key] = agg
+    /// Splits each reflection's verbatim "what worked" / "where I got stuck" text
+    /// into individual bulleted lines, newest first, with goal + date attribution.
+    private func computeQuotes(_ reflections: [Reflection], keyPath: KeyPath<Reflection, String>) -> [ReflectionQuote] {
+        let sorted = reflections.sorted { $0.date > $1.date }
+        var quotes: [ReflectionQuote] = []
+        for r in sorted {
+            let goal = notebook.sessions.first(where: { $0.id == r.sessionId })
+                .flatMap { session in notebook.goals.first(where: { $0.id == session.goalId }) }
+            let lines = r[keyPath: keyPath]
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            for (idx, line) in lines.enumerated() {
+                quotes.append(ReflectionQuote(
+                    id: "\(r.id)-\(idx)",
+                    text: line,
+                    goalName: goal?.name,
+                    goalColor: goal?.goalColor,
+                    date: r.date,
+                    reflectionId: r.id
+                ))
             }
         }
-
-        return byKey.map { key, agg -> ThemeStat in
-            let dominantGoalId = agg.goalCounts.max { $0.value < $1.value }?.key
-            let goal = dominantGoalId.flatMap { gid in notebook.goals.first(where: { $0.id == gid }) }
-            return ThemeStat(
-                id: key,
-                label: agg.display,
-                count: agg.count,
-                goalName: goal?.name,
-                goalColor: goal?.goalColor,
-                reflectionIds: agg.reflectionIds
-            )
-        }
-        .sorted { $0.count != $1.count ? $0.count > $1.count : $0.label.lowercased() < $1.label.lowercased() }
+        return quotes
     }
 }
