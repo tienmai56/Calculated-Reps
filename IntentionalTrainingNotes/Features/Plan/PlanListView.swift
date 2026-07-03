@@ -133,6 +133,7 @@ struct PlanListView: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
     }
 
     private func dayCell(_ date: Date) -> some View {
@@ -193,6 +194,7 @@ struct PlanListView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 28)
                 .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
             } else {
                 ForEach(daySessions) { session in
                     if let reflection = store.reflection(forSessionId: session.id) {

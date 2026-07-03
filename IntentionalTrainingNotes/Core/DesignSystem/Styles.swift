@@ -68,6 +68,7 @@ extension View {
         self
             .background(AppColors.cardBackground)
             .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
             .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
             .shadow(color: Color.black.opacity(0.02), radius: 2, x: 0, y: 1)
     }

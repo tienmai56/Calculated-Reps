@@ -31,8 +31,12 @@ struct PlannedSessionCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(AppColors.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(AppColors.cardBorder, lineWidth: 1)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 22)
                 .stroke(color.opacity(0.10), lineWidth: 1)

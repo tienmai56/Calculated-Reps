@@ -24,6 +24,13 @@ struct AppColors {
     static let cardBackground = Color(UIColor { traits in
         traits.userInterfaceStyle == .dark ? .secondarySystemBackground : UIColor(red: 246/255, green: 245/255, blue: 250/255, alpha: 1)
     })
+    // Hairline card border. Subtle in light mode (shadows do the separating work), but
+    // clearly visible in dark mode where card and page backgrounds are both near-black.
+    static let cardBorder = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 1, alpha: 0.16)
+            : UIColor(white: 0, alpha: 0.05)
+    })
 
     // Warm grays for text
     static let label = Color(UIColor { traits in

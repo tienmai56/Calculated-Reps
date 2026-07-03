@@ -209,6 +209,7 @@ struct BountyFlowView: View {
             }
             .padding(10)
             .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
 
             HStack {
                 Text("WHO ARE YOU HUNTING?")
@@ -223,6 +224,7 @@ struct BountyFlowView: View {
                 .foregroundColor(AppColors.label)
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 14).fill(AppColors.cardBackground))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.cardBorder, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("PREVIEW")
@@ -242,6 +244,7 @@ struct BountyFlowView: View {
             .background(
                 RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground)
             )
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(AppColors.coral)
@@ -435,6 +438,7 @@ struct BountyCollectionView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .fill(AppColors.gold)
@@ -498,6 +502,7 @@ struct BountyCollectionView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(AppColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.cardBorder, lineWidth: 1))
     }
 
     private var emptyState: some View {

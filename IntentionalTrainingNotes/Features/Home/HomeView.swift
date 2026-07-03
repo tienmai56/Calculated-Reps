@@ -305,6 +305,7 @@ struct HomeView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
     }
 
     private func activeBountyHero(_ bounty: Bounty) -> some View {
@@ -437,6 +438,7 @@ struct HomeView: View {
                 }
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
             } else {
                 ForEach(nextSessions) { session in
                     PlannedSessionCard(

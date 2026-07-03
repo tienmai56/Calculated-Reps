@@ -203,6 +203,7 @@ struct EditGoalView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 28)
                 .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
                 .padding(.top, 4)
             }
             ForEach(tasks) { task in

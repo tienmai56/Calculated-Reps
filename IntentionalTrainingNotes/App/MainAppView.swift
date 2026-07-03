@@ -174,6 +174,7 @@ struct BottomTabsView: View {
         .background(
             Capsule()
                 .fill(AppColors.cardBackground)
+                .overlay(Capsule().stroke(AppColors.cardBorder, lineWidth: 1))
                 .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 8)
                 .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
         )

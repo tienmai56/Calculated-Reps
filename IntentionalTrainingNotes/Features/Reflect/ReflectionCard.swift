@@ -89,6 +89,7 @@ struct ReflectionCardView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
         .overlay(menuOverlay, alignment: .topTrailing)
         .overlay(deleteConfirmOverlay)
     }
@@ -195,18 +196,15 @@ struct ReflectionCardView: View {
 
 struct FeedbackCardView: View {
     let goalName: String
+    let workedText: String
+    let stuckText: String
     let tryNextText: String
     let mood: Mood?
     let dateLabel: String
     let recipient: String
     let accent: Color
 
-    private var tryNextLines: [String] {
-        tryNextText
-            .components(separatedBy: CharacterSet.newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-    }
+    private let bodyColor = Color(red: 44/255, green: 42/255, blue: 41/255)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -224,32 +222,10 @@ struct FeedbackCardView: View {
                     .font(.matMindBody(size: 16))
                     .foregroundColor(Color(red: 120/255, green: 117/255, blue: 113/255))
             }
-            VStack(alignment: .leading, spacing: 6) {
-                Text("What I was working on")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(accent)
-                Text(goalName)
-                    .font(.system(size: 18, design: .rounded))
-                    .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
-            }
-            if !tryNextLines.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("What I'll try next")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(accent)
-                    ForEach(Array(tryNextLines.enumerated()), id: \.offset) { idx, line in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text("\(idx + 1)")
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                .foregroundColor(accent)
-                            Text(line)
-                                .font(.system(size: 18, design: .rounded))
-                                .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
+            feedbackSection("My goal", goalName)
+            if let worked = workedText.nilIfBlank { feedbackSection("What worked", worked) }
+            if let stuck = stuckText.nilIfBlank { feedbackSection("What I'm stuck at", stuck) }
+            if let tryNext = tryNextText.nilIfBlank { feedbackSection("What I'll try next", tryNext) }
             if let mood = mood {
                 HStack(spacing: 6) {
                     Text("Feeling:")
@@ -274,6 +250,18 @@ struct FeedbackCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.offWhite))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(accent.opacity(0.3), lineWidth: 1))
+    }
+
+    private func feedbackSection(_ label: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundColor(accent)
+            Text(text)
+                .font(.system(size: 18, design: .rounded))
+                .foregroundColor(bodyColor)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -304,7 +292,7 @@ struct FeedbackPreviewView: View {
         return DateFormatter.weekdayShortDateYear.string(from: reflection.date)
     }
     private var card: FeedbackCardView {
-        FeedbackCardView(goalName: goalName, tryNextText: reflection.tryNextText, mood: reflection.mood, dateLabel: dateLabel, recipient: recipient, accent: accent)
+        FeedbackCardView(goalName: goalName, workedText: reflection.workedText, stuckText: reflection.stuckText, tryNextText: reflection.tryNextText, mood: reflection.mood, dateLabel: dateLabel, recipient: recipient, accent: accent)
     }
 
     var body: some View {
