@@ -23,12 +23,15 @@ struct PlannedSessionCard: View {
         let reflected = store.reflection(forSessionId: session.id) != nil
 
         VStack(spacing: 0) {
-            header(goal, color, reflected: reflected)
+            header(goal, color)
 
             ForEach(tasks) { task in
                 hairline(color)
                 taskRow(task, color)
             }
+
+            hairline(color)
+            reflectFooter(color, reflected: reflected)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppColors.cardBackground)
@@ -53,47 +56,26 @@ struct PlannedSessionCard: View {
             .frame(height: 1)
     }
 
-    // MARK: - Header (goal + reflect pill + overflow)
+    // MARK: - Header (goal + overflow)
 
-    private func header(_ goal: TrainingGoal?, _ color: Color, reflected: Bool) -> some View {
+    private func header(_ goal: TrainingGoal?, _ color: Color) -> some View {
         HStack(alignment: .center, spacing: 8) {
             ZStack {
                 Circle().fill(color.opacity(0.12)).frame(width: 24, height: 24)
                 GoalIconImage(name: goal?.iconName ?? "target", color: color, size: 14)
             }
             Text(goal?.name ?? "No goal")
-                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
                 .foregroundColor(color)
                 .lineLimit(1)
 
             Spacer(minLength: 8)
 
-            Button(action: onReflect) {
-                HStack(spacing: 5) {
-                    if reflected {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                    } else {
-                        ReflectPencilIcon(size: 13, color: .white)
-                    }
-                    Text(reflected ? "Reflected" : "Reflect")
-                        .font(.system(size: 13, weight: .heavy, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 13)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(color))
-                .shadow(color: color.opacity(0.35), radius: 6, x: 0, y: 3)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .fixedSize()
-
             Button(action: { withAnimation(.easeInOut(duration: 0.15)) { menuOpen.toggle() } }) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16))
                     .foregroundColor(AppColors.tertiaryLabel)
-                    .frame(width: 26, height: 30)
+                    .frame(width: 30, height: 30)
                     .contentShape(Rectangle())
             }
             .buttonStyle(PlainButtonStyle())
@@ -101,6 +83,25 @@ struct PlannedSessionCard: View {
         .padding(.horizontal, 20)
         .padding(.top, 18)
         .padding(.bottom, 14)
+    }
+
+    // MARK: - Reflect footer (text link, like "View Spending ›")
+
+    private func reflectFooter(_ color: Color, reflected: Bool) -> some View {
+        Button(action: onReflect) {
+            HStack(spacing: 6) {
+                Text(reflected ? "Reflected" : "Reflect after class")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(color)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(color)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Task row (flat, hairline-separated)
