@@ -157,7 +157,13 @@ struct GoalCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 18).fill(Color(.systemBackground))
+                RoundedRectangle(cornerRadius: 18).fill(Color(UIColor { traits in
+                    // Elevated surface in dark mode so the card is clearly lighter
+                    // than the page background; stays white in light mode.
+                    traits.userInterfaceStyle == .dark
+                        ? UIColor(red: 48/255, green: 48/255, blue: 54/255, alpha: 1)
+                        : .systemBackground
+                }))
                 RoundedRectangle(cornerRadius: 18)
                     .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.06), color.opacity(0.03)]), startPoint: .topLeading, endPoint: .bottomTrailing))
             }

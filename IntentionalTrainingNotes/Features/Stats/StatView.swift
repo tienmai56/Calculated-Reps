@@ -5,7 +5,7 @@ struct StatView: View {
 
     @State private var selectedMonth: MonthKey = .current
     @State private var didSetInitial = false
-    @State private var showMonthPicker = false
+    @State private var monthPickerOpen = false
     @State private var quoteContext: ReflectionQuotesContext?
 
     private var months: [MonthKey] { store.availableStatMonths() }
@@ -20,7 +20,7 @@ struct StatView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
-                monthRail
+                    .zIndex(monthPickerOpen ? 10 : 0)
                 if stats.hasAnyData {
                     trainingSection
                     goalsWorkedSection
@@ -40,12 +40,6 @@ struct StatView: View {
                 selectedMonth = months.first(where: { store.monthStats(for: $0).hasAnyData }) ?? .current
                 didSetInitial = true
             }
-        }
-        .sheet(isPresented: $showMonthPicker) {
-            MonthPickerSheet(months: months, selected: selectedMonth) { m in
-                selectedMonth = m
-                showMonthPicker = false
-            } onClose: { showMonthPicker = false }
         }
         .sheet(item: $quoteContext) { ctx in
             ReflectionQuotesSheet(store: store, context: ctx, onClose: { quoteContext = nil })
@@ -67,7 +61,7 @@ struct StatView: View {
             )
             .font(.system(size: 15, weight: .semibold, design: .rounded))
             Spacer()
-            Button(action: { showMonthPicker = true }) {
+            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { monthPickerOpen.toggle() } }) {
                 HStack(spacing: 6) {
                     Text(selectedMonth.label)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
@@ -75,6 +69,7 @@ struct StatView: View {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(AppColors.secondaryLabel)
+                        .rotationEffect(.degrees(monthPickerOpen ? 180 : 0))
                 }
                 .padding(.horizontal, 13)
                 .padding(.vertical, 9)
@@ -84,35 +79,62 @@ struct StatView: View {
                 )
             }
             .buttonStyle(PlainButtonStyle())
+            .fixedSize()
+            .overlay(
+                ZStack(alignment: .topTrailing) {
+                    if monthPickerOpen {
+                        // Soft-dismiss backdrop — overlay so it doesn't affect layout.
+                        Color.black.opacity(0.001)
+                            .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                            .fixedSize()
+                            .contentShape(Rectangle())
+                            .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { monthPickerOpen = false } }
+
+                        monthDropdown
+                            .frame(width: 190)
+                            .fixedSize()
+                            .offset(x: 0, y: 46)
+                    }
+                }
+                .allowsHitTesting(monthPickerOpen),
+                alignment: .topTrailing
+            )
         }
     }
 
-    private var railMonths: [MonthKey] {
-        let newest = months.first ?? .current
-        return (0..<6).reversed().map { newest.adding(months: -$0) }
-    }
-
-    private var monthRail: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(railMonths) { m in
-                    let isSel = m == selectedMonth
-                    Button(action: { selectedMonth = m }) {
-                        Text(m.shortLabel)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(isSel ? .white : AppColors.secondaryLabel)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule().fill(isSel ? AppColors.indigo : AppColors.cardBackground)
-                                    .overlay(Capsule().stroke(isSel ? Color.clear : AppColors.cardBorder, lineWidth: 1))
-                            )
+    private var monthDropdown: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                ForEach(months) { m in
+                    Button(action: {
+                        selectedMonth = m
+                        withAnimation(.easeInOut(duration: 0.15)) { monthPickerOpen = false }
+                    }) {
+                        HStack {
+                            Text(m.label)
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundColor(AppColors.label)
+                            Spacer()
+                            if m == selectedMonth {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(AppColors.indigo)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(PlainButtonStyle())
+                    if m != months.last { Divider() }
                 }
             }
-            .padding(.horizontal, 1)
         }
+        .frame(maxHeight: 264)
+        .background(AppColors.background)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(.systemGray4), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.22), radius: 14, x: 0, y: 6)
     }
 
     // MARK: - Training
@@ -496,46 +518,5 @@ struct StatView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 20).fill(AppColors.cardBackground))
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppColors.cardBorder, lineWidth: 1))
-    }
-}
-
-// MARK: - Month picker sheet
-
-private struct MonthPickerSheet: View {
-    let months: [MonthKey]
-    let selected: MonthKey
-    let onSelect: (MonthKey) -> Void
-    let onClose: () -> Void
-
-    var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(months) { m in
-                        Button(action: { onSelect(m) }) {
-                            HStack {
-                                Text(m.label)
-                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                    .foregroundColor(AppColors.label)
-                                Spacer()
-                                if m == selected {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(AppColors.indigo)
-                                }
-                            }
-                            .padding(.horizontal, 16).padding(.vertical, 14)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.cardBackground))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.cardBorder, lineWidth: 1))
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                .padding(16)
-            }
-            .background(AppColors.groupedBackground.edgesIgnoringSafeArea(.all))
-            .navigationBarTitle("Choose month", displayMode: .inline)
-            .navigationBarItems(trailing: Button("Done", action: onClose).foregroundColor(AppColors.indigo))
-        }
     }
 }

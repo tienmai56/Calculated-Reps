@@ -7,6 +7,11 @@ enum PatternKind: String, CaseIterable {
     case upNext = "Up next"
 }
 
+enum HomeSubTab {
+    case upcoming
+    case stat
+}
+
 struct HomeView: View {
     @ObservedObject var store: NotebookStore
     var onOpenGoalTasks: (String) -> Void
@@ -19,25 +24,33 @@ struct HomeView: View {
     @State private var goalFilterOpen = false
     @State private var showFavoritesOnly = false
     @State private var sheet: HomeSheet?
+    @State private var homeTab: HomeSubTab = .upcoming
     @State private var bountyLockedExpanded = false
 
     private var cal: Calendar { Calendar.current }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                streakHeader
-                bountyCard
-                nextSessionSection
-                    .zIndex(3)
-                latestEntrySection
-                    .zIndex(2)
-                patternsSection
-                    .zIndex(1)
-            }
+        VStack(spacing: 0) {
+            ScreenHeader(
+                titleLead: "Your",
+                titleAccent: "progress",
+                accent: AppColors.indigo,
+                titleSize: 26
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 110)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
+
+            subTabBar
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
+            if homeTab == .upcoming {
+                upcomingTrainingContent
+            } else {
+                StatView(store: store)
+            }
         }
         .background(AppColors.background.edgesIgnoringSafeArea(.all))
         .sheet(item: $sheet) { which in
@@ -53,6 +66,57 @@ struct HomeView: View {
             case .collection:
                 BountyCollectionView(store: store, onClose: { sheet = nil })
             }
+        }
+    }
+
+    // MARK: - Sub-tabs (Upcoming training / Stat)
+
+    private var subTabBar: some View {
+        HStack(spacing: 26) {
+            subTab("Upcoming training", .upcoming)
+            subTab("Stat", .stat)
+            Spacer(minLength: 0)
+        }
+        .overlay(
+            Rectangle()
+                .fill(AppColors.separator.opacity(0.5))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+    }
+
+    private func subTab(_ title: String, _ tab: HomeSubTab) -> some View {
+        let isActive = homeTab == tab
+        return Button(action: { withAnimation(.easeInOut(duration: 0.2)) { homeTab = tab } }) {
+            VStack(spacing: 7) {
+                Text(title)
+                    .font(.system(size: 17, weight: isActive ? .semibold : .medium, design: .rounded))
+                    .foregroundColor(isActive ? AppColors.label : AppColors.secondaryLabel)
+                Rectangle()
+                    .fill(isActive ? AppColors.indigo : Color.clear)
+                    .frame(height: 3)
+                    .cornerRadius(1.5)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private var upcomingTrainingContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                streakHeader
+                bountyCard
+                nextSessionSection
+                    .zIndex(3)
+                latestEntrySection
+                    .zIndex(2)
+                patternsSection
+                    .zIndex(1)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 110)
         }
     }
 

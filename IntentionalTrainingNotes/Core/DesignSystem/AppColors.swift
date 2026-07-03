@@ -2,7 +2,13 @@ import SwiftUI
 import UIKit
 
 struct AppColors {
-    static let indigo = Color(red: 63/255, green: 61/255, blue: 158/255)
+    // Indigo brightens in dark mode so accents/buttons/text stay legible against
+    // dark surfaces; light mode keeps the original deep indigo.
+    static let indigo = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 140/255, green: 134/255, blue: 235/255, alpha: 1)
+            : UIColor(red: 63/255, green: 61/255, blue: 158/255, alpha: 1)
+    })
     static let mint = Color(red: 94/255, green: 196/255, blue: 182/255)
     static let coral = Color(red: 242/255, green: 139/255, blue: 130/255)
     static let coralDeep = Color(red: 232/255, green: 106/255, blue: 95/255)
@@ -10,19 +16,29 @@ struct AppColors {
     static let goldSoft = Color(red: 245/255, green: 201/255, blue: 122/255)
     static let offWhite = Color(red: 240/255, green: 237/255, blue: 235/255)
 
-    // Warm background: faint warm off-white in light mode, system default in dark
+    // Warm off-white in light mode; a soft dark gray (not pure black) in dark mode
+    // so content reads more clearly and the theme feels less harsh.
     static let background = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .systemBackground : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 30/255, green: 30/255, blue: 34/255, alpha: 1)
+            : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
     })
     static let secondaryBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .secondarySystemBackground : UIColor(red: 242/255, green: 241/255, blue: 247/255, alpha: 1)
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 48/255, green: 48/255, blue: 54/255, alpha: 1)
+            : UIColor(red: 242/255, green: 241/255, blue: 247/255, alpha: 1)
     })
     static let groupedBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .systemGroupedBackground : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 30/255, green: 30/255, blue: 34/255, alpha: 1)
+            : UIColor(red: 255/255, green: 255/255, blue: 255/255, alpha: 1)
     })
-    // Soft lavender card surface that reads as a card against the near-white app background.
+    // Elevated card surface — reads as a card against the page background in both
+    // modes (soft lavender in light, a lighter gray than the page in dark).
     static let cardBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .secondarySystemBackground : UIColor(red: 246/255, green: 245/255, blue: 250/255, alpha: 1)
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 48/255, green: 48/255, blue: 54/255, alpha: 1)
+            : UIColor(red: 246/255, green: 245/255, blue: 250/255, alpha: 1)
     })
     // Hairline card border. Subtle in light mode (shadows do the separating work), but
     // clearly visible in dark mode where card and page backgrounds are both near-black.

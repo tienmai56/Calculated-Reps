@@ -656,3 +656,117 @@ final class NotebookStore: ObservableObject {
     }
 #endif
 }
+
+// MARK: - Competitions
+
+extension NotebookStore {
+    /// Competitions still to happen (no result logged yet), soonest first.
+    var upcomingCompetitions: [Competition] {
+        notebook.competitions
+            .filter { $0.isUpcoming }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// The soonest upcoming competition — the "NEXT UP" hero card.
+    var nextCompetition: Competition? { upcomingCompetitions.first }
+
+    /// Competitions with a logged result, most recent first.
+    var pastCompetitions: [Competition] {
+        notebook.competitions
+            .filter { !$0.isUpcoming }
+            .sorted { $0.date > $1.date }
+    }
+
+    func competition(id: String) -> Competition? {
+        notebook.competitions.first { $0.id == id }
+    }
+
+    @discardableResult
+    func addCompetition(name: String, date: Date, venue: String = "", division: String = "", rank: String = "", strategy: [StrategyFocus] = []) -> Competition {
+        let competition = Competition(
+            accountId: notebook.accountId,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            date: date,
+            venue: venue.trimmingCharacters(in: .whitespacesAndNewlines),
+            division: division.trimmingCharacters(in: .whitespacesAndNewlines),
+            rank: rank.trimmingCharacters(in: .whitespacesAndNewlines),
+            strategy: strategy
+        )
+        mutate { notebook.competitions.append(competition) }
+        return competition
+    }
+
+    /// Replaces a competition wholesale (used by the edit sheet). Stamps updatedAt.
+    func updateCompetition(_ competition: Competition) {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == competition.id }) else { return }
+        var updated = competition
+        updated.updatedAt = Date()
+        mutate { notebook.competitions[idx] = updated }
+    }
+
+    func deleteCompetition(id: String) {
+        mutate { notebook.competitions.removeAll { $0.id == id } }
+    }
+
+    @discardableResult
+    func addStrategyFocus(competitionId: String, text: String) -> StrategyFocus? {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == competitionId }) else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let focus = StrategyFocus(text: trimmed)
+        mutate {
+            notebook.competitions[idx].strategy.append(focus)
+            notebook.competitions[idx].updatedAt = Date()
+        }
+        return focus
+    }
+
+    func updateStrategyFocus(competitionId: String, focusId: String, text: String) {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == competitionId }),
+              let fIdx = notebook.competitions[idx].strategy.firstIndex(where: { $0.id == focusId }) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        mutate {
+            notebook.competitions[idx].strategy[fIdx].text = trimmed
+            notebook.competitions[idx].updatedAt = Date()
+        }
+    }
+
+    func deleteStrategyFocus(competitionId: String, focusId: String) {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == competitionId }) else { return }
+        mutate {
+            notebook.competitions[idx].strategy.removeAll { $0.id == focusId }
+            notebook.competitions[idx].updatedAt = Date()
+        }
+    }
+
+    /// Logs the outcome and grades each strategy focus ("did the plan work?").
+    func logCompetitionResult(id: String, result: CompetitionResult, wins: Int, losses: Int, placement: String, focusWorked: [String: Bool]) {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == id }) else { return }
+        mutate {
+            notebook.competitions[idx].result = result
+            notebook.competitions[idx].wins = max(0, wins)
+            notebook.competitions[idx].losses = max(0, losses)
+            notebook.competitions[idx].placement = placement.trimmingCharacters(in: .whitespacesAndNewlines)
+            notebook.competitions[idx].loggedAt = Date()
+            for fIdx in notebook.competitions[idx].strategy.indices {
+                let fid = notebook.competitions[idx].strategy[fIdx].id
+                notebook.competitions[idx].strategy[fIdx].worked = focusWorked[fid]
+            }
+            notebook.competitions[idx].updatedAt = Date()
+        }
+    }
+
+    /// Saves the competition reflection (mirrors training's saveReflection).
+    func saveCompetitionReflection(id: String, mood: Mood?, workedText: String, stuckText: String, tryNextText: String) {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == id }) else { return }
+        mutate {
+            notebook.competitions[idx].mood = mood
+            notebook.competitions[idx].workedText = workedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            notebook.competitions[idx].stuckText = stuckText.trimmingCharacters(in: .whitespacesAndNewlines)
+            notebook.competitions[idx].tryNextText = tryNextText.trimmingCharacters(in: .whitespacesAndNewlines)
+            notebook.competitions[idx].reflectedAt = Date()
+            notebook.competitions[idx].updatedAt = Date()
+        }
+    }
+}

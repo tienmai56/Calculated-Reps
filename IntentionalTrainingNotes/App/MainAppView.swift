@@ -4,7 +4,6 @@ enum MainTab {
     case home
     case plan
     case goals
-    case stat
 }
 
 enum GoalsRoute: Equatable {
@@ -36,7 +35,6 @@ struct MainAppView: View {
         switch ProcessInfo.processInfo.environment["START_TAB"] {
         case "goals": return .goals
         case "plan": return .plan
-        case "stat": return .stat
         default: return .home
         }
         #else
@@ -72,8 +70,6 @@ struct MainAppView: View {
                             requestReflect(sessionId)
                         }
                     )
-                } else if tab == .stat {
-                    StatView(store: store)
                 } else {
                     goalsScreen
                 }
@@ -90,9 +86,6 @@ struct MainAppView: View {
                 },
                 onPlan: {
                     tab = .plan
-                },
-                onStat: {
-                    tab = .stat
                 }
             )
         }
@@ -170,14 +163,12 @@ struct BottomTabsView: View {
     var onHome: () -> Void
     var onGoals: () -> Void
     var onPlan: () -> Void
-    var onStat: () -> Void
 
     var body: some View {
         HStack(spacing: 2) {
             pillItem(title: "Home", icon: active == .home ? "house.fill" : "house", isActive: active == .home, action: onHome)
             pillItem(title: "Goals", icon: "target", isActive: active == .goals, action: onGoals)
             pillItem(title: "Plan", icon: active == .plan ? "calendar.circle.fill" : "calendar", isActive: active == .plan, action: onPlan)
-            pillItem(title: "Stat", icon: active == .stat ? "chart.bar.fill" : "chart.bar", isActive: active == .stat, action: onStat)
         }
         .padding(6)
         .background(

@@ -122,6 +122,7 @@ final class AppSessionStore: ObservableObject {
             || !store.notebook.reflections.isEmpty
             || !store.notebook.notes.isEmpty
             || !store.notebook.bounties.isEmpty
+            || !store.notebook.competitions.isEmpty
             || store.notebook.profile != nil
         if hasExistingData && !UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
             UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
