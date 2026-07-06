@@ -109,6 +109,11 @@ final class AppSessionStore: ObservableObject {
             UserDefaults.standard.removeObject(forKey: AppSessionStore.onboardingCompletedKey)
             store.resetForOnboardingTestingDEBUG()
         }
+        if ProcessInfo.processInfo.environment["SEED_DEMO_DATA"] != nil {
+            store.resetForOnboardingTestingDEBUG()
+            store.seedDemoDataDEBUG()
+            UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
+        }
         #endif
 
         // Upgrading users already have a notebook — never send them through first-run onboarding

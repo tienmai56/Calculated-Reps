@@ -66,9 +66,14 @@
       </BuildableProductRunnable>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "ONBOARDING_STEP"
-            value = "goal"
+            key = "RESET_ONBOARDING"
+            value = "1"
             isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "SEED_DEMO_DATA"
+            value = "1"
+            isEnabled = "NO">
          </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>

@@ -377,9 +377,9 @@ struct CompetitionView: View {
     // Confirmation dialogs
     @State private var focusToDelete: FocusRef?
     @State private var competitionToDelete: Competition?
-    // 3-dot menus (iOS 13 has no SwiftUI Menu, so we use ActionSheet)
-    @State private var activeMenu: ActiveMenu?
-
+    // iOS 13 ActionSheet fallback (Menu requires iOS 14+)
+    @State private var fallbackMenu: ActiveMenu?
+    @State private var showCompNotYet = false
     private struct FocusRef: Identifiable { let competitionId: String; let focusId: String; var id: String { focusId } }
 
     private enum ActiveMenu: Identifiable {
@@ -394,8 +394,6 @@ struct CompetitionView: View {
     }
 
     private func presentSheet(_ s: CompSheet) {
-        // Presenting a sheet in the same run loop that dismisses an ActionSheet can be
-        // dropped on iOS 13/14; defer slightly so the menu fully dismisses first.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { sheet = s }
     }
 
@@ -431,28 +429,34 @@ struct CompetitionView: View {
             }
         }
         .overlay(dialogs)
-        .actionSheet(item: $activeMenu) { menu in
+        .actionSheet(item: $fallbackMenu) { menu in
             switch menu {
-            case .competition(let c): return competitionMenu(c)
-            case .focus(let r): return focusMenu(r)
+            case .competition(let c): return competitionActionSheet(c)
+            case .focus(let r): return focusActionSheet(r)
             }
+        }
+        .alert(isPresented: $showCompNotYet) {
+            Alert(
+                title: Text("Competition hasn't happened yet"),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 
-    private func competitionMenu(_ comp: Competition) -> ActionSheet {
+    // MARK: ActionSheet fallback (iOS 13)
+
+    private func competitionActionSheet(_ comp: Competition) -> ActionSheet {
         var buttons: [ActionSheet.Button] = []
         if comp.hasResult {
             buttons.append(.default(Text("Edit result")) { presentSheet(.result(comp)) })
-            buttons.append(.default(Text("Edit details")) { presentSheet(.edit(comp)) })
-        } else {
-            buttons.append(.default(Text("Edit details")) { presentSheet(.edit(comp)) })
         }
+        buttons.append(.default(Text("Edit details")) { presentSheet(.edit(comp)) })
         buttons.append(.destructive(Text("Delete")) { competitionToDelete = comp })
         buttons.append(.cancel())
         return ActionSheet(title: Text(comp.name.nilIfBlank ?? "Competition"), buttons: buttons)
     }
 
-    private func focusMenu(_ ref: FocusRef) -> ActionSheet {
+    private func focusActionSheet(_ ref: FocusRef) -> ActionSheet {
         ActionSheet(title: Text("Strategy focus"), buttons: [
             .default(Text("Edit")) {
                 if let comp = store.competition(id: ref.competitionId),
@@ -465,6 +469,7 @@ struct CompetitionView: View {
             .cancel()
         ])
     }
+
     // MARK: Header
 
     private var headerRow: some View {
@@ -575,14 +580,31 @@ struct CompetitionView: View {
                         .tracking(0.8)
                         .foregroundColor(.white.opacity(0.9))
                 }
-                Button(action: { activeMenu = .competition(comp) }) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.85))
-                        .frame(width: 28, height: 24)
-                        .contentShape(Rectangle())
+                if #available(iOS 14.0, *) {
+                    Menu {
+                        Button(action: { presentSheet(.edit(comp)) }) {
+                            Label("Edit details", systemImage: "pencil")
+                        }
+                        Button(action: { competitionToDelete = comp }) {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.85))
+                            .frame(width: 28, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                } else {
+                    Button(action: { fallbackMenu = .competition(comp) }) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.85))
+                            .frame(width: 28, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
 
             // Title
@@ -616,7 +638,14 @@ struct CompetitionView: View {
             }
 
             // Log result
-            Button(action: { sheet = .result(comp) }) {
+            Button(action: {
+                let isFuture = Calendar.current.startOfDay(for: comp.date) > Calendar.current.startOfDay(for: Date())
+                if isFuture {
+                    showCompNotYet = true
+                } else {
+                    sheet = .result(comp)
+                }
+            }) {
                 Text("Log result")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.coralDeep)
@@ -671,14 +700,34 @@ struct CompetitionView: View {
                     .foregroundColor(.white)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 6)
-                Button(action: { activeMenu = .focus(FocusRef(competitionId: comp.id, focusId: focus.id)) }) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.8))
-                        .frame(width: 26, height: 24)
-                        .contentShape(Rectangle())
+                if #available(iOS 14.0, *) {
+                    Menu {
+                        Button(action: {
+                            editingFocusId = focus.id
+                            focusDraft = focus.text
+                        }) {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        Button(action: { focusToDelete = FocusRef(competitionId: comp.id, focusId: focus.id) }) {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 26, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                } else {
+                    Button(action: { fallbackMenu = .focus(FocusRef(competitionId: comp.id, focusId: focus.id)) }) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(width: 26, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
         }
         .padding(.horizontal, 11)
@@ -766,14 +815,36 @@ struct CompetitionView: View {
                 Text(DateFormatter.monthDay.string(from: comp.date))
                     .font(.matMindBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
-                Button(action: { activeMenu = .competition(comp) }) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 15))
-                        .foregroundColor(AppColors.tertiaryLabel)
-                        .frame(width: 28, height: 24)
-                        .contentShape(Rectangle())
+                if #available(iOS 14.0, *) {
+                    Menu {
+                        if comp.hasResult {
+                            Button(action: { presentSheet(.result(comp)) }) {
+                                Label("Edit result", systemImage: "list.bullet.clipboard")
+                            }
+                        }
+                        Button(action: { presentSheet(.edit(comp)) }) {
+                            Label("Edit details", systemImage: "pencil")
+                        }
+                        Button(action: { competitionToDelete = comp }) {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 15))
+                            .foregroundColor(AppColors.tertiaryLabel)
+                            .frame(width: 28, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                } else {
+                    Button(action: { fallbackMenu = .competition(comp) }) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 15))
+                            .foregroundColor(AppColors.tertiaryLabel)
+                            .frame(width: 28, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
 
             VStack(alignment: .leading, spacing: 2) {

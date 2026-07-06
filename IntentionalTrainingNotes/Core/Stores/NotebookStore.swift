@@ -347,6 +347,11 @@ final class NotebookStore: ObservableObject {
 
     func deleteReflection(id: String) {
         mutate {
+            if let reflection = notebook.reflections.first(where: { $0.id == id }),
+               let sessionIdx = notebook.sessions.firstIndex(where: { $0.id == reflection.sessionId }) {
+                notebook.sessions[sessionIdx].status = .planned
+                notebook.sessions[sessionIdx].updatedAt = Date()
+            }
             notebook.reflections.removeAll { $0.id == id }
         }
     }
@@ -454,7 +459,7 @@ final class NotebookStore: ObservableObject {
     // MARK: - Bounties
 
     /// Number of training sessions required on a single goal before its bounty unlocks.
-    static let bountyUnlockSessions = 8
+    static let bountyUnlockSessions = 4
 
     /// Number of *reflected* sessions for this goal. A session only counts toward the bounty
     /// once the user has reflected on it (i.e. it's marked done with a saved reflection).
@@ -651,7 +656,156 @@ final class NotebookStore: ObservableObject {
             notebook.sessions = []
             notebook.reflections = []
             notebook.notes = []
+            notebook.bounties = []
+            notebook.competitions = []
             notebook.profile = nil
+        }
+    }
+
+    /// DEBUG/QA: populates the notebook with realistic BJJ training data so every
+    /// section of the Home screen renders with content. Triggered by
+    /// `SEED_DEMO_DATA` launch environment variable.
+    func seedDemoDataDEBUG() {
+        guard notebook.goals.isEmpty else { return }
+
+        let cal = Calendar.current
+        let acct = notebook.accountId
+
+        func daysAgo(_ n: Int) -> Date {
+            cal.date(byAdding: .day, value: -n, to: Date()) ?? Date()
+        }
+        func daysFromNow(_ n: Int) -> Date {
+            cal.date(byAdding: .day, value: n, to: Date()) ?? Date()
+        }
+
+        // — Goals —
+
+        let g1 = TrainingGoal(id: "seed-g1", accountId: acct, name: "Closed Guard", iconName: "shield.fill", colorName: "indigo",
+                              createdAt: daysAgo(42))
+        let g2 = TrainingGoal(id: "seed-g2", accountId: acct, name: "Passing", iconName: "arrow.up.right", colorName: "mint",
+                              createdAt: daysAgo(35))
+        let g3 = TrainingGoal(id: "seed-g3", accountId: acct, name: "Takedowns", iconName: "custom.leg", colorName: "coral",
+                              createdAt: daysAgo(21))
+
+        // — Tasks —
+
+        let t1a = TrainingTask(id: "seed-t1a", goalId: g1.id, name: "Break their posture",
+                               notes: "Two-on-one collar grip, pull elbows to mat. Keep hips close.", createdAt: daysAgo(42))
+        let t1b = TrainingTask(id: "seed-t1b", goalId: g1.id, name: "Hip escape to angle",
+                               notes: "Shrimp to the side before attacking. Creates space for sweeps and subs.", createdAt: daysAgo(40))
+        let t1c = TrainingTask(id: "seed-t1c", goalId: g1.id, name: "Sweep off the hook",
+                               notes: "Scissor sweep when they post. Flower sweep as follow-up if they resist.", createdAt: daysAgo(38))
+
+        let t2a = TrainingTask(id: "seed-t2a", goalId: g2.id, name: "Knee slice pass",
+                               notes: "Lead knee across thigh, cross-face pressure, underhook the far arm.", createdAt: daysAgo(35))
+        let t2b = TrainingTask(id: "seed-t2b", goalId: g2.id, name: "Torreando footwork",
+                               notes: "Grip both pant legs, push to one side, step around. Speed over strength.", createdAt: daysAgo(33))
+        let t2c = TrainingTask(id: "seed-t2c", goalId: g2.id, name: "Leg drag finish",
+                               notes: "Pin their leg across your hip line with your forearm. Settle into side control.", createdAt: daysAgo(30))
+
+        let t3a = TrainingTask(id: "seed-t3a", goalId: g3.id, name: "Snap-down to front headlock",
+                               notes: "Quick level change, collar tie, snap them down. Transition to guillotine or go-behind.", createdAt: daysAgo(21))
+        let t3b = TrainingTask(id: "seed-t3b", goalId: g3.id, name: "Arm drag to back take",
+                               notes: "Two-on-one, pull past your hip, circle to the back. Works gi and no-gi.", createdAt: daysAgo(18))
+
+        // — Past sessions (reflected) —
+
+        let s1 = PlannedSession(id: "seed-s1", goalId: g1.id, date: daysAgo(28),
+                                taskIds: [t1a.id, t1b.id], status: .done, createdAt: daysAgo(29))
+        let r1 = Reflection(id: "seed-r1", sessionId: s1.id, date: daysAgo(28),
+                            workedText: "Posture breaks felt solid from collar grip\nHip escape timing improved a lot",
+                            stuckText: "Still getting stacked when I go for the armbar",
+                            tryNextText: "Try the pendulum sweep instead of forcing the armbar",
+                            mood: .good, createdAt: daysAgo(28))
+
+        let s2 = PlannedSession(id: "seed-s2", goalId: g2.id, date: daysAgo(21),
+                                taskIds: [t2a.id, t2b.id], status: .done, createdAt: daysAgo(22))
+        let r2 = Reflection(id: "seed-r2", sessionId: s2.id, date: daysAgo(21),
+                            workedText: "Knee slice is becoming my A-game pass\nTorreando worked great against seated guard",
+                            stuckText: "Kept getting caught in half guard during knee slice",
+                            tryNextText: "Focus on cross-face before sliding the knee through",
+                            mood: .great, createdAt: daysAgo(21))
+
+        let s3 = PlannedSession(id: "seed-s3", goalId: g1.id, date: daysAgo(14),
+                                taskIds: [t1b.id, t1c.id], status: .done, createdAt: daysAgo(15))
+        let r3 = Reflection(id: "seed-r3", sessionId: s3.id, date: daysAgo(14),
+                            workedText: "Scissor sweep landed 3 times in rolling",
+                            stuckText: "Flower sweep timing is off — they keep posting",
+                            tryNextText: "Drill the flower sweep entry 20 reps before rolling",
+                            mood: .good, isFavorite: true, createdAt: daysAgo(14))
+
+        let s4 = PlannedSession(id: "seed-s4", goalId: g3.id, date: daysAgo(7),
+                                taskIds: [t3a.id, t3b.id], status: .done, createdAt: daysAgo(8))
+        let r4 = Reflection(id: "seed-r4", sessionId: s4.id, date: daysAgo(7),
+                            workedText: "Snap-down is becoming reflexive\nArm drag worked twice on a bigger partner",
+                            stuckText: "Getting sprawled on when I commit too early",
+                            tryNextText: "Set up the snap with a push-pull sequence first",
+                            mood: .neutral, createdAt: daysAgo(7))
+
+        let s5 = PlannedSession(id: "seed-s5", goalId: g2.id, date: daysAgo(3),
+                                taskIds: [t2a.id, t2c.id], status: .done, createdAt: daysAgo(4))
+        let r5 = Reflection(id: "seed-r5", sessionId: s5.id, date: daysAgo(3),
+                            workedText: "Leg drag felt really smooth today\nChained knee slice → leg drag when they re-guarded",
+                            stuckText: "Lost position when I rushed the pass",
+                            mood: .great, createdAt: daysAgo(3))
+
+        // — Extra Closed Guard sessions to unlock bounty (need 8 total) —
+
+        let s6 = PlannedSession(id: "seed-s6", goalId: g1.id, date: daysAgo(56),
+                                taskIds: [t1a.id], status: .done, createdAt: daysAgo(57))
+        let r6 = Reflection(id: "seed-r6", sessionId: s6.id, date: daysAgo(56),
+                            workedText: "First day drilling posture breaks — got the grip concept",
+                            stuckText: "Kept reaching too high on the collar",
+                            mood: .neutral, createdAt: daysAgo(56))
+
+        let s7 = PlannedSession(id: "seed-s7", goalId: g1.id, date: daysAgo(49),
+                                taskIds: [t1a.id, t1b.id], status: .done, createdAt: daysAgo(50))
+        let r7 = Reflection(id: "seed-r7", sessionId: s7.id, date: daysAgo(49),
+                            workedText: "Hip escape feels more natural now",
+                            stuckText: "Still bridging instead of shrimping under pressure",
+                            tryNextText: "Focus on elbow-knee connection during the shrimp",
+                            mood: .good, createdAt: daysAgo(49))
+
+        let s8 = PlannedSession(id: "seed-s8", goalId: g1.id, date: daysAgo(42),
+                                taskIds: [t1b.id, t1c.id], status: .done, createdAt: daysAgo(43))
+        let r8 = Reflection(id: "seed-r8", sessionId: s8.id, date: daysAgo(42),
+                            workedText: "Scissor sweep is clicking — landed it twice on a blue belt",
+                            stuckText: "Timing the sweep when they stand is tricky",
+                            mood: .great, createdAt: daysAgo(42))
+
+        let s9 = PlannedSession(id: "seed-s9", goalId: g1.id, date: daysAgo(35),
+                                taskIds: [t1a.id, t1c.id], status: .done, createdAt: daysAgo(36))
+        let r9 = Reflection(id: "seed-r9", sessionId: s9.id, date: daysAgo(35),
+                            workedText: "Posture break → sweep combo is becoming a real sequence",
+                            stuckText: "Bigger guys just posture up through my grips",
+                            tryNextText: "Try overhook guard against bigger opponents",
+                            mood: .good, createdAt: daysAgo(35))
+
+        let s10 = PlannedSession(id: "seed-s10", goalId: g1.id, date: daysAgo(24),
+                                 taskIds: [t1b.id], status: .done, createdAt: daysAgo(25))
+        let r10 = Reflection(id: "seed-r10", sessionId: s10.id, date: daysAgo(24),
+                             workedText: "Hip escape to angle created back-take opportunities",
+                             stuckText: "Got flattened out a couple times before I could angle",
+                             mood: .good, createdAt: daysAgo(24))
+
+        let s11 = PlannedSession(id: "seed-s11", goalId: g1.id, date: daysAgo(17),
+                                 taskIds: [t1a.id, t1b.id, t1c.id], status: .done, createdAt: daysAgo(18))
+        let r11 = Reflection(id: "seed-r11", sessionId: s11.id, date: daysAgo(17),
+                             workedText: "Full chain worked: break posture → hip escape → sweep\nBest closed guard day yet",
+                             stuckText: "Still giving up the guard when they stack hard",
+                             tryNextText: "Drill the shoulder walk escape from stacking",
+                             mood: .great, isFavorite: true, createdAt: daysAgo(17))
+
+        // — Upcoming session (the hero card) —
+
+        let sNext = PlannedSession(id: "seed-sNext", goalId: g1.id, date: daysFromNow(0),
+                                   taskIds: [t1a.id, t1b.id, t1c.id], createdAt: daysAgo(1))
+
+        mutate {
+            notebook.goals = [g1, g2, g3]
+            notebook.tasks = [t1a, t1b, t1c, t2a, t2b, t2c, t3a, t3b]
+            notebook.sessions = [s6, s7, s8, s9, s10, s11, s1, s2, s3, s4, s5, sNext]
+            notebook.reflections = [r6, r7, r8, r9, r10, r11, r1, r2, r3, r4, r5]
         }
     }
 #endif

@@ -26,18 +26,30 @@ struct HomeView: View {
     @State private var sheet: HomeSheet?
     @State private var homeTab: HomeSubTab = .upcoming
     @State private var bountyLockedExpanded = false
+    @State private var sessionToDelete: PlannedSession?
 
     private var cal: Calendar { Calendar.current }
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(
-                titleLead: "Your",
-                titleAccent: "progress",
-                accent: AppColors.indigo,
-                titleSize: 26
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .center) {
+                ScreenHeader(
+                    titleLead: "Your",
+                    titleAccent: "progress",
+                    accent: AppColors.indigo,
+                    titleSize: 26
+                )
+                Spacer()
+                streakBadge
+                Button(action: { sheet = .settings }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(AppColors.secondaryLabel)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
             .padding(.horizontal, 16)
             .padding(.top, 14)
             .padding(.bottom, 8)
@@ -53,6 +65,7 @@ struct HomeView: View {
             }
         }
         .background(AppColors.background.edgesIgnoringSafeArea(.all))
+        .overlay(deleteSessionDialog)
         .sheet(item: $sheet) { which in
             switch which {
             case .settings:
@@ -102,13 +115,32 @@ struct HomeView: View {
         .buttonStyle(PlainButtonStyle())
     }
 
+    @ViewBuilder
+    private var deleteSessionDialog: some View {
+        if sessionToDelete != nil {
+            ConfirmDialog(
+                title: "Delete Session",
+                message: "This training session will be permanently deleted.",
+                onConfirm: {
+                    if let s = sessionToDelete {
+                        store.deleteSession(id: s.id)
+                    }
+                    sessionToDelete = nil
+                },
+                onCancel: {
+                    sessionToDelete = nil
+                }
+            )
+        }
+    }
+
     private var upcomingTrainingContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                streakHeader
-                bountyCard
-                nextSessionSection
+                weekTimelineBar
+                heroNextSession
                     .zIndex(3)
+                bountyCard
                 latestEntrySection
                     .zIndex(2)
                 patternsSection
@@ -120,112 +152,260 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Streak header
+    // MARK: - Streak badge
 
-    private var streakHeader: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center) {
-                ScreenHeader(
-                    titleLead: "🔥 \(trainingStreak) week",
-                    titleAccent: "streak",
-                    onDark: true,
-                    titleSize: 26
-                )
-                Spacer()
-                Button(action: { sheet = .settings }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(.white.opacity(0.9))
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-
-            Divider().background(Color.white.opacity(0.25))
-
-            weekTimeline
-
-            HStack(spacing: 18) {
-                ZStack {
-                    Circle().stroke(Color.white.opacity(0.25), lineWidth: 6).frame(width: 80, height: 80)
-                    Circle()
-                        .trim(from: 0, to: ringFraction)
-                        .stroke(Color.white, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: 80, height: 80)
-                    Text("\(completedAllTime)")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(completedAllTime) / \(totalSessionsAllTime)")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                    Text("mat sessions")
-                        .font(.matMindBody(size: 14))
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text("\(totalReflections)")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                        Image(systemName: "text.bubble.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(AppColors.mint)
-                    }
-                    Text("reflections")
-                        .font(.matMindBody(size: 14))
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                Spacer()
-            }
-
-            if bountyCount > 0 {
-                Button(action: { sheet = .collection }) {
-                    HStack(spacing: 6) {
-                        Text("🏆 \(bountyCount) \(bountyCount == 1 ? "bounty" : "bounties") collected")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.white.opacity(0.18)))
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
+    private var streakBadge: some View {
+        let weeks = trainingStreak
+        return HStack(spacing: 3) {
+            Text("🔥")
+                .font(.system(size: 13))
+            Text("\(weeks)wk")
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundColor(AppColors.label)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
         .background(
-            LinearGradient(
-                gradient: Gradient(colors: [AppColors.headerGradientTop, AppColors.headerGradientBottom]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Capsule().fill(AppColors.cardBackground)
+                .overlay(Capsule().stroke(AppColors.cardBorder, lineWidth: 1))
         )
-        .cornerRadius(24)
     }
 
-    private var weekTimeline: some View {
-        HStack(spacing: 6) {
-            ForEach(Array(timelineWeeks.enumerated()), id: \.offset) { _, wk in
-                let trained = doneWeeks.contains(wk)
-                VStack(spacing: 6) {
-                    Text(weekLabel(wk))
-                        .font(.system(size: 10, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
-                        .lineLimit(1)
-                        .fixedSize()
+    // MARK: - Week timeline bar
+
+    private var weekTimelineBar: some View {
+        let weeks = timelineWeeks
+        return VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                ForEach(Array(weeks.enumerated()), id: \.offset) { idx, wk in
+                    let trained = doneWeeks.contains(wk)
+                    let isFuture = wk > cal.mondayStartOfWeek(containing: Date())
                     Capsule()
-                        .fill(trained ? AppColors.mint : Color.white.opacity(0.22))
-                        .frame(height: 6)
+                        .fill(trained ? AppColors.mint : AppColors.label.opacity(0.10))
+                        .opacity(isFuture ? 0.55 : 1)
+                        .frame(height: 5)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+            }
+            HStack(spacing: 6) {
+                ForEach(Array(weeks.enumerated()), id: \.offset) { idx, wk in
+                    let mo = cal.component(.month, from: wk)
+                    let prevMo = idx > 0 ? cal.component(.month, from: weeks[idx - 1]) : -1
+                    let showLabel = idx == 0 || mo != prevMo
+                    Text(showLabel ? timelineMonthLabel(wk) : " ")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundColor(AppColors.tertiaryLabel)
+                        .frame(maxWidth: .infinity)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+        .background(RoundedRectangle(cornerRadius: 14).fill(AppColors.secondaryBackground))
+    }
+
+    private func timelineMonthLabel(_ date: Date) -> String {
+        let month = MonthStatsFormat.monthAbbrev.string(from: date)
+        let yr = cal.component(.year, from: date) % 100
+        return "\(month) '\(String(format: "%02d", yr))"
+    }
+
+    // MARK: - Hero Next Session
+
+    @ViewBuilder
+    private var heroNextSession: some View {
+        if nextSessions.isEmpty {
+            // Empty state
+            VStack(spacing: 12) {
+                Text("Nothing planned yet.")
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button(action: onPlanTraining) {
+                    Text("Plan Training")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.indigo))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
+        } else {
+            ForEach(nextSessions) { session in
+                heroSessionCard(session)
+            }
+        }
+    }
+
+    private func heroSessionCard(_ session: PlannedSession) -> some View {
+        let goal = store.goal(id: session.goalId)
+        let tasks = session.taskIds.compactMap { store.task(id: $0) }
+        let reflected = store.reflection(forSessionId: session.id) != nil
+
+        return VStack(alignment: .leading, spacing: 0) {
+            // Eyebrow + date
+            HStack {
+                HStack(spacing: 7) {
+                    Circle().fill(AppColors.mint).frame(width: 8, height: 8)
+                    Text("NEXT SESSION")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                Spacer()
+                Text(nextSessionLabel)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 18)
+            .padding(.bottom, 14)
+
+            // Goal name
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.18)).frame(width: 34, height: 34)
+                    GoalIconImage(name: goal?.iconName ?? "target", color: .white, size: 18)
+                }
+                Text(goal?.name ?? "No goal")
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if #available(iOS 14.0, *) {
+                    Menu {
+                        Button(action: { sheet = .editSession(session) }) {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        Button(action: { sessionToDelete = session }) {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.7))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                } else {
+                    Button(action: { sheet = .editSession(session) }) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.7))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 14)
+
+            // Tasks
+            ForEach(tasks) { task in
+                Rectangle().fill(Color.white.opacity(0.15)).frame(height: 1)
+                heroTaskRow(task)
+            }
+
+            Rectangle().fill(Color.white.opacity(0.15)).frame(height: 1)
+
+            // Reflect button
+            Button(action: { onReflect(session.id) }) {
+                HStack(spacing: 6) {
+                    Text(reflected ? "Reflected" : "Reflect after class")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.indigo)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(AppColors.indigo)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(Capsule().fill(Color.white))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [AppColors.headerGradientTop, AppColors.headerGradientBottom]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+    }
+
+    @ViewBuilder
+    private func heroTaskRow(_ task: TrainingTask) -> some View {
+        let images = task.imageFileNames.compactMap { fn -> UIImage? in
+            store.taskImageData(taskId: task.id, fileName: fn).flatMap(UIImage.init(data:))
+        }
+
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .top, spacing: 12) {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.white.opacity(0.55), lineWidth: 2)
+                    .frame(width: 14, height: 14)
+                    .padding(.top, 2)
+                Text(task.name)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let notes = task.notes.nilIfBlank {
+                Text(notes)
+                    .font(.matMindBody(size: 13))
+                    .foregroundColor(.white.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 26)
+            }
+
+            if let link = task.link.nilIfBlank {
+                HStack(spacing: 6) {
+                    Image(systemName: "link").font(.system(size: 12)).foregroundColor(.white.opacity(0.8))
+                    Text(link)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.8))
+                        .lineLimit(1)
+                }
+                .padding(.leading, 26)
+                .padding(.top, 2)
+            }
+
+            if !images.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(Array(images.enumerated()), id: \.offset) { _, ui in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 150)
+                            .overlay(
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFill()
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+                .padding(.leading, 26)
+                .padding(.top, 7)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Bounty
@@ -329,14 +509,9 @@ struct HomeView: View {
                     }
                 }
                 .frame(height: 6)
-                HStack(spacing: 5) {
-                    Image(systemName: "figure.martial.arts")
-                        .font(.system(size: 11))
-                        .foregroundColor(AppColors.secondaryLabel)
-                    Text("\(sessionsReflected) / \(target) sessions reflected")
-                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.secondaryLabel)
-                }
+                Text("\(sessionsReflected) / \(target) sessions reflected")
+                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.secondaryLabel)
             }
             .padding(.leading, 12)
             .padding(.vertical, 12)
@@ -466,54 +641,6 @@ struct HomeView: View {
                 }
             }
             .frame(height: 10)
-        }
-    }
-
-    // MARK: - Next Session
-
-    private var nextSessionSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Next Session")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppColors.label)
-                Spacer()
-                if !nextSessions.isEmpty {
-                    Text(nextSessionLabel)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.secondaryLabel)
-                }
-            }
-            if nextSessions.isEmpty {
-                VStack(spacing: 12) {
-                    Text("Nothing planned yet.")
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.secondaryLabel)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button(action: onPlanTraining) {
-                        Text("Plan Training")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.indigo))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 16).fill(AppColors.cardBackground))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
-            } else {
-                ForEach(nextSessions) { session in
-                    PlannedSessionCard(
-                        store: store,
-                        session: session,
-                        onReflect: { onReflect(session.id) },
-                        onEdit: { sheet = .editSession(session) },
-                        onDelete: { store.deleteSession(id: session.id) }
-                    )
-                }
-            }
         }
     }
 

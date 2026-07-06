@@ -13,6 +13,7 @@ struct PlannedSessionCard: View {
     var onDelete: () -> Void
 
     @State private var menuOpen = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         let goal = store.goal(id: session.goalId)
@@ -46,6 +47,24 @@ struct PlannedSessionCard: View {
         )
         .shadow(color: color.opacity(0.20), radius: 15, x: 0, y: 10)
         .overlay(menuOverlay, alignment: .topTrailing)
+        .overlay(deleteConfirmOverlay)
+    }
+
+    @ViewBuilder
+    private var deleteConfirmOverlay: some View {
+        if showDeleteConfirm {
+            ConfirmDialog(
+                title: "Delete Session",
+                message: "This training session will be permanently deleted.",
+                onConfirm: {
+                    showDeleteConfirm = false
+                    onDelete()
+                },
+                onCancel: {
+                    showDeleteConfirm = false
+                }
+            )
+        }
     }
 
     // MARK: - Hairline divider
@@ -88,20 +107,24 @@ struct PlannedSessionCard: View {
     // MARK: - Reflect footer (text link, like "View Spending ›")
 
     private func reflectFooter(_ color: Color, reflected: Bool) -> some View {
-        Button(action: onReflect) {
+        let isFuture = Calendar.current.startOfDay(for: session.date) > Calendar.current.startOfDay(for: Date())
+        let disabled = isFuture && !reflected
+
+        return Button(action: onReflect) {
             HStack(spacing: 6) {
                 Text(reflected ? "Reflected" : "Reflect after class")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundColor(color)
+                    .foregroundColor(disabled ? AppColors.tertiaryLabel : color)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(color)
+                    .foregroundColor(disabled ? AppColors.tertiaryLabel : color)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+        .disabled(disabled)
     }
 
     // MARK: - Task row (flat, hairline-separated)
@@ -191,7 +214,7 @@ struct PlannedSessionCard: View {
                     Divider().padding(.horizontal, 10)
                     menuRow(icon: "trash", label: "Delete", color: AppColors.coral) {
                         menuOpen = false
-                        onDelete()
+                        showDeleteConfirm = true
                     }
                 }
                 .background(AppColors.background)

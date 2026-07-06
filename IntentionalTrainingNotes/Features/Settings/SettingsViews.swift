@@ -16,7 +16,9 @@ struct SettingsSheet: View {
                         openAppStoreRating()
                     }
                     settingsRow(icon: "envelope.fill", iconColor: AppColors.indigo, label: "Feedback", showDivider: false) {
-                        // Placeholder — no action yet
+                        if let url = URL(string: "https://forms.gle/vGjxSykNkj1Rdq3x7") {
+                            UIApplication.shared.open(url)
+                        }
                     }
                 }
                 .background(RoundedRectangle(cornerRadius: 14).fill(Color(.systemBackground)))

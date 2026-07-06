@@ -133,8 +133,9 @@ extension NotebookStore {
     /// Distinct months that contain any training content, plus the current month,
     /// sorted newest-first. Powers the month picker and recent-months rail.
     func availableStatMonths(_ calendar: Calendar = .current) -> [MonthKey] {
+        let reflectedSessionIds = Set(notebook.reflections.map { $0.sessionId })
         var set = Set<MonthKey>()
-        for s in notebook.sessions where s.status == .done { set.insert(MonthKey(date: s.date, calendar: calendar)) }
+        for s in notebook.sessions where reflectedSessionIds.contains(s.id) { set.insert(MonthKey(date: s.date, calendar: calendar)) }
         for r in notebook.reflections { set.insert(MonthKey(date: r.date, calendar: calendar)) }
         for b in notebook.bounties {
             set.insert(MonthKey(date: b.createdAt, calendar: calendar))
@@ -145,7 +146,8 @@ extension NotebookStore {
     }
 
     func monthStats(for month: MonthKey, calendar: Calendar = .current) -> MonthStats {
-        let doneSessions = notebook.sessions.filter { $0.status == .done }
+        let reflectedSessionIds = Set(notebook.reflections.map { $0.sessionId })
+        let doneSessions = notebook.sessions.filter { reflectedSessionIds.contains($0.id) }
 
         let monthSessions = doneSessions.filter { month.contains($0.date, calendar) }
         let prevMonth = month.adding(months: -1, calendar)

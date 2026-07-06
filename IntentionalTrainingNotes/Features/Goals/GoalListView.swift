@@ -19,7 +19,7 @@ struct GoalListView: View {
                         titleAccent: "goals",
                         subtitle: "What are you working on right now?",
                         accent: AppColors.indigo,
-                        titleSize: 21
+                        titleSize: 26
                     )
                     Spacer()
                     Button(action: {

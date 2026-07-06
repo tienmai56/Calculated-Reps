@@ -167,8 +167,8 @@ struct BottomTabsView: View {
     var body: some View {
         HStack(spacing: 2) {
             pillItem(title: "Home", icon: active == .home ? "house.fill" : "house", isActive: active == .home, action: onHome)
-            pillItem(title: "Goals", icon: "target", isActive: active == .goals, action: onGoals)
             pillItem(title: "Plan", icon: active == .plan ? "calendar.circle.fill" : "calendar", isActive: active == .plan, action: onPlan)
+            pillItem(title: "Goals", icon: "target", isActive: active == .goals, action: onGoals)
         }
         .padding(6)
         .background(
