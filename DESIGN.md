@@ -1,8 +1,8 @@
-# DESIGN.md — Mat Mind Design System
+# DESIGN.md — Grip Gorillas Design System
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
-> Version 1.0.0 · Last updated 2026-11-02
+> Version 1.1.0 · Last updated 2026-11-02
 
 ## Contents
 1. Product
@@ -19,13 +19,13 @@
 ---
 
 ## 1. Product
-**Mat Mind** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
+**Grip Gorillas** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
 One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Friends, Profile) and a center **Plan a session** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
-- **No logo exists.** The name is set as a lowercase wordmark, "mat mind." in Bricolage Grotesque 800 with a coral period. Do not invent a mark.
+- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "grip gorillas." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. The product was renamed from Mat Mind to **Grip Gorillas** in v1.1.0. Two internal iOS storage keys (`matmind.hasCompletedOnboarding`, `matmind.reflection.reminder`) keep the old prefix on purpose so existing installs keep their state.
 - Fonts (Google Fonts, self-hosted in `assets/fonts/`): **Bricolage Grotesque** (display), **Archivo** (body), **JetBrains Mono** (codes/links only).
 - Icons: **Lucide v0.454.0** (ISC), copied from `lucide-static` into `assets/icons/` and embedded in `design-system/components/core/Icon.jsx`.
 - Photos: Unsplash (free license), 10 training photos in `assets/photos/`. Swap for real community photos when available.
@@ -35,7 +35,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 |---|---|
 | `DESIGN.md` | This spec |
 | `README.md` | Short introduction |
-| `.claude/skills/mat-mind-design/SKILL.md` | Agent skill: core rules and guardrails, loaded by Claude Code |
+| `.claude/skills/grip-gorillas-design/SKILL.md` | Agent skill: core rules and guardrails, loaded by Claude Code |
 | `.claude/design-system-spec.json` | Machine-readable tokens, palettes, component parameters |
 | `styles.css` | Global CSS entry point, `@import`s only |
 | `design-system/tokens/` | `fonts.css`, `colors.css`, `typography.css`, `spacing.css`, `base.css` (CSS custom properties on `:root`) |
@@ -43,6 +43,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 | `design-system/components/` | React primitives (`.jsx` + `.d.ts` + `.prompt.md`), one preview `*.card.html` per group |
 | `guidelines/` | Foundation specimen cards (HTML) |
 | `ui_kits/app/` | `index.html` interactive prototype, `flows.html` IA & journeys |
+| `assets/brand/` | Logo: `logo-mark.svg`, `logo-mark-mono.svg`, `app-icon.svg`, `app-icon-1024.png`, `logo-lockup.svg` |
 | `assets/fonts/`, `assets/icons/`, `assets/photos/` | Webfonts, Lucide SVGs, sample photos |
 
 ## 3. Tokens
@@ -259,12 +260,32 @@ Voice: **your favorite training partner.** Warm, a little cheeky, mat-literate, 
 - **Transparency & blur:** the bottom TabBar (white 90% + 20px blur), the dialog overlay (ink 48%), and overlay icon buttons on photos (white 88%).
 - **Layout:** status bar, screen header (large 32px Bricolage title on tabs, centered 18px on pushed screens), a scrolling body, then a sticky footer CTA on task screens or the 86px TabBar on tabs.
 
+### 5.1 Logo — the Silverback
+A calm, front-facing gorilla head built from simple geometry: an ink head, a paper-3 face, a pill-shaped brow band, narrow eyes, two nostrils and a flat mouth. Strong, steady, a little cheeky; never snarling, never cute (no big round eyes, no smile).
+
+| File | Use |
+|---|---|
+| `assets/brand/logo-mark.svg` | Default mark: ink head, `--paper-3` face, **coral brow**. On paper, white, or sun backgrounds. |
+| `assets/brand/logo-mark-mono.svg` | Ink brow. On coral backgrounds and for one-color print. |
+| `assets/brand/app-icon.svg` | 1024² app icon: default mark on **sun #FFC93C**. Also the reversed logo on ink or photos (as a rounded tile). |
+| `assets/brand/app-icon-1024.png` | Opaque 1024² PNG render of the app icon, used by the iOS `AppIcon` set. Re-render it from the SVG if the SVG changes. |
+| `assets/brand/logo-lockup.svg` | Horizontal lockup: mark + "grip gorillas." wordmark. |
+
+- **Colors:** ink `#1D1B18`, paper-3 `#E9E0D1`, coral `#FF5C39` brow; app icon ground sun `#FFC93C`. Nothing else.
+- **Lockup:** mark left of the wordmark, mark height ≈ 1.7× the wordmark cap height, gap ≈ 0.3× mark height. The wordmark is always lowercase with a coral period (ink period on coral).
+- **Clear space:** at least the brow band's height on every side.
+- **Minimum size:** mark 24px tall; lockup 120px wide; below that use the mark alone.
+- **Don't:** recolor the head, swap the brow to belt or friend hues, add outlines, shadows, gradients, or expressions, rotate it, place the ink head directly on ink (use the app-icon tile), or redraw it. Use the files.
+- **In code:** use the `Logo` component (`design-system/components/core/Logo.jsx`, variants `mark` / `mono` / `appIcon` / `lockup` / `lockupInverse`). It draws from tokens, so no asset paths are needed.
+- **In the app:** the mark appears on the splash screen, onboarding and empty states; the tab-screen headers keep the plain Bricolage title. One logo per screen at most.
+
 ## 6. Components
 React primitives live in `design-system/components/<group>/`. Each has `Name.jsx` (named export), `Name.d.ts` (props contract), and `Name.prompt.md` (usage). Styling comes only from the CSS variables, with no CSS-in-JS libraries and no npm dependencies besides React.
 
 | Component | Key parameters |
 |---|---|
 | **Button** | variants: primary / secondary / soft / ghost / inverse / danger · sizes: sm 36, md 48, lg 56 · radius: pill · font: display 700 · pressEdge: 3px accent-shade, sinks 2px on press |
+| **Logo** | variants: mark / mono / appIcon / lockup / lockupInverse · size: mark height or tile side, default 40, min 24 · tile: sun-400, radius 22.5% |
 | **IconButton** | variants: ghost / filled / accent / overlay / inverse · defaultSize: 44 · press: scale(.86) ease-bounce |
 | **Input** | minHeight: 50 · radius: md · border: 1.5px border-default · focus: border-focus + 4px accent-tint ring |
 | **Select** | height: 50 · radius: md |
@@ -284,7 +305,7 @@ React primitives live in `design-system/components/<group>/`. Each has `Name.jsx
 | **Toast** | shape: ink pill · variants: default / success / danger / streak / friend · autoDismissMs: 2600 |
 | **Tooltip** | surface: ink-900 · radius: 10 |
 
-Groups: **core/** Button, IconButton, Icon · **forms/** Input, Select, Checkbox, Radio, Switch · **display/** Belt, Avatar, AvatarStack, StreakBelt, Badge, Tag, Card · **navigation/** Tabs, TabBar · **feedback/** Dialog, Toast, Tooltip.
+Groups: **core/** Button, IconButton, Icon, Logo · **forms/** Input, Select, Checkbox, Radio, Switch · **display/** Belt, Avatar, AvatarStack, StreakBelt, Badge, Tag, Card · **navigation/** Tabs, TabBar · **feedback/** Dialog, Toast, Tooltip.
 
 Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candidates for promotion): **TapeLabel**, **PairAvatars**, **SessionTicket**, **PhotoTile**.
 
@@ -300,6 +321,7 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invit
 
 | # | Screen | Prototype file |
 |---|---|---|
+| 0 | Welcome / Google sign-up and login | `Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift` (native), `Prototypes/WelcomePreview/` (browser companion) |
 | 1 | Activity feed | `ui_kits/app/Activity.jsx` |
 | 2 | Upcoming training (+ empty state) | `ui_kits/app/Training.jsx` |
 | 3 | Create training session (plan / log past) | `ui_kits/app/Create.jsx` |
@@ -315,6 +337,28 @@ Journeys:
 - **C — Keep a streak:** Friends → active streak → friend profile → invite → complete together → streak +1.
 
 Streak rule: a week counts when two friends both participate in ≥1 **completed** session together within the same Mon–Sun calendar week; consecutive weeks extend the streak.
+
+### Session focus outline
+
+Session planning keeps its existing form layout and controls. A compact **Add a focus** action beside Add a note expands the optional **What are we working on?** section. The browser companion must mirror the original date carousel, time pills, gym chips, friend grid, and privacy controls rather than replacing them with a summary. Use white focus groups on the paper canvas, Archivo body text, Lucide notebook / chevron icons, a quiet coral Add a detail action, and the existing pill buttons. Big idea first, details underneath. Adding a detail uses the existing bounce motion and respects Reduce Motion.
+
+Any item can have children; keep stable IDs, retain sibling order, and visually cap indentation to preserve room for text and 44pt controls. Label deeper levels explicitly. Suggestions only populate content when selected; never pre-fill a real user's plan. Named items are required when present; no content at all is allowed.
+
+Removing a branch requires confirmation and removes all descendants; cancel preserves the branch. The organizer can edit the session's outline. Store it with the session and copy it to the completed post so publication does not discard the plan. Read-only outlines retain the same hierarchy. No technique scoring, rankings, completion counters, or free-form posts are added.
+
+Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Browser companion: `Prototypes/FocusPreview/`.
+
+### Empty Activity and Training
+
+Use the paper canvas with a small photo-memory frame for Activity and an undated ticket for Training, reusing existing typography, surfaces, icons, and pill actions. No placeholder people, fake dates, zero-stat dashboards, or loading skeletons.
+
+- No completed posts or plans: “Good memories start on the mat.” Plan a training session; add existing friends by QR as the secondary action when needed.
+- Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses Complete & share instead.
+- No upcoming sessions/invitations: “Make it a mat date.” Plan a training session; Already trained? Log it is secondary.
+- No personal past sessions: offer Log a past session.
+- An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
+
+Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
 
 ## 9. Guardrails
 **Always**
@@ -338,11 +382,11 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 - Emoji in UI chrome.
 - Gradients as decoration.
 - Pure black text.
-- Invented logo.
+- Altered, redrawn or recolored logo (use `assets/brand/` files as-is).
 
 **Product constraints (MVP)**
 - Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
-- Join sessions only via invitation, direct addition, or a valid link (Mat Mind account required), never from the feed.
+- Join sessions only via invitation, direct addition, or a valid link (Grip Gorillas account required), never from the feed.
 - Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
 - Friends connect instantly via QR, with no requests or approvals.
 

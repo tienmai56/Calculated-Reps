@@ -64,7 +64,7 @@ struct GoalListView: View {
                 if store.activeGoals.count > 1 {
                     HStack(spacing: 5) {
                         Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
-                        Text("tap a goal to expand its tasks").font(.matMindBody(size: 14))
+                        Text("tap a goal to expand its tasks").font(.gripGorillasBody(size: 14))
                     }
                     .foregroundColor(AppColors.tertiaryLabel)
                     .frame(maxWidth: .infinity)
@@ -196,7 +196,7 @@ struct GoalCard: View {
                     .foregroundColor(AppColors.label)
                 if isExpanded {
                     Text("\(tasks.count) \(tasks.count == 1 ? "task" : "tasks")")
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                 } else {
                     HStack(spacing: 10) {
@@ -238,7 +238,7 @@ struct GoalCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Trained this week")
-                    .font(.matMindBody(size: 15))
+                    .font(.gripGorillasBody(size: 15))
                     .foregroundColor(AppColors.secondaryLabel)
                 Spacer()
                 Text("\(trained) / \(tasks.count)")
@@ -306,12 +306,12 @@ struct GoalCard: View {
         VStack(alignment: .leading, spacing: 12) {
             if let notes = task.notes.nilIfBlank {
                 Text(notes)
-                    .font(.matMindBody(size: 16))
+                    .font(.gripGorillasBody(size: 16))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("No notes yet")
-                    .font(.matMindBody(size: 15))
+                    .font(.gripGorillasBody(size: 15))
                     .foregroundColor(AppColors.tertiaryLabel)
             }
             if !task.imageFileNames.isEmpty {
@@ -332,14 +332,17 @@ struct GoalCard: View {
                     }
                 }
             }
-            if let link = task.link.nilIfBlank {
-                HStack(spacing: 8) {
-                    Image(systemName: "link").font(.system(size: 13)).foregroundColor(color)
-                    Text(link).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color).lineLimit(1)
-                    Spacer()
+            if let link = task.link.nilIfBlank, let url = URL(string: link) {
+                Button(action: { UIApplication.shared.open(url) }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "link").font(.system(size: 13)).foregroundColor(color)
+                        Text(link).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color).lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.secondaryBackground))
                 }
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.secondaryBackground))
+                .buttonStyle(PlainButtonStyle())
             }
             if reflCount > 0 {
                 viewAllReflectionsCTA(taskId: task.id, count: reflCount)

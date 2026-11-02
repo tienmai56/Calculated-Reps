@@ -1,0 +1,42 @@
+name: Mat Mind checks
+on:
+  pull_request:
+  push:
+    branches: [main, claude/great-pascal-iw1wg3]
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select an available iPhone simulator
+        run: |
+          xcrun simctl list devices available --json > /tmp/simulators.json
+          python3 - <<'PY'
+          import json, os
+          devices = json.load(open('/tmp/simulators.json'))['devices']
+          candidates = [d for runtime, rows in devices.items() if 'iOS' in runtime for d in rows if 'iPhone' in d['name']]
+          assert candidates, 'No iOS simulator is installed'
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('SIMULATOR_ID=' + candidates[0]['udid'] + '\n')
+          PY
+      - name: Build shared prototype UI
+        run: xcodebuild -scheme MatMindPrototype -destination "platform=iOS Simulator,id=$SIMULATOR_ID" CODE_SIGNING_ALLOWED=NO build
+      - name: Build and test
+        run: xcodebuild -scheme IntentionalTrainingNotes -destination "platform=iOS Simulator,id=$SIMULATOR_ID" CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO test
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: local-test-password
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate migrations and authorization
+        env:
+          PGPASSWORD: local-test-password
+        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1

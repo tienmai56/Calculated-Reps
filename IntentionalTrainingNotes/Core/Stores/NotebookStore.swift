@@ -8,6 +8,7 @@ final class NotebookStore: ObservableObject {
 
     let persistence: NotebookPersistence
     private let calendar: Calendar
+    private var loadFailed = false
 
     init(
         accountId: String = "local",
@@ -20,7 +21,8 @@ final class NotebookStore: ObservableObject {
             self.notebook = try persistence.load(accountId: accountId)
         } catch {
             self.notebook = TrainingNotebook(accountId: accountId)
-            self.errorMessage = "Could not load saved notebook."
+            self.errorMessage = "Could not read saved training data. Original files have been preserved. Changes are disabled."
+            self.loadFailed = true
         }
     }
 
@@ -471,11 +473,11 @@ final class NotebookStore: ObservableObject {
     }
 
     /// A goal qualifies for a bounty once `bountyUnlockSessions` of its sessions have been
-    /// reflected on. `MATMIND_FORCE_BOUNTY` force-unlocks eligibility for QA.
+    /// reflected on. `GRIPGORILLAS_FORCE_BOUNTY` force-unlocks eligibility for QA.
     func isGoalBountyEligible(_ goalId: String) -> Bool {
         guard let goal = goal(id: goalId), !goal.isArchived, goal.name.nilIfBlank != nil else { return false }
         #if DEBUG
-        if ProcessInfo.processInfo.environment["MATMIND_FORCE_BOUNTY"] == "1" {
+        if ProcessInfo.processInfo.environment["GRIPGORILLAS_FORCE_BOUNTY"] == "1" {
             return notebook.sessions.contains { $0.goalId == goalId }
         }
         #endif
@@ -551,6 +553,21 @@ final class NotebookStore: ObservableObject {
         return bounty
     }
 
+    @discardableResult
+    func createBountyForGoal(goalId: String, kind: BountyKind, targetCount: Int?, targetPartner: String?) -> Bounty? {
+        guard goal(id: goalId) != nil else { return nil }
+        let bounty = Bounty(
+            accountId: notebook.accountId,
+            goalId: goalId,
+            taskId: "",
+            kind: kind,
+            targetCount: targetCount,
+            targetPartner: targetPartner?.nilIfBlank
+        )
+        mutate { notebook.bounties.append(bounty) }
+        return bounty
+    }
+
     /// Records one landing. Auto-collects the bounty when the required hits are reached.
     @discardableResult
     func recordBountyHit(id: String) -> Bounty? {
@@ -575,7 +592,7 @@ final class NotebookStore: ObservableObject {
         let end = bounty.collectedAt ?? Date()
         let sessionCount = notebook.sessions.filter {
             $0.goalId == bounty.goalId
-                && $0.taskIds.contains(bounty.taskId)
+                && (bounty.taskId.isEmpty || $0.taskIds.contains(bounty.taskId))
                 && $0.date >= calendar.startOfDay(for: bounty.createdAt)
         }.count
         let days = max(1, (calendar.dateComponents([.day], from: bounty.createdAt, to: end).day ?? 0) + 1)
@@ -584,7 +601,9 @@ final class NotebookStore: ObservableObject {
 
     /// Human-readable title, e.g. "Hit over under on Marcus, 5×".
     func bountyTitle(_ bounty: Bounty) -> String {
-        let name = task(id: bounty.taskId)?.name ?? "your technique"
+        let name = bounty.taskId.isEmpty
+            ? (goal(id: bounty.goalId)?.name ?? "your technique")
+            : (task(id: bounty.taskId)?.name ?? "your technique")
         var parts = "Hit \(name)"
         if let partner = bounty.targetPartner?.nilIfBlank {
             parts += " on \(partner)"
@@ -638,6 +657,7 @@ final class NotebookStore: ObservableObject {
     }
 
     private func mutate(_ changes: () -> Void) {
+        guard !loadFailed else { return }
         changes()
         do {
             try persistence.save(notebook)
@@ -801,11 +821,68 @@ final class NotebookStore: ObservableObject {
         let sNext = PlannedSession(id: "seed-sNext", goalId: g1.id, date: daysFromNow(0),
                                    taskIds: [t1a.id, t1b.id, t1c.id], createdAt: daysAgo(1))
 
+        // — Competitions —
+
+        var compPast = Competition(
+            id: "seed-c1", accountId: acct,
+            name: "City Open", date: daysAgo(45),
+            venue: "Downtown Rec Center", division: "White Belt Adult", rank: "Light",
+            strategy: [
+                StrategyFocus(id: "sf1", text: "Pull guard early — don't waste energy wrestling"),
+                StrategyFocus(id: "sf2", text: "Work the scissor sweep from closed guard"),
+                StrategyFocus(id: "sf3", text: "Stay calm if I end up on bottom side control")
+            ],
+            createdAt: daysAgo(52))
+        compPast.result = .win
+        compPast.wins = 3
+        compPast.losses = 1
+        compPast.draws = 0
+        compPast.placement = "Silver"
+        compPast.loggedAt = daysAgo(45)
+        compPast.mood = .great
+        compPast.workedText = "Scissor sweep worked in two of three wins — game plan paid off"
+        compPast.stuckText = "Lost the final by points, couldn't escape mount in the last minute"
+        compPast.tryNextText = "Drill mount escapes under fatigue before next comp"
+        compPast.reflectedAt = daysAgo(44)
+        compPast.strategy[0].worked = true
+        compPast.strategy[1].worked = true
+        compPast.strategy[2].worked = false
+
+        var compPast2 = Competition(
+            id: "seed-c2", accountId: acct,
+            name: "Sub Only Invitational", date: daysAgo(14),
+            venue: "Gracie Academy", division: "Beginner No-Gi", rank: "",
+            strategy: [
+                StrategyFocus(id: "sf4", text: "Arm drag to back take every chance"),
+                StrategyFocus(id: "sf5", text: "Don't stall — always be attacking")
+            ],
+            createdAt: daysAgo(21))
+        compPast2.result = .loss
+        compPast2.wins = 1
+        compPast2.losses = 2
+        compPast2.draws = 0
+        compPast2.placement = ""
+        compPast2.loggedAt = daysAgo(14)
+        compPast2.strategy[0].worked = true
+        compPast2.strategy[1].worked = false
+
+        let compUpcoming = Competition(
+            id: "seed-c3", accountId: acct,
+            name: "Summer Classic", date: daysFromNow(12),
+            venue: "Convention Center", division: "White Belt Adult", rank: "Light",
+            strategy: [
+                StrategyFocus(id: "sf6", text: "Open with collar tie snap-down"),
+                StrategyFocus(id: "sf7", text: "Chain knee slice → leg drag if they re-guard"),
+                StrategyFocus(id: "sf8", text: "Mount escapes under pressure — don't panic")
+            ],
+            createdAt: daysAgo(5))
+
         mutate {
             notebook.goals = [g1, g2, g3]
             notebook.tasks = [t1a, t1b, t1c, t2a, t2b, t2c, t3a, t3b]
             notebook.sessions = [s6, s7, s8, s9, s10, s11, s1, s2, s3, s4, s5, sNext]
             notebook.reflections = [r6, r7, r8, r9, r10, r11, r1, r2, r3, r4, r5]
+            notebook.competitions = [compPast, compPast2, compUpcoming]
         }
     }
 #endif
@@ -895,12 +972,13 @@ extension NotebookStore {
     }
 
     /// Logs the outcome and grades each strategy focus ("did the plan work?").
-    func logCompetitionResult(id: String, result: CompetitionResult, wins: Int, losses: Int, placement: String, focusWorked: [String: Bool]) {
+    func logCompetitionResult(id: String, result: CompetitionResult, wins: Int, losses: Int, draws: Int, placement: String, focusWorked: [String: Bool]) {
         guard let idx = notebook.competitions.firstIndex(where: { $0.id == id }) else { return }
         mutate {
             notebook.competitions[idx].result = result
             notebook.competitions[idx].wins = max(0, wins)
             notebook.competitions[idx].losses = max(0, losses)
+            notebook.competitions[idx].draws = max(0, draws)
             notebook.competitions[idx].placement = placement.trimmingCharacters(in: .whitespacesAndNewlines)
             notebook.competitions[idx].loggedAt = Date()
             for fIdx in notebook.competitions[idx].strategy.indices {
@@ -922,5 +1000,40 @@ extension NotebookStore {
             notebook.competitions[idx].reflectedAt = Date()
             notebook.competitions[idx].updatedAt = Date()
         }
+    }
+
+    @discardableResult
+    func addCompetitionImage(competitionId: String, imageData: Data) -> String? {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == competitionId }),
+              let jsonPersistence = persistence as? JSONNotebookPersistence else { return nil }
+        let fileName = "\(UUID().uuidString).jpg"
+        do {
+            _ = try jsonPersistence.saveCompetitionImage(accountId: notebook.accountId, competitionId: competitionId, imageData: imageData, fileName: fileName)
+        } catch {
+            errorMessage = "Could not save image."
+            return nil
+        }
+        mutate {
+            notebook.competitions[idx].imageFileNames.append(fileName)
+            notebook.competitions[idx].updatedAt = Date()
+        }
+        return fileName
+    }
+
+    func removeCompetitionImage(competitionId: String, fileName: String) {
+        guard let idx = notebook.competitions.firstIndex(where: { $0.id == competitionId }) else { return }
+        if let jsonPersistence = persistence as? JSONNotebookPersistence {
+            let url = jsonPersistence.competitionImagesDirectory(accountId: notebook.accountId, competitionId: competitionId).appendingPathComponent(fileName)
+            try? FileManager.default.removeItem(at: url)
+        }
+        mutate {
+            notebook.competitions[idx].imageFileNames.removeAll { $0 == fileName }
+            notebook.competitions[idx].updatedAt = Date()
+        }
+    }
+
+    func competitionImageData(competitionId: String, fileName: String) -> Data? {
+        guard let jsonPersistence = persistence as? JSONNotebookPersistence else { return nil }
+        return jsonPersistence.loadCompetitionImage(accountId: notebook.accountId, competitionId: competitionId, fileName: fileName)
     }
 }

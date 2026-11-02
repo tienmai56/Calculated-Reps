@@ -143,7 +143,7 @@ struct PlannedSessionCard: View {
 
             if let notes = task.notes.nilIfBlank {
                 Text(notes)
-                    .font(.matMindBody(size: 13))
+                    .font(.gripGorillasBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -175,16 +175,19 @@ struct PlannedSessionCard: View {
 
     @ViewBuilder
     private func linkRow(_ task: TrainingTask, _ color: Color) -> some View {
-        if let link = task.link.nilIfBlank {
-            HStack(spacing: 6) {
-                Image(systemName: "link").font(.system(size: 12)).foregroundColor(color)
-                Text(link)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(color)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+        if let link = task.link.nilIfBlank, let url = URL(string: link) {
+            Button(action: { UIApplication.shared.open(url) }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "link").font(.system(size: 12)).foregroundColor(color)
+                    Text(link)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(color)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 2)
             }
-            .padding(.top, 2)
+            .buttonStyle(PlainButtonStyle())
         }
     }
 
@@ -230,7 +233,7 @@ struct PlannedSessionCard: View {
     private func menuRow(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.matMindBody(size: 14)).foregroundColor(color)
+                Image(systemName: icon).font(.gripGorillasBody(size: 14)).foregroundColor(color)
                 Text(label).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color)
                 Spacer()
             }

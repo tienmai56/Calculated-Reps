@@ -120,4 +120,25 @@ final class JSONNotebookPersistence: NotebookPersistence {
         let fileURL = reflectionImagesDirectory(accountId: accountId, reflectionId: reflectionId).appendingPathComponent(fileName)
         return try? Data(contentsOf: fileURL)
     }
+
+    func competitionImagesDirectory(accountId: String, competitionId: String) -> URL {
+        rootDirectory
+            .appendingPathComponent("accounts", isDirectory: true)
+            .appendingPathComponent(accountId.sanitizedAccountId, isDirectory: true)
+            .appendingPathComponent("competition-images", isDirectory: true)
+            .appendingPathComponent(competitionId, isDirectory: true)
+    }
+
+    func saveCompetitionImage(accountId: String, competitionId: String, imageData: Data, fileName: String) throws -> URL {
+        let dir = competitionImagesDirectory(accountId: accountId, competitionId: competitionId)
+        try fileManager.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
+        let fileURL = dir.appendingPathComponent(fileName)
+        try imageData.write(to: fileURL, options: [.atomic])
+        return fileURL
+    }
+
+    func loadCompetitionImage(accountId: String, competitionId: String, fileName: String) -> Data? {
+        let fileURL = competitionImagesDirectory(accountId: accountId, competitionId: competitionId).appendingPathComponent(fileName)
+        return try? Data(contentsOf: fileURL)
+    }
 }

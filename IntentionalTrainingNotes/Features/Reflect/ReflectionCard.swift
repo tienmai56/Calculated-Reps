@@ -43,8 +43,8 @@ struct ReflectionCardView: View {
                     }
                 } else {
                     Text(goal?.name ?? "Session")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(color)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(color.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 6)
@@ -117,7 +117,7 @@ struct ReflectionCardView: View {
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(accent)
                 Text(text)
-                    .font(.matMindBody(size: 15))
+                    .font(.gripGorillasBody(size: 15))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -175,7 +175,7 @@ struct ReflectionCardView: View {
 
     private func menuRowLabel(icon: String, label: String, color: Color) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.matMindBody(size: 14)).foregroundColor(color)
+            Image(systemName: icon).font(.gripGorillasBody(size: 14)).foregroundColor(color)
             Text(label).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color)
             Spacer()
         }
@@ -212,7 +212,7 @@ struct FeedbackCardView: View {
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
                 Text("Please fix my jiu-jitsu:")
-                    .font(.matMindBody(size: 16))
+                    .font(.gripGorillasBody(size: 16))
                     .foregroundColor(Color(red: 120/255, green: 117/255, blue: 113/255))
             }
             feedbackSection("My goal", goalName)
@@ -222,7 +222,7 @@ struct FeedbackCardView: View {
             if let mood = mood {
                 HStack(spacing: 6) {
                     Text("Feeling:")
-                        .font(.matMindBody(size: 16))
+                        .font(.gripGorillasBody(size: 16))
                         .foregroundColor(Color(red: 120/255, green: 117/255, blue: 113/255))
                     Text("\(mood.glyph) \(mood.label)")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
@@ -232,7 +232,7 @@ struct FeedbackCardView: View {
             Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Thank you, see you on the mat.")
-                    .font(.matMindBody(size: 16))
+                    .font(.gripGorillasBody(size: 16))
                     .foregroundColor(Color(red: 44/255, green: 42/255, blue: 41/255))
                 Text("xoxo")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))

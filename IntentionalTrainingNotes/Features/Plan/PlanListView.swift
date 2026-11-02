@@ -22,13 +22,25 @@ struct PlanListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(
-                titleLead: "Plan your",
-                titleAccent: planTab == .training ? "training" : "competition",
-                accent: AppColors.indigo,
-                titleSize: 26
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .center) {
+                ScreenHeader(
+                    titleLead: "Plan your",
+                    titleAccent: planTab == .training ? "training" : "competition",
+                    accent: AppColors.indigo,
+                    titleSize: 26
+                )
+                Spacer()
+                if planTab == .training {
+                    Button(action: onAdd) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppColors.indigo)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
             .padding(.horizontal, 16)
             .padding(.top, 14)
             .padding(.bottom, 8)
@@ -92,19 +104,6 @@ struct PlanListView: View {
 
     private var trainingContent: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Button(action: onAdd) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(AppColors.indigo)
-                        .frame(width: 36, height: 36)
-                        .contentShape(Rectangle())
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-
             ScrollView {
                 VStack(spacing: 16) {
                     calendarCard
@@ -215,7 +214,7 @@ struct PlanListView: View {
                         Circle().stroke(AppColors.indigo, lineWidth: 1.5).frame(width: 34, height: 34)
                     }
                     Text("\(cal.component(.day, from: date))")
-                        .font(.matMindBody(size: 16))
+                        .font(.gripGorillasBody(size: 16))
                         .foregroundColor(isSelected ? .white : AppColors.label)
                 }
                 .frame(height: 34)
@@ -380,6 +379,7 @@ struct CompetitionView: View {
     // iOS 13 ActionSheet fallback (Menu requires iOS 14+)
     @State private var fallbackMenu: ActiveMenu?
     @State private var showCompNotYet = false
+    @State private var expandedReflectionId: String?
     private struct FocusRef: Identifiable { let competitionId: String; let focusId: String; var id: String { focusId } }
 
     private enum ActiveMenu: Identifiable {
@@ -493,7 +493,7 @@ struct CompetitionView: View {
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .foregroundColor(AppColors.label)
             Text("Add a tournament to plan your strategy, then log the result and reflect after.")
-                .font(.matMindBody(size: 14))
+                .font(.gripGorillasBody(size: 14))
                 .foregroundColor(AppColors.secondaryLabel)
                 .multilineTextAlignment(.center)
             Button(action: { sheet = .new }) {
@@ -618,7 +618,7 @@ struct CompetitionView: View {
                         .font(.system(size: 18, weight: .heavy, design: .rounded))
                         .foregroundColor(.white)
                     Text(dateVenue(comp))
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(.white.opacity(0.85))
                 }
                 Spacer(minLength: 0)
@@ -654,6 +654,10 @@ struct CompetitionView: View {
                     .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
             }
             .buttonStyle(PlainButtonStyle())
+
+            if comp.hasReflection && expandedReflectionId == comp.id {
+                inlineReflectionContentLight(comp)
+            }
 
             reflectFooter(comp)
         }
@@ -775,14 +779,23 @@ struct CompetitionView: View {
     }
 
     private func reflectFooter(_ comp: Competition) -> some View {
-        VStack(spacing: 0) {
+        let isExpanded = comp.hasReflection && expandedReflectionId == comp.id
+        return VStack(spacing: 0) {
             Rectangle().fill(Color.white.opacity(0.25)).frame(height: 1)
-            Button(action: { openReflect(comp) }) {
+            Button(action: {
+                if comp.hasReflection {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        expandedReflectionId = isExpanded ? nil : comp.id
+                    }
+                } else {
+                    openReflect(comp)
+                }
+            }) {
                 HStack(spacing: 6) {
                     Text(comp.hasReflection ? "Reflected" : "Reflect after competition")
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
-                    Image(systemName: "chevron.right")
+                    Image(systemName: isExpanded ? "chevron.up" : (comp.hasReflection ? "chevron.down" : "chevron.right"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
                 }
@@ -798,22 +811,36 @@ struct CompetitionView: View {
 
     @ViewBuilder
     private func pastCard(_ comp: Competition) -> some View {
-        let isWin = comp.result == .win
+        let resultLabel: String = {
+            switch comp.result {
+            case .win: return "Win"
+            case .draw: return "Draw"
+            case .loss, .none: return "Loss"
+            }
+        }()
+        let resultColor: Color = {
+            switch comp.result {
+            case .win: return AppColors.winGreen
+            case .draw: return AppColors.indigo
+            case .loss, .none: return AppColors.secondaryLabel
+            }
+        }()
+        let resultGlyph = comp.result == .win ? "🏆" : "•"
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 HStack(spacing: 6) {
-                    Text(isWin ? "🏆" : "•")
+                    Text(resultGlyph)
                         .font(.system(size: 12))
-                    Text("\(isWin ? "Win" : "Loss") · \(comp.recordString)")
+                    Text("\(resultLabel) · \(comp.recordString)")
                         .font(.system(size: 12, weight: .heavy, design: .rounded))
                 }
-                .foregroundColor(isWin ? AppColors.winGreen : AppColors.secondaryLabel)
+                .foregroundColor(resultColor)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
-                .background(Capsule().fill((isWin ? AppColors.winGreen : AppColors.secondaryLabel).opacity(0.14)))
+                .background(Capsule().fill(resultColor.opacity(0.14)))
                 Spacer()
                 Text(DateFormatter.monthDay.string(from: comp.date))
-                    .font(.matMindBody(size: 13))
+                    .font(.gripGorillasBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
                 if #available(iOS 14.0, *) {
                     Menu {
@@ -853,7 +880,7 @@ struct CompetitionView: View {
                     .foregroundColor(AppColors.label)
                 if let sub = pastSubtitle(comp) {
                     Text(sub)
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
             }
@@ -877,16 +904,40 @@ struct CompetitionView: View {
                 }
             }
 
-            if comp.hasReflection, let snippet = reflectionSnippet(comp) {
+            if !comp.imageFileNames.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(comp.imageFileNames, id: \.self) { fn in
+                        if let data = store.competitionImageData(competitionId: comp.id, fileName: fn),
+                           let ui = UIImage(data: data) {
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 180)
+                                .overlay(
+                                    Image(uiImage: ui)
+                                        .resizable()
+                                        .scaledToFill()
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                }
+            }
+
+            if comp.hasReflection, expandedReflectionId != comp.id, let snippet = reflectionSnippet(comp) {
                 HStack(alignment: .top, spacing: 8) {
                     if let mood = comp.mood { Text(mood.glyph).font(.system(size: 15)) }
                     Text(snippet)
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(AppColors.secondaryLabel)
                         .italic()
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.top, 2)
+            }
+
+            if comp.hasReflection && expandedReflectionId == comp.id {
+                inlineReflectionContent(comp)
             }
 
             reflectFooterPlain(comp)
@@ -921,14 +972,23 @@ struct CompetitionView: View {
     }
 
     private func reflectFooterPlain(_ comp: Competition) -> some View {
-        VStack(spacing: 0) {
+        let isExpanded = comp.hasReflection && expandedReflectionId == comp.id
+        return VStack(spacing: 0) {
             Rectangle().fill(AppColors.cardBorder).frame(height: 1)
-            Button(action: { openReflect(comp) }) {
+            Button(action: {
+                if comp.hasReflection {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        expandedReflectionId = isExpanded ? nil : comp.id
+                    }
+                } else {
+                    openReflect(comp)
+                }
+            }) {
                 HStack(spacing: 6) {
                     Text(comp.hasReflection ? "Reflected" : "Reflect after competition")
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(AppColors.indigo)
-                    Image(systemName: "chevron.right")
+                    Image(systemName: isExpanded ? "chevron.up" : (comp.hasReflection ? "chevron.down" : "chevron.right"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(AppColors.indigo)
                 }
@@ -938,6 +998,104 @@ struct CompetitionView: View {
             }
             .buttonStyle(PlainButtonStyle())
         }
+    }
+
+    private func inlineReflectionContent(_ comp: Competition) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
+                if let mood = comp.mood { Text(mood.glyph).font(.system(size: 20)) }
+                Text("Reflection")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.label)
+                Spacer()
+                Button(action: { sheet = .reflect(comp) }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(AppColors.indigo)
+                        .frame(width: 28, height: 28)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(AppColors.indigo.opacity(0.10)))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            if let s = comp.workedText.nilIfBlank {
+                inlineReflectionBlock(text: s, accent: AppColors.winGreen, tintUI: AppColors.winGreenUI, label: "What worked")
+            }
+            if let s = comp.stuckText.nilIfBlank {
+                inlineReflectionBlock(text: s, accent: AppColors.stuckCoral, tintUI: AppColors.stuckCoralUI, label: "Where you got exposed")
+            }
+            if let s = comp.tryNextText.nilIfBlank {
+                inlineReflectionBlock(text: s, accent: AppColors.indigo, tintUI: AppColors.indigoUI, label: "What you'll drill next")
+            }
+        }
+        .padding(.top, 4)
+        .transition(.opacity)
+    }
+
+    private func inlineReflectionContentLight(_ comp: Competition) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
+                if let mood = comp.mood { Text(mood.glyph).font(.system(size: 20)) }
+                Text("Reflection")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Spacer()
+                Button(action: { sheet = .reflect(comp) }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 28, height: 28)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.22)))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            if let s = comp.workedText.nilIfBlank {
+                inlineReflectionBlockLight(text: s, label: "What worked")
+            }
+            if let s = comp.stuckText.nilIfBlank {
+                inlineReflectionBlockLight(text: s, label: "Where you got exposed")
+            }
+            if let s = comp.tryNextText.nilIfBlank {
+                inlineReflectionBlockLight(text: s, label: "What you'll drill next")
+            }
+        }
+        .padding(.top, 4)
+        .transition(.opacity)
+    }
+
+    private func inlineReflectionBlockLight(text: String, label: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(0.6)).frame(width: 3)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.85))
+                Text(text)
+                    .font(.gripGorillasBody(size: 14))
+                    .foregroundColor(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.15)))
+    }
+
+    private func inlineReflectionBlock(text: String, accent: Color, tintUI: UIColor, label: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            RoundedRectangle(cornerRadius: 2).fill(accent).frame(width: 3)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(accent)
+                Text(text)
+                    .font(.gripGorillasBody(size: 14))
+                    .foregroundColor(AppColors.label)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(AppColors.tint(tintUI, light: 0.10, dark: 0.22)))
     }
 
     // MARK: Dialogs
@@ -1153,7 +1311,7 @@ struct CompetitionEditView: View {
                             .foregroundColor(AppColors.indigo)
                     }
                     Text("The one game plan you’ll actually try to run. Keep it short.")
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(AppColors.secondaryLabel)
 
                     ForEach(Array(strategy.enumerated()), id: \.element.id) { idx, focus in
@@ -1247,8 +1405,11 @@ struct CompetitionResultView: View {
     @State private var result: CompetitionResult?
     @State private var wins: Int
     @State private var losses: Int
+    @State private var draws: Int
     @State private var placement: String
     @State private var focusWorked: [String: Bool]
+    @State private var pendingImages: [Data] = []
+    @State private var existingImageNames: [String]
 
     private let placements = ["Gold", "Silver", "Bronze"]
 
@@ -1260,7 +1421,9 @@ struct CompetitionResultView: View {
         _result = State(initialValue: comp?.result)
         _wins = State(initialValue: comp?.wins ?? 0)
         _losses = State(initialValue: comp?.losses ?? 0)
+        _draws = State(initialValue: comp?.draws ?? 0)
         _placement = State(initialValue: comp?.placement ?? "")
+        _existingImageNames = State(initialValue: comp?.imageFileNames ?? [])
         var worked: [String: Bool] = [:]
         comp?.strategy.forEach { worked[$0.id] = $0.worked ?? true }
         _focusWorked = State(initialValue: worked)
@@ -1307,6 +1470,7 @@ struct CompetitionResultView: View {
                     sectionLabel("Result")
                     HStack(spacing: 12) {
                         resultTile(.win, title: "Win", caption: "Advanced or medaled", color: AppColors.winGreen)
+                        resultTile(.draw, title: "Draw", caption: "Tied", color: AppColors.indigo)
                         resultTile(.loss, title: "Loss", caption: "Eliminated", color: AppColors.secondaryLabel)
                     }
 
@@ -1318,6 +1482,10 @@ struct CompetitionResultView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             sectionLabel("Losses")
                             stepper($losses)
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            sectionLabel("Draws")
+                            stepper($draws)
                         }
                     }
 
@@ -1350,6 +1518,9 @@ struct CompetitionResultView: View {
                             }
                         }
                     }
+
+                    sectionLabel("Photos")
+                    photoSection
                 }
                 .padding(16)
                 .padding(.bottom, 40)
@@ -1435,13 +1606,93 @@ struct CompetitionResultView: View {
         .background(RoundedRectangle(cornerRadius: 11).fill(AppColors.cardBackground))
     }
 
+    private var photoSection: some View {
+        VStack(spacing: 10) {
+            // Existing images
+            ForEach(existingImageNames, id: \.self) { fn in
+                if let data = store.competitionImageData(competitionId: competitionId, fileName: fn),
+                   let ui = UIImage(data: data) {
+                    ZStack(alignment: .topTrailing) {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 160)
+                            .overlay(
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFill()
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Button(action: {
+                            store.removeCompetitionImage(competitionId: competitionId, fileName: fn)
+                            existingImageNames.removeAll { $0 == fn }
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.white)
+                                .shadow(radius: 2)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(6)
+                    }
+                }
+            }
+            // Pending (not yet saved) images
+            ForEach(pendingImages.indices, id: \.self) { idx in
+                if let ui = UIImage(data: pendingImages[idx]) {
+                    ZStack(alignment: .topTrailing) {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 160)
+                            .overlay(
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFill()
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Button(action: { pendingImages.remove(at: idx) }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.white)
+                                .shadow(radius: 2)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(6)
+                    }
+                }
+            }
+            // Add photo button
+            Button(action: {
+                UIKitImagePicker.present { data in
+                    pendingImages.append(data)
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Add photo")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(AppColors.indigo)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(RoundedRectangle(cornerRadius: 12).stroke(AppColors.indigo.opacity(0.4), lineWidth: 1.5))
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+
     private func workedCount(_ comp: Competition) -> Int {
         comp.strategy.filter { focusWorked[$0.id] ?? true }.count
     }
 
     private func save() {
         guard let result = result else { return }
-        store.logCompetitionResult(id: competitionId, result: result, wins: wins, losses: losses, placement: placement, focusWorked: focusWorked)
+        store.logCompetitionResult(id: competitionId, result: result, wins: wins, losses: losses, draws: draws, placement: placement, focusWorked: focusWorked)
+        for imageData in pendingImages {
+            store.addCompetitionImage(competitionId: competitionId, imageData: imageData)
+        }
         onClose()
     }
 }
@@ -1620,15 +1871,17 @@ struct CompetitionReflectFlowView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.label)
                     Text(DateFormatter.weekdayLongDate.string(from: comp.date))
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
                 Spacer()
             }
             if comp.hasResult {
-                Text("\(comp.result == .win ? "Win" : "Loss") · \(comp.recordString)\(comp.placement.nilIfBlank.map { " · \($0)" } ?? "")")
+                let rl: String = { switch comp.result { case .win: return "Win"; case .draw: return "Draw"; case .loss, .none: return "Loss" } }()
+                let rc: Color = { switch comp.result { case .win: return AppColors.winGreen; case .draw: return AppColors.indigo; case .loss, .none: return AppColors.secondaryLabel } }()
+                Text("\(rl) · \(comp.recordString)\(comp.placement.nilIfBlank.map { " · \($0)" } ?? "")")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(comp.result == .win ? AppColors.winGreen : AppColors.secondaryLabel)
+                    .foregroundColor(rc)
             }
         }
         .padding(16)
@@ -1753,7 +2006,7 @@ struct CompetitionReflectionSummaryView: View {
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(resultLine(comp))
-                    .font(.matMindBody(size: 13))
+                    .font(.gripGorillasBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
             }
             Spacer(minLength: 0)
@@ -1763,7 +2016,14 @@ struct CompetitionReflectionSummaryView: View {
     private func resultLine(_ comp: Competition) -> String {
         let date = DateFormatter.weekdayShortDate.string(from: comp.date)
         guard comp.hasResult else { return date }
-        var parts = ["\(comp.result == .win ? "Win" : "Loss") · \(comp.recordString)"]
+        let resultLabel: String = {
+            switch comp.result {
+            case .win: return "Win"
+            case .draw: return "Draw"
+            case .loss, .none: return "Loss"
+            }
+        }()
+        var parts = ["\(resultLabel) · \(comp.recordString)"]
         if let placement = comp.placement.nilIfBlank { parts.append(placement) }
         parts.append(date)
         return parts.joined(separator: " · ")
@@ -1777,7 +2037,7 @@ struct CompetitionReflectionSummaryView: View {
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(accent)
                 Text(text)
-                    .font(.matMindBody(size: 15))
+                    .font(.gripGorillasBody(size: 15))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             }

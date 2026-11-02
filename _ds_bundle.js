@@ -1,8 +1,8 @@
-/* @ds-bundle: {"format":4,"namespace":"MatMindDesignSystem_8b0f80","components":[{"name":"Button","sourcePath":"design-system/components/core/Button.jsx"},{"name":"ICON_NAMES","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"Icon","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"IconButton","sourcePath":"design-system/components/core/IconButton.jsx"},{"name":"Avatar","sourcePath":"design-system/components/display/Avatar.jsx"},{"name":"AvatarStack","sourcePath":"design-system/components/display/AvatarStack.jsx"},{"name":"Badge","sourcePath":"design-system/components/display/Badge.jsx"},{"name":"BELT_COLORS","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Belt","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Card","sourcePath":"design-system/components/display/Card.jsx"},{"name":"StreakBelt","sourcePath":"design-system/components/display/StreakBelt.jsx"},{"name":"Tag","sourcePath":"design-system/components/display/Tag.jsx"},{"name":"Dialog","sourcePath":"design-system/components/feedback/Dialog.jsx"},{"name":"Toast","sourcePath":"design-system/components/feedback/Toast.jsx"},{"name":"Tooltip","sourcePath":"design-system/components/feedback/Tooltip.jsx"},{"name":"Checkbox","sourcePath":"design-system/components/forms/Checkbox.jsx"},{"name":"Input","sourcePath":"design-system/components/forms/Input.jsx"},{"name":"Radio","sourcePath":"design-system/components/forms/Radio.jsx"},{"name":"Select","sourcePath":"design-system/components/forms/Select.jsx"},{"name":"Switch","sourcePath":"design-system/components/forms/Switch.jsx"},{"name":"TabBar","sourcePath":"design-system/components/navigation/TabBar.jsx"},{"name":"Tabs","sourcePath":"design-system/components/navigation/Tabs.jsx"}],"sourceHashes":{"design-system/components/core/Button.jsx":"85da24435512","design-system/components/core/Icon.jsx":"4288e96fdb91","design-system/components/core/IconButton.jsx":"38c7dcea0d97","design-system/components/display/Avatar.jsx":"cf7f4e752245","design-system/components/display/AvatarStack.jsx":"ae4f510a2b9d","design-system/components/display/Badge.jsx":"1cc38787b758","design-system/components/display/Belt.jsx":"cfafa21427c5","design-system/components/display/Card.jsx":"7cba4a816b62","design-system/components/display/StreakBelt.jsx":"8d77adb65f68","design-system/components/display/Tag.jsx":"53081ee7f44a","design-system/components/feedback/Dialog.jsx":"ebcf73d05c5e","design-system/components/feedback/Toast.jsx":"e06c2e2bad15","design-system/components/feedback/Tooltip.jsx":"cfbcbd91618b","design-system/components/forms/Checkbox.jsx":"5f281a9907fa","design-system/components/forms/Input.jsx":"c34d5880eed3","design-system/components/forms/Radio.jsx":"782cb748d5ad","design-system/components/forms/Select.jsx":"2edca2184f22","design-system/components/forms/Switch.jsx":"a0ad53dc3b63","design-system/components/navigation/TabBar.jsx":"e13fc2d0468b","design-system/components/navigation/Tabs.jsx":"50929bab281b","design-system/tailwind.config.js":"64c5760c78a3","ui_kits/app/Activity.jsx":"6875c1798c98","ui_kits/app/App.jsx":"a85324a00243","ui_kits/app/Complete.jsx":"7c15d5da4b8b","ui_kits/app/Create.jsx":"4ecb19746c25","ui_kits/app/Friends.jsx":"52b3825f3cff","ui_kits/app/Me.jsx":"20f67a73cc56","ui_kits/app/Profile.jsx":"7aa9067dd485","ui_kits/app/Shell.jsx":"5a391fbfdcd5","ui_kits/app/Training.jsx":"1422b10b8724","ui_kits/app/data.js":"62ce36e0d57c"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"GripGorillasDesignSystem_8b0f80","components":[{"name":"Button","sourcePath":"design-system/components/core/Button.jsx"},{"name":"ICON_NAMES","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"Icon","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"IconButton","sourcePath":"design-system/components/core/IconButton.jsx"},{"name":"Logo","sourcePath":"design-system/components/core/Logo.jsx"},{"name":"Avatar","sourcePath":"design-system/components/display/Avatar.jsx"},{"name":"AvatarStack","sourcePath":"design-system/components/display/AvatarStack.jsx"},{"name":"Badge","sourcePath":"design-system/components/display/Badge.jsx"},{"name":"BELT_COLORS","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Belt","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Card","sourcePath":"design-system/components/display/Card.jsx"},{"name":"StreakBelt","sourcePath":"design-system/components/display/StreakBelt.jsx"},{"name":"Tag","sourcePath":"design-system/components/display/Tag.jsx"},{"name":"Dialog","sourcePath":"design-system/components/feedback/Dialog.jsx"},{"name":"Toast","sourcePath":"design-system/components/feedback/Toast.jsx"},{"name":"Tooltip","sourcePath":"design-system/components/feedback/Tooltip.jsx"},{"name":"Checkbox","sourcePath":"design-system/components/forms/Checkbox.jsx"},{"name":"Input","sourcePath":"design-system/components/forms/Input.jsx"},{"name":"Radio","sourcePath":"design-system/components/forms/Radio.jsx"},{"name":"Select","sourcePath":"design-system/components/forms/Select.jsx"},{"name":"Switch","sourcePath":"design-system/components/forms/Switch.jsx"},{"name":"TabBar","sourcePath":"design-system/components/navigation/TabBar.jsx"},{"name":"Tabs","sourcePath":"design-system/components/navigation/Tabs.jsx"}],"sourceHashes":{"design-system/components/core/Button.jsx":"85da24435512","design-system/components/core/Icon.jsx":"4288e96fdb91","design-system/components/core/IconButton.jsx":"38c7dcea0d97","design-system/components/display/Avatar.jsx":"cf7f4e752245","design-system/components/display/AvatarStack.jsx":"ae4f510a2b9d","design-system/components/display/Badge.jsx":"1cc38787b758","design-system/components/display/Belt.jsx":"cfafa21427c5","design-system/components/display/Card.jsx":"7cba4a816b62","design-system/components/display/StreakBelt.jsx":"8d77adb65f68","design-system/components/display/Tag.jsx":"53081ee7f44a","design-system/components/feedback/Dialog.jsx":"ebcf73d05c5e","design-system/components/feedback/Toast.jsx":"e06c2e2bad15","design-system/components/feedback/Tooltip.jsx":"cfbcbd91618b","design-system/components/forms/Checkbox.jsx":"5f281a9907fa","design-system/components/forms/Input.jsx":"c34d5880eed3","design-system/components/forms/Radio.jsx":"782cb748d5ad","design-system/components/forms/Select.jsx":"2edca2184f22","design-system/components/forms/Switch.jsx":"a0ad53dc3b63","design-system/components/navigation/TabBar.jsx":"e13fc2d0468b","design-system/components/navigation/Tabs.jsx":"50929bab281b","design-system/tailwind.config.js":"9e4180ea9093","ui_kits/app/Activity.jsx":"5e47902808a1","ui_kits/app/App.jsx":"9cac93f6d40c","ui_kits/app/Complete.jsx":"ca9cc455681a","ui_kits/app/Create.jsx":"25d816994b5d","ui_kits/app/Friends.jsx":"ac7c90f421f4","ui_kits/app/Me.jsx":"6d3cafb4c252","ui_kits/app/Profile.jsx":"1a2bb3f22c26","ui_kits/app/Shell.jsx":"b29b866fdbe2","ui_kits/app/Training.jsx":"4e7933eaba92","ui_kits/app/data.js":"62ce36e0d57c","design-system/components/core/Logo.jsx":"becd710e7dd0"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
-const __ds_ns = (window.MatMindDesignSystem_8b0f80 = window.MatMindDesignSystem_8b0f80 || {});
+const __ds_ns = (window.GripGorillasDesignSystem_8b0f80 = window.GripGorillasDesignSystem_8b0f80 || {});
 
 const __ds_scope = {};
 
@@ -357,6 +357,169 @@ function IconButton({
 }
 Object.assign(__ds_scope, { IconButton });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "design-system/components/core/IconButton.jsx", error: String((e && e.message) || e) }); }
+
+// design-system/components/core/Logo.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+// The Silverback mark. Geometry matches assets/brand/logo-mark.svg (viewBox 36 22 228 256).
+const VIEWBOX = '36 22 228 256';
+const RATIO = 228 / 256;
+function Mark({
+  height,
+  brow
+}) {
+  return /*#__PURE__*/React.createElement("svg", {
+    viewBox: VIEWBOX,
+    width: Math.round(height * RATIO),
+    height: height,
+    "aria-hidden": "true",
+    style: {
+      display: 'block',
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M150 28C222 28 258 72 258 132C258 204 226 266 150 272C74 266 42 204 42 132C42 72 78 28 150 28Z",
+    style: {
+      fill: 'var(--ink-900)'
+    }
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M150 112C202 108 226 132 222 168C218 222 188 252 150 254C112 252 82 222 78 168C74 132 98 108 150 112Z",
+    style: {
+      fill: 'var(--paper-3)'
+    }
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "68",
+    y: "98",
+    width: "164",
+    height: "38",
+    rx: "19",
+    style: {
+      fill: brow
+    }
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "100",
+    y: "148",
+    width: "30",
+    height: "11",
+    rx: "5.5",
+    style: {
+      fill: 'var(--ink-900)'
+    }
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "170",
+    y: "148",
+    width: "30",
+    height: "11",
+    rx: "5.5",
+    style: {
+      fill: 'var(--ink-900)'
+    }
+  }), /*#__PURE__*/React.createElement("ellipse", {
+    cx: "136",
+    cy: "200",
+    rx: "10",
+    ry: "7",
+    style: {
+      fill: 'var(--ink-900)'
+    }
+  }), /*#__PURE__*/React.createElement("ellipse", {
+    cx: "164",
+    cy: "200",
+    rx: "10",
+    ry: "7",
+    style: {
+      fill: 'var(--ink-900)'
+    }
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M124 230H176",
+    strokeWidth: "9",
+    strokeLinecap: "round",
+    style: {
+      stroke: 'var(--ink-900)'
+    }
+  }));
+}
+function Tile({
+  size
+}) {
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: size,
+      height: size,
+      borderRadius: size * 0.225,
+      background: 'var(--sun-400)',
+      flexShrink: 0,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: size * 0.03,
+      boxSizing: 'border-box'
+    }
+  }, /*#__PURE__*/React.createElement(Mark, {
+    height: Math.round(size * 0.69),
+    brow: "var(--accent)"
+  }));
+}
+function Wordmark({
+  size,
+  color
+}) {
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      font: `800 ${Math.round(size * 0.6)}px/1 var(--font-display)`,
+      letterSpacing: '-0.045em',
+      color,
+      whiteSpace: 'nowrap'
+    }
+  }, "grip gorillas", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--accent)'
+    }
+  }, "."));
+}
+function Logo({
+  variant = 'mark',
+  size = 40,
+  label = 'Grip Gorillas',
+  style,
+  ...rest
+}) {
+  let content;
+  if (variant === 'mono') content = /*#__PURE__*/React.createElement(Mark, {
+    height: size,
+    brow: "var(--ink-900)"
+  });else if (variant === 'appIcon') content = /*#__PURE__*/React.createElement(Tile, {
+    size: size
+  });else if (variant === 'lockup') content = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Mark, {
+    height: size,
+    brow: "var(--accent)"
+  }), /*#__PURE__*/React.createElement(Wordmark, {
+    size: size,
+    color: "var(--text-primary)"
+  }));else if (variant === 'lockupInverse') content = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Tile, {
+    size: size
+  }), /*#__PURE__*/React.createElement(Wordmark, {
+    size: size,
+    color: "var(--text-inverse)"
+  }));else content = /*#__PURE__*/React.createElement(Mark, {
+    height: size,
+    brow: "var(--accent)"
+  });
+  return /*#__PURE__*/React.createElement("span", _extends({
+    role: "img",
+    "aria-label": label
+  }, rest, {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: Math.round(size * 0.3),
+      lineHeight: 0,
+      ...style
+    }
+  }), content);
+}
+Object.assign(__ds_scope, { Logo });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "design-system/components/core/Logo.jsx", error: String((e && e.message) || e) }); }
 
 // design-system/components/display/Badge.jsx
 try { (() => {
@@ -1602,7 +1765,7 @@ Object.assign(__ds_scope, { Tabs });
 // design-system/tailwind.config.js
 try { (() => {
 /**
- * Mat Mind — Tailwind preset. Every value points at a CSS custom property, so
+ * Grip Gorillas — Tailwind preset. Every value points at a CSS custom property, so
  * load styles.css (or design-system/tokens/*.css) before Tailwind's output.
  * Usage: module.exports = { presets: [require('./design-system/tailwind.config.js')], content: [...] }
  * Generated from design-system/tokens — edit the tokens, not this file.
@@ -1826,7 +1989,7 @@ const {
   Dialog: ADlg,
   Input: AIn,
   Badge: ABadge
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 const MMCtx = React.createContext(null);
 const useMM = () => React.useContext(MMCtx);
 function PostCard({
@@ -2110,7 +2273,7 @@ function ActivityScreen({
     tabPad: true,
     header: /*#__PURE__*/React.createElement(Header, {
       large: true,
-      title: /*#__PURE__*/React.createElement("span", null, "mat mind", /*#__PURE__*/React.createElement("span", {
+      title: /*#__PURE__*/React.createElement("span", null, "grip gorillas", /*#__PURE__*/React.createElement("span", {
         style: {
           color: 'var(--accent)'
         }
@@ -2419,7 +2582,7 @@ const {
   Toast: XToast,
   Button: XBtn,
   Icon: XIcon
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 const clone = o => JSON.parse(JSON.stringify(o));
 const TABS = [{
   id: 'activity',
@@ -2933,7 +3096,7 @@ function ReviewPanel({
       letterSpacing: '-.04em',
       padding: '0 10px'
     }
-  }, "mat mind", /*#__PURE__*/React.createElement("span", {
+  }, "grip gorillas", /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--accent)'
     }
@@ -3033,7 +3196,7 @@ const {
   Input: KIn,
   Dialog: KDlg,
   StreakBelt: KBelt
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 function CompleteScreen({
   id
 }) {
@@ -3450,7 +3613,7 @@ const {
   Dialog: CDlg,
   Badge: CBadge,
   Belt: CBelt
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 const FUT = [['Today', 'Mon', 2, 'Nov'], ['Tue', 'Tue', 3, 'Nov'], ['Wed', 'Wed', 4, 'Nov'], ['Thu', 'Thu', 5, 'Nov'], ['Fri', 'Fri', 6, 'Nov'], ['Sat', 'Sat', 7, 'Nov'], ['Sun', 'Sun', 8, 'Nov']];
 const PAST = [['Yesterday', 'Sun', 1, 'Nov'], ['Sat', 'Sat', 31, 'Oct'], ['Fri', 'Fri', 30, 'Oct'], ['Thu', 'Thu', 29, 'Oct'], ['Wed', 'Wed', 28, 'Oct']];
 const TIMES = ['6:30 AM', '12:15 PM', '6:00 PM', '7:30 PM'];
@@ -3774,7 +3937,7 @@ function CreateScreen({
       font: '600 14px var(--font-mono)',
       color: 'var(--ink-900)'
     }
-  }, "matmind.app/s/", link), /*#__PURE__*/React.createElement(CBtn, {
+  }, "gripgorillas.app/s/", link), /*#__PURE__*/React.createElement(CBtn, {
     size: "sm",
     variant: "soft",
     iconLeft: "copy",
@@ -3786,7 +3949,7 @@ function CreateScreen({
   }, /*#__PURE__*/React.createElement(Txt, {
     s: 14,
     c: "var(--text-secondary)"
-  }, privacy === 'link' ? 'Anyone with a Mat Mind account can join from the link.' : 'Only your friends can join from the link.')), /*#__PURE__*/React.createElement(CBtn, {
+  }, privacy === 'link' ? 'Anyone with a Grip Gorillas account can join from the link.' : 'Only your friends can join from the link.')), /*#__PURE__*/React.createElement(CBtn, {
     size: "sm",
     variant: "secondary",
     iconLeft: "link",
@@ -3813,7 +3976,7 @@ const {
   StreakBelt: FBelt,
   Belt: FRank,
   Badge: FBadge
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 function streakCopy(mm, f) {
   const n = mm.streakOf(f);
   const first = mm.person(f.id).name.split(' ')[0];
@@ -4434,7 +4597,7 @@ function QRScreen({
       color: '#fff',
       font: '700 15px var(--font-body)'
     }
-  }, found ? 'Got it!' : 'Point at a friend\'s Mat Mind code'), found && /*#__PURE__*/React.createElement(Connected, {
+  }, found ? 'Got it!' : 'Point at a friend\'s Grip Gorillas code'), found && /*#__PURE__*/React.createElement(Connected, {
     id: found,
     onDone: () => {
       setFound(null);
@@ -4572,7 +4735,7 @@ const {
   Select: MSel,
   Badge: MBadge,
   StreakBelt: MStreak
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 function ProfileScreen() {
   const mm = useMM();
   const me = mm.s.me;
@@ -4918,7 +5081,7 @@ const {
   Card: PCard,
   Tooltip: PTip,
   Badge: PBadge
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 function ProfileScreen({
   me,
   week,
@@ -5134,7 +5297,7 @@ Object.assign(window, {
 
 // ui_kits/app/Shell.jsx
 try { (() => {
-const DS = window.MatMindDesignSystem_8b0f80;
+const DS = window.GripGorillasDesignSystem_8b0f80;
 const {
   Avatar: SAv,
   Icon: SIcon
@@ -5522,7 +5685,7 @@ const {
   Tabs: TTabs,
   Dialog: TDlg,
   Checkbox: TCb
-} = window.MatMindDesignSystem_8b0f80;
+} = window.GripGorillasDesignSystem_8b0f80;
 const STATUS = {
   going: ['success', 'Going'],
   invited: ['warning', 'Invited'],
@@ -6028,7 +6191,7 @@ function SessionDetail({
       borderRadius: 22,
       boxShadow: 'var(--shadow-card)'
     }
-  }, [['map-pin', s.gym], ['clock', s.day + ', ' + s.month + ' ' + s.date + ' · ' + s.time], [s.privacy === 'link' ? 'globe' : 'lock', s.privacy === 'link' ? 'Anyone with the link (Mat Mind account required)' : 'Friends only']].map(([ic, t], i) => /*#__PURE__*/React.createElement(Row, {
+  }, [['map-pin', s.gym], ['clock', s.day + ', ' + s.month + ' ' + s.date + ' · ' + s.time], [s.privacy === 'link' ? 'globe' : 'lock', s.privacy === 'link' ? 'Anyone with the link (Grip Gorillas account required)' : 'Friends only']].map(([ic, t], i) => /*#__PURE__*/React.createElement(Row, {
     key: i,
     style: {
       padding: '11px 0',
@@ -6439,6 +6602,8 @@ __ds_ns.ICON_NAMES = __ds_scope.ICON_NAMES;
 __ds_ns.Icon = __ds_scope.Icon;
 
 __ds_ns.IconButton = __ds_scope.IconButton;
+
+__ds_ns.Logo = __ds_scope.Logo;
 
 __ds_ns.Avatar = __ds_scope.Avatar;
 

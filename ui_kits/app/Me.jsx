@@ -1,4 +1,4 @@
-const { Avatar: MAv, IconButton: MIB, Icon: MIcon, Button: MBtn, Belt: MBelt, Dialog: MDlg, Input: MIn, Select: MSel, Badge: MBadge, StreakBelt: MStreak } = window.MatMindDesignSystem_8b0f80;
+const { Avatar: MAv, IconButton: MIB, Icon: MIcon, Button: MBtn, Belt: MBelt, Dialog: MDlg, Input: MIn, Select: MSel, Badge: MBadge, StreakBelt: MStreak } = window.GripGorillasDesignSystem_8b0f80;
 
 function ProfileScreen() {
   const mm = useMM(); const me = mm.s.me; const [settings, setSettings] = React.useState(false);

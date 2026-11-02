@@ -1,4 +1,4 @@
-const DS = window.MatMindDesignSystem_8b0f80;
+const DS = window.GripGorillasDesignSystem_8b0f80;
 const { Avatar: SAv, Icon: SIcon } = DS;
 const HUEV = { coral: ['var(--coral-500)', 'var(--coral-100)', 'var(--coral-700)'], sun: ['var(--sun-400)', 'var(--sun-100)', '#8A6200'], mint: ['var(--mint-500)', 'var(--mint-100)', 'var(--mint-700)'], sky: ['var(--sky-500)', 'var(--sky-100)', 'var(--sky-700)'], plum: ['var(--plum-500)', 'var(--plum-100)', 'var(--plum-700)'] };
 const hideScroll = { scrollbarWidth: 'none' };

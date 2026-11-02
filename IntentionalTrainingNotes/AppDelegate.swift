@@ -1,17 +1,15 @@
 import UIKit
+import UserNotifications
 
 @UIApplicationMain
-final class AppDelegate: UIResponder, UIApplicationDelegate {
+final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        // Re-register the reminder for returning users. First-run users get the notification
-        // permission prompt contextually when they finish onboarding with the reminder on,
-        // keeping the splash free of a premature system dialog.
-        if UserDefaults.standard.bool(forKey: AppSessionStore.onboardingCompletedKey) {
-            ReminderScheduler.shared.scheduleDefaultIfNeeded()
-        }
+        UNUserNotificationCenter.current().delegate = self
+        // Retire old daily reflection reminders: the previous notebook is read-only.
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["matmind.reflection.reminder"])
         return true
     }
 
@@ -30,4 +28,21 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         AuthService.handleOpenURL(url)
     }
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        Task { @MainActor in
+            SocialPushCoordinator.token = token
+            NotificationCenter.default.post(name: Notification.Name("MatMindPushToken"), object: nil)
+        }
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let info = response.notification.request.content.userInfo
+        Task { @MainActor in
+            SocialPushCoordinator.pending = info
+            NotificationCenter.default.post(name: Notification.Name("MatMindPushOpen"), object: nil)
+        }
+        completionHandler()
+    }
+
 }

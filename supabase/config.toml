@@ -1,0 +1,14 @@
+project_id = "mat-mind-v2"
+[api]
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+[db]
+port = 54322
+major_version = 17
+[auth]
+site_url = "matmind://auth"
+additional_redirect_urls = ["matmind://auth"]
+[functions.notification-worker]
+verify_jwt = false
+[functions.delete-account]
+verify_jwt = false

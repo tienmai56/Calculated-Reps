@@ -1,19 +1,23 @@
 import XCTest
+import UIKit
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
-    func testSessionRoutingSignedOutMissingProfileAndReady() {
+    func testLegacyLocalSessionRemainsAvailableWithoutCloudSignIn() {
+        let oldFlag = UserDefaults.standard.object(forKey: AppSessionStore.onboardingCompletedKey)
+        defer { UserDefaults.standard.set(oldFlag, forKey: AppSessionStore.onboardingCompletedKey) }
+        UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
         let accountStore = TestAccountStore()
         let session = AppSessionStore(accountStore: accountStore, authService: TestAuthService()) { _ in
             TestNotebookPersistence()
         }
 
-        XCTAssertEqual(session.route, .signedOut)
+        XCTAssertEqual(session.route, .ready)
 
         let account = UserAccount(provider: .google, providerSubjectId: "subject-1")
         session.completeSignIn(account: account)
 
-        XCTAssertEqual(session.route, .signedInMissingProfile)
+        XCTAssertEqual(session.route, .ready)
 
         session.saveProfile(firstName: " Alex ", lastName: " Rivera ")
 
@@ -66,7 +70,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertTrue(notebook.reflections.isEmpty)
     }
 
-    func testCorruptedJSONFallsBackToEmptyStoreWithoutCrashing() throws {
+    func testCorruptedJSONPreservesSourceAndDisablesWrites() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let persistence = JSONNotebookPersistence(rootDirectory: root)
         let url = persistence.fileURL(accountId: "recover")
@@ -78,7 +82,9 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertEqual(store.notebook.accountId, "recover")
         XCTAssertTrue(store.activeGoals.isEmpty)
         XCTAssertTrue(store.notebook.sessions.isEmpty)
-        XCTAssertEqual(store.errorMessage, "Could not load saved notebook.")
+        XCTAssertNotNil(store.errorMessage)
+        _ = store.addGoal(name: "Must not overwrite")
+        XCTAssertEqual(try Data(contentsOf: url), Data("not-json".utf8))
     }
 
     func testGoogleSignInIsHiddenWhenProductionConfigurationIsMissing() {
@@ -174,7 +180,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertNil(store.reflection(forSessionId: session.id))
     }
 
-    func testDeletingReflectionLeavesSessionDone() {
+    func testLegacyDeletingReflectionReturnsSessionToPlanned() {
         let store = NotebookStore(accountId: "a_1", persistence: TestNotebookPersistence())
         let goal = store.addGoal(name: "Passing")!
         let session = store.planSessions(
@@ -185,7 +191,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
 
         store.deleteReflection(id: reflection.id)
 
-        XCTAssertEqual(store.notebook.sessions.first?.status, .done)
+        XCTAssertEqual(store.notebook.sessions.first?.status, .planned)
         XCTAssertTrue(store.notebook.reflections.isEmpty)
     }
 
@@ -279,5 +285,149 @@ private final class TestAuthService: AuthServicing {
 
     static func handleOpenURL(_ url: URL) -> Bool {
         false
+    }
+}
+
+@MainActor
+final class MatMindLiveUITests: XCTestCase {
+    func testGripGorillasBrandingIsBundledInTheInstalledApp() {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Grip Gorillas")
+        XCTAssertNotNil(UIImage(named: "SilverbackMark"))
+        XCTAssertNotNil(UIImage(named: "SilverbackMono"))
+    }
+
+#if DEBUG
+    func testUIReviewUsesAnIsolatedModelWithoutLiveServices() {
+        let live = AppModel(live: true)
+        let preview = AppModel.uiReviewPreview()
+
+        XCTAssertTrue(preview.isSignedIn)
+        XCTAssertFalse(preview.isLive)
+        XCTAssertNil(preview.runtime)
+        XCTAssertFalse(preview.posts.isEmpty)
+        preview.addFriend("preview-only-friend")
+
+        XCTAssertFalse(live.isSignedIn)
+        XCTAssertTrue(live.friends.isEmpty)
+        XCTAssertTrue(live.posts.isEmpty)
+    }
+#endif
+
+    func testInstalledUIStartsWithoutSamplePeopleSessionsOrPosts() {
+        let ui = AppModel(live: true)
+        XCTAssertFalse(ui.isSignedIn)
+        XCTAssertTrue(ui.people.isEmpty)
+        XCTAssertTrue(ui.friends.isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertNil(ui.toComplete)
+        XCTAssertTrue(ui.cameraRoll.isEmpty)
+        ui.run(.active)
+        ui.reset()
+        XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
+    }
+
+    func testLiveSnapshotMapsCurrentUserAndPreservesTagVisibility() throws {
+        let data = Data(#"""
+        {
+          "profiles":[{"id":"owner","name":"Alex","belt":"blue","stripes":2,"gym":"Home gym"},{"id":"friend","name":"Lena","belt":"white","stripes":0,"gym":"Home gym"}],
+          "sessions":[{"id":"session","organizer":"owner","title":"Open mat","starts_at":"2026-10-01T10:00:00Z","venue":"Home gym","status":"planned","join_mode":"friends","note":"Work on passing"}],
+          "participants":[{"session_id":"session","user_id":"owner","rsvp":"going"},{"session_id":"session","user_id":"friend","rsvp":"invited"}],
+          "posts":[{"id":"post","author":"owner","title":"Rounds","venue":"Home gym","occurred_at":"2026-10-01T10:00:00Z","caption":"Good rounds"}],
+          "tags":[{"post_id":"post","user_id":"owner","visible":true},{"post_id":"post","user_id":"friend","visible":false}],
+          "friendships":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]
+        }
+        """#.utf8)
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: data)
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        XCTAssertTrue(ui.isSignedIn)
+        XCTAssertEqual(ui.me.id, "me")
+        XCTAssertEqual(ui.me.name, "Alex")
+        XCTAssertEqual(ui.people["friend"]?.name, "Lena")
+        XCTAssertEqual(ui.upcoming.first?.organizer, "me")
+        XCTAssertEqual(ui.upcoming.first?.status(of: "me"), .going)
+        XCTAssertEqual(ui.upcoming.first?.status(of: "friend"), .invited)
+        XCTAssertEqual(ui.posts.first?.participants, ["me"])
+        XCTAssertEqual(ui.toComplete?.id, "session")
+        model.userID = nil
+        runtime.sync()
+        XCTAssertFalse(ui.isSignedIn)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertTrue(ui.people.isEmpty)
+    }
+
+    func testFocusOutlineRoundTripsWithoutLosingPlainNotes() {
+        let focus = [TrainingFocus(title: "Guard passing", children: [TrainingFocus(title: "Control the hips")])]
+        let encoded = SessionNoteCodec.encode(note: "Bring a gi", focus: focus)
+        let decoded = SessionNoteCodec.decode(encoded)
+        XCTAssertEqual(decoded.note, "Bring a gi")
+        XCTAssertEqual(decoded.focus, focus)
+        XCTAssertEqual(SessionNoteCodec.decode("Existing plain note").note, "Existing plain note")
+        XCTAssertTrue(SessionNoteCodec.decode("Existing plain note").focus.isEmpty)
+        XCTAssertEqual(SessionNoteCodec.decode("matmind-focus-v1:broken").note, "matmind-focus-v1:broken")
+    }
+
+    func testUntouchedOptionalFocusDoesNotBlockPlanningOrCreateSavedContent() {
+        let outline = TrainingFocusTree.optionalOutline([TrainingFocus(), TrainingFocus(title: "  ")])
+        XCTAssertTrue(TrainingFocusTree.isValid(outline))
+        XCTAssertEqual(SessionNoteCodec.encode(note: "Bring a gi", focus: outline), "Bring a gi")
+    }
+
+    func testOptionalFocusKeepsEnteredDetailsForValidation() {
+        let detail = TrainingFocus(title: "Win the underhook")
+        let incomplete = TrainingFocus(title: "", children: [detail])
+        let outline = TrainingFocusTree.optionalOutline([TrainingFocus(), incomplete])
+        XCTAssertEqual(outline, [incomplete])
+        XCTAssertFalse(TrainingFocusTree.isValid(outline))
+
+        let named = TrainingFocus(title: " Guard passing ", children: [detail])
+        let saved = TrainingFocusTree.optionalOutline([TrainingFocus(), named])
+        XCTAssertTrue(TrainingFocusTree.isValid(saved))
+        XCTAssertEqual(saved.first?.title, "Guard passing")
+        XCTAssertEqual(saved.first?.children, [detail])
+    }
+}
+
+final class GoogleCloudSignInTests: XCTestCase {
+    func testGoogleSignInRequiresAnEnabledServerProvider() throws {
+        let enabled = try JSONDecoder().decode(CloudAuthSettings.self, from: Data(#"{"external":{"google":true,"apple":false}}"#.utf8))
+        XCTAssertNoThrow(try enabled.requireGoogle())
+        for fixture in [#"{"external":{"google":false}}"#, #"{"external":{}}"#] {
+            let disabled = try JSONDecoder().decode(CloudAuthSettings.self, from: Data(fixture.utf8))
+            XCTAssertThrowsError(try disabled.requireGoogle()) { error in
+                XCTAssertEqual(error as? CloudSignInError, .googleUnavailable)
+            }
+        }
+    }
+
+    func testGoogleCallbackAcceptsOnlyTheAppAuthRouteWithOneCode() throws {
+        let callback = try XCTUnwrap(URL(string: "matmind://auth?code=test-authorization-code"))
+        XCTAssertEqual(try GoogleOAuthCallback.authorizationCode(from: callback), "test-authorization-code")
+        for value in ["https://example.com/auth?code=test", "matmind://friend?code=test", "matmind://auth", "matmind://auth?code=", "matmind://auth?code=one&code=two"] {
+            let url = try XCTUnwrap(URL(string: value))
+            XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: url)) { error in
+                XCTAssertEqual(error as? CloudSignInError, .invalidCallback)
+            }
+        }
+    }
+
+    func testGoogleCallbackCancellationAndErrorsCannotBecomeSuccessfulSignIn() throws {
+        let cancelled = try XCTUnwrap(URL(string: "matmind://auth?error=access_denied&code=ignored"))
+        XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: cancelled)) { error in
+            XCTAssertEqual(error as? CloudSignInError, .cancelled)
+        }
+        let rejected = try XCTUnwrap(URL(string: "matmind://auth?error=server_error&error_description=internal-details&code=ignored"))
+        XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: rejected)) { error in
+            XCTAssertEqual(error as? CloudSignInError, .providerRejected)
+            XCTAssertFalse(error.localizedDescription.contains("internal-details"))
+        }
+        let emptyError = try XCTUnwrap(URL(string: "matmind://auth?error&code=ignored"))
+        XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: emptyError)) { error in
+            XCTAssertEqual(error as? CloudSignInError, .providerRejected)
+        }
     }
 }
