@@ -30,13 +30,16 @@ struct DemoPanel: View {
     ]
 
     private let screens: [(AppModel.Preset, String)] = [
+        (.welcome, "Welcome & Google sign-in"),
         (.activity, "Activity feed"), (.training, "Upcoming training"), (.create, "Create session"),
         (.complete, "Complete & share"), (.friends, "Friends & streaks"), (.qr, "QR code"),
         (.profile, "Profile"), (.notifications, "Notifications"),
     ]
 
     private let states: [(AppModel.Preset, String)] = [
-        (.empty, "Empty training schedule"), (.invite, "Pending invitation"), (.active, "Active streak"),
+        (.firstSession, "First session · no plans or shared posts"),
+        (.awaitingPhoto, "Plan made · no shared photo yet"),
+        (.empty, "Empty training schedule · keep activity history"), (.invite, "Pending invitation"), (.active, "Active streak"),
         (.broken, "Broken streak"), (.scan, "Scan → instant friends"), (.post, "Post detail + comments"),
     ]
 

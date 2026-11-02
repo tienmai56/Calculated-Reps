@@ -21,18 +21,53 @@ struct ActivityScreen: View {
             .padding(.bottom, 10)
             .frame(minHeight: MMLayout.headerHeight)
         } content: {
-            StreakNudges()
-            ForEach(mm.posts) { post in
-                PostCard(post: post, highlight: post.id == mm.highlight)
+            if mm.posts.isEmpty {
+                EmptyActivity()
+            } else {
+                StreakNudges()
+                ForEach(mm.posts) { post in
+                    PostCard(post: post, highlight: post.id == mm.highlight)
+                }
+                Text("That's everything from your crew this week.\nGo make a new memory.")
+                    .mmFont(.body, 13, .medium, lineHeight: 1.45)
+                    .foregroundStyle(MMColor.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 10)
+                    .padding(.bottom, 20)
             }
-            Text("That's everything from your crew this week.\nGo make a new memory.")
-                .mmFont(.body, 13, .medium, lineHeight: 1.45)
-                .foregroundStyle(MMColor.textTertiary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 40)
-                .padding(.top, 10)
-                .padding(.bottom, 20)
+        }
+    }
+}
+
+/// No completed sessions yet. A plan stays a plan until the organizer publishes it.
+private struct EmptyActivity: View {
+    @Environment(AppModel.self) private var mm
+
+    var body: some View {
+        if let session = mm.toComplete {
+            MMEmptyState(artwork: .memory, title: "Good rounds.\nNow the group photo.",
+                         message: "Complete your session to share it with your crew.",
+                         actionTitle: "Complete & share", actionIcon: "camera") {
+                mm.go(.complete(id: session.id))
+            }
+        } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
+            MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
+                         message: "Train together, then share the post-roll photo.",
+                         actionTitle: session.status(of: "me") == .invited ? "View invitation" : "View your plan",
+                         actionIcon: "calendar") {
+                mm.go(.session(id: session.id))
+            }
+        } else {
+            MMEmptyState(artwork: .memory, title: "Good memories\nstart on the mat.",
+                         message: "Plan a session with your people.\nShare the photo after the rolls.",
+                         actionTitle: "Plan a training session", actionIcon: "plus",
+                         secondaryTitle: mm.friends.isEmpty ? "Add your mat people" : "Already trained? Log it",
+                         secondaryIcon: mm.friends.isEmpty ? "qr-code" : "history",
+                         secondaryAction: { mm.go(mm.friends.isEmpty ? .qr() : .create(past: true)) }) {
+                mm.go(.create())
+            }
         }
     }
 }
@@ -84,6 +119,8 @@ struct PostCard: View {
     var highlight = false
 
     @State private var burst = false
+    @State private var commentsExpanded = false
+    @State private var commentText = ""
 
     var body: some View {
         let org = mm.person(post.organizer)
@@ -155,7 +192,11 @@ struct PostCard: View {
                 Text("\(post.likes.count + post.extraLikes)").mmFont(.body, 14, .bold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
                     .contentTransition(.numericText())
                     .padding(.trailing, 10)
-                MMIconButton("message-circle", size: 40, label: "Comment") { mm.go(.post(id: post.id, focus: true)) }
+                MMIconButton("message-circle", size: 44, active: commentsExpanded, label: commentsExpanded ? "Hide comments" : "Show comments") {
+                    toggleComments()
+                }
+                .accessibilityValue(commentsExpanded ? "Expanded" : "Collapsed")
+                .accessibilityIdentifier("comments-toggle-\(post.id)")
                 Text("\(post.comments.count)").mmFont(.body, 14, .bold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
                 Spacer(minLength: 0)
                 HStack(spacing: 5) {
@@ -167,8 +208,14 @@ struct PostCard: View {
             .padding(.top, 8)
             .padding(.leading, -4)
 
-            if let first = post.comments.first {
-                Button { mm.go(.post(id: post.id)) } label: {
+            if commentsExpanded {
+                inlineComments
+                    .padding(.horizontal, 4)
+                    .padding(.top, 12)
+                    .accessibilityIdentifier("inline-comments-\(post.id)")
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            } else if let first = post.comments.first {
+                Button { toggleComments() } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         mmRich([.body(mm.person(first.who).firstName, 14, .bold), .body(" \(first.text)", 14)])
                         if post.comments.count > 1 {
@@ -182,6 +229,7 @@ struct PostCard: View {
                     .padding(.bottom, 4)
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint("Expand comments in the feed")
             }
         }
         .padding(12)
@@ -196,6 +244,49 @@ struct PostCard: View {
         .animation(MMMotion.bounce(MMMotion.slow), value: highlight)
         .padding(.horizontal, 12)
         .padding(.bottom, 14)
+    }
+
+    private var inlineComments: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(post.comments) { comment in
+                CommentRow(comment: comment)
+            }
+            if post.comments.isEmpty {
+                Text("No comments yet. Be the first.")
+                    .mmFont(.body, 14)
+                    .foregroundStyle(MMColor.textTertiary)
+            }
+            HStack(spacing: 8) {
+                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 34)
+                MMTextField(placeholder: "Say something nice…", text: $commentText) {
+                    sendComment()
+                }
+                MMIconButton("send", variant: .accent, label: "Send comment") {
+                    sendComment()
+                }
+                .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            Button("Hide comments") { toggleComments() }
+                .mmFont(.body, 13, .medium, lineHeight: 1)
+                .foregroundStyle(MMColor.textTertiary)
+                .frame(minHeight: MMLayout.tapTarget)
+                .buttonStyle(.plain)
+        }
+    }
+
+    private func toggleComments() {
+        withAnimation(MMMotion.easeOut(MMMotion.base)) {
+            commentsExpanded.toggle()
+        }
+    }
+
+    private func sendComment() {
+        let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        withAnimation(MMMotion.easeOut(MMMotion.base)) {
+            mm.comment(post.id, trimmed)
+        }
+        commentText = ""
     }
 
     private func doubleTap() {

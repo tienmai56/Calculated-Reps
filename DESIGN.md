@@ -300,6 +300,7 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invit
 
 | # | Screen | Prototype file |
 |---|---|---|
+| 0 | Welcome / Google sign-up and login | `Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift` (native), `Prototypes/WelcomePreview/` (browser companion) |
 | 1 | Activity feed | `ui_kits/app/Activity.jsx` |
 | 2 | Upcoming training (+ empty state) | `ui_kits/app/Training.jsx` |
 | 3 | Create training session (plan / log past) | `ui_kits/app/Create.jsx` |
@@ -315,6 +316,18 @@ Journeys:
 - **C — Keep a streak:** Friends → active streak → friend profile → invite → complete together → streak +1.
 
 Streak rule: a week counts when two friends both participate in ≥1 **completed** session together within the same Mon–Sun calendar week; consecutive weeks extend the streak.
+
+### Empty Activity and Training
+
+Use the paper canvas with a small photo-memory frame for Activity and an undated ticket for Training, reusing existing typography, surfaces, icons, and pill actions. No placeholder people, fake dates, zero-stat dashboards, or loading skeletons.
+
+- No completed posts or plans: “Good memories start on the mat.” Plan a training session; add existing friends by QR as the secondary action when needed.
+- Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses Complete & share instead.
+- No upcoming sessions/invitations: “Make it a mat date.” Plan a training session; Already trained? Log it is secondary.
+- No personal past sessions: offer Log a past session.
+- An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
+
+Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
 
 ## 9. Guardrails
 **Always**

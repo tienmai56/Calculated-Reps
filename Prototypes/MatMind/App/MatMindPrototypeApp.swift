@@ -23,11 +23,19 @@ struct RootView: View {
 
     var body: some View {
         @Bindable var mm = mm
-        NavigationStack(path: $mm.path) {
-            TabRoot()
-                .navigationDestination(for: Route.self) { route in
-                    destination(route)
+        Group {
+            if mm.isSignedIn {
+                NavigationStack(path: $mm.path) {
+                    TabRoot()
+                        .navigationDestination(for: Route.self) { route in
+                            destination(route)
+                        }
                 }
+                .transition(.opacity)
+            } else {
+                WelcomeScreen()
+                    .transition(.opacity)
+            }
         }
         .overlay(alignment: .top) {
             if let toast = mm.toast {
@@ -89,7 +97,6 @@ struct TabRoot: View {
             // 86pt including the home-indicator area, as specced.
             .ignoresSafeArea(edges: .bottom)
         }
-        .ignoresSafeArea(.keyboard)
         .toolbar(.hidden, for: .navigationBar)
     }
 }
