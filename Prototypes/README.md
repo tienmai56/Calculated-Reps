@@ -69,6 +69,8 @@ The App Store treats a build as an update when it has the same bundle ID. When t
 
 `IntentionalTrainingNotes` now renders `MMAppShell` and the same feature screens as `MatMindPrototype`. The prototype is the visual source of truth; there is no second live-app tab shell or list-based replacement for these screens. Changes to the shared files affect both schemes.
 
+**UI review without sign-in:** in a Debug build of IntentionalTrainingNotes, choose **Preview UI** on Welcome. It opens the shared screens using a separate sample-data model, including simulated planning, publishing, and QR success. An **Exit preview** bar returns to the live welcome screen. Review changes are temporary and never use the live backend. This entry point is excluded from Release builds; real Google/Apple sign-in still needs the Supabase providers configured.
+
 The installed app injects `LiveMatMindRuntime` into an empty `AppModel(live: true)`. It maps authenticated backend snapshots to the view models, translates the current user's UUID to the UI's `me` identifier, and sends mutations to the backend. Only the prototype uses seed data, pretend QR scans, automatic RSVPs and simulated reactions. The live app uses Google sign-in, camera scanning, expiring invitation codes, real photo selection/upload and confirmed server results. The existing live account, cloud data and bundle identifier are retained.
 
 Previous device-local notebook data appears only under **Settings → Export → Export local sessions**, available from the welcome screen's Settings or Profile's Account sheet. That route exports the existing verified JSON/attachment ZIP; it does not import legacy records into social sessions, show an archive tab, or add an archive browser to the new UI.

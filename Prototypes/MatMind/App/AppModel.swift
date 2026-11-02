@@ -24,6 +24,16 @@ protocol AppRuntime: AnyObject {
 @Observable
 final class AppModel {
     var runtime: (any AppRuntime)?
+#if DEBUG
+    var previewAction: (() -> Void)?
+
+    /// A separate local model: entering review mode never authenticates the live app.
+    static func uiReviewPreview() -> AppModel {
+        let preview = AppModel()
+        preview.enterDemo()
+        return preview
+    }
+#endif
     let isLive: Bool
     var busy: Bool { runtime?.busy ?? false }
 

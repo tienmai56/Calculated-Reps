@@ -289,6 +289,23 @@ private final class TestAuthService: AuthServicing {
 
 @MainActor
 final class MatMindLiveUITests: XCTestCase {
+#if DEBUG
+    func testUIReviewUsesAnIsolatedModelWithoutLiveServices() {
+        let live = AppModel(live: true)
+        let preview = AppModel.uiReviewPreview()
+
+        XCTAssertTrue(preview.isSignedIn)
+        XCTAssertFalse(preview.isLive)
+        XCTAssertNil(preview.runtime)
+        XCTAssertFalse(preview.posts.isEmpty)
+        preview.addFriend("preview-only-friend")
+
+        XCTAssertFalse(live.isSignedIn)
+        XCTAssertTrue(live.friends.isEmpty)
+        XCTAssertTrue(live.posts.isEmpty)
+    }
+#endif
+
     func testInstalledUIStartsWithoutSamplePeopleSessionsOrPosts() {
         let ui = AppModel(live: true)
         XCTAssertFalse(ui.isSignedIn)

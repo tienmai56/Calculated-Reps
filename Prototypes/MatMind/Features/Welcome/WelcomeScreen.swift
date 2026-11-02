@@ -43,6 +43,15 @@ struct WelcomeScreen: View {
 
                     Spacer(minLength: MMSpace.s9)
                     VStack(spacing: MMSpace.s6) {
+#if DEBUG
+                        if let previewAction = mm.previewAction {
+                            MMButton("Preview UI", size: .lg, iconLeft: "eye", fullWidth: true, action: previewAction)
+                                .accessibilityIdentifier("welcome-ui-preview")
+                            Text("Sample data. No sign-in required.")
+                                .mmFont(.body, 13)
+                                .foregroundStyle(MMColor.textSecondary)
+                        }
+#endif
                         googleButton
                         if mm.isLive {
                             Button {

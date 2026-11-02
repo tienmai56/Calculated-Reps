@@ -6,8 +6,40 @@ struct MatMindRoot: View {
     @State private var ui = AppModel(live: true)
     @State private var runtime: LiveMatMindRuntime?
     @Environment(\.scenePhase) private var phase
+#if DEBUG
+    @State private var previewModel: AppModel?
+#endif
 
     var body: some View {
+#if DEBUG
+        Group {
+            if let previewModel {
+                MMAppShell()
+                    .environment(previewModel)
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        HStack {
+                            Text("UI preview · sample data").mmFont(.body, 12, .semibold)
+                            Spacer()
+                            Button("Exit preview") { self.previewModel = nil }
+                                .mmFont(.body, 12, .bold)
+                        }
+                        .foregroundStyle(MMColor.ink900)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(MMColor.sun100)
+                    }
+                    .preferredColorScheme(.light)
+                    .tint(MMColor.accent)
+            } else {
+                liveShell
+            }
+        }
+#else
+        liveShell
+#endif
+    }
+
+    private var liveShell: some View {
         MMAppShell()
             .disabled(model.busy)
             .environment(ui)
@@ -16,6 +48,12 @@ struct MatMindRoot: View {
                 let services = LiveMatMindRuntime(model: model, ui: ui)
                 runtime = services
                 ui.runtime = services
+#if DEBUG
+                ui.previewAction = {
+                    model.error = nil
+                    previewModel = AppModel.uiReviewPreview()
+                }
+#endif
                 await model.start()
                 services.sync()
                 await services.loadPhotos()
