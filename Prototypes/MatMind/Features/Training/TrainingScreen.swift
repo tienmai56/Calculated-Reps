@@ -175,7 +175,7 @@ struct SessionDetailScreen: View {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }
             }, trailing: {
                 if isOrganizer {
-                    MMIconButton("share-2", label: "Share") { mm.showToast("Invite link copied", .success) }
+                    MMIconButton("share-2", label: "Share") { mm.copySessionLink(s.id) }
                 }
             })
         } content: {
@@ -243,7 +243,7 @@ struct SessionDetailScreen: View {
                         picked = []
                         showAdd = true
                     }
-                    MMButton("Copy link", variant: .soft, iconLeft: "link", fullWidth: true) { mm.showToast("Invite link copied", .success) }
+                    MMButton("Copy link", variant: .soft, iconLeft: "link", fullWidth: true) { mm.copySessionLink(s.id) }
                 }
             } else if mine == .invited {
                 HStack(spacing: 8) {
@@ -277,7 +277,9 @@ struct SessionDetailScreen: View {
             .scrollDismissesKeyboard(.interactively)
             .safeAreaInset(edge: .bottom) {
                 MMButton("Save focus plan", fullWidth: true) {
-                    if mm.updateSessionFocus(s.id, focusDraft) { showFocusEditor = false }
+                    if let runtime = mm.runtime {
+                        Task { if await runtime.saveFocus(s.id, focusDraft) { showFocusEditor = false } }
+                    } else if mm.updateSessionFocus(s.id, focusDraft) { showFocusEditor = false }
                 }
                 .disabled(!TrainingFocusTree.isValid(focusDraft))
                 .padding(MMSpace.s6)

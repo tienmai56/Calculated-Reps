@@ -2,7 +2,7 @@ import Foundation
 
 /// A session's optional focus outline. Stable IDs keep edits attached to the
 /// right item as parents and children are added or removed.
-struct TrainingFocus: Identifiable, Hashable {
+struct TrainingFocus: Identifiable, Hashable, Codable {
     var id = UUID()
     var title = ""
     var children: [TrainingFocus] = []
@@ -70,5 +70,20 @@ enum TrainingFocusTree {
             TrainingFocus(title: "Knee-cut entry", children: [TrainingFocus(title: "Win the underhook")]),
             TrainingFocus(title: "Settle into side control"),
         ]), TrainingFocus(title: "Back escapes")]
+    }
+}
+
+/// Focus outlines travel inside the existing session note, with no server schema change.
+enum SessionNoteCodec {
+    private struct Content: Codable { var note: String; var focus: [TrainingFocus] }
+    private static let prefix = "matmind-focus-v1:"
+    static func encode(note: String, focus: [TrainingFocus]) -> String {
+        guard !focus.isEmpty, let data = try? JSONEncoder().encode(Content(note: note, focus: TrainingFocusTree.normalized(focus))) else { return note }
+        return prefix + data.base64EncodedString()
+    }
+    static func decode(_ value: String) -> (note: String, focus: [TrainingFocus]) {
+        guard value.hasPrefix(prefix), let data = Data(base64Encoded: String(value.dropFirst(prefix.count))),
+              let content = try? JSONDecoder().decode(Content.self, from: data) else { return (value, []) }
+        return (content.note, content.focus)
     }
 }

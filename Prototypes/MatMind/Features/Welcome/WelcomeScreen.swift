@@ -6,6 +6,8 @@ struct WelcomeScreen: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showSettings = false
+    @State private var showExport = false
     @State private var isContinuing = false
     @State private var signInTask: Task<Void, Never>?
 
@@ -15,7 +17,7 @@ struct WelcomeScreen: View {
                 VStack(spacing: 0) {
                     MMWordmark(size: 36)
                         .padding(.top, MMSpace.s8)
-                        .onLongPressGesture { mm.showDemoPanel = true }
+                        .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                         .accessibilityHint("Long press for prototype tools")
 
                     Spacer(minLength: MMSpace.s8)
@@ -42,6 +44,16 @@ struct WelcomeScreen: View {
                     Spacer(minLength: MMSpace.s9)
                     VStack(spacing: MMSpace.s6) {
                         googleButton
+                        if mm.isLive {
+                            Button {
+                                signInTask = Task { _ = await mm.runtime?.perform("sign_in_apple", [:]) }
+                            } label: {
+                                HStack(spacing: 10) { Image(systemName: "apple.logo"); Text("Continue with Apple") }
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(MMButtonStyle(variant: .secondary, size: .lg, fullWidth: true))
+                            .disabled(mm.busy)
+                        }
                         Text("Sign up or log in. You're in the right place.")
                             .mmFont(.body, 13, lineHeight: 1.4)
                             .foregroundStyle(MMColor.textTertiary)
@@ -56,9 +68,19 @@ struct WelcomeScreen: View {
             }
         }
         .background(MMColor.bgApp.ignoresSafeArea())
+        .overlay(alignment: .topTrailing) {
+            if mm.isLive {
+                MMIconButton("settings", variant: .filled, label: "Settings") { showSettings = true }.padding(12)
+            }
+        }
+        .mmSheet(isPresented: $showSettings, title: "Settings") {
+            Text("Export").mmFont(.display, 18)
+            MMButton("Export local sessions", variant: .secondary, iconLeft: "download") { showExport = true }
+        }
+        .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
         .onDisappear { signInTask?.cancel() }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active {
+            if phase != .active && !mm.isLive {
                 signInTask?.cancel()
                 isContinuing = false
             }
@@ -85,12 +107,17 @@ struct WelcomeScreen: View {
         }
         .buttonStyle(MMButtonStyle(variant: .secondary, size: .lg, fullWidth: true))
         .disabled(isContinuing)
-        .accessibilityHint("Opens the prototype with sample data. No Google account is connected.")
+        .accessibilityHint(mm.isLive ? "Sign in with your Google account" : "Opens the prototype with sample data")
         .accessibilityIdentifier("welcome-google-continue")
     }
 
     private func continueWithGoogle() {
         guard !isContinuing else { return }
+        if let runtime = mm.runtime {
+            isContinuing = true
+            signInTask = Task { await runtime.authenticate(); isContinuing = false }
+            return
+        }
         isContinuing = true
         signInTask = Task { @MainActor in
             do {

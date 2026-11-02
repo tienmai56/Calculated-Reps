@@ -124,7 +124,7 @@ private struct FriendStreakCard: View {
                 .padding(.top, 14)
             if copy.state == .pending {
                 HStack {
-                    Text("\(p.firstName) is free most Thursdays").mmFont(.body, 13, .semibold).foregroundStyle(p.hue.ink)
+                    Text(mm.isLive ? "Make a plan with \(p.firstName) this week" : "\(p.firstName) is free most Thursdays").mmFont(.body, 13, .semibold).foregroundStyle(p.hue.ink)
                     Spacer(minLength: 8)
                     MMButton("Invite", size: .sm, iconLeft: "calendar-plus") { mm.go(.create(friend: f.id)) }
                 }
@@ -148,6 +148,7 @@ private struct FriendStreakCard: View {
 struct FriendProfileScreen: View {
     @Environment(AppModel.self) private var mm
     let id: String
+    @State private var confirmBlock = false
 
     var body: some View {
         let p = mm.person(id)
@@ -222,8 +223,16 @@ struct FriendProfileScreen: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
         } footer: {
+            VStack(spacing: 8) {
             MMButton("Invite \(p.firstName) to train", size: .lg, iconLeft: "calendar-plus", fullWidth: true) {
                 mm.go(.create(friend: id))
+            }
+            if mm.isLive { MMButton("Block user", variant: .ghost) { confirmBlock = true } }
+            }
+        }
+        .confirmationDialog("Block this training partner?", isPresented: $confirmBlock, titleVisibility: .visible) {
+            Button("Block user", role: .destructive) {
+                Task { if await mm.runtime?.perform("block_user", ["user_id": id]) == true { mm.back() } }
             }
         }
     }

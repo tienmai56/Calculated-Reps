@@ -5,6 +5,9 @@ struct ProfileScreen: View {
     @Environment(AppModel.self) private var mm
     @State private var showSettings = false
     @State private var name = ""
+    @State private var gym = ""
+    @State private var showExport = false
+    @State private var deleteAccount = false
     @State private var email = ""
     @State private var belt = BeltRank.purple.rawValue
     @State private var stripes = "2"
@@ -76,8 +79,9 @@ struct ProfileScreen: View {
         .mmSheet(isPresented: $showSettings, title: "Account") {
             VStack(alignment: .leading, spacing: 16) {
                 MMTextField(label: "Name", text: $name)
+                if mm.isLive { MMTextField(label: "Home gym", text: $gym) }
                 VStack(alignment: .leading, spacing: 8) {
-                    MMTextField(label: "Email", text: $email, iconLeft: "mail")
+                    MMTextField(label: "Email", text: $email, iconLeft: "mail").disabled(mm.isLive)
                     HStack(spacing: 6) {
                         MMIcon("lock", size: 14, color: MMColor.textTertiary)
                         Text("Private. Only you can see this.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
@@ -88,6 +92,14 @@ struct ProfileScreen: View {
                     MMSelect(label: "Stripes", options: ["0", "1", "2", "3", "4"], selection: $stripes)
                         .frame(width: 110)
                 }
+                if mm.isLive {
+                    Text("Export").mmFont(.display, 18)
+                    MMButton("Export local sessions", variant: .secondary, iconLeft: "download") { showExport = true }
+                    MMButton("Enable notifications", variant: .ghost, iconLeft: "bell") {
+                        Task { _ = await mm.runtime?.perform("enable_notifications", [:]) }
+                    }
+                    MMButton("Delete account", variant: .ghost, iconLeft: "trash-2") { deleteAccount = true }
+                }
                 MMButton("Sign out", variant: .ghost, iconLeft: "log-out") {
                     showSettings = false
                     mm.signOutOfDemo()
@@ -95,14 +107,20 @@ struct ProfileScreen: View {
                     .padding(.leading, -10)
             }
         }
+        .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
+        .confirmationDialog("Delete your cloud account and shared training data? This cannot be undone.", isPresented: $deleteAccount, titleVisibility: .visible) {
+            Button("Delete account", role: .destructive) { Task { _ = await mm.runtime?.perform("delete_account", [:]) } }
+        }
         .onChange(of: showSettings) { _, open in
             guard !open, mm.isSignedIn else { return }
+            if mm.isLive { mm.me.gym = gym }
             mm.updateMe(name: name.isEmpty ? mm.me.name : name, email: email,
                         belt: BeltRank(rawValue: belt) ?? mm.me.belt, stripes: Int(stripes) ?? mm.me.stripes)
         }
     }
 
     private func openSettings() {
+        gym = mm.me.gym
         name = mm.me.name
         email = mm.me.email ?? ""
         belt = mm.me.belt.rawValue

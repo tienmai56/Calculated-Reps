@@ -33,6 +33,8 @@ final class LocalArchiveModel {
 
 struct PreviousTrainingDataScreen: View {
     let model: LocalArchiveModel
+    var exportOnly = false
+    @Environment(\.dismiss) private var dismiss
     @State private var unlocked = false
     @State private var working = false
     @State private var status: String?
@@ -54,7 +56,7 @@ struct PreviousTrainingDataScreen: View {
                     }
                 }
                 Section {
-                    NavigationLink("View archive") { ArchiveCollectionsScreen(archive: archive) }
+                    if !exportOnly { NavigationLink("View archive") { ArchiveCollectionsScreen(archive: archive) } }
                     Button("Export data") { Task { await export(archive) } }.disabled(working)
                 }
                 if !archive.manifest.warnings.isEmpty {
@@ -64,11 +66,13 @@ struct PreviousTrainingDataScreen: View {
                     }
                 }
             }
+            if unlocked && model.archives.isEmpty && !model.loading { Text("No previous local sessions were found on this device.") }
             if working { ProgressView(status ?? "Preparing export…") }
             else if let status { Text(status).foregroundStyle(.secondary).accessibilityAddTraits(.updatesFrequently) }
             if let failure { Text(failure).foregroundStyle(.red) }
         }
-        .navigationTitle("Previous training data")
+        .navigationTitle(exportOnly ? "Export local sessions" : "Previous training data")
+        .toolbar { if exportOnly { Button("Done") { dismiss() } } }
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: Binding(get: { exportURL != nil }, set: { if !$0 { cleanup() } })) {
             if let exportURL {

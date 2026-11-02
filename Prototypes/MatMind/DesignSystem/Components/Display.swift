@@ -192,7 +192,7 @@ struct MMAvatar: View {
         ZStack {
             Self.tints[hueIndex]
             if let photo {
-                Image(photo).resizable().scaledToFill()
+                MMPhoto(source: photo).scaledToFill()
             } else {
                 Text(initials)
                     .font(MMFont.display((size * 0.38).rounded()))

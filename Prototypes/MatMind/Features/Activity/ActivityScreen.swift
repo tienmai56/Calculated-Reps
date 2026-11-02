@@ -8,7 +8,7 @@ struct ActivityScreen: View {
         MMScreen(tabPadding: true) {
             HStack {
                 MMWordmark(size: 32)
-                    .onLongPressGesture { mm.showDemoPanel = true }
+                    .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint("Long press for prototype tools")
                 Spacer()
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
@@ -27,6 +27,11 @@ struct ActivityScreen: View {
                 StreakNudges()
                 ForEach(mm.posts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
+                }
+                if mm.isLive {
+                    MMButton("Load older memories", variant: .ghost) {
+                        Task { _ = await mm.runtime?.perform("load_more_feed", [:]) }
+                    }.padding(.horizontal, 16)
                 }
                 Text("That's everything from your crew this week.\nGo make a new memory.")
                     .mmFont(.body, 13, .medium, lineHeight: 1.45)
@@ -423,6 +428,14 @@ struct PostDetailScreen: View {
                  title: isOrganizer ? "Your post" : "Post options",
                  description: isOrganizer ? "Only you, the organizer, can edit or delete this post." : "\(organizer.name) organized this session.") {
             VStack(spacing: 8) {
+                if mm.isLive {
+                    MMButton("Report post", variant: .ghost, iconLeft: "flag", fullWidth: true) {
+                        showMenu = false
+                        Task {
+                            if await mm.runtime?.perform("report_post", ["post_id": post.id, "reason": "Reported from post options"]) == true { mm.showToast("Report sent") }
+                        }
+                    }
+                }
                 if isOrganizer {
                     MMButton("Edit caption", variant: .secondary, iconLeft: "pencil", fullWidth: true) {
                         showMenu = false

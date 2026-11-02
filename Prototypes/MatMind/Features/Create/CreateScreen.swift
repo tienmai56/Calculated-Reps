@@ -10,6 +10,7 @@ struct CreateScreen: View {
         var weekday: String
         var date: Int
         var month: String
+        var value: Date? = nil
     }
 
     private static let future = [
@@ -29,7 +30,9 @@ struct CreateScreen: View {
     @State private var name = ""
     @State private var dayIndex: Int
     @State private var time: String
-    @State private var gym = SeedData.me.gym
+    @State private var gym = ""
+    @State private var customTime = false
+    @State private var chosenTime = Date()
     @State private var note = ""
     @State private var showNote = false
     @State private var invited: [String]
@@ -48,7 +51,18 @@ struct CreateScreen: View {
     }
 
     private var isPast: Bool { mode == "past" }
-    private var days: [Day] { isPast ? Self.past : Self.future }
+    private var days: [Day] {
+        guard mm.isLive else { return isPast ? Self.past : Self.future }
+        let calendar = Calendar.current
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        return (0..<(isPast ? 5 : 7)).map { index in
+            let date = calendar.date(byAdding: .day, value: isPast ? -index - 1 : index, to: Date())!
+            formatter.dateFormat = "EEE"; let weekday = formatter.string(from: date)
+            formatter.dateFormat = "MMM"; let month = formatter.string(from: date)
+            return Day(label: index == 0 ? (isPast ? "Yesterday" : "Today") : weekday,
+                       weekday: weekday, date: calendar.component(.day, from: date), month: month, value: date)
+        }
+    }
     private var day: Day { days[min(dayIndex, days.count - 1)] }
 
     private var autoName: String {
@@ -99,12 +113,16 @@ struct CreateScreen: View {
                     ForEach(timeOptions, id: \.self) { t in
                         MMTag(t, selected: time == t, size: .sm) { time = t }
                     }
-                    MMTag("Other", icon: "clock", size: .sm)
+                    MMTag("Other", icon: "clock", size: .sm) { customTime = true }
                 }
                 .padding(.top, 10)
             }
 
             field("Where") {
+                if mm.isLive {
+                    MMTextField(label: "Gym or venue", text: $gym)
+                        .padding(.bottom, 12)
+                }
                 MMFlowLayout(spacing: 8, lineSpacing: 8) {
                     ForEach(mm.gyms, id: \.self) { g in
                         MMTag(g, icon: g == mm.me.gym ? "house" : "map-pin", selected: gym == g, size: .sm) { gym = g }
@@ -153,6 +171,10 @@ struct CreateScreen: View {
             if !isPast {
                 field("Who can join") {
                     MMTabs(items: [MMTabItem("friends", "Friends only"), MMTabItem("link", "Anyone with link")], selection: $privacy)
+                    if mm.isLive {
+                        Text("Create the session, then share its invitation link.")
+                            .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 12)
+                    } else {
                     HStack(spacing: 12) {
                         if let link {
                             MMIcon("link", size: 18, color: MMColor.accent)
@@ -174,13 +196,24 @@ struct CreateScreen: View {
                     .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(MMColor.white))
                     .mmOutline(radius: 18)
                     .padding(.top, 12)
+                    }
                 }
             }
             Color.clear.frame(height: 24)
         } footer: {
             MMButton(isPast ? "Next: add a photo" : (invited.isEmpty ? "Create session" : "Send invites to \(invited.count)"),
                      size: .lg, iconLeft: isPast ? "camera" : "send", fullWidth: true) { submit() }
-                .disabled(!TrainingFocusTree.isValid(focusItems))
+                .disabled(!TrainingFocusTree.isValid(focusItems) || mm.busy || (mm.isLive && gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+        }
+        .onAppear { if gym.isEmpty { gym = mm.me.gym } }
+        .mmSheet(isPresented: $customTime, title: "Choose a time") {
+            DatePicker("Time", selection: $chosenTime, displayedComponents: .hourAndMinute)
+                .datePickerStyle(.wheel)
+        } actions: {
+            MMButton("Use this time", fullWidth: true) {
+                let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "h:mm a"
+                time = formatter.string(from: chosenTime); customTime = false
+            }
         }
     }
 
@@ -189,13 +222,21 @@ struct CreateScreen: View {
         return ([time] + Self.times).filter { seen.insert($0).inserted }
     }
 
+    private var selectedDate: Date? {
+        guard let value = day.value else { return nil }
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "h:mm a"
+        guard let clock = formatter.date(from: time) else { return nil }
+        let components = Calendar.current.dateComponents([.hour, .minute], from: clock)
+        return Calendar.current.date(bySettingHour: components.hour ?? 0, minute: components.minute ?? 0, second: 0, of: value)
+    }
+
     private func submit() {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         mm.createSession(SessionDraft(
             title: trimmed.isEmpty ? autoName : trimmed, day: day.weekday, date: day.date, month: day.month,
             time: time, gym: gym, note: note, invited: invited,
             privacy: Privacy(rawValue: privacy) ?? .friends, past: isPast,
-            focusItems: TrainingFocusTree.normalized(focusItems)
+            focusItems: TrainingFocusTree.normalized(focusItems), startsAt: selectedDate
         ))
     }
 
