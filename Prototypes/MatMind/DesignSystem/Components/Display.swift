@@ -98,7 +98,7 @@ struct MMTag: View {
 
     /// A trailing closure is the tap `action`; pass `onRemove:` by label.
     init(_ text: String, icon: String? = nil, selected: Bool = false, size: Size = .md,
-         action: (() -> Void)? = nil, onRemove: (() -> Void)? = nil) {
+         onRemove: (() -> Void)? = nil, action: (() -> Void)? = nil) {
         self.text = text
         self.icon = icon
         self.selected = selected
