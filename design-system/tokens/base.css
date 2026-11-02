@@ -1,0 +1,4 @@
+html,body{background:var(--bg-app);color:var(--text-primary);font-family:var(--font-body);font-size:var(--text-body);line-height:var(--lh-body);-webkit-font-smoothing:antialiased;}
+a{color:var(--text-link);text-decoration:none}
+a:hover{color:var(--coral-700);text-decoration:underline}
+::selection{background:var(--coral-100);color:var(--ink-900)}

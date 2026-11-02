@@ -1,0 +1,48 @@
+<!-- @dsCard group="Mobile app" viewport="1100x760" name="IA & key journeys" subtitle="Sitemap, global actions, journeys A–C, MVP guardrails" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mat Mind — IA & flows</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../../styles.css">
+<style>
+body{margin:0;padding:40px clamp(16px,4vw,48px) 56px;background:var(--paper)}*{box-sizing:border-box}
+h1{font:800 clamp(30px,4vw,44px)/1 var(--font-display);letter-spacing:-.04em;margin:0}h1 em{font-style:normal;color:var(--accent)}
+h2{font:800 22px/1.1 var(--font-display);letter-spacing:-.03em;margin:40px 0 14px}
+p.lede{font:400 16px/1.5 var(--font-body);color:var(--ink-700);max-width:720px;margin:10px 0 0;text-wrap:pretty}
+.ia{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.col{display:flex;flex-direction:column;gap:8px}
+.tab{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:999px;font:800 16px var(--font-display);letter-spacing:-.02em}
+.ic{width:18px;height:18px;background:currentColor;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.node{display:flex;flex-direction:column;gap:2px;padding:11px 14px;background:#fff;border-radius:16px;box-shadow:var(--shadow-card);color:var(--ink-900);text-decoration:none}
+.node:hover{box-shadow:0 0 0 2px var(--coral-300),var(--shadow-card);text-decoration:none;color:var(--ink-900)}
+.node b{font:700 14px/1.25 var(--font-body)}.node span{font:400 12.5px/1.35 var(--font-body);color:var(--ink-500)}
+.global{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.g{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 10px;border-radius:999px;background:var(--ink-900);color:var(--paper);font:600 14px var(--font-body);text-decoration:none}
+.g:hover{color:#fff;text-decoration:none;background:var(--ink-800)}
+.g i{width:28px;height:28px;border-radius:99px;background:var(--accent);display:flex;align-items:center;justify-content:center;font:800 12px var(--font-display);font-style:normal;color:#fff}
+.j{background:#fff;border-radius:26px;padding:18px;box-shadow:var(--shadow-card);margin-bottom:12px}
+.jh{display:flex;gap:12px;align-items:center;margin-bottom:14px}.jh b{display:block;font:800 18px/1.15 var(--font-display);letter-spacing:-.02em}.jh span{font:400 13px var(--font-body);color:var(--ink-500)}
+.jk{width:36px;height:36px;flex-shrink:0;border-radius:99px;background:var(--accent);color:#fff;font:800 17px/36px var(--font-display);text-align:center}
+.steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.step{display:flex;align-items:center;gap:8px;padding:8px 14px 8px 8px;border-radius:999px;background:var(--paper-2);font:600 13.5px var(--font-body);color:var(--ink-900);text-decoration:none}
+.step:hover{background:var(--coral-100);text-decoration:none;color:var(--ink-900)}
+.step i{width:22px;height:22px;border-radius:99px;background:#fff;font:800 11px/22px var(--font-display);font-style:normal;text-align:center}
+.arr{color:var(--ink-300);font:700 16px var(--font-body)}
+.no{display:flex;flex-wrap:wrap;gap:8px}.no span{padding:7px 13px;border-radius:999px;box-shadow:inset 0 0 0 1.5px var(--ink-200);font:600 13px var(--font-body);color:var(--ink-500);text-decoration:line-through;text-decoration-color:var(--coral-500)}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:14px}.rules div{padding:14px 16px;border-radius:18px;background:var(--mint-100);font:500 14px/1.4 var(--font-body);color:var(--ink-800)}
+a{color:var(--text-link)}
+</style></head><body>
+<h1>mat mind<em>.</em> information architecture</h1>
+<p class="lede">Social-first, not planning-first. Four tabs, one big create button, and three overlays that are always one tap away. Every node links into the live prototype.</p>
+<h2>Sitemap</h2>
+<div class="ia">
+<div class="col"><div class="tab" style="background:var(--coral-100);color:var(--coral-700)"><span class="ic" style="-webkit-mask-image:url(../../assets/icons/house.svg);mask-image:url(../../assets/icons/house.svg)"></span>Activity</div><a class="node" href="index.html#activity"><b>Feed</b><span>Completed sessions from you + friends · streak nudges</span></a><a class="node" href="index.html#post"><b>Post detail</b><span>Photo, participants, likes, comments</span></a><a class="node" href="index.html#post"><b>Post options</b><span>Organizer: edit/delete · participant: remove me</span></a></div>
+<div class="col"><div class="tab" style="background:var(--sky-100);color:var(--sky-700)"><span class="ic" style="-webkit-mask-image:url(../../assets/icons/calendar.svg);mask-image:url(../../assets/icons/calendar.svg)"></span>Training</div><a class="node" href="index.html#training"><b>Upcoming</b><span>Invites (Join / Decline) · coming up · ready-to-share</span></a><a class="node" href="index.html#invite"><b>Session detail</b><span>Participants, privacy, link · add/remove (organizer)</span></a><a class="node" href="index.html#complete"><b>Complete & share</b><span>Review people → photo → completed → publish</span></a><a class="node" href="index.html#empty"><b>Empty state</b><span>Invite to train with friends</span></a><a class="node" href="index.html#training"><b>Past</b><span>Shared sessions · log after the fact</span></a></div>
+<div class="col"><div class="tab" style="background:var(--sun-100);color:var(--sun-600)"><span class="ic" style="-webkit-mask-image:url(../../assets/icons/users.svg);mask-image:url(../../assets/icons/users.svg)"></span>Friends</div><a class="node" href="index.html#friends"><b>Streak list</b><span>Keep it going · this week · pick it back up</span></a><a class="node" href="index.html#active"><b>Friend profile</b><span>Streak belt, longest, memories, invite to train</span></a><a class="node" href="index.html#qr"><b>QR code</b><span>My code / scan → instant friends</span></a></div>
+<div class="col"><div class="tab" style="background:var(--mint-100);color:var(--mint-700)"><span class="ic" style="-webkit-mask-image:url(../../assets/icons/user.svg);mask-image:url(../../assets/icons/user.svg)"></span>Profile</div><a class="node" href="index.html#profile"><b>My profile</b><span>Photo, name, belt, friends, streaks, activity</span></a><a class="node" href="index.html#profile"><b>Account</b><span>Email (private), name, belt</span></a></div>
+</div>
+<div class="global"><a class="g" href="index.html#create"><i>+</i>Plan a session — center tab button, anywhere</a><a class="g" href="index.html#notifications"><i>3</i>Notifications — bell on Activity</a><a class="g" href="index.html#scan"><i>QR</i>Add friend — Friends header & Profile</a></div>
+<h2>Key journeys</h2>
+<div class="j"><div class="jh"><span class="jk">A</span><div><b>Plan training together</b><span>Ends with participants showing on the upcoming session</span></div></div><div class="steps"><a class="step" href="index.html#training"><i>1</i>Open Training</a><span class="arr">→</span><a class="step" href="index.html#create"><i>2</i>Plan a session</a><span class="arr">→</span><a class="step" href="index.html#create"><i>3</i>Pick gym · day · time</a><span class="arr">→</span><a class="step" href="index.html#create"><i>4</i>Invite friends</a><span class="arr">→</span><a class="step" href="index.html#create"><i>5</i>Friends join (live)</a><span class="arr">→</span><a class="step" href="index.html#invite"><i>6</i>Session shows who's going</a></div></div>
+<div class="j"><div class="jh"><span class="jk">B</span><div><b>Share a training memory</b><span>Ends with the post on every participant's profile and friends' feeds</span></div></div><div class="steps"><a class="step" href="index.html#training"><i>1</i>Open completed session</a><span class="arr">→</span><a class="step" href="index.html#complete"><i>2</i>Add photo</a><span class="arr">→</span><a class="step" href="index.html#complete"><i>3</i>Mark as completed</a><span class="arr">→</span><a class="step" href="index.html#complete"><i>4</i>Publish</a><span class="arr">→</span><a class="step" href="index.html#activity"><i>5</i>Appears in Activity</a><span class="arr">→</span><a class="step" href="index.html#post"><i>6</i>Friends like & comment</a></div></div>
+<div class="j"><div class="jh"><span class="jk">C</span><div><b>Maintain a friendship streak</b><span>Ends with the weekly streak ticking up</span></div></div><div class="steps"><a class="step" href="index.html#friends"><i>1</i>Open Friends</a><span class="arr">→</span><a class="step" href="index.html#friends"><i>2</i>See active streak</a><span class="arr">→</span><a class="step" href="index.html#active"><i>3</i>Friend's profile</a><span class="arr">→</span><a class="step" href="index.html#active"><i>4</i>Invite to train</a><span class="arr">→</span><a class="step" href="index.html#complete"><i>5</i>Complete together</a><span class="arr">→</span><a class="step" href="index.html#complete"><i>6</i>Streak 8 → 9</a></div></div>
+<h2>Rules the design enforces</h2>
+<div class="rules"><div>Posts only come from completed sessions — the composer <b>is</b> the completion flow.</div><div>One shared post per session, on every participant's profile. Organizer edits/deletes; anyone can remove themselves.</div><div>Join only via invite, direct add, or a valid link — never from the feed.</div><div>A streak week counts when two friends complete ≥1 session together, Mon–Sun.</div></div>
+<div class="no"><span>Free-form posts</span><span>Public discovery</span><span>Group chat / DMs</span><span>Daily streaks</span><span>Leaderboards</span><span>Badges & milestones</span><span>Performance analytics</span><span>Avatar builder</span></div>
+</body></html>

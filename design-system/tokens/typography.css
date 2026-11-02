@@ -1,0 +1,28 @@
+/* Mat Mind — type tokens. Bricolage Grotesque for personality, Archivo for reading, JetBrains Mono for tiny numerals. */
+:root{
+  --font-display:'Bricolage Grotesque', 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --font-body:'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --weight-regular:400; /* @kind font */
+  --weight-medium:500; /* @kind font */
+  --weight-semibold:600; /* @kind font */
+  --weight-bold:700; /* @kind font */
+  --weight-black:800; /* @kind font */
+
+  --text-display-xl:48px; --lh-display-xl:0.95; /* @kind font */
+  --text-display-l:36px;  --lh-display-l:1; /* @kind font */
+  --text-display-m:28px;  --lh-display-m:1.05; /* @kind font */
+  --text-title-l:22px;    --lh-title-l:1.15; /* @kind font */
+  --text-title-m:18px;    --lh-title-m:1.2; /* @kind font */
+  --text-title-s:16px;    --lh-title-s:1.25; /* @kind font */
+  --text-body-l:17px;     --lh-body-l:1.45; /* @kind font */
+  --text-body:15px;       --lh-body:1.45; /* @kind font */
+  --text-body-s:13px;     --lh-body-s:1.4; /* @kind font */
+  --text-caption:12px;    --lh-caption:1.3; /* @kind font */
+  --text-overline:11px;   --lh-overline:1.2; /* @kind font */
+
+  --tracking-display:-0.03em; /* @kind font */
+  --tracking-title:-0.015em; /* @kind font */
+  --tracking-overline:0.1em; /* @kind font */
+}

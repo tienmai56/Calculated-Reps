@@ -1,0 +1,90 @@
+/* Mat Mind — color tokens. Light-first, warm "gi cotton" canvas; coral primary; belt + friend colors carry the fun. */
+:root{
+  /* Canvas & ink (warm neutrals) */
+  --paper:#FAF6EF;          /* app background — unbleached gi cotton */
+  --paper-2:#F3ECE0;        /* sunken / grouped background */
+  --paper-3:#E9E0D1;
+  --white:#FFFFFF;
+  --ink-900:#1D1B18;
+  --ink-800:#2E2A25;
+  --ink-700:#4A453D;
+  --ink-500:#756E62;
+  --ink-400:#9A9284;
+  --ink-300:#BDB5A7;
+  --ink-200:#DDD5C7;
+  --ink-100:#EDE6DA;
+
+  /* Primary — Coral ("tap the mat") */
+  --coral-100:#FFE4DB;
+  --coral-300:#FF9C80;
+  --coral-500:#FF5C39;
+  --coral-600:#EB4521;
+  --coral-700:#C2350F;
+
+  /* Friend palette — each friendship gets a hue (streaks, pair chips, session tickets) */
+  --sun-100:#FFF1C7;  --sun-400:#FFC93C;  --sun-600:#E0A100;
+  --mint-100:#D6F5E8; --mint-500:#1FB27E; --mint-700:#0E7A55;
+  --sky-100:#DCE6FF;  --sky-500:#3E6BFF;  --sky-700:#2347C4;
+  --plum-100:#EDE3FF; --plum-500:#8D63F0; --plum-700:#5E3BB5;
+
+  /* Streak flame */
+  --flame-500:#FF7A1A;
+  --flame-100:#FFE8D4;
+
+  /* Belt ranks (adult + kids) */
+  --belt-white:#FFFFFF;
+  --belt-blue:#1F5BD6;
+  --belt-purple:#7A3FC4;
+  --belt-brown:#7A4E2D;
+  --belt-black:#16140F;
+  --belt-coral:#E2563F;
+  --belt-red:#C8232C;
+  --belt-grey:#9AA0A6;
+  --belt-yellow:#F2C230;
+  --belt-orange:#F28C28;
+  --belt-green:#2E9E4F;
+  --belt-bar-black:#16140F;
+  --belt-bar-red:#C8232C;
+  --belt-stripe:#FFFFFF;
+
+  /* Semantic status */
+  --success-500:#1FB27E; --success-tint:#D6F5E8;
+  --warning-500:#E0A100; --warning-tint:#FFF1C7;
+  --danger-500:#E5383B;  --danger-tint:#FDE1E1;
+  --info-500:#3E6BFF;    --info-tint:#DCE6FF;
+
+  /* ---- Semantic aliases ---- */
+  --bg-app:var(--paper);
+  --surface-base:var(--paper);
+  --surface-card:var(--white);
+  --surface-raised:var(--white);
+  --surface-sunken:var(--paper-2);
+  --surface-input:var(--white);
+  --surface-hover:rgba(29,27,24,.04);
+  --surface-press:rgba(29,27,24,.08);
+  --surface-overlay:rgba(29,27,24,.48);
+  --surface-inverse:var(--ink-900);
+
+  --text-primary:var(--ink-900);
+  --text-secondary:var(--ink-700);
+  --text-tertiary:var(--ink-500);
+  --text-disabled:var(--ink-300);
+  --text-inverse:var(--paper);
+  --text-on-accent:#FFFFFF;
+  --text-accent:var(--coral-600);
+  --text-link:var(--coral-600);
+
+  --border-subtle:rgba(29,27,24,.06);
+  --border-default:rgba(29,27,24,.12);
+  --border-strong:rgba(29,27,24,.22);
+  --border-focus:var(--coral-500);
+
+  --control-off:var(--ink-200);     /* switch track off, empty stripes */
+  --control-border:var(--ink-300);  /* checkbox / radio outline */
+
+  --accent:var(--coral-500);
+  --accent-hover:#FF6F4F;
+  --accent-press:var(--coral-600);
+  --accent-shade:var(--coral-700);  /* chunky button bottom edge */
+  --accent-tint:var(--coral-100);
+}
