@@ -16,3 +16,9 @@ xcuserdata/
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# Mat Mind design system export metadata
+.thumbnail
+_adherence.oxlintrc.json
+_ds_manifest.json
+github.md
