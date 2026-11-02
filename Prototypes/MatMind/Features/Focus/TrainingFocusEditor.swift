@@ -3,6 +3,8 @@ import SwiftUI
 /// The same editor is used while planning and by the organizer on session details.
 struct TrainingFocusEditor: View {
     @Binding var items: [TrainingFocus]
+    var allowsEmptyRoots = false
+    var focusOnAppear = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focusedID: UUID?
     @State private var removalID: UUID?
@@ -28,14 +30,14 @@ struct TrainingFocusEditor: View {
                 .accessibilityLabel("Focus suggestions")
             }
             MMButton("Add a focus", variant: .secondary, iconLeft: "plus", fullWidth: true) { addRoot() }
-            if !TrainingFocusTree.isValid(items) {
+            if !TrainingFocusTree.isValid(allowsEmptyRoots ? TrainingFocusTree.optionalOutline(items) : items) {
                 Text("Name each focus, or remove the blank one.")
                     .mmFont(.body, 13)
                     .foregroundStyle(MMColor.textTertiary)
             }
         }
         .onAppear {
-            if items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
+            if focusOnAppear, items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
                 focusedID = items[0].id
             }
         }

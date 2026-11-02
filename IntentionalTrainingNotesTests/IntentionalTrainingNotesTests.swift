@@ -363,6 +363,26 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(SessionNoteCodec.decode("Existing plain note").focus.isEmpty)
         XCTAssertEqual(SessionNoteCodec.decode("matmind-focus-v1:broken").note, "matmind-focus-v1:broken")
     }
+
+    func testUntouchedOptionalFocusDoesNotBlockPlanningOrCreateSavedContent() {
+        let outline = TrainingFocusTree.optionalOutline([TrainingFocus(), TrainingFocus(title: "  ")])
+        XCTAssertTrue(TrainingFocusTree.isValid(outline))
+        XCTAssertEqual(SessionNoteCodec.encode(note: "Bring a gi", focus: outline), "Bring a gi")
+    }
+
+    func testOptionalFocusKeepsEnteredDetailsForValidation() {
+        let detail = TrainingFocus(title: "Win the underhook")
+        let incomplete = TrainingFocus(title: "", children: [detail])
+        let outline = TrainingFocusTree.optionalOutline([TrainingFocus(), incomplete])
+        XCTAssertEqual(outline, [incomplete])
+        XCTAssertFalse(TrainingFocusTree.isValid(outline))
+
+        let named = TrainingFocus(title: " Guard passing ", children: [detail])
+        let saved = TrainingFocusTree.optionalOutline([TrainingFocus(), named])
+        XCTAssertTrue(TrainingFocusTree.isValid(saved))
+        XCTAssertEqual(saved.first?.title, "Guard passing")
+        XCTAssertEqual(saved.first?.children, [detail])
+    }
 }
 
 final class GoogleCloudSignInTests: XCTestCase {
