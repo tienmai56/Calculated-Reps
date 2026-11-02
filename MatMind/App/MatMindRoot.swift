@@ -63,6 +63,7 @@ struct MatMindRoot: View {
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
+                if old.profiles != new.profiles { Task { await runtime?.loadPhotos() } }
                 if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil, let pending = model.pendingLink {
                     Task { await redeemLink(pending) }
                 }
@@ -132,6 +133,8 @@ private struct LiveProfileSetup: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var photo: Data?
     @State private var photoKey = UUID()
+    @State private var photoRequest = UUID()
+    @State private var loadingPhoto = false
     @State private var saving = false
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -140,12 +143,12 @@ private struct LiveProfileSetup: View {
     private var canSave: Bool {
         // E.164: country code + number, 7–15 digits in total (the server checks the same).
         let totalDigits = countryCode.filter(\.isNumber).count + phoneDigits.count
-        return !trimmedName.isEmpty && !trimmedGym.isEmpty && phoneDigits.count >= 6 && (7...15).contains(totalDigits) && !saving && !app.busy
+        return !trimmedName.isEmpty && !trimmedGym.isEmpty && phoneDigits.count >= 6 && (7...15).contains(totalDigits) && !loadingPhoto && !saving && !app.busy
     }
 
     var body: some View {
         MMScreen {
-            HStack { MMWordmark(size: 22); Spacer() }
+            HStack { MMWordmark(size: 24); Spacer() }
                 .padding(.horizontal, MMLayout.gutter)
                 .frame(height: MMLayout.headerHeight)
         } content: {
@@ -165,7 +168,12 @@ private struct LiveProfileSetup: View {
             MMButton("Complete my profile", size: .lg, fullWidth: true) { Task { await save() } }
                 .disabled(!canSave)
         }
-        .onChange(of: pickedPhoto) { _, item in Task { await loadPhoto(item) } }
+        .onChange(of: pickedPhoto) { _, item in
+            let request = UUID()
+            photoRequest = request
+            loadingPhoto = item != nil
+            Task { await loadPhoto(item, request: request) }
+        }
     }
 
     private func fieldLabel(_ text: String) -> some View {
@@ -266,13 +274,15 @@ private struct LiveProfileSetup: View {
         }
     }
 
-    private func loadPhoto(_ item: PhotosPickerItem?) async {
+    private func loadPhoto(_ item: PhotosPickerItem?, request: UUID) async {
         guard let item else { return }
+        defer { if photoRequest == request { loadingPhoto = false } }
         guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data),
               let jpeg = Self.avatarJPEG(image) else {
-            app.error = "Couldn't read that photo. Try another one."
+            if photoRequest == request { app.error = "Couldn't read that photo. Try another one." }
             return
         }
+        guard photoRequest == request else { return }
         photo = jpeg
         photoKey = UUID()
     }
@@ -318,6 +328,10 @@ final class LiveMatMindRuntime: AppRuntime {
     let model: SocialAppModel
     unowned let ui: AppModel
     private var photos: [String: String] = [:]
+    private var avatarPhotos: [String: String] = [:]
+    private var loadingAvatars: Set<String> = []
+    private var photoOwner: String?
+    private let imageLoader: (String, String) async throws -> Data
     private var connecting = false
     private var publishKeys: [String: UUID] = [:]
     private var mediaKeys: [String: UUID] = [:]
@@ -325,7 +339,11 @@ final class LiveMatMindRuntime: AppRuntime {
     private var mediaPhotos: [String: String] = [:]
     var busy: Bool { model.busy }
 
-    init(model: SocialAppModel, ui: AppModel) { self.model = model; self.ui = ui }
+    init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
+        self.model = model
+        self.ui = ui
+        self.imageLoader = imageLoader ?? { key, bucket in try await model.backend.image(key: key, bucket: bucket) }
+    }
     private func localID(_ id: String) -> String { id == model.userID ? "me" : id }
     private func cloudID(_ id: String) -> String { id == "me" ? model.userID ?? "" : id }
     private func dateText(_ date: Date, _ format: String) -> String {
@@ -334,9 +352,15 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     private func person(_ row: SocialRow) -> Person {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
-               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint)
+               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")])
     }
     func sync() {
+        if photoOwner != model.userID {
+            for path in Array(photos.values) + Array(avatarPhotos.values) { try? FileManager.default.removeItem(atPath: path) }
+            photos = [:]
+            avatarPhotos = [:]
+            photoOwner = model.userID
+        }
         guard model.userID != nil else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.isSignedIn = true
         ui.me = model.me.map(person) ?? Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
@@ -384,14 +408,32 @@ final class LiveMatMindRuntime: AppRuntime {
         }
     }
     func loadPhotos() async {
-        let owner = model.userID
+        sync()
+        guard let owner = model.userID else { return }
         for row in model.snapshot.media where photos[row.id] == nil {
             do {
-                let data = try await model.backend.image(key: row.text("object_key"))
+                let data = try await imageLoader(row.text("object_key"), "session-photos")
                 guard model.userID == owner else { return }
                 let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-\(row.id).jpg")
                 try data.write(to: path, options: .atomic); photos[row.id] = path.path
             } catch { continue }
+        }
+        let keys = Set(model.snapshot.profiles.map { $0.text("avatar_key") }.filter { !$0.isEmpty })
+        for key in keys where avatarPhotos[key] == nil {
+            let request = owner + ":" + key
+            guard loadingAvatars.insert(request).inserted else { continue }
+            defer { loadingAvatars.remove(request) }
+            do {
+                let data = try await imageLoader(key, "avatars")
+                guard model.userID == owner else { return }
+                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-avatar-\(UUID().uuidString).jpg")
+                try data.write(to: path, options: .atomic)
+                avatarPhotos[key] = path.path
+            } catch { continue }
+        }
+        let visibleKeys = Set(model.snapshot.profiles.map { $0.text("avatar_key") })
+        for key in Array(avatarPhotos.keys) where !visibleKeys.contains(key) {
+            if let path = avatarPhotos.removeValue(forKey: key) { try? FileManager.default.removeItem(atPath: path) }
         }
         sync()
     }
@@ -399,7 +441,7 @@ final class LiveMatMindRuntime: AppRuntime {
         await model.authenticate("google"); sync()
         if model.userID != nil, model.me != nil, let pending = model.pendingLink { _ = await connect(pending.absoluteString) }
     }
-    func signOut() async { await model.logout(); photos = [:]; sync() }
+    func signOut() async { await model.logout(); sync() }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
         if operation == "enable_notifications" { await SocialPushCoordinator.register(in: model); return model.error == nil }

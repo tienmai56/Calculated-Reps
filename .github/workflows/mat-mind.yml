@@ -31,6 +31,14 @@ jobs:
               assert info[key] == settings[setting], f'{key}: archived {info[key]!r}, expected {settings[setting]!r}'
           print(f"Verified archive version {info['CFBundleShortVersionString']} ({info['CFBundleVersion']})")
           PY
+      - name: Package the unsigned archive
+        run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/GripGorillas.xcarchive" "$RUNNER_TEMP/GripGorillas-unsigned.xcarchive.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GripGorillas-unsigned-${{ github.sha }}
+          path: ${{ runner.temp }}/GripGorillas-unsigned.xcarchive.zip
+          if-no-files-found: error
+          retention-days: 7
   ios:
     runs-on: macos-latest
     steps:
@@ -64,4 +72,14 @@ jobs:
       - name: Validate migrations and authorization
         env:
           PGPASSWORD: local-test-password
-        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/profile.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+  functions:
+    name: Edge Function tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate account deletion and profile-photo cleanup
+        run: node scripts/test-delete-account.mjs

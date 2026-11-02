@@ -371,6 +371,66 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(SessionNoteCodec.decode("matmind-focus-v1:broken").note, "matmind-focus-v1:broken")
     }
 
+    func testLiveProfilePhotosLoadPrivatelyAndClearOnSignOut() async throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","name":"Alex","avatar_key":"owner/one.jpg"},{"id":"friend","name":"Lena","avatar_key":"friend/two.jpg"}]"#.utf8))
+        let data = try XCTUnwrap(UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }.jpegData(compressionQuality: 0.8))
+        var requested: [String] = []
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui) { key, bucket in
+            requested.append(bucket + ":" + key)
+            return data
+        }
+
+        await runtime.loadPhotos()
+        XCTAssertEqual(Set(requested), ["avatars:owner/one.jpg", "avatars:friend/two.jpg"])
+        let ownPhoto = try XCTUnwrap(ui.me.photo)
+        let friendPhoto = try XCTUnwrap(ui.people["friend"]?.photo)
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: ownPhoto)), data)
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: friendPhoto)), data)
+        XCTAssertNotNil(UIImage(contentsOfFile: ownPhoto))
+        XCTAssertNotNil(UIImage(contentsOfFile: friendPhoto))
+        await runtime.loadPhotos()
+        XCTAssertEqual(requested.count, 2)
+
+        model.userID = nil
+        runtime.sync()
+        XCTAssertNil(ui.me.photo)
+        XCTAssertTrue(ui.people.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: ownPhoto))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: friendPhoto))
+    }
+
+    func testProfilePhotoUpdatesAndRevokedAccessRemoveCachedImages() async throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui) { key, _ in
+            if key == "unreadable/photo.jpg" { throw CloudError(message: "Unavailable") }
+            return Data(key.utf8)
+        }
+        model.snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","avatar_key":"owner/first.jpg"},{"id":"friend","avatar_key":"unreadable/photo.jpg"}]"#.utf8))
+        await runtime.loadPhotos()
+        let first = try XCTUnwrap(ui.me.photo)
+        XCTAssertNil(ui.people["friend"]?.photo)
+
+        model.snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","avatar_key":"owner/second.jpg"}]"#.utf8))
+        await runtime.loadPhotos()
+        let second = try XCTUnwrap(ui.me.photo)
+        XCTAssertNotEqual(first, second)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first))
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: second)), Data("owner/second.jpg".utf8))
+
+        model.snapshot.profiles = []
+        await runtime.loadPhotos()
+        XCTAssertNil(ui.me.photo)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: second))
+    }
+
     func testUntouchedOptionalFocusDoesNotBlockPlanningOrCreateSavedContent() {
         let outline = TrainingFocusTree.optionalOutline([TrainingFocus(), TrainingFocus(title: "  ")])
         XCTAssertTrue(TrainingFocusTree.isValid(outline))
