@@ -14,6 +14,19 @@ struct QRScreen: View {
     private var scanning: Bool { tab == "scan" }
 
     var body: some View {
+        GeometryReader { viewport in
+            screen(width: viewport.size.width)
+        }
+        .task(id: tab) {
+            guard tab == "scan", found == nil else { return }
+            try? await Task.sleep(for: .seconds(2.2))
+            guard !Task.isCancelled, tab == "scan" else { return }
+            withAnimation(MMMotion.easeOut(0.25)) { found = "lena" }
+            mm.addFriend("lena")
+        }
+    }
+
+    private func screen(width: CGFloat) -> some View {
         MMScreen(background: scanning ? Color(mmHex: 0x141210) : MMColor.bgApp) {
             VStack(spacing: 0) {
                 MMHeader(title: "Add friends", titleColor: scanning ? .white : MMColor.ink900, leading: {
@@ -26,16 +39,16 @@ struct QRScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 4)
             }
+            .frame(width: width)
         } content: {
-            if scanning { scanView } else { codeView }
+            Group {
+                if scanning { scanView } else { codeView }
+            }
+            // Keep both scan states within the actual navigation viewport,
+            // regardless of the ideal width reported by images or labels.
+            .frame(width: width)
         }
-        .task(id: tab) {
-            guard tab == "scan", found == nil else { return }
-            try? await Task.sleep(for: .seconds(2.2))
-            guard !Task.isCancelled, tab == "scan" else { return }
-            withAnimation(MMMotion.easeOut(0.25)) { found = "lena" }
-            mm.addFriend("lena")
-        }
+        .frame(width: width)
     }
 
     private var codeView: some View {
@@ -75,10 +88,25 @@ struct QRScreen: View {
     }
 
     private var scanView: some View {
+        Group {
+            if let found {
+                ConnectedView(friendID: found) {
+                    mm.back()
+                }
+                .transition(.opacity)
+            } else {
+                cameraPreview
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
+    }
+
+    private var cameraPreview: some View {
         ZStack {
-            Image("team-lineup").resizable().scaledToFill()
-                .brightness(-0.3)
-                .saturation(0.8)
             ZStack(alignment: .top) {
                 ForEach(0..<4, id: \.self) { i in
                     ScanCorner()
@@ -106,19 +134,16 @@ struct QRScreen: View {
                 .foregroundStyle(.white)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 28)
-            if let found {
-                ConnectedView(friendID: found) {
-                    self.found = nil
-                    mm.back()
-                }
-                .transition(.opacity)
-            }
         }
         .frame(height: 560)
         .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
+        // A background cannot enlarge the layout to the photo's aspect ratio.
+        .background {
+            Image("team-lineup").resizable().scaledToFill()
+                .brightness(-0.3)
+                .saturation(0.8)
+        }
+        .clipped()
     }
 }
 
@@ -230,8 +255,10 @@ private struct ConnectedView: View {
 
             Group {
                 Text("You & \(p.firstName) are friends").mmFont(.display, 30, tracking: -0.04, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 28)
                 Text("Train together this week to start your first streak.").mmFont(.body, 15).foregroundStyle(MMColor.ink800)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 8)
                 VStack(spacing: 8) {
                     MMButton("Plan a session with \(p.firstName)", variant: .inverse, size: .lg, iconLeft: "calendar-plus", fullWidth: true) {
@@ -246,7 +273,7 @@ private struct ConnectedView: View {
         }
         .multilineTextAlignment(.center)
         .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 560)
         .background(MMColor.sun400)
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { joined = true }
