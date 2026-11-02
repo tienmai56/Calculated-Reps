@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// The installed app renders the same screens as MatMindPrototype, backed by live services.
 struct MatMindRoot: View {
@@ -110,29 +111,205 @@ struct MatMindRoot: View {
     }
 }
 
+/// First-run profile: photo, name, phone, home gym and belt. Stripes are edited
+/// later from Profile; the phone number is stored privately (account settings).
 private struct LiveProfileSetup: View {
+    private struct CountryCode: Hashable { let code: String; let name: String }
+    private static let countryCodes = [
+        CountryCode(code: "+1", name: "United States / Canada"), CountryCode(code: "+44", name: "United Kingdom"),
+        CountryCode(code: "+61", name: "Australia"), CountryCode(code: "+64", name: "New Zealand"),
+        CountryCode(code: "+353", name: "Ireland"), CountryCode(code: "+55", name: "Brazil"),
+        CountryCode(code: "+49", name: "Germany"), CountryCode(code: "+33", name: "France"),
+        CountryCode(code: "+81", name: "Japan"), CountryCode(code: "+84", name: "Vietnam")
+    ]
+
     @Environment(SocialAppModel.self) private var app
     @State private var name = ""
+    @State private var countryCode = "+1"
+    @State private var phone = ""
     @State private var gym = ""
-    @State private var belt = "white"
-    @State private var stripes = "0"
+    @State private var belt: BeltRank = .white
+    @State private var pickedPhoto: PhotosPickerItem?
+    @State private var photo: Data?
+    @State private var photoKey = UUID()
+    @State private var saving = false
+
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedGym: String { gym.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var phoneDigits: String { phone.filter(\.isNumber) }
+    private var canSave: Bool {
+        // E.164: country code + number, 7–15 digits in total (the server checks the same).
+        let totalDigits = countryCode.filter(\.isNumber).count + phoneDigits.count
+        return !trimmedName.isEmpty && !trimmedGym.isEmpty && phoneDigits.count >= 6 && (7...15).contains(totalDigits) && !saving && !app.busy
+    }
+
     var body: some View {
         MMScreen {
-            MMHeader(title: "Your mat profile")
+            HStack { GGLockup(size: 20); Spacer() }
+                .padding(.horizontal, MMLayout.gutter)
+                .frame(height: MMLayout.headerHeight)
         } content: {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Let your people find you.").mmFont(.display, 30)
-                MMTextField(label: "Name", text: $name)
-                MMTextField(label: "Home gym", text: $gym)
-                MMSelect(label: "Belt", options: BeltRank.adultRanks.map(\.rawValue), selection: $belt)
-                MMSelect(label: "Stripes", options: ["0", "1", "2", "3", "4"], selection: $stripes)
-                MMButton("Sign out", variant: .ghost) { Task { await app.logout() } }
-            }.padding(24)
+                Text("First, who's rolling?").mmFont(.display, 30).foregroundStyle(MMColor.textPrimary)
+                photoRow
+                MMTextField(label: "Name", placeholder: "What your partners call you", text: $name)
+                    .textContentType(.name)
+                phoneField
+                MMTextField(label: "Home gym", placeholder: "Your academy", text: $gym, iconLeft: "map-pin")
+                beltPicker
+            }
+            .padding(.horizontal, MMLayout.gutter)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         } footer: {
-            MMButton("Continue", size: .lg, fullWidth: true) {
-                Task { await app.perform("save_profile", ["name": name.trimmingCharacters(in: .whitespacesAndNewlines), "gym": gym, "belt": belt, "stripes": Int(stripes) ?? 0, "timezone": TimeZone.current.identifier]) }
-            }.disabled(app.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            MMButton("Complete my profile", size: .lg, fullWidth: true) { Task { await save() } }
+                .disabled(!canSave)
         }
+        .onChange(of: pickedPhoto) { _, item in Task { await loadPhoto(item) } }
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text).mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
+    }
+
+    private var photoRow: some View {
+        HStack(spacing: 16) {
+            PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+                ZStack {
+                    if let photo, let image = UIImage(data: photo) {
+                        Image(uiImage: image).resizable().scaledToFill()
+                    } else {
+                        Circle().fill(MMColor.paper2)
+                        Circle().strokeBorder(MMColor.ink300, style: StrokeStyle(lineWidth: 2, dash: [6, 5]))
+                        MMIcon("camera", size: 28, color: MMColor.textSecondary)
+                    }
+                }
+                .frame(width: 96, height: 96)
+                .clipShape(Circle())
+            }
+            .accessibilityLabel(photo == nil ? "Add a profile photo" : "Change profile photo")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(photo == nil ? "Add a photo" : "Looking sharp")
+                    .mmFont(.display, 17).foregroundStyle(MMColor.textPrimary)
+                Text("Optional. Helps your partners spot you on the mat.")
+                    .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if photo != nil {
+                    Button("Remove photo") { photo = nil; pickedPhoto = nil }
+                        .mmFont(.body, 14, .semibold)
+                        .foregroundStyle(MMColor.textLink)
+                        .frame(minHeight: MMLayout.tapTarget)
+                }
+            }
+        }
+    }
+
+    private var phoneField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("Phone number")
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(Self.countryCodes, id: \.self) { country in
+                        Button("\(country.name) \(country.code)") { countryCode = country.code }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(countryCode).font(MMFont.body(16))
+                        MMIcon("chevron-down", size: 16, color: MMColor.textTertiary)
+                    }
+                    .foregroundStyle(MMColor.textPrimary)
+                    .padding(.horizontal, 12)
+                    .frame(height: 50)
+                    .background(MMColor.surfaceInput, in: RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).strokeBorder(MMColor.borderDefault, lineWidth: 1.5))
+                }
+                .accessibilityLabel("Country code \(countryCode)")
+                MMTextField(placeholder: "(555) 000-0000", text: $phone)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .accessibilityLabel("Phone number")
+            }
+            Text("Private. Only you can see your number.")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+        }
+    }
+
+    private var beltPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("Belt")
+            HStack(spacing: 6) {
+                ForEach(BeltRank.adultRanks, id: \.self) { rank in
+                    let selected = belt == rank
+                    Button { belt = rank } label: {
+                        VStack(spacing: 7) {
+                            HStack(spacing: 0) {
+                                Spacer(minLength: 0)
+                                Rectangle().fill(rank.barColor).frame(width: 10)
+                            }
+                            .frame(width: 40, height: 10)
+                            .background(rank.color)
+                            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(MMColor.ink900.opacity(0.16), lineWidth: 1))
+                            Text(rank.title).mmFont(.body, 12, .bold).foregroundStyle(MMColor.textPrimary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 64)
+                        .background(selected ? MMColor.paper2 : MMColor.surfaceCard, in: RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
+                            .strokeBorder(selected ? MMColor.ink900 : MMColor.borderDefault, lineWidth: selected ? 2 : 1.5))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(rank.title) belt")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func loadPhoto(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data),
+              let jpeg = Self.avatarJPEG(image) else {
+            app.error = "Couldn't read that photo. Try another one."
+            return
+        }
+        photo = jpeg
+        photoKey = UUID()
+    }
+
+    /// Center-crops to a square, caps at 640px, and re-renders to strip EXIF (including location).
+    private static func avatarJPEG(_ image: UIImage) -> Data? {
+        let side = min(image.size.width, image.size.height)
+        guard side > 0 else { return nil }
+        let target = min(640, side)
+        let scale = target / side
+        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: target, height: target), format: format).image { _ in
+            image.draw(in: CGRect(x: (target - drawn.width) / 2, y: (target - drawn.height) / 2, width: drawn.width, height: drawn.height))
+        }.jpegData(compressionQuality: 0.82)
+    }
+
+    private func save() async {
+        guard canSave, let userID = app.userID else { return }
+        saving = true; defer { saving = false }
+        var payload: [String: Any] = [
+            "name": trimmedName, "gym": trimmedGym, "belt": belt.rawValue, "stripes": 0,
+            "phone": countryCode + phoneDigits, "timezone": TimeZone.current.identifier
+        ]
+        if let photo {
+            let key = "\(userID.lowercased())/\(photoKey.uuidString.lowercased()).jpg"
+            do { try await app.backend.upload(photo, objectKey: key, bucket: "avatars") }
+            catch {
+                // A retry after a dropped response finds the earlier upload already stored.
+                guard let existing = try? await app.backend.image(key: key, bucket: "avatars"), existing == photo else {
+                    app.error = "Couldn't upload your photo: \(error.localizedDescription)"
+                    return
+                }
+            }
+            payload["avatar_key"] = key
+        }
+        await app.perform("save_profile", payload)
     }
 }
 

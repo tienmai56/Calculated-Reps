@@ -29,6 +29,8 @@ The CLI is linked to `cmiqavyrazypmulrfezj`. On November 1, 2026 (Pacific), the 
 
 Hosted validation identified a device-token column/variable collision, fixed in `202611020004_device_registration.sql`. It also confirmed that hosted Supabase default privileges explicitly granted anonymous execution; `202611020005_function_permissions.sql` removes those grants from app RPCs and internal helpers. The original applied migrations are retained unchanged. Local regression fixtures now reproduce the hosted function defaults and test both fixes.
 
+**Pending (profile setup):** `202611020006_profile_setup.sql` adds a private `account_settings.phone`, the private `avatars` storage bucket with its upload/read policies, and `avatar_key`/`phone` support in `save_profile`. It has not been applied to the hosted project yet. Apply it (`supabase db push`) and redeploy `delete-account` (it now also removes profile photos) before shipping the app build with the new profile setup screen; until then, photo uploads fail and the phone number is ignored. `supabase/tests/profile.sql` covers it in `scripts/test-database.sh`.
+
 To link another checkout or deploy subsequent migrations:
 
 ```sh

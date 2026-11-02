@@ -16,6 +16,14 @@ Deno.serve(async (request: Request) => {
     const removed = await fetch(`${base}/storage/v1/object/session-photos`, { method: 'DELETE', headers, body: JSON.stringify({ prefixes: rows.map((r: {object_key: string}) => r.object_key) }) });
     if (!removed.ok) return new Response('Media deletion failed; retry account deletion', { status: 500 });
   }
+  // Profile photos live under the member's own folder in the avatars bucket.
+  const listed = await fetch(`${base}/storage/v1/object/list/avatars`, { method: 'POST', headers, body: JSON.stringify({ prefix: user.id, limit: 1000, offset: 0 }) });
+  if (!listed.ok) return new Response('Could not inspect profile photos', { status: 500 });
+  const avatars = (await listed.json()) as {name: string}[];
+  if (avatars.length) {
+    const removed = await fetch(`${base}/storage/v1/object/avatars`, { method: 'DELETE', headers, body: JSON.stringify({ prefixes: avatars.map((a) => `${user.id}/${a.name}`) }) });
+    if (!removed.ok) return new Response('Profile photo deletion failed; retry account deletion', { status: 500 });
+  }
   const erased = await fetch(`${base}/rest/v1/rpc/erase_social_account`, { method: 'POST', headers, body: JSON.stringify({ target: user.id }) });
   if (!erased.ok) return new Response('Account data deletion failed; retry', { status: 500 });
   const deleted = await fetch(`${base}/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: 'DELETE', headers });
