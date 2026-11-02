@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"MatMindDesignSystem_8b0f80","components":[{"name":"Button","sourcePath":"design-system/components/core/Button.jsx"},{"name":"ICON_NAMES","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"Icon","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"IconButton","sourcePath":"design-system/components/core/IconButton.jsx"},{"name":"Avatar","sourcePath":"design-system/components/display/Avatar.jsx"},{"name":"AvatarStack","sourcePath":"design-system/components/display/AvatarStack.jsx"},{"name":"Badge","sourcePath":"design-system/components/display/Badge.jsx"},{"name":"BELT_COLORS","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Belt","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Card","sourcePath":"design-system/components/display/Card.jsx"},{"name":"StreakBelt","sourcePath":"design-system/components/display/StreakBelt.jsx"},{"name":"Tag","sourcePath":"design-system/components/display/Tag.jsx"},{"name":"Dialog","sourcePath":"design-system/components/feedback/Dialog.jsx"},{"name":"Toast","sourcePath":"design-system/components/feedback/Toast.jsx"},{"name":"Tooltip","sourcePath":"design-system/components/feedback/Tooltip.jsx"},{"name":"Checkbox","sourcePath":"design-system/components/forms/Checkbox.jsx"},{"name":"Input","sourcePath":"design-system/components/forms/Input.jsx"},{"name":"Radio","sourcePath":"design-system/components/forms/Radio.jsx"},{"name":"Select","sourcePath":"design-system/components/forms/Select.jsx"},{"name":"Switch","sourcePath":"design-system/components/forms/Switch.jsx"},{"name":"TabBar","sourcePath":"design-system/components/navigation/TabBar.jsx"},{"name":"Tabs","sourcePath":"design-system/components/navigation/Tabs.jsx"}],"sourceHashes":{"design-system/components/core/Button.jsx":"85da24435512","design-system/components/core/Icon.jsx":"4288e96fdb91","design-system/components/core/IconButton.jsx":"38c7dcea0d97","design-system/components/display/Avatar.jsx":"cf7f4e752245","design-system/components/display/AvatarStack.jsx":"ae4f510a2b9d","design-system/components/display/Badge.jsx":"1cc38787b758","design-system/components/display/Belt.jsx":"cfafa21427c5","design-system/components/display/Card.jsx":"7cba4a816b62","design-system/components/display/StreakBelt.jsx":"8d77adb65f68","design-system/components/display/Tag.jsx":"53081ee7f44a","design-system/components/feedback/Dialog.jsx":"ebcf73d05c5e","design-system/components/feedback/Toast.jsx":"e06c2e2bad15","design-system/components/feedback/Tooltip.jsx":"cfbcbd91618b","design-system/components/forms/Checkbox.jsx":"5f281a9907fa","design-system/components/forms/Input.jsx":"c34d5880eed3","design-system/components/forms/Radio.jsx":"782cb748d5ad","design-system/components/forms/Select.jsx":"2edca2184f22","design-system/components/forms/Switch.jsx":"a0ad53dc3b63","design-system/components/navigation/TabBar.jsx":"e13fc2d0468b","design-system/components/navigation/Tabs.jsx":"50929bab281b","design-system/tailwind.config.js":"64c5760c78a3","ui_kits/app/Activity.jsx":"6875c1798c98","ui_kits/app/App.jsx":"247fc3efca89","ui_kits/app/Complete.jsx":"9a0067738445","ui_kits/app/Create.jsx":"4ecb19746c25","ui_kits/app/Friends.jsx":"52b3825f3cff","ui_kits/app/Me.jsx":"20f67a73cc56","ui_kits/app/Profile.jsx":"7aa9067dd485","ui_kits/app/Shell.jsx":"5a391fbfdcd5","ui_kits/app/Training.jsx":"1422b10b8724","ui_kits/app/data.js":"62ce36e0d57c"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"MatMindDesignSystem_8b0f80","components":[{"name":"Button","sourcePath":"design-system/components/core/Button.jsx"},{"name":"ICON_NAMES","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"Icon","sourcePath":"design-system/components/core/Icon.jsx"},{"name":"IconButton","sourcePath":"design-system/components/core/IconButton.jsx"},{"name":"Avatar","sourcePath":"design-system/components/display/Avatar.jsx"},{"name":"AvatarStack","sourcePath":"design-system/components/display/AvatarStack.jsx"},{"name":"Badge","sourcePath":"design-system/components/display/Badge.jsx"},{"name":"BELT_COLORS","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Belt","sourcePath":"design-system/components/display/Belt.jsx"},{"name":"Card","sourcePath":"design-system/components/display/Card.jsx"},{"name":"StreakBelt","sourcePath":"design-system/components/display/StreakBelt.jsx"},{"name":"Tag","sourcePath":"design-system/components/display/Tag.jsx"},{"name":"Dialog","sourcePath":"design-system/components/feedback/Dialog.jsx"},{"name":"Toast","sourcePath":"design-system/components/feedback/Toast.jsx"},{"name":"Tooltip","sourcePath":"design-system/components/feedback/Tooltip.jsx"},{"name":"Checkbox","sourcePath":"design-system/components/forms/Checkbox.jsx"},{"name":"Input","sourcePath":"design-system/components/forms/Input.jsx"},{"name":"Radio","sourcePath":"design-system/components/forms/Radio.jsx"},{"name":"Select","sourcePath":"design-system/components/forms/Select.jsx"},{"name":"Switch","sourcePath":"design-system/components/forms/Switch.jsx"},{"name":"TabBar","sourcePath":"design-system/components/navigation/TabBar.jsx"},{"name":"Tabs","sourcePath":"design-system/components/navigation/Tabs.jsx"}],"sourceHashes":{"design-system/components/core/Button.jsx":"85da24435512","design-system/components/core/Icon.jsx":"4288e96fdb91","design-system/components/core/IconButton.jsx":"38c7dcea0d97","design-system/components/display/Avatar.jsx":"cf7f4e752245","design-system/components/display/AvatarStack.jsx":"ae4f510a2b9d","design-system/components/display/Badge.jsx":"1cc38787b758","design-system/components/display/Belt.jsx":"cfafa21427c5","design-system/components/display/Card.jsx":"7cba4a816b62","design-system/components/display/StreakBelt.jsx":"8d77adb65f68","design-system/components/display/Tag.jsx":"53081ee7f44a","design-system/components/feedback/Dialog.jsx":"ebcf73d05c5e","design-system/components/feedback/Toast.jsx":"e06c2e2bad15","design-system/components/feedback/Tooltip.jsx":"cfbcbd91618b","design-system/components/forms/Checkbox.jsx":"5f281a9907fa","design-system/components/forms/Input.jsx":"c34d5880eed3","design-system/components/forms/Radio.jsx":"782cb748d5ad","design-system/components/forms/Select.jsx":"2edca2184f22","design-system/components/forms/Switch.jsx":"a0ad53dc3b63","design-system/components/navigation/TabBar.jsx":"e13fc2d0468b","design-system/components/navigation/Tabs.jsx":"50929bab281b","design-system/tailwind.config.js":"64c5760c78a3","ui_kits/app/Activity.jsx":"6875c1798c98","ui_kits/app/App.jsx":"a85324a00243","ui_kits/app/Complete.jsx":"7c15d5da4b8b","ui_kits/app/Create.jsx":"4ecb19746c25","ui_kits/app/Friends.jsx":"52b3825f3cff","ui_kits/app/Me.jsx":"20f67a73cc56","ui_kits/app/Profile.jsx":"7aa9067dd485","ui_kits/app/Shell.jsx":"5a391fbfdcd5","ui_kits/app/Training.jsx":"1422b10b8724","ui_kits/app/data.js":"62ce36e0d57c"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -2879,7 +2879,7 @@ const JOURNEYS = [{
   k: 'B',
   title: 'Share a training memory',
   start: 'training',
-  steps: ['"How was Halloween open mat?" → Complete & share', 'Take photo → pick one', 'Toggle Training completed → Publish', 'See it in Activity; friends like & comment']
+  steps: ['"How was Halloween open mat?" → Complete & share', 'Take or upload a photo', 'Publish to Activity', 'See it in Activity; friends like & comment']
 }, {
   k: 'C',
   title: 'Keep a friendship streak',
@@ -3031,7 +3031,6 @@ const {
   Icon: KIcon,
   Button: KBtn,
   Input: KIn,
-  Switch: KSw,
   Dialog: KDlg,
   StreakBelt: KBelt
 } = window.MatMindDesignSystem_8b0f80;
@@ -3045,18 +3044,20 @@ function CompleteScreen({
   const [photo, setPhoto] = React.useState(null);
   const [roll, setRoll] = React.useState(false);
   const [caption, setCaption] = React.useState('');
-  const [done, setDone] = React.useState(false);
   const [result, setResult] = React.useState(null);
   if (result) return /*#__PURE__*/React.createElement(Celebrate, {
     result: result
   });
   if (!s) return null;
   const people = Object.keys(s.people).filter(k => s.people[k] === 'going' && !removed.includes(k));
-  const publish = () => setResult(mm.publish(s.id, {
-    photo,
-    caption,
-    people
-  }));
+  const publish = () => {
+    if (!photo) return;
+    setResult(mm.publish(s.id, {
+      photo,
+      caption,
+      people
+    }));
+  };
   return /*#__PURE__*/React.createElement(Screen, {
     push: true,
     header: /*#__PURE__*/React.createElement(Header, {
@@ -3072,9 +3073,9 @@ function CompleteScreen({
       size: "lg",
       fullWidth: true,
       iconLeft: "send",
-      disabled: !done,
+      disabled: !photo,
       onClick: publish
-    }, done ? 'Publish to Activity' : 'Mark as completed to publish')
+    }, 'Publish to Activity')
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '4px 16px 0'
@@ -3208,20 +3209,6 @@ function CompleteScreen({
         width: 6
       }
     }));
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 22,
-      padding: 16,
-      borderRadius: 22,
-      background: done ? 'var(--mint-100)' : 'var(--white)',
-      boxShadow: done ? 'none' : 'var(--shadow-card)',
-      transition: 'background var(--dur-base)'
-    }
-  }, /*#__PURE__*/React.createElement(KSw, {
-    label: "Training completed",
-    description: "Counts toward weekly streaks for everyone here.",
-    checked: done,
-    onChange: setDone
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 20

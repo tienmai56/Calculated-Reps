@@ -101,7 +101,7 @@ function runPreset(app, key) { app.reset(); setTimeout(() => PRESETS[key] && PRE
 
 const JOURNEYS = [
   { k: 'A', title: 'Plan training together', start: 'training', steps: ['Training tab → Plan a training session', 'Pick a day, time and gym', 'Tap friends to invite → Send', 'Watch Sarah & Alex join live'] },
-  { k: 'B', title: 'Share a training memory', start: 'training', steps: ['"How was Halloween open mat?" → Complete & share', 'Take photo → pick one', 'Toggle Training completed → Publish', 'See it in Activity; friends like & comment'] },
+  { k: 'B', title: 'Share a training memory', start: 'training', steps: ['"How was Halloween open mat?" → Complete & share', 'Take or upload a photo', 'Publish to Activity', 'See it in Activity; friends like & comment'] },
   { k: 'C', title: 'Keep a friendship streak', start: 'friends', steps: ['Friends → tap You + Sarah', 'Invite Sarah to train → send', 'Training → Complete & share with Sarah in it', 'Streak ticks 8 → 9'] },
 ];
 function ReviewPanel({ app }) {
