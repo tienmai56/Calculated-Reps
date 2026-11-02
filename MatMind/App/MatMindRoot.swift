@@ -145,7 +145,7 @@ private struct LiveProfileSetup: View {
 
     var body: some View {
         MMScreen {
-            HStack { GGLockup(size: 20); Spacer() }
+            HStack { MMWordmark(size: 22); Spacer() }
                 .padding(.horizontal, MMLayout.gutter)
                 .frame(height: MMLayout.headerHeight)
         } content: {
