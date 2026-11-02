@@ -1,0 +1,399 @@
+import SwiftUI
+
+/// Tab 1: a feed of completed sessions only (the completion flow is the composer).
+struct ActivityScreen: View {
+    @Environment(AppModel.self) private var mm
+
+    var body: some View {
+        MMScreen(tabPadding: true) {
+            HStack {
+                MMWordmark(size: 32)
+                    .onLongPressGesture { mm.showDemoPanel = true }
+                    .accessibilityHint("Long press for prototype tools")
+                Spacer()
+                MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
+                    mm.go(.notifications)
+                }
+            }
+            .padding(.leading, 20)
+            .padding(.trailing, 10)
+            .padding(.top, 6)
+            .padding(.bottom, 10)
+            .frame(minHeight: MMLayout.headerHeight)
+        } content: {
+            StreakNudges()
+            ForEach(mm.posts) { post in
+                PostCard(post: post, highlight: post.id == mm.highlight)
+            }
+            Text("That's everything from your crew this week.\nGo make a new memory.")
+                .mmFont(.body, 13, .medium, lineHeight: 1.45)
+                .foregroundStyle(MMColor.textTertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 40)
+                .padding(.top, 10)
+                .padding(.bottom, 20)
+        }
+    }
+}
+
+/// Tinted cards for live streaks that still need this week's session.
+private struct StreakNudges: View {
+    @Environment(AppModel.self) private var mm
+
+    var body: some View {
+        let list = mm.friends.filter { $0.thisWeek == .pending && $0.streak > 0 }
+        if !list.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(list) { f in
+                        let p = mm.person(f.id)
+                        Button { mm.go(.friend(id: f.id)) } label: {
+                            HStack(spacing: 12) {
+                                MMPairAvatars(a: mm.me.avatar, b: p.avatar, size: 38, hue: p.hue, ring: p.hue.tint)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("\(f.streak) weeks with \(p.firstName)")
+                                        .mmFont(.display, 16, lineHeight: 1.15)
+                                        .foregroundStyle(p.hue.ink)
+                                    Text("Roll together by Sunday to make it \(f.streak + 1)")
+                                        .mmFont(.body, 13, .medium, lineHeight: 1.3)
+                                        .foregroundStyle(MMColor.ink700)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                MMIcon("flame", size: 22, filled: true, color: MMColor.flame500)
+                            }
+                            .multilineTextAlignment(.leading)
+                            .padding(14)
+                            .frame(width: 262)
+                            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(p.hue.tint))
+                        }
+                        .buttonStyle(MMPressStyle())
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 2)
+                .padding(.bottom, 16)
+            }
+        }
+    }
+}
+
+struct PostCard: View {
+    @Environment(AppModel.self) private var mm
+    let post: Post
+    var highlight = false
+
+    @State private var burst = false
+
+    var body: some View {
+        let org = mm.person(post.organizer)
+        let liked = post.likes.contains("me")
+        let others = post.participants.filter { $0 != post.organizer }.map { $0 == "me" ? "You" : mm.person($0).name }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Button {
+                    if post.organizer != "me" { mm.go(.friend(id: post.organizer)) }
+                } label: {
+                    MMAvatar(name: org.name, photo: org.photo, size: 42, belt: org.belt, ring: MMColor.white)
+                }
+                .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 2) {
+                    mmRich([
+                        .body(post.organizer == "me" ? "You" : org.name, 15, .bold, color: MMColor.ink900),
+                        .body(" trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
+                    ])
+                    .lineSpacing(1)
+                    Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                MMIconButton("ellipsis", size: 36, label: "Post options") { mm.go(.post(id: post.id, menu: true)) }
+            }
+            .padding(.horizontal, 2)
+            .padding(.top, 2)
+            .padding(.bottom, 12)
+
+            MMPhotoTile(photo: post.photo, height: 300, radius: 20) {
+                ZStack {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2) { doubleTap() }
+                        .onTapGesture { mm.go(.post(id: post.id)) }
+                    MMTapeLabel(text: post.gym)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(.leading, 12)
+                        .padding(.bottom, 14)
+                        .allowsHitTesting(false)
+                    MMAvatarStack(people: post.participants.map { mm.person($0).avatar }, size: 30, ring: .white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .padding(12)
+                        .allowsHitTesting(false)
+                    MMIcon("heart", size: 88, filled: true, color: .white)
+                        .shadow(color: .black.opacity(0.2), radius: 8)
+                        .scaleEffect(burst ? 1 : 0.2)
+                        .opacity(burst ? 1 : 0)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityLabel("Photo from \(post.title). Double tap to like.")
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(post.title).mmFont(.display, 21, tracking: -0.025, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
+                if !post.caption.isEmpty {
+                    Text(post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.top, 14)
+
+            HStack(spacing: 2) {
+                MMIconButton("heart", size: 40, active: liked, filledWhenActive: true, label: liked ? "Unlike" : "Like") {
+                    withAnimation(MMMotion.bounce()) { mm.like(post.id) }
+                }
+                .scaleEffect(liked ? 1 : 0.98)
+                .animation(MMMotion.bounce(), value: liked)
+                Text("\(post.likes.count + post.extraLikes)").mmFont(.body, 14, .bold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
+                    .contentTransition(.numericText())
+                    .padding(.trailing, 10)
+                MMIconButton("message-circle", size: 40, label: "Comment") { mm.go(.post(id: post.id, focus: true)) }
+                Text("\(post.comments.count)").mmFont(.body, 14, .bold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
+                Spacer(minLength: 0)
+                HStack(spacing: 5) {
+                    MMIcon("users", size: 15, color: MMColor.textTertiary)
+                    Text("On \(post.participants.count) profiles").mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                }
+                .padding(.trailing, 6)
+            }
+            .padding(.top, 8)
+            .padding(.leading, -4)
+
+            if let first = post.comments.first {
+                Button { mm.go(.post(id: post.id)) } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        mmRich([.body(mm.person(first.who).firstName, 14, .bold), .body(" \(first.text)", 14)])
+                        if post.comments.count > 1 {
+                            Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                        }
+                    }
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 2)
+                    .padding(.bottom, 4)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .mmCardSurface(radius: 28)
+        .overlay {
+            RoundedRectangle(cornerRadius: 29.5, style: .continuous)
+                .stroke(MMColor.coral300, lineWidth: 3)
+                .padding(-1.5)
+                .opacity(highlight ? 1 : 0)
+        }
+        .scaleEffect(highlight ? 1.01 : 1)
+        .animation(MMMotion.bounce(MMMotion.slow), value: highlight)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 14)
+    }
+
+    private func doubleTap() {
+        if !post.likes.contains("me") { mm.like(post.id) }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) { burst = true }
+        Task {
+            try? await Task.sleep(for: .seconds(0.55))
+            withAnimation(.easeOut(duration: 0.25)) { burst = false }
+        }
+    }
+}
+
+// MARK: - Post detail
+
+struct PostDetailScreen: View {
+    @Environment(AppModel.self) private var mm
+    let id: String
+    var openMenu = false
+    var focusComment = false
+
+    @State private var text = ""
+    @State private var showMenu = false
+    @State private var showDelete = false
+    @State private var editing = false
+    @State private var caption = ""
+
+    var body: some View {
+        if let post = mm.post(id) {
+            content(post)
+                .onAppear {
+                    caption = post.caption
+                    if openMenu { showMenu = true }
+                }
+        } else {
+            MMColor.bgApp.ignoresSafeArea().toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    private func content(_ post: Post) -> some View {
+        let isOrganizer = post.organizer == "me"
+        let isIn = post.participants.contains("me")
+        let organizer = mm.person(post.organizer)
+        return MMScreen {
+            MMHeader(title: post.title, leading: {
+                MMIconButton("chevron-left", label: "Back") { mm.back() }
+            }, trailing: {
+                if isOrganizer || isIn {
+                    MMIconButton("ellipsis", label: "Options") { showMenu = true }
+                }
+            })
+        } content: {
+            VStack(alignment: .leading, spacing: 0) {
+                MMPhotoTile(photo: post.photo, height: 340, radius: 24) {
+                    MMTapeLabel(text: post.gym)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(.leading, 12)
+                        .padding(.bottom, 14)
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("\(post.date) · organized by \(isOrganizer ? "you" : organizer.name)")
+                        .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
+                    if editing {
+                        VStack(alignment: .leading, spacing: 10) {
+                            MMTextField(text: $caption, multiline: true, rows: 3)
+                            HStack(spacing: 8) {
+                                MMButton("Save", size: .sm) {
+                                    mm.editCaption(post.id, caption)
+                                    editing = false
+                                }
+                                MMButton("Cancel", variant: .ghost, size: .sm) { editing = false }
+                            }
+                        }
+                        .padding(.top, 10)
+                    } else {
+                        Text(post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 8)
+                    }
+                    Text("On the mat").mmFont(.display, 16).padding(.top, 18)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: 14) {
+                            ForEach(post.participants, id: \.self) { pid in
+                                let p = mm.person(pid)
+                                VStack(spacing: 6) {
+                                    MMAvatar(name: p.name, photo: p.photo, size: 52, belt: p.belt)
+                                    Text(pid == "me" ? "You" : p.firstName).mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
+                                    if pid == post.organizer {
+                                        MMBadge("Host", variant: .soft, height: 18, fontSize: 10, paddingX: 6)
+                                    }
+                                }
+                                .frame(width: 60)
+                            }
+                        }
+                        .padding(.top, 12)
+                        .padding(.bottom, 4)
+                    }
+                    HStack(spacing: 4) {
+                        MMIconButton("heart", active: post.likes.contains("me"), filledWhenActive: true, label: "Like") { mm.like(post.id) }
+                        mmRich([
+                            .body("Liked by ", 14, .semibold, color: MMColor.textSecondary),
+                            .body(mmNames(post.likes.map { $0 == "me" ? "You" : mm.person($0).name }), 14, .bold, color: MMColor.ink900),
+                            .body(" and \(post.extraLikes) others", 14, .semibold, color: MMColor.textSecondary),
+                        ])
+                    }
+                    .padding(.top, 14)
+                    .padding(.leading, -6)
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(post.comments) { c in
+                            CommentRow(comment: c)
+                        }
+                        if post.comments.isEmpty {
+                            Text("No comments yet. Be the first.").mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
+                        }
+                    }
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                }
+                .padding(.horizontal, 6)
+                .padding(.top, 16)
+            }
+            .padding(.horizontal, 12)
+        } footer: {
+            HStack(spacing: 8) {
+                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 36)
+                MMTextField(placeholder: "Say something nice…", text: $text, autoFocus: focusComment) { send(post) }
+                MMIconButton("send", variant: .accent, label: "Send") { send(post) }
+            }
+        }
+        .mmSheet(isPresented: $showMenu,
+                 title: isOrganizer ? "Your post" : "Post options",
+                 description: isOrganizer ? "Only you, the organizer, can edit or delete this post." : "\(organizer.name) organized this session.") {
+            VStack(spacing: 8) {
+                if isOrganizer {
+                    MMButton("Edit caption", variant: .secondary, iconLeft: "pencil", fullWidth: true) {
+                        showMenu = false
+                        editing = true
+                    }
+                    MMButton("Delete post", variant: .danger, iconLeft: "trash-2", fullWidth: true) {
+                        showMenu = false
+                        Task {
+                            try? await Task.sleep(for: .seconds(0.35))
+                            showDelete = true
+                        }
+                    }
+                } else if isIn {
+                    MMButton("Remove me from this post", variant: .danger, iconLeft: "user-minus", fullWidth: true) {
+                        showMenu = false
+                        mm.removeMe(from: post.id)
+                    }
+                } else {
+                    Text("You weren't in this session.").mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
+                }
+            }
+        }
+        .mmModal(isPresented: $showDelete,
+                 title: "Delete this post?",
+                 description: "It disappears from all \(post.participants.count) profiles and your friends' feeds.") {
+            MMButton("Keep it", variant: .secondary, fullWidth: true) { showDelete = false }
+            MMButton("Delete", variant: .danger, fullWidth: true) {
+                showDelete = false
+                mm.deletePost(post.id)
+            }
+        }
+    }
+
+    private func send(_ post: Post) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        withAnimation(MMMotion.easeOut(MMMotion.slow)) { mm.comment(post.id, trimmed) }
+        text = ""
+    }
+}
+
+private struct CommentRow: View {
+    @Environment(AppModel.self) private var mm
+    let comment: Comment
+    @State private var shown = false
+
+    var body: some View {
+        let p = mm.person(comment.who)
+        HStack(alignment: .top, spacing: 12) {
+            MMAvatar(name: p.name, photo: p.photo, size: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                Text(comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 9)
+            .background {
+                let shape = UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
+                shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
+            }
+        }
+        .opacity(comment.fresh && !shown ? 0 : 1)
+        .offset(y: comment.fresh && !shown ? 10 : 0)
+        .onAppear {
+            withAnimation(MMMotion.easeOut(0.35)) { shown = true }
+        }
+    }
+}

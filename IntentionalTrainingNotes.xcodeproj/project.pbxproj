@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -127,7 +127,16 @@
 		FA00FA00FA00FA00FA000008 /* Fraunces-MediumItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-MediumItalic.ttf"; sourceTree = "<group>"; };
 		FA00FA00FA00FA00FA000021 /* PlannedSessionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlannedSessionCard.swift; path = IntentionalTrainingNotes/Features/Home/PlannedSessionCard.swift; sourceTree = SOURCE_ROOT; };
 		FBD748A9B80AF0639DDEF66B /* NotebookMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookMigration.swift; path = IntentionalTrainingNotes/Core/Persistence/NotebookMigration.swift; sourceTree = SOURCE_ROOT; };
+		4D4D50524F544F0000000001 /* MatMindPrototype.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MatMindPrototype.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		4D4D50524F544F0000000002 /* MatMind */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MatMind;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		111111111111111111111401 /* Frameworks */ = {
@@ -144,6 +153,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4D4D50524F544F0000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -152,6 +168,7 @@
 			children = (
 				111111111111111111111110 /* IntentionalTrainingNotes */,
 				111111111111111111111120 /* IntentionalTrainingNotesTests */,
+				4D4D50524F544F0000000003 /* Prototypes */,
 				111111111111111111111130 /* Products */,
 				1BA7460FA449B381FB01E1E4 /* Core */,
 				CFDB4B1D89C8D1D15216BF65 /* Shared */,
@@ -188,6 +205,7 @@
 			children = (
 				111111111111111111111011 /* IntentionalTrainingNotes.app */,
 				111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */,
+				4D4D50524F544F0000000001 /* MatMindPrototype.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -402,6 +420,14 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		4D4D50524F544F0000000003 /* Prototypes */ = {
+			isa = PBXGroup;
+			children = (
+				4D4D50524F544F0000000002 /* MatMind */,
+			);
+			path = Prototypes;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -440,6 +466,28 @@
 			productReference = 111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		4D4D50524F544F0000000004 /* MatMindPrototype */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D4D50524F544F0000000008 /* Build configuration list for PBXNativeTarget "MatMindPrototype" */;
+			buildPhases = (
+				4D4D50524F544F0000000005 /* Sources */,
+				4D4D50524F544F0000000006 /* Frameworks */,
+				4D4D50524F544F0000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4D4D50524F544F0000000002 /* MatMind */,
+			);
+			name = MatMindPrototype;
+			packageProductDependencies = (
+			);
+			productName = MatMindPrototype;
+			productReference = 4D4D50524F544F0000000001 /* MatMindPrototype.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -452,6 +500,9 @@
 					111111111111111111111201 = {
 						CreatedOnToolsVersion = 16.0;
 					};
+					4D4D50524F544F0000000004 = {
+						CreatedOnToolsVersion = 26.0;
+					};
 					111111111111111111111202 = {
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = 111111111111111111111201;
@@ -459,7 +510,6 @@
 				};
 			};
 			buildConfigurationList = 111111111111111111111600 /* Build configuration list for PBXProject "IntentionalTrainingNotes" */;
-			compatibilityVersion = "Xcode 12.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -467,6 +517,7 @@
 				Base,
 			);
 			mainGroup = 111111111111111111111100;
+			preferredProjectObjectVersion = 77;
 			packageReferences = (
 			);
 			productRefGroup = 111111111111111111111130 /* Products */;
@@ -475,6 +526,7 @@
 			targets = (
 				111111111111111111111201 /* IntentionalTrainingNotes */,
 				111111111111111111111202 /* IntentionalTrainingNotesTests */,
+				4D4D50524F544F0000000004 /* MatMindPrototype */,
 			);
 		};
 /* End PBXProject section */
@@ -493,6 +545,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		111111111111111111111504 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D4D50524F544F0000000007 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -560,6 +619,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D4D50524F544F0000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -714,6 +780,66 @@
 			};
 			name = Release;
 		};
+		4D4D50524F544F0000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9R4A2F8F94;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mat Mind Proto";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.matmind;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		4D4D50524F544F000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9R4A2F8F94;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Mat Mind Proto";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.matmind;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -740,6 +866,15 @@
 			buildConfigurations = (
 				111111111111111111111721 /* Debug */,
 				111111111111111111111722 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D4D50524F544F0000000008 /* Build configuration list for PBXNativeTarget "MatMindPrototype" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D4D50524F544F0000000009 /* Debug */,
+				4D4D50524F544F000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
