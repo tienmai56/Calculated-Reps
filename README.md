@@ -38,7 +38,7 @@ module.exports = { presets: [require('./design-system/tailwind.config.js')], con
 ```
 
 ## Credits
-Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsplash (Unsplash License). No official logo yet; the wordmark is set in type.
+Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsplash (Unsplash License). Logo: the Silverback mark (`assets/brand/`), paired with the "grip gorillas." wordmark; see `DESIGN.md` §5.1.
 
 ---
 

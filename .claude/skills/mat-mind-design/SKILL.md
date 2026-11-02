@@ -23,6 +23,10 @@ If invoked with no task, ask what they want to build, then act as an expert prod
 - **Icons:** Lucide only (`assets/icons/`), 2px stroke (2.25 in buttons). Heart and flame are filled when active. No emoji in UI.
 - **Spacing:** 16px screen gutters, 44px minimum tap targets, 22px between sections.
 
+## Logo
+- **The Silverback**: geometric gorilla head with a coral brow band, paired with the lowercase "grip gorillas." wordmark (coral period). Files: `assets/brand/logo-mark.svg` (default), `logo-mark-mono.svg` (on coral / 1-color), `app-icon.svg` (sun ground; also the reversed logo on ink and photos), `logo-lockup.svg`.
+- Clear space = brow height; min 24px mark, 120px lockup. Never recolor, outline, animate a new expression, or redraw it. Full rules: `DESIGN.md` §5.1.
+
 ## Signature motifs (use them, don't dilute them)
 1. **Streak belt:** one segment per Mon–Sun week, each with a white tape stripe; joined when consecutive; current week hatched until completed.
 2. **Athletic-tape label:** rotated off-white strip on photos for the gym name.
@@ -38,7 +42,7 @@ Your favorite training partner: warm, a little cheeky, mat-literate. Sentence ca
 - Group chat or DMs.
 - Daily streaks, leaderboards, badges, milestones, rankings, performance analytics.
 - Custom avatar builder (not MVP).
-- Decorative gradients, dark "fitness dashboard" styling, emoji UI, an invented logo (use the lowercase "mat mind." wordmark in type).
+- Decorative gradients, dark "fitness dashboard" styling, emoji UI, a redrawn or recolored logo (use the Silverback files in `assets/brand/` as-is).
 
 ## When producing work
 - Link `styles.css` and use `var(--token)`; no raw hex in UI code.

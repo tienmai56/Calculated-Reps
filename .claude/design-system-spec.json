@@ -1,13 +1,55 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "Mat Mind Design System",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "updated": "2026-11-02",
   "platform": {
     "primary": "iOS (SwiftUI)",
     "designWidth": 390,
     "designHeight": 844,
     "theme": "light-first"
+  },
+  "brand": {
+    "productName": "Grip Gorillas",
+    "previousName": "Mat Mind",
+    "wordmark": {
+      "text": "grip gorillas.",
+      "font": "Bricolage Grotesque",
+      "weight": 800,
+      "letterSpacing": "-0.045em",
+      "casing": "lowercase",
+      "periodColor": "coral-500",
+      "periodColorOnCoral": "ink-900"
+    },
+    "logo": {
+      "name": "Silverback",
+      "colors": {
+        "head": "ink-900",
+        "face": "paper-3",
+        "brow": "coral-500",
+        "appIconGround": "sun-400"
+      },
+      "files": {
+        "mark": "assets/brand/logo-mark.svg",
+        "markMono": "assets/brand/logo-mark-mono.svg",
+        "appIcon": "assets/brand/app-icon.svg",
+        "lockup": "assets/brand/logo-lockup.svg"
+      },
+      "clearSpace": "brow band height",
+      "minSize": {
+        "markHeightPx": 24,
+        "lockupWidthPx": 120
+      },
+      "lockup": {
+        "markToCapHeight": 1.7,
+        "gapToMarkHeight": 0.3
+      },
+      "usage": {
+        "onPaperWhiteSun": "mark",
+        "onCoral": "markMono",
+        "onInkOrPhotos": "appIcon tile"
+      }
+    }
   },
   "color": {
     "paper": {
@@ -539,7 +581,7 @@
       "emoji in UI chrome",
       "gradients as decoration",
       "pure black text",
-      "invented logo"
+      "altered, redrawn or recolored logo"
     ],
     "rules": [
       "one primary button per screen",

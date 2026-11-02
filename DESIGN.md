@@ -2,7 +2,7 @@
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
-> Version 1.0.0 · Last updated 2026-11-02
+> Version 1.1.0 · Last updated 2026-11-02
 
 ## Contents
 1. Product
@@ -25,7 +25,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
-- **No logo exists.** The name is set as a lowercase wordmark, "mat mind." in Bricolage Grotesque 800 with a coral period. Do not invent a mark.
+- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "grip gorillas." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. The product is being renamed from Mat Mind to **Grip Gorillas**: brand assets use the new name, while in-app copy and the iOS target still say Mat Mind until that rename lands.
 - Fonts (Google Fonts, self-hosted in `assets/fonts/`): **Bricolage Grotesque** (display), **Archivo** (body), **JetBrains Mono** (codes/links only).
 - Icons: **Lucide v0.454.0** (ISC), copied from `lucide-static` into `assets/icons/` and embedded in `design-system/components/core/Icon.jsx`.
 - Photos: Unsplash (free license), 10 training photos in `assets/photos/`. Swap for real community photos when available.
@@ -43,6 +43,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 | `design-system/components/` | React primitives (`.jsx` + `.d.ts` + `.prompt.md`), one preview `*.card.html` per group |
 | `guidelines/` | Foundation specimen cards (HTML) |
 | `ui_kits/app/` | `index.html` interactive prototype, `flows.html` IA & journeys |
+| `assets/brand/` | Logo: `logo-mark.svg`, `logo-mark-mono.svg`, `app-icon.svg`, `logo-lockup.svg` |
 | `assets/fonts/`, `assets/icons/`, `assets/photos/` | Webfonts, Lucide SVGs, sample photos |
 
 ## 3. Tokens
@@ -259,6 +260,23 @@ Voice: **your favorite training partner.** Warm, a little cheeky, mat-literate, 
 - **Transparency & blur:** the bottom TabBar (white 90% + 20px blur), the dialog overlay (ink 48%), and overlay icon buttons on photos (white 88%).
 - **Layout:** status bar, screen header (large 32px Bricolage title on tabs, centered 18px on pushed screens), a scrolling body, then a sticky footer CTA on task screens or the 86px TabBar on tabs.
 
+### 5.1 Logo — the Silverback
+A calm, front-facing gorilla head built from simple geometry: an ink head, a paper-3 face, a pill-shaped brow band, narrow eyes, two nostrils and a flat mouth. Strong, steady, a little cheeky; never snarling, never cute (no big round eyes, no smile).
+
+| File | Use |
+|---|---|
+| `assets/brand/logo-mark.svg` | Default mark: ink head, `--paper-3` face, **coral brow**. On paper, white, or sun backgrounds. |
+| `assets/brand/logo-mark-mono.svg` | Ink brow. On coral backgrounds and for one-color print. |
+| `assets/brand/app-icon.svg` | 1024² app icon: default mark on **sun #FFC93C**. Also the reversed logo on ink or photos (as a rounded tile). |
+| `assets/brand/logo-lockup.svg` | Horizontal lockup: mark + "grip gorillas." wordmark. |
+
+- **Colors:** ink `#1D1B18`, paper-3 `#E9E0D1`, coral `#FF5C39` brow; app icon ground sun `#FFC93C`. Nothing else.
+- **Lockup:** mark left of the wordmark, mark height ≈ 1.7× the wordmark cap height, gap ≈ 0.3× mark height. The wordmark is always lowercase with a coral period (ink period on coral).
+- **Clear space:** at least the brow band's height on every side.
+- **Minimum size:** mark 24px tall; lockup 120px wide; below that use the mark alone.
+- **Don't:** recolor the head, swap the brow to belt or friend hues, add outlines, shadows, gradients, or expressions, rotate it, place the ink head directly on ink (use the app-icon tile), or redraw it. Use the files.
+- **In the app:** the mark appears on the splash screen, onboarding and empty states; the tab-screen headers keep the plain Bricolage title. One logo per screen at most.
+
 ## 6. Components
 React primitives live in `design-system/components/<group>/`. Each has `Name.jsx` (named export), `Name.d.ts` (props contract), and `Name.prompt.md` (usage). Styling comes only from the CSS variables, with no CSS-in-JS libraries and no npm dependencies besides React.
 
@@ -338,7 +356,7 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 - Emoji in UI chrome.
 - Gradients as decoration.
 - Pure black text.
-- Invented logo.
+- Altered, redrawn or recolored logo (use `assets/brand/` files as-is).
 
 **Product constraints (MVP)**
 - Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
