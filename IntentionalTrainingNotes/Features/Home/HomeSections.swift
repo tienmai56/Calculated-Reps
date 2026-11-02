@@ -77,7 +77,7 @@ struct HomeStatRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: systemName)
-                .font(.matMindBody(size: 16))
+                .font(.gripGorillasBody(size: 16))
                 .foregroundColor(iconColor)
             Text("\(value)")
                 .font(.system(size: 24, weight: .medium, design: .rounded))
@@ -356,7 +356,7 @@ struct HomeSnippetSection: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(snippets.enumerated()), id: \.offset) { _, snippet in
                         Text("• " + snippet)
-                            .font(.matMindBody(size: 15))
+                            .font(.gripGorillasBody(size: 15))
                             .foregroundColor(AppColors.label)
                     }
                 }
@@ -495,4 +495,4 @@ struct HomeTrendGraph: View {
 
 // MARK: - Plan List
 
-// MARK: - Reusable Session Card (matches Mat Mind Home / Plan design)
+// MARK: - Reusable Session Card (matches Grip Gorillas Home / Plan design)

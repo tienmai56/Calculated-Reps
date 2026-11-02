@@ -1,4 +1,4 @@
-# DESIGN.md — Mat Mind Design System
+# DESIGN.md — Grip Gorillas Design System
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
@@ -19,13 +19,13 @@
 ---
 
 ## 1. Product
-**Mat Mind** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
+**Grip Gorillas** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
 One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Friends, Profile) and a center **Plan a session** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
-- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "grip gorillas." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. The product is being renamed from Mat Mind to **Grip Gorillas**: brand assets use the new name, while in-app copy and the iOS target still say Mat Mind until that rename lands.
+- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "grip gorillas." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. The product was renamed from Mat Mind to **Grip Gorillas** in v1.1.0. Two internal iOS storage keys (`matmind.hasCompletedOnboarding`, `matmind.reflection.reminder`) keep the old prefix on purpose so existing installs keep their state.
 - Fonts (Google Fonts, self-hosted in `assets/fonts/`): **Bricolage Grotesque** (display), **Archivo** (body), **JetBrains Mono** (codes/links only).
 - Icons: **Lucide v0.454.0** (ISC), copied from `lucide-static` into `assets/icons/` and embedded in `design-system/components/core/Icon.jsx`.
 - Photos: Unsplash (free license), 10 training photos in `assets/photos/`. Swap for real community photos when available.
@@ -35,7 +35,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 |---|---|
 | `DESIGN.md` | This spec |
 | `README.md` | Short introduction |
-| `.claude/skills/mat-mind-design/SKILL.md` | Agent skill: core rules and guardrails, loaded by Claude Code |
+| `.claude/skills/grip-gorillas-design/SKILL.md` | Agent skill: core rules and guardrails, loaded by Claude Code |
 | `.claude/design-system-spec.json` | Machine-readable tokens, palettes, component parameters |
 | `styles.css` | Global CSS entry point, `@import`s only |
 | `design-system/tokens/` | `fonts.css`, `colors.css`, `typography.css`, `spacing.css`, `base.css` (CSS custom properties on `:root`) |
@@ -363,7 +363,7 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 
 **Product constraints (MVP)**
 - Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
-- Join sessions only via invitation, direct addition, or a valid link (Mat Mind account required), never from the feed.
+- Join sessions only via invitation, direct addition, or a valid link (Grip Gorillas account required), never from the feed.
 - Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
 - Friends connect instantly via QR, with no requests or approvals.
 

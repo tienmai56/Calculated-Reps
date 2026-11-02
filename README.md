@@ -1,6 +1,6 @@
-# mat mind. — Design System
+# grip gorillas. — Design System
 
-The design system for **Mat Mind**, a friendship-first social app for the Jiu-Jitsu community: plan training with partners, share a photo after you roll, and keep **weekly friendship streaks**. Warm, playful, and soft, not a fitness dashboard.
+The design system for **Grip Gorillas**, a friendship-first social app for the Jiu-Jitsu community: plan training with partners, share a photo after you roll, and keep **weekly friendship streaks**. Warm, playful, and soft, not a fitness dashboard.
 
 > **Start with [`DESIGN.md`](DESIGN.md).** It is the full specification and the source of truth.
 
@@ -8,7 +8,7 @@ The design system for **Mat Mind**, a friendship-first social app for the Jiu-Ji
 | Path | Contents |
 |---|---|
 | [`DESIGN.md`](DESIGN.md) | Complete spec: tokens, voice, visuals, components, screens, guardrails |
-| [`.claude/skills/mat-mind-design/SKILL.md`](.claude/skills/mat-mind-design/SKILL.md) | Agent skill for Claude Code: core rules and guardrails |
+| [`.claude/skills/grip-gorillas-design/SKILL.md`](.claude/skills/grip-gorillas-design/SKILL.md) | Agent skill for Claude Code: core rules and guardrails |
 | [`.claude/design-system-spec.json`](.claude/design-system-spec.json) | Machine-readable tokens and component parameters |
 | [`styles.css`](styles.css) | Global entry point (imports the token files) |
 | [`design-system/tokens/`](design-system/tokens) | CSS custom properties: colors, typography, spacing, fonts |

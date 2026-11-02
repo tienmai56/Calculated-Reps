@@ -1,10 +1,10 @@
 ---
-name: mat-mind-design
-description: Use this skill to design or build anything for Mat Mind, the friendship-first BJJ social app: production UI (SwiftUI or web), prototypes, mocks, or brand assets. Contains core styling rules, visual guidelines and guardrails; exact tokens are in design-system-spec.json.
+name: grip-gorillas-design
+description: Use this skill to design or build anything for Grip Gorillas, the friendship-first BJJ social app: production UI (SwiftUI or web), prototypes, mocks, or brand assets. Contains core styling rules, visual guidelines and guardrails; exact tokens are in design-system-spec.json.
 user-invocable: true
 ---
 
-# Mat Mind design skill
+# Grip Gorillas design skill
 
 Read `DESIGN.md` at the repo root first (it is the source of truth). Exact values: `.claude/design-system-spec.json`. CSS variables: `design-system/tokens/` via `styles.css`. Components: `design-system/components/`. Reference prototype: `ui_kits/app/index.html`.
 

@@ -143,7 +143,7 @@ struct PlannedSessionCard: View {
 
             if let notes = task.notes.nilIfBlank {
                 Text(notes)
-                    .font(.matMindBody(size: 13))
+                    .font(.gripGorillasBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -230,7 +230,7 @@ struct PlannedSessionCard: View {
     private func menuRow(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.matMindBody(size: 14)).foregroundColor(color)
+                Image(systemName: icon).font(.gripGorillasBody(size: 14)).foregroundColor(color)
                 Text(label).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color)
                 Spacer()
             }

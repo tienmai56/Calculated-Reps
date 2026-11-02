@@ -1,4 +1,4 @@
-const { TabBar: XTab, Toast: XToast, Button: XBtn, Icon: XIcon } = window.MatMindDesignSystem_8b0f80;
+const { TabBar: XTab, Toast: XToast, Button: XBtn, Icon: XIcon } = window.GripGorillasDesignSystem_8b0f80;
 const clone = o => JSON.parse(JSON.stringify(o));
 const TABS = [{ id: 'activity', icon: 'house', label: 'Activity' }, { id: 'training', icon: 'calendar', label: 'Training' }, { id: 'friends', icon: 'users', label: 'Friends' }, { id: 'profile', icon: 'user', label: 'Profile' }];
 const SCREENS = { post: PostDetail, session: SessionDetail, create: CreateScreen, complete: CompleteScreen, friend: FriendProfile, qr: QRScreen, notifications: NotificationsScreen };
@@ -109,7 +109,7 @@ function ReviewPanel({ app }) {
   const L = ({ k, children }) => <button onClick={() => runPreset(app, k)} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: 'transparent', padding: '6px 10px', borderRadius: 10, cursor: 'pointer', font: '500 14px var(--font-body)', color: 'var(--ink-800)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--paper-2)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{children}</button>;
   const H = ({ children }) => <div style={{ font: '800 13px var(--font-display)', color: 'var(--ink-500)', margin: '18px 10px 6px', letterSpacing: '-.01em' }}>{children}</div>;
   return <aside className="mm-panel" style={{ width: 250, flexShrink: 0, alignSelf: 'center' }}>
-    <div style={{ font: '800 26px/1 var(--font-display)', letterSpacing: '-.04em', padding: '0 10px' }}>mat mind<span style={{ color: 'var(--accent)' }}>.</span></div>
+    <div style={{ font: '800 26px/1 var(--font-display)', letterSpacing: '-.04em', padding: '0 10px' }}>grip gorillas<span style={{ color: 'var(--accent)' }}>.</span></div>
     <div style={{ font: '500 13px var(--font-body)', color: 'var(--ink-500)', padding: '6px 10px 0' }}>First draft · interactive prototype · <a href="flows.html">IA & flows</a></div>
     <H>Journeys</H>
     {JOURNEYS.map(x => <div key={x.k} style={{ margin: '0 0 6px' }}>

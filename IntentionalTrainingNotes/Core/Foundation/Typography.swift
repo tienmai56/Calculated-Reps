@@ -1,29 +1,29 @@
 import SwiftUI
 
-// MARK: - Mat Mind Typography
+// MARK: - Grip Gorillas Typography
 //
-// Mat Mind uses two typefaces:
-//   • MAIN SECTION HEADERS — Fraunces (serif), via Font.matMindSerif(size:) and
-//     Font.matMindSerifItalic(size:). Reserved for the ScreenHeader titles only.
+// Grip Gorillas uses two typefaces:
+//   • MAIN SECTION HEADERS — Fraunces (serif), via Font.gripGorillasSerif(size:) and
+//     Font.gripGorillasSerifItalic(size:). Reserved for the ScreenHeader titles only.
 //   • EVERYTHING ELSE — SF Pro. Titles/labels/buttons/chips use the rounded
 //     design (Font.system(..., design: .rounded)); body prose and descriptions
-//     use plain SF Pro (not rounded) via Font.matMindBody(size:).
+//     use plain SF Pro (not rounded) via Font.gripGorillasBody(size:).
 extension Font {
     /// Body / descriptive prose — reflection text, task notes, subtitles, helper
     /// text. Plain SF Pro (system default design — intentionally NOT rounded).
-    static func matMindBody(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+    static func gripGorillasBody(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         Font.system(size: size, weight: weight)
     }
 
     /// Fraunces serif — reserved for the main section headers (ScreenHeader).
     /// Maps the requested weight to a bundled static Fraunces face by PostScript
     /// name so it renders reliably on all supported iOS versions.
-    static func matMindSerif(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+    static func gripGorillasSerif(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         Font.custom(frauncesName(weight: weight, italic: false), size: size)
     }
 
     /// Fraunces italic — the accent word in a section header title.
-    static func matMindSerifItalic(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+    static func gripGorillasSerifItalic(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         Font.custom(frauncesName(weight: weight, italic: true), size: size)
     }
 

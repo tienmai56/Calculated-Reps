@@ -1,5 +1,5 @@
 /**
- * Mat Mind — Tailwind preset. Every value points at a CSS custom property, so
+ * Grip Gorillas — Tailwind preset. Every value points at a CSS custom property, so
  * load styles.css (or design-system/tokens/*.css) before Tailwind's output.
  * Usage: module.exports = { presets: [require('./design-system/tailwind.config.js')], content: [...] }
  * Generated from design-system/tokens — edit the tokens, not this file.

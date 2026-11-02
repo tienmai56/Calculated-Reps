@@ -1,4 +1,4 @@
-const { IconButton: PIB, Button: PBtn, Avatar: PAv, Belt: PBelt, Tabs: PTabs, Card: PCard, Tooltip: PTip, Badge: PBadge } = window.MatMindDesignSystem_8b0f80;
+const { IconButton: PIB, Button: PBtn, Avatar: PAv, Belt: PBelt, Tabs: PTabs, Card: PCard, Tooltip: PTip, Badge: PBadge } = window.GripGorillasDesignSystem_8b0f80;
 function ProfileScreen({ me, week, recent, sessions }) {
   const [range, setRange] = React.useState('Week');
   const max = Math.max(...week); const total = week.reduce((a, b) => a + b, 0);
