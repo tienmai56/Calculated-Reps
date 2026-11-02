@@ -445,14 +445,6 @@ struct PostDetailScreen: View {
                  title: isOrganizer ? "Your post" : "Post options",
                  description: isOrganizer ? "Only you, the organizer, can edit or delete this post." : "\(organizer.name) organized this session.") {
             VStack(spacing: 8) {
-                if mm.isLive {
-                    MMButton("Report post", variant: .ghost, iconLeft: "flag", fullWidth: true) {
-                        showMenu = false
-                        Task {
-                            if await mm.runtime?.perform("report_post", ["post_id": post.id, "reason": "Reported from post options"]) == true { mm.showToast("Report sent") }
-                        }
-                    }
-                }
                 if isOrganizer {
                     MMButton("Edit caption", variant: .secondary, iconLeft: "pencil", fullWidth: true) {
                         showMenu = false

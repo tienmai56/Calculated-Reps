@@ -67,7 +67,6 @@ struct SocialPostScreen: View {
                         Button("Delete shared post",role:.destructive) { delete = true }
                     }
                     Button("Remove me from this post") { Task { await app.perform("remove_tag",["post_id":postID]) } }
-                    Button("Report post") { Task { await app.perform("report_post",["post_id":postID,"reason":"User reported this post for review."]) } }
                 }
             }.navigationTitle("Training memory")
             .sheet(isPresented:$edit) {
