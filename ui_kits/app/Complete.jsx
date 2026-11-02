@@ -1,4 +1,4 @@
-const { Avatar: KAv, AvatarStack: KStack, IconButton: KIB, Icon: KIcon, Button: KBtn, Input: KIn, Switch: KSw, Dialog: KDlg, StreakBelt: KBelt } = window.GripGorillasDesignSystem_8b0f80;
+const { Avatar: KAv, AvatarStack: KStack, IconButton: KIB, Icon: KIcon, Button: KBtn, Input: KIn, Dialog: KDlg, StreakBelt: KBelt } = window.GripGorillasDesignSystem_8b0f80;
 
 function CompleteScreen({ id }) {
   const mm = useMM(); const P = mm.person;
@@ -7,14 +7,16 @@ function CompleteScreen({ id }) {
   const [photo, setPhoto] = React.useState(null);
   const [roll, setRoll] = React.useState(false);
   const [caption, setCaption] = React.useState('');
-  const [done, setDone] = React.useState(false);
   const [result, setResult] = React.useState(null);
   if (result) return <Celebrate result={result} />;
   if (!s) return null;
   const people = Object.keys(s.people).filter(k => s.people[k] === 'going' && !removed.includes(k));
-  const publish = () => setResult(mm.publish(s.id, { photo, caption, people }));
+  const publish = () => {
+    if (!photo) return;
+    setResult(mm.publish(s.id, { photo, caption, people }));
+  };
   return <Screen push header={<Header left={<KIB icon="x" label="Close" onClick={mm.back} />} title="Share the session" sub={`${s.title} · ${s.day} ${s.month} ${s.date}`} />}
-    footer={<KBtn size="lg" fullWidth iconLeft="send" disabled={!done} onClick={publish}>{done ? 'Publish to Activity' : 'Mark as completed to publish'}</KBtn>}>
+    footer={<KBtn size="lg" fullWidth iconLeft="send" disabled={!photo} onClick={publish}>Publish to Activity</KBtn>}>
     <div style={{ padding: '4px 16px 0' }}>
       {photo ? <PhotoTile src={photo} h={330} radius={26} style={{ animation: 'mmPop .4s var(--ease-bounce)' }}>
           <TapeLabel style={{ position: 'absolute', left: 12, bottom: 14 }}><KIcon name="map-pin" size={13} strokeWidth={2.5} />{s.gym}</TapeLabel>
@@ -33,9 +35,6 @@ function CompleteScreen({ id }) {
             <KAv name={p.name} src={p.src} size={34} /><Txt s={14} w={600} style={{ textDecoration: out ? 'line-through' : 'none' }}>{k === 'me' ? 'You' : p.name.split(' ')[0]}</Txt>
             {k !== 'me' ? <KIB icon={out ? 'plus' : 'x'} size={28} label={out ? 'Add back' : 'Remove'} onClick={() => setRemoved(out ? removed.filter(x => x !== k) : [...removed, k])} /> : <span style={{ width: 6 }}></span>}
           </span>; })}
-      </div>
-      <div style={{ marginTop: 22, padding: 16, borderRadius: 22, background: done ? 'var(--mint-100)' : 'var(--white)', boxShadow: done ? 'none' : 'var(--shadow-card)', transition: 'background var(--dur-base)' }}>
-        <KSw label="Training completed" description="Counts toward weekly streaks for everyone here." checked={done} onChange={setDone} />
       </div>
       <div style={{ height: 20 }}></div>
     </div>

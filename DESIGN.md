@@ -333,7 +333,7 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invit
 
 Journeys:
 - **A — Plan together:** Training → Plan a session → gym/date/time → invite → friends join → session shows participants.
-- **B — Share a memory:** completed session → photo → mark completed → publish → post on every participant's profile and friends' feeds → likes/comments.
+- **B — Share a memory:** completed session → take or upload a photo → publish → post on every participant's profile and friends' feeds → likes/comments. A photo enables publishing; no completion toggle is required.
 - **C — Keep a streak:** Friends → active streak → friend profile → invite → complete together → streak +1.
 
 Streak rule: a week counts when two friends both participate in ≥1 **completed** session together within the same Mon–Sun calendar week; consecutive weeks extend the streak.
