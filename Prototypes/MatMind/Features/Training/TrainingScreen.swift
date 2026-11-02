@@ -157,7 +157,7 @@ struct SessionDetailScreen: View {
                     infoRow(icon: "map-pin", text: s.gym, divider: true)
                     infoRow(icon: "clock", text: "\(s.day), \(s.month) \(s.date) · \(s.time)", divider: true)
                     infoRow(icon: s.privacy == .link ? "globe" : "lock",
-                            text: s.privacy == .link ? "Anyone with the link (Grip Gorillas account required)" : "Friends only",
+                            text: s.privacy == .link ? "Anyone with the link (Mat Monkeys account required)" : "Friends only",
                             divider: false)
                 }
                 .padding(.horizontal, 16)

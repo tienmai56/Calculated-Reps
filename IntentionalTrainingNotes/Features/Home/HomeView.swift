@@ -409,7 +409,7 @@ struct HomeView: View {
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundColor(accent)
                 Text(text)
-                    .font(.gripGorillasBody(size: 13))
+                    .font(.matMonkeysBody(size: 13))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -604,7 +604,7 @@ struct HomeView: View {
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 Text("You've put in the reps — set a challenge.")
-                    .font(.gripGorillasBody(size: 14))
+                    .font(.matMonkeysBody(size: 14))
                     .foregroundColor(AppColors.secondaryLabel)
             }
             Spacer()
@@ -830,7 +830,7 @@ struct HomeView: View {
             withAnimation(.easeInOut(duration: 0.15)) { goalFilterOpen = false }
         }) {
             HStack {
-                Text(title).font(.gripGorillasBody(size: 15)).foregroundColor(AppColors.label)
+                Text(title).font(.matMonkeysBody(size: 15)).foregroundColor(AppColors.label)
                 Spacer()
                 if patternGoalId == id {
                     Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundColor(AppColors.indigo)

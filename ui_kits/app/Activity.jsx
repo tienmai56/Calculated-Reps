@@ -1,4 +1,4 @@
-const { Avatar: AAv, AvatarStack: AStack, IconButton: AIB, Icon: AIcon, Button: ABtn, Dialog: ADlg, Input: AIn, Badge: ABadge } = window.GripGorillasDesignSystem_8b0f80;
+const { Avatar: AAv, AvatarStack: AStack, IconButton: AIB, Icon: AIcon, Button: ABtn, Dialog: ADlg, Input: AIn, Badge: ABadge } = window.MatMonkeysDesignSystem_8b0f80;
 const MMCtx = React.createContext(null);
 const useMM = () => React.useContext(MMCtx);
 
@@ -62,7 +62,7 @@ function StreakNudges() {
 function ActivityScreen({ highlight }) {
   const mm = useMM();
   const unread = mm.s.notifications.filter(n => n.unread).length;
-  return <Screen tabPad header={<Header large title={<span>grip gorillas<span style={{ color: 'var(--accent)' }}>.</span></span>} right={<AIB icon="bell" label="Notifications" badge={unread || false} onClick={() => mm.go('notifications')} />} />}>
+  return <Screen tabPad header={<Header large title={<span>mat monkeys<span style={{ color: 'var(--accent)' }}>.</span></span>} right={<AIB icon="bell" label="Notifications" badge={unread || false} onClick={() => mm.go('notifications')} />} />}>
     <StreakNudges />
     {mm.s.posts.map(p => <PostCard key={p.id} post={p} highlight={p.id === highlight} />)}
     <div style={{ textAlign: 'center', padding: '10px 40px 20px', font: '500 13px/1.45 var(--font-body)', color: 'var(--text-tertiary)' }}>That's everything from your crew this week.<br />Go make a new memory.</div>

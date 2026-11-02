@@ -1,4 +1,4 @@
-# Grip Gorillas iOS
+# Mat Monkeys iOS
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
@@ -8,7 +8,9 @@ Google sign-in setup is described in [Google sign-in setup](docs/google-sign-in-
 
 Previous local training data is available only through **Settings → Export → Export local sessions**, from Welcome or Profile. Legacy records are not imported into social sessions, photos or streaks.
 
-The Silverback app icon and logo come from `assets/brand/`. The production bundle identifier, existing sign-in callbacks, and stored-data identifiers retain their original values for compatibility. The `MatMindPrototype` scheme installs a separate **Grip Gorillas Proto** app for reviewing the shared design.
+The Silverback app icon and logo come from `assets/brand/`. The production bundle identifier, existing sign-in callbacks, and stored-data identifiers retain their original values for compatibility. The `MatMindPrototype` scheme installs a separate **Mat Monkeys Proto** app for reviewing the shared design.
+
+The next production build is **1.1 (4)**. The Xcode project, schemes and source module identifiers keep their existing names; both installed app labels and wordmarks use **Mat Monkeys**. Store/TestFlight listing names and Google's OAuth consent name are managed separately in App Store Connect and Google Auth Platform; set those display names to **Mat Monkeys** while retaining the existing app and OAuth client IDs.
 
 ```sh
 xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
@@ -16,7 +18,7 @@ xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator
 
 ## Design system
 
-The design system for **Grip Gorillas**, a friendship-first social app for the Jiu-Jitsu community: plan training with partners, share a photo after you roll, and keep **weekly friendship streaks**. Warm, playful, and soft, not a fitness dashboard.
+The design system for **Mat Monkeys**, a friendship-first social app for the Jiu-Jitsu community: plan training with partners, share a photo after you roll, and keep **weekly friendship streaks**. Warm, playful, and soft, not a fitness dashboard.
 
 > **Start with [`DESIGN.md`](DESIGN.md).** It is the full specification and the source of truth.
 
@@ -24,7 +26,7 @@ The design system for **Grip Gorillas**, a friendship-first social app for the J
 | Path | Contents |
 |---|---|
 | [`DESIGN.md`](DESIGN.md) | Complete spec: tokens, voice, visuals, components, screens, guardrails |
-| [`.claude/skills/grip-gorillas-design/SKILL.md`](.claude/skills/grip-gorillas-design/SKILL.md) | Agent skill for Claude Code: core rules and guardrails |
+| [`.claude/skills/mat-monkeys-design/SKILL.md`](.claude/skills/mat-monkeys-design/SKILL.md) | Agent skill for Claude Code: core rules and guardrails |
 | [`.claude/design-system-spec.json`](.claude/design-system-spec.json) | Machine-readable tokens and component parameters |
 | [`styles.css`](styles.css) | Global entry point (imports the token files) |
 | [`design-system/tokens/`](design-system/tokens) | CSS custom properties: colors, typography, spacing, fonts |
@@ -39,7 +41,7 @@ The design system for **Grip Gorillas**, a friendship-first social app for the J
 - **Colors:** Paper `#FAF6EF` · Ink `#1D1B18` · Coral `#FF5C39` (primary) · friend hues sun, mint, sky, plum · Flame `#FF7A1A` for streaks
 - **Type:** Bricolage Grotesque (display) · Archivo (body) · JetBrains Mono (codes)
 - **Shape:** pill buttons, 22–28px cards and photos, soft shadows
-- **Logo:** the Silverback, a geometric gorilla head with a coral brow band, next to the lowercase "grip gorillas." wordmark
+- **Logo:** the Silverback, a geometric gorilla head with a coral brow band, next to the lowercase "mat monkeys." wordmark
 - **Signature:** the streak belt, athletic-tape labels, ticket-stub sessions, tied avatars
 
 ## Components
@@ -56,4 +58,4 @@ module.exports = { presets: [require('./design-system/tailwind.config.js')], con
 ```
 
 ## Credits
-Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsplash (Unsplash License). Logo: the Silverback mark (`assets/brand/`), paired with the "grip gorillas." wordmark; see `DESIGN.md` §5.1.
+Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsplash (Unsplash License). Logo: the Silverback mark (`assets/brand/`), paired with the "mat monkeys." wordmark; see `DESIGN.md` §5.1.
