@@ -1,4 +1,4 @@
-<!-- @dsCard group="Components" viewport="700x260" name="Core — buttons & icons" -->
+<!-- @dsCard group="Components" viewport="700x380" name="Core — buttons & icons" -->
 <!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../../styles.css">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
@@ -7,12 +7,13 @@
 <style>body{margin:0;padding:20px;background:var(--bg-app)}.r{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.c{display:flex;flex-direction:column;gap:14px}.lab{font:500 11px var(--font-mono);color:var(--text-tertiary);width:72px;flex-shrink:0}</style></head><body><div id="root"></div>
 <script type="text/babel">
 const NS = window.MatMindDesignSystem_8b0f80;
-const { Button, IconButton, Icon } = NS;
+const { Button, IconButton, Icon, Logo } = NS;
 function App(){ return <div className="c">
 <div className="r"><span className="lab">variant</span><Button iconLeft="plus">Plan a session</Button><Button variant="secondary">Decline</Button><Button variant="soft" iconLeft="link">Copy link</Button><Button variant="inverse">Join</Button><Button variant="ghost">Skip</Button></div>
 <div className="r"><span className="lab">size</span><Button size="sm">Small</Button><Button size="md">Medium</Button><Button size="lg">Large</Button><Button disabled>Disabled</Button></div>
 <div className="r"><span className="lab">icon btn</span><IconButton icon="bell" label="Alerts" badge={3}/><IconButton icon="heart" label="Like" active filledWhenActive/><IconButton icon="message-circle" label="Comment"/><IconButton icon="bookmark" variant="filled" label="Save"/><IconButton icon="plus" variant="accent" label="New"/><IconButton icon="ellipsis" size={36} label="More"/></div>
 <div className="r"><span className="lab">icon</span>{['calendar-plus','users','qr-code','scan-line','map-pin','camera','handshake','link'].map(n=><Icon key={n} name={n} size={22} color="var(--text-secondary)"/>)}<Icon name="flame" size={22} color="var(--flame-500)" filled/></div>
+<div className="r"><span className="lab">logo</span><Logo/><Logo variant="lockup" size={36}/><span style={{background:"var(--accent)",borderRadius:14,padding:8,display:"inline-flex"}}><Logo variant="mono" size={32}/></span><Logo variant="appIcon" size={44}/><span style={{background:"var(--ink-900)",borderRadius:14,padding:"8px 14px",display:"inline-flex"}}><Logo variant="lockupInverse" size={32}/></span></div>
 </div>; }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script></body></html>

@@ -24,7 +24,7 @@ If invoked with no task, ask what they want to build, then act as an expert prod
 - **Spacing:** 16px screen gutters, 44px minimum tap targets, 22px between sections.
 
 ## Logo
-- **The Silverback**: geometric gorilla head with a coral brow band, paired with the lowercase "grip gorillas." wordmark (coral period). Files: `assets/brand/logo-mark.svg` (default), `logo-mark-mono.svg` (on coral / 1-color), `app-icon.svg` (sun ground; also the reversed logo on ink and photos), `logo-lockup.svg`.
+- **The Silverback**: geometric gorilla head with a coral brow band, paired with the lowercase "grip gorillas." wordmark (coral period). Files: `assets/brand/logo-mark.svg` (default), `logo-mark-mono.svg` (on coral / 1-color), `app-icon.svg` (sun ground; also the reversed logo on ink and photos), `app-icon-1024.png`, `logo-lockup.svg`. In React use `<Logo variant="mark|mono|appIcon|lockup|lockupInverse" />` from `design-system/components/core/`.
 - Clear space = brow height; min 24px mark, 120px lockup. Never recolor, outline, animate a new expression, or redraw it. Full rules: `DESIGN.md` §5.1.
 
 ## Signature motifs (use them, don't dilute them)

@@ -33,7 +33,8 @@
         "mark": "assets/brand/logo-mark.svg",
         "markMono": "assets/brand/logo-mark-mono.svg",
         "appIcon": "assets/brand/app-icon.svg",
-        "lockup": "assets/brand/logo-lockup.svg"
+        "lockup": "assets/brand/logo-lockup.svg",
+        "appIconPng": "assets/brand/app-icon-1024.png"
       },
       "clearSpace": "brow band height",
       "minSize": {
@@ -48,7 +49,8 @@
         "onPaperWhiteSun": "mark",
         "onCoral": "markMono",
         "onInkOrPhotos": "appIcon tile"
-      }
+      },
+      "component": "design-system/components/core/Logo.jsx"
     }
   },
   "color": {
@@ -432,6 +434,23 @@
       ],
       "defaultSize": 44,
       "press": "scale(.86) ease-bounce"
+    },
+    "Logo": {
+      "variants": [
+        "mark",
+        "mono",
+        "appIcon",
+        "lockup",
+        "lockupInverse"
+      ],
+      "defaultSize": 40,
+      "minSize": 24,
+      "tile": {
+        "background": "sun-400",
+        "radius": "22.5%"
+      },
+      "wordmarkSize": "0.6 × size",
+      "gap": "0.3 × size"
     },
     "Input": {
       "minHeight": 50,

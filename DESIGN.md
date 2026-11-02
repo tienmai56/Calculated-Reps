@@ -43,7 +43,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 | `design-system/components/` | React primitives (`.jsx` + `.d.ts` + `.prompt.md`), one preview `*.card.html` per group |
 | `guidelines/` | Foundation specimen cards (HTML) |
 | `ui_kits/app/` | `index.html` interactive prototype, `flows.html` IA & journeys |
-| `assets/brand/` | Logo: `logo-mark.svg`, `logo-mark-mono.svg`, `app-icon.svg`, `logo-lockup.svg` |
+| `assets/brand/` | Logo: `logo-mark.svg`, `logo-mark-mono.svg`, `app-icon.svg`, `app-icon-1024.png`, `logo-lockup.svg` |
 | `assets/fonts/`, `assets/icons/`, `assets/photos/` | Webfonts, Lucide SVGs, sample photos |
 
 ## 3. Tokens
@@ -268,6 +268,7 @@ A calm, front-facing gorilla head built from simple geometry: an ink head, a pap
 | `assets/brand/logo-mark.svg` | Default mark: ink head, `--paper-3` face, **coral brow**. On paper, white, or sun backgrounds. |
 | `assets/brand/logo-mark-mono.svg` | Ink brow. On coral backgrounds and for one-color print. |
 | `assets/brand/app-icon.svg` | 1024² app icon: default mark on **sun #FFC93C**. Also the reversed logo on ink or photos (as a rounded tile). |
+| `assets/brand/app-icon-1024.png` | Opaque 1024² PNG render of the app icon, used by the iOS `AppIcon` set. Re-render it from the SVG if the SVG changes. |
 | `assets/brand/logo-lockup.svg` | Horizontal lockup: mark + "grip gorillas." wordmark. |
 
 - **Colors:** ink `#1D1B18`, paper-3 `#E9E0D1`, coral `#FF5C39` brow; app icon ground sun `#FFC93C`. Nothing else.
@@ -275,6 +276,7 @@ A calm, front-facing gorilla head built from simple geometry: an ink head, a pap
 - **Clear space:** at least the brow band's height on every side.
 - **Minimum size:** mark 24px tall; lockup 120px wide; below that use the mark alone.
 - **Don't:** recolor the head, swap the brow to belt or friend hues, add outlines, shadows, gradients, or expressions, rotate it, place the ink head directly on ink (use the app-icon tile), or redraw it. Use the files.
+- **In code:** use the `Logo` component (`design-system/components/core/Logo.jsx`, variants `mark` / `mono` / `appIcon` / `lockup` / `lockupInverse`). It draws from tokens, so no asset paths are needed.
 - **In the app:** the mark appears on the splash screen, onboarding and empty states; the tab-screen headers keep the plain Bricolage title. One logo per screen at most.
 
 ## 6. Components
@@ -283,6 +285,7 @@ React primitives live in `design-system/components/<group>/`. Each has `Name.jsx
 | Component | Key parameters |
 |---|---|
 | **Button** | variants: primary / secondary / soft / ghost / inverse / danger · sizes: sm 36, md 48, lg 56 · radius: pill · font: display 700 · pressEdge: 3px accent-shade, sinks 2px on press |
+| **Logo** | variants: mark / mono / appIcon / lockup / lockupInverse · size: mark height or tile side, default 40, min 24 · tile: sun-400, radius 22.5% |
 | **IconButton** | variants: ghost / filled / accent / overlay / inverse · defaultSize: 44 · press: scale(.86) ease-bounce |
 | **Input** | minHeight: 50 · radius: md · border: 1.5px border-default · focus: border-focus + 4px accent-tint ring |
 | **Select** | height: 50 · radius: md |
@@ -302,7 +305,7 @@ React primitives live in `design-system/components/<group>/`. Each has `Name.jsx
 | **Toast** | shape: ink pill · variants: default / success / danger / streak / friend · autoDismissMs: 2600 |
 | **Tooltip** | surface: ink-900 · radius: 10 |
 
-Groups: **core/** Button, IconButton, Icon · **forms/** Input, Select, Checkbox, Radio, Switch · **display/** Belt, Avatar, AvatarStack, StreakBelt, Badge, Tag, Card · **navigation/** Tabs, TabBar · **feedback/** Dialog, Toast, Tooltip.
+Groups: **core/** Button, IconButton, Icon, Logo · **forms/** Input, Select, Checkbox, Radio, Switch · **display/** Belt, Avatar, AvatarStack, StreakBelt, Badge, Tag, Card · **navigation/** Tabs, TabBar · **feedback/** Dialog, Toast, Tooltip.
 
 Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candidates for promotion): **TapeLabel**, **PairAvatars**, **SessionTicket**, **PhotoTile**.
 
