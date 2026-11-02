@@ -22,3 +22,7 @@ xcuserdata/
 _adherence.oxlintrc.json
 _ds_manifest.json
 github.md
+
+# Supabase CLI local connection metadata
+supabase/.temp/
+supabase/.branches/

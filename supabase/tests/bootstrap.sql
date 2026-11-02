@@ -13,3 +13,7 @@ create table storage.buckets(id text primary key,name text,public boolean,file_s
 create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);
 alter table storage.objects enable row level security;
 grant select,insert on storage.objects to authenticated;
+
+-- Reproduce hosted Supabase's explicit per-role function defaults so tests catch
+-- grants that a REVOKE FROM PUBLIC alone would leave behind.
+alter default privileges in schema public grant execute on functions to anon,authenticated,service_role;

@@ -23,19 +23,24 @@ Export uses a streaming ZIP32 writer and the native iOS share sheet. Each export
 - Minimum deployment target is now iOS 17. Older devices need the previous app version; validate App Store rollout strategy before release.
 - Apple sign-in/APNs entitlements are provided. Select the correct development team and regenerate provisioning profiles with these capabilities enabled.
 
-## Backend deployment still required
+## Backend deployment status
 
-A read-only probe confirmed the hosted project is reachable but `public.snapshot()` is not deployed. A publishable key cannot execute schema migrations or deploy Edge Functions. No hosted database changes were made during this implementation.
+The CLI is linked to `cmiqavyrazypmulrfezj`. On November 1, 2026 (Pacific), the five app migrations were applied and the `delete-account` and `notification-worker` Edge Functions were deployed. No seed data, legacy notebooks or local archive attachments were uploaded.
 
-From an authenticated Supabase CLI session with access to this project, review the migrations and run:
+Hosted validation identified a device-token column/variable collision, fixed in `202611020004_device_registration.sql`. It also confirmed that hosted Supabase default privileges explicitly granted anonymous execution; `202611020005_function_permissions.sql` removes those grants from app RPCs and internal helpers. The original applied migrations are retained unchanged. Local regression fixtures now reproduce the hosted function defaults and test both fixes.
+
+To link another checkout or deploy subsequent migrations:
 
 ```sh
 supabase link --project-ref cmiqavyrazypmulrfezj
-supabase db push --dry-run
-supabase db push
-supabase functions deploy delete-account
-supabase functions deploy notification-worker
+supabase db push --linked --skip-vault --dry-run
+supabase db push --linked --skip-vault
+supabase functions deploy delete-account notification-worker --project-ref cmiqavyrazypmulrfezj --use-api --no-verify-jwt
 ```
+
+Both functions validate access in their own handlers: account deletion checks the caller with Supabase Auth, and the notification worker requires its server-only secret. Unauthenticated requests were rejected with HTTP 401. Hosted database lint reports no errors. All public app tables have RLS enabled, anonymous app-function execution is disabled, and authenticated clients cannot directly call the notification/streak write helpers.
+
+**Still required:** Apple and Google sign-in providers are disabled in the project. Configure their provider credentials before testing sign-in. The four APNs secrets and `NOTIFICATION_WORKER_SECRET` are absent; push delivery remains inactive and no worker schedule was enabled.
 
 The migrations create social tables, RLS policies, transactional commands, command receipts, a private photo bucket, bounded reads and cursor pagination. They have no legacy notebook upload route. Worker grants are limited to the specific tables/functions it requires; the app has no administrative credential.
 
@@ -65,15 +70,15 @@ Publish the web changes, regenerate the signing profile with Associated Domains,
 
 ## Validation
 
-- Xcode 26.6, iOS 26.5 simulator: full suite passed, **24 tests**, including **11 archive tests**.
+- Xcode 26.6, iOS 26.5 simulator: full suite passed, **25 tests**, including **11 archive tests**.
 - A fresh local PostgreSQL 17 instance accepted the migrations and passed social/QR SQL behavior tests using test substitutes for Supabase-owned auth/storage schemas.
 - Tests cover organizer restrictions, direct-write denial, stranger isolation, private photo access, retry-safe publishing, all attendee pairs, attendance correction, post deletion, QR replay, blocking, and Monday/DST boundaries.
 - An independent Python ZIP reader verified exact entry paths, CRCs, UTF-8, binary bytes and empty files from the ZIP writer.
 - `git diff --check` passed.
 - The final app launched successfully on a separate fresh simulator; the initial empty Activity screen was visually inspected.
-- Edge Function TypeScript syntax was parsed; hosted execution and APNs remain untested until deployment.
+- Edge Function TypeScript syntax was parsed; both deployed functions rejected unauthenticated requests. Authorized account deletion and APNs delivery still require device/staging acceptance testing.
 
-The local PostgreSQL harness is not a substitute for a hosted Supabase deployment test. Live provider sign-in, cross-device journeys, APNs, media cleanup, backup restore, distribution signing and universal links require staging configuration and device acceptance before release. Realtime subscriptions are deferred; pull-to-refresh and foreground revalidation provide recovery now. Android is not part of this iOS implementation.
+The local PostgreSQL harness and hosted schema/permission checks do not replace device acceptance. Live provider sign-in, cross-device journeys, APNs, media cleanup, backup restore, distribution signing and universal links still require configuration and device acceptance before release. Realtime subscriptions are deferred; pull-to-refresh and foreground revalidation provide recovery now. Android is not part of this iOS implementation.
 
 ## Run local checks
 
