@@ -35,7 +35,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 |---|---|
 | `DESIGN.md` | This spec |
 | `README.md` | Short introduction |
-| `.claude/SKILL.md` | Agent skill: core rules and guardrails, loaded by Claude Code |
+| `.claude/skills/mat-mind-design/SKILL.md` | Agent skill: core rules and guardrails, loaded by Claude Code |
 | `.claude/design-system-spec.json` | Machine-readable tokens, palettes, component parameters |
 | `styles.css` | Global CSS entry point, `@import`s only |
 | `design-system/tokens/` | `fonts.css`, `colors.css`, `typography.css`, `spacing.css`, `base.css` (CSS custom properties on `:root`) |

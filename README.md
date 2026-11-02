@@ -8,7 +8,7 @@ The design system for **Mat Mind**, a friendship-first social app for the Jiu-Ji
 | Path | Contents |
 |---|---|
 | [`DESIGN.md`](DESIGN.md) | Complete spec: tokens, voice, visuals, components, screens, guardrails |
-| [`.claude/SKILL.md`](.claude/SKILL.md) | Agent skill for Claude Code: core rules and guardrails |
+| [`.claude/skills/mat-mind-design/SKILL.md`](.claude/skills/mat-mind-design/SKILL.md) | Agent skill for Claude Code: core rules and guardrails |
 | [`.claude/design-system-spec.json`](.claude/design-system-spec.json) | Machine-readable tokens and component parameters |
 | [`styles.css`](styles.css) | Global entry point (imports the token files) |
 | [`design-system/tokens/`](design-system/tokens) | CSS custom properties: colors, typography, spacing, fonts |
