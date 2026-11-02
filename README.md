@@ -16,16 +16,18 @@ The design system for **Grip Gorillas**, a friendship-first social app for the J
 | [`design-system/components/`](design-system/components) | React primitives with `.d.ts` contracts and usage notes |
 | [`guidelines/`](guidelines) | Foundation specimen cards |
 | [`ui_kits/app/`](ui_kits/app) | Interactive prototype (`index.html`) and IA/journeys (`flows.html`) |
+| [`assets/brand/`](assets/brand) | The Silverback logo: mark, one-color mark, app icon (SVG + 1024 PNG), lockup |
 | [`assets/`](assets) | Fonts, Lucide icons, sample photos |
 
 ## At a glance
 - **Colors:** Paper `#FAF6EF` · Ink `#1D1B18` · Coral `#FF5C39` (primary) · friend hues sun, mint, sky, plum · Flame `#FF7A1A` for streaks
 - **Type:** Bricolage Grotesque (display) · Archivo (body) · JetBrains Mono (codes)
 - **Shape:** pill buttons, 22–28px cards and photos, soft shadows
+- **Logo:** the Silverback, a geometric gorilla head with a coral brow band, next to the lowercase "grip gorillas." wordmark
 - **Signature:** the streak belt, athletic-tape labels, ticket-stub sessions, tied avatars
 
 ## Components
-Button, IconButton, Icon · Input, Select, Checkbox, Radio, Switch · Belt, Avatar, AvatarStack, StreakBelt, Badge, Tag, Card · Tabs, TabBar · Dialog, Toast, Tooltip
+Button, IconButton, Icon, Logo · Input, Select, Checkbox, Radio, Switch · Belt, Avatar, AvatarStack, StreakBelt, Badge, Tag, Card · Tabs, TabBar · Dialog, Toast, Tooltip
 
 ## Use it
 ```html
@@ -42,9 +44,9 @@ Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsp
 
 ---
 
-## Intentional Training Notes iOS
+## Grip Gorillas iOS app
 
-This repository also contains the native SwiftUI MVP. Open `IntentionalTrainingNotes.xcodeproj` in Xcode and run the `IntentionalTrainingNotes` scheme (iOS 13+, SwiftUI with `AppDelegate` / `SceneDelegate`, local JSON persistence, no external dependencies).
+This repository also contains the native SwiftUI MVP, shown on the home screen as **Grip Gorillas**. The Xcode project, scheme and bundle ID still use the original `IntentionalTrainingNotes` name, so existing installs and App Store records keep working. Open `IntentionalTrainingNotes.xcodeproj` in Xcode and run the `IntentionalTrainingNotes` scheme (iOS 13+, SwiftUI with `AppDelegate` / `SceneDelegate`, local JSON persistence, no external dependencies).
 
 ```sh
 xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator,name=iPhone 15' build
