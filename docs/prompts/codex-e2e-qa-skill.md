@@ -46,10 +46,10 @@ PASTE THE FULL PRD HERE
 
 ## Part 2: The skill
 
-Create the skill at the repo-scoped location your skill loader reads (default: `.codex/skills/e2e-qa/`):
+Create the skill at `.agents/skills/e2e-qa/` (the repo-scoped skills folder Codex scans):
 
 ```
-.codex/skills/e2e-qa/
+.agents/skills/e2e-qa/
   SKILL.md                 # trigger description, procedure, guardrails, report template
   scripts/run_e2e.sh       # build + run UI and unit tests, collect artifacts
   scripts/summarize_xcresult.sh  # extract failures, screenshots, logs from .xcresult
@@ -117,7 +117,7 @@ Create the skill at the repo-scoped location your skill loader reads (default: `
 ```
 
 4. **Blocked and not tested:** what could not be tested, and why (for example, real Google OAuth or real push delivery).
-5. **Appendix:** the harness changes made to production files, how to rerun (`.codex/skills/e2e-qa/scripts/run_e2e.sh`), and a list of artifacts.
+5. **Appendix:** the harness changes made to production files, how to rerun (`.agents/skills/e2e-qa/scripts/run_e2e.sh`), and a list of artifacts.
 
 ## Guardrails
 
@@ -130,7 +130,7 @@ Create the skill at the repo-scoped location your skill loader reads (default: `
 ## Done when
 
 - `IntentionalTrainingNotesUITests` builds and runs from the CLI, and the existing unit tests still pass.
-- The `.codex/skills/e2e-qa/` skill exists with the files listed above, and `run_e2e.sh` works from a clean checkout.
+- The `.agents/skills/e2e-qa/` skill exists with the files listed above, and `run_e2e.sh` works from a clean checkout.
 - `references/test-plan.md` maps every PRD requirement to at least one test, or explains why it can't be tested.
 - The first `qa-reports/<date>/report.md` exists, with a reproduction and root-cause analysis for every issue found.
 - Everything is committed on a branch, with a short summary of findings in the final message.
