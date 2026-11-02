@@ -143,6 +143,7 @@ private struct PlanningDraft: Codable, Equatable {
     var key = UUID()
 }
 struct SocialCreateScreen: View {
+    var initialFriendID: String? = nil
     @Environment(SocialAppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var draft = PlanningDraft()
@@ -166,7 +167,12 @@ struct SocialCreateScreen: View {
             Text("Past sessions can be logged using their actual date and time. Legacy archive records are never used here.").font(.caption).foregroundStyle(.secondary)
         }.navigationTitle("Plan a session")
         .toolbar { Button("Close") { dismiss() } }
-        .onAppear { if let saved = app.draft(PlanningDraft.self,key:"plan") { draft = saved } }
+        .onAppear {
+            if let saved = app.draft(PlanningDraft.self,key:"plan") { draft = saved }
+            if let initialFriendID, app.friendIDs.contains(initialFriendID), !draft.invited.contains(initialFriendID) {
+                draft.invited.append(initialFriendID)
+            }
+        }
         .onChange(of:draft) { old,new in
             if old.key == new.key { draft.key = UUID() }
             app.saveDraft(draft,key:"plan")
