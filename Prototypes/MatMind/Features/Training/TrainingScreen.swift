@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Tab 2: upcoming sessions, invites, the "how was it?" prompt, and past sessions.
+/// Tab 2: upcoming sessions, invites, and past sessions.
 struct TrainingScreen: View {
     @Environment(AppModel.self) private var mm
     @State private var tab = "Upcoming"
@@ -24,9 +24,6 @@ struct TrainingScreen: View {
             if tab == "Past" {
                 pastList
             } else {
-                if let s = mm.toComplete {
-                    ReadyToShare(session: s).padding(.top, 12)
-                }
                 if !invites.isEmpty {
                     MMEyebrow("Invites")
                     VStack(spacing: 12) {
@@ -51,7 +48,7 @@ struct TrainingScreen: View {
                     }
                     .padding(.horizontal, 16)
                 }
-                if list.isEmpty && mm.toComplete == nil {
+                if list.isEmpty {
                     EmptyTraining()
                 } else if !list.isEmpty {
                     MMButton("Plan a training session", size: .lg, iconLeft: "plus", fullWidth: true) { mm.go(.create()) }
@@ -97,36 +94,6 @@ struct TrainingScreen: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
         }
-    }
-}
-
-/// Ink prompt card: "How was … ?" → Complete & share.
-private struct ReadyToShare: View {
-    @Environment(AppModel.self) private var mm
-    let session: Session
-
-    var body: some View {
-        let shortTitle = session.title.lowercased().replacingOccurrences(of: "no-gi ", with: "")
-        HStack(spacing: 14) {
-            Image("floor-drill").resizable().scaledToFill()
-                .frame(width: 64, height: 64)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
-                .rotationEffect(.degrees(-4))
-            VStack(alignment: .leading, spacing: 0) {
-                Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
-                Text("Add a photo and share it with the \(session.people.count) of you.")
-                    .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
-                    .padding(.top, 4)
-                MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
-                    .padding(.top, 10)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
     }
 }
 

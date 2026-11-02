@@ -21,8 +21,12 @@ struct ActivityScreen: View {
             .padding(.bottom, 10)
             .frame(minHeight: MMLayout.headerHeight)
         } content: {
+            if let session = mm.toComplete {
+                ReadyToShare(session: session)
+                    .padding(.vertical, 12)
+            }
             if mm.posts.isEmpty {
-                EmptyActivity()
+                if mm.toComplete == nil { EmptyActivity() }
             } else {
                 StreakNudges()
                 ForEach(mm.posts) { post in
@@ -46,18 +50,42 @@ struct ActivityScreen: View {
     }
 }
 
+/// Ink prompt card: "How was … ?" → Complete & share.
+private struct ReadyToShare: View {
+    @Environment(AppModel.self) private var mm
+    let session: Session
+
+    var body: some View {
+        let shortTitle = session.title.lowercased().replacingOccurrences(of: "no-gi ", with: "")
+        HStack(spacing: 14) {
+            Image("floor-drill").resizable().scaledToFill()
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
+                .rotationEffect(.degrees(-4))
+            VStack(alignment: .leading, spacing: 0) {
+                Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
+                Text("Add a photo and share it with the \(session.people.count) of you.")
+                    .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
+                    .padding(.top, 4)
+                MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
+                    .padding(.top, 10)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+    }
+}
+
 /// No completed sessions yet. A plan stays a plan until the organizer publishes it.
 private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        if let session = mm.toComplete {
-            MMEmptyState(artwork: .memory, title: "Good rounds.\nNow the group photo.",
-                         message: "Complete your session to share it with your crew.",
-                         actionTitle: "Complete & share", actionIcon: "camera") {
-                mm.go(.complete(id: session.id))
-            }
-        } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
+        if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
             MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
                          message: "Train together, then share the post-roll photo.",
                          actionTitle: session.status(of: "me") == .invited ? "View invitation" : "View your plan",
