@@ -6,6 +6,18 @@ on:
 permissions:
   contents: read
 jobs:
+  archive:
+    name: Release archive
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive the production app for iOS
+        run: >-
+          xcodebuild -scheme IntentionalTrainingNotes
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          -archivePath "$RUNNER_TEMP/GripGorillas.xcarchive"
+          CODE_SIGNING_ALLOWED=NO archive
   ios:
     runs-on: macos-latest
     steps:
