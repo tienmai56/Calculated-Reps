@@ -214,7 +214,7 @@ struct PlanListView: View {
                         Circle().stroke(AppColors.indigo, lineWidth: 1.5).frame(width: 34, height: 34)
                     }
                     Text("\(cal.component(.day, from: date))")
-                        .font(.matMindBody(size: 16))
+                        .font(.gripGorillasBody(size: 16))
                         .foregroundColor(isSelected ? .white : AppColors.label)
                 }
                 .frame(height: 34)
@@ -493,7 +493,7 @@ struct CompetitionView: View {
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .foregroundColor(AppColors.label)
             Text("Add a tournament to plan your strategy, then log the result and reflect after.")
-                .font(.matMindBody(size: 14))
+                .font(.gripGorillasBody(size: 14))
                 .foregroundColor(AppColors.secondaryLabel)
                 .multilineTextAlignment(.center)
             Button(action: { sheet = .new }) {
@@ -618,7 +618,7 @@ struct CompetitionView: View {
                         .font(.system(size: 18, weight: .heavy, design: .rounded))
                         .foregroundColor(.white)
                     Text(dateVenue(comp))
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(.white.opacity(0.85))
                 }
                 Spacer(minLength: 0)
@@ -840,7 +840,7 @@ struct CompetitionView: View {
                 .background(Capsule().fill(resultColor.opacity(0.14)))
                 Spacer()
                 Text(DateFormatter.monthDay.string(from: comp.date))
-                    .font(.matMindBody(size: 13))
+                    .font(.gripGorillasBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
                 if #available(iOS 14.0, *) {
                     Menu {
@@ -880,7 +880,7 @@ struct CompetitionView: View {
                     .foregroundColor(AppColors.label)
                 if let sub = pastSubtitle(comp) {
                     Text(sub)
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
             }
@@ -928,7 +928,7 @@ struct CompetitionView: View {
                 HStack(alignment: .top, spacing: 8) {
                     if let mood = comp.mood { Text(mood.glyph).font(.system(size: 15)) }
                     Text(snippet)
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(AppColors.secondaryLabel)
                         .italic()
                         .fixedSize(horizontal: false, vertical: true)
@@ -1070,7 +1070,7 @@ struct CompetitionView: View {
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundColor(.white.opacity(0.85))
                 Text(text)
-                    .font(.matMindBody(size: 14))
+                    .font(.gripGorillasBody(size: 14))
                     .foregroundColor(.white)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1088,7 +1088,7 @@ struct CompetitionView: View {
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundColor(accent)
                 Text(text)
-                    .font(.matMindBody(size: 14))
+                    .font(.gripGorillasBody(size: 14))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1311,7 +1311,7 @@ struct CompetitionEditView: View {
                             .foregroundColor(AppColors.indigo)
                     }
                     Text("The one game plan you’ll actually try to run. Keep it short.")
-                        .font(.matMindBody(size: 13))
+                        .font(.gripGorillasBody(size: 13))
                         .foregroundColor(AppColors.secondaryLabel)
 
                     ForEach(Array(strategy.enumerated()), id: \.element.id) { idx, focus in
@@ -1871,7 +1871,7 @@ struct CompetitionReflectFlowView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.label)
                     Text(DateFormatter.weekdayLongDate.string(from: comp.date))
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
                 Spacer()
@@ -2006,7 +2006,7 @@ struct CompetitionReflectionSummaryView: View {
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(resultLine(comp))
-                    .font(.matMindBody(size: 13))
+                    .font(.gripGorillasBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
             }
             Spacer(minLength: 0)
@@ -2037,7 +2037,7 @@ struct CompetitionReflectionSummaryView: View {
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(accent)
                 Text(text)
-                    .font(.matMindBody(size: 15))
+                    .font(.gripGorillasBody(size: 15))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             }

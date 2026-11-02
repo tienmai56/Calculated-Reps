@@ -1,10 +1,10 @@
 ---
-name: mat-mind-design
-description: Use this skill to design or build anything for Mat Mind, the friendship-first BJJ social app: production UI (SwiftUI or web), prototypes, mocks, or brand assets. Contains core styling rules, visual guidelines and guardrails; exact tokens are in design-system-spec.json.
+name: grip-gorillas-design
+description: Use this skill to design or build anything for Grip Gorillas, the friendship-first BJJ social app: production UI (SwiftUI or web), prototypes, mocks, or brand assets. Contains core styling rules, visual guidelines and guardrails; exact tokens are in design-system-spec.json.
 user-invocable: true
 ---
 
-# Mat Mind design skill
+# Grip Gorillas design skill
 
 Read `DESIGN.md` at the repo root first (it is the source of truth). Exact values: `.claude/design-system-spec.json`. CSS variables: `design-system/tokens/` via `styles.css`. Components: `design-system/components/`. Reference prototype: `ui_kits/app/index.html`.
 
@@ -23,6 +23,10 @@ If invoked with no task, ask what they want to build, then act as an expert prod
 - **Icons:** Lucide only (`assets/icons/`), 2px stroke (2.25 in buttons). Heart and flame are filled when active. No emoji in UI.
 - **Spacing:** 16px screen gutters, 44px minimum tap targets, 22px between sections.
 
+## Logo
+- **The Silverback**: geometric gorilla head with a coral brow band, paired with the lowercase "grip gorillas." wordmark (coral period). Files: `assets/brand/logo-mark.svg` (default), `logo-mark-mono.svg` (on coral / 1-color), `app-icon.svg` (sun ground; also the reversed logo on ink and photos), `app-icon-1024.png`, `logo-lockup.svg`. In React use `<Logo variant="mark|mono|appIcon|lockup|lockupInverse" />` from `design-system/components/core/`.
+- Clear space = brow height; min 24px mark, 120px lockup. Never recolor, outline, animate a new expression, or redraw it. Full rules: `DESIGN.md` §5.1.
+
 ## Signature motifs (use them, don't dilute them)
 1. **Streak belt:** one segment per Mon–Sun week, each with a white tape stripe; joined when consecutive; current week hatched until completed.
 2. **Athletic-tape label:** rotated off-white strip on photos for the gym name.
@@ -38,7 +42,7 @@ Your favorite training partner: warm, a little cheeky, mat-literate. Sentence ca
 - Group chat or DMs.
 - Daily streaks, leaderboards, badges, milestones, rankings, performance analytics.
 - Custom avatar builder (not MVP).
-- Decorative gradients, dark "fitness dashboard" styling, emoji UI, an invented logo (use the lowercase "mat mind." wordmark in type).
+- Decorative gradients, dark "fitness dashboard" styling, emoji UI, a redrawn or recolored logo (use the Silverback files in `assets/brand/` as-is).
 
 ## When producing work
 - Link `styles.css` and use `var(--token)`; no raw hex in UI code.

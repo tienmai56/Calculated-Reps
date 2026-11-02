@@ -87,7 +87,7 @@ struct SocialProfileScreen: View {
                     ForEach(app.snapshot.posts.filter{app.postPeople($0.id).contains(app.userID ?? "")}) { post in NavigationLink { SocialPostScreen(postID:post.id) } label:{ Text(post.text("caption").isEmpty ? "Training memory":post.text("caption")) } }
                 }
             } else {
-                Text("Welcome to Mat Mind").mmFont(.display,28)
+                Text("Welcome to Grip Gorillas").mmFont(.display,28)
                 Text("Connect with your partners and plan your next session.")
                 if app.userID == nil {
                     Button("Continue with Google") { Task { await app.authenticate("google") } }.disabled(app.busy)

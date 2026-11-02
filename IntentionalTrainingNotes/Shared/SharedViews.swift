@@ -81,16 +81,16 @@ struct ScreenHeader: View {
 
             (
                 Text(titleLead + " ")
-                    .font(.matMindSerif(size: titleSize, weight: .semibold))
+                    .font(.gripGorillasSerif(size: titleSize, weight: .semibold))
                     .foregroundColor(onDark ? .white : AppColors.label)
                 + Text(titleAccent)
-                    .font(.matMindSerifItalic(size: titleSize, weight: .medium))
+                    .font(.gripGorillasSerifItalic(size: titleSize, weight: .medium))
                     .foregroundColor(onDark ? .white : accent)
             )
 
             if let subtitle = subtitle {
                 Text(subtitle)
-                    .font(.matMindSerif(size: 15))
+                    .font(.gripGorillasSerif(size: 15))
                     .foregroundColor(onDark ? Color.white.opacity(0.8) : AppColors.secondaryLabel)
                     .padding(.top, 1)
             }
@@ -541,7 +541,7 @@ struct ConfirmDialog: View {
                         .foregroundColor(AppColors.label)
                         .multilineTextAlignment(.center)
                     Text(message)
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)

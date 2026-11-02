@@ -164,12 +164,12 @@ struct CreateScreen: View {
                     HStack(spacing: 12) {
                         if let link {
                             MMIcon("link", size: 18, color: MMColor.accent)
-                            Text("matmind.app/s/\(link)").mmFont(.mono, 14, .semibold, lineHeight: 1).foregroundStyle(MMColor.ink900)
+                            Text("gripgorillas.app/s/\(link)").mmFont(.mono, 14, .semibold, lineHeight: 1).foregroundStyle(MMColor.ink900)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             MMButton("Copy", variant: .soft, size: .sm, iconLeft: "copy") { mm.showToast("Invite link copied", .success) }
                         } else {
                             Text(privacy == Privacy.link.rawValue
-                                 ? "Anyone with a Mat Mind account can join from the link."
+                                 ? "Anyone with a Grip Gorillas account can join from the link."
                                  : "Only your friends can join from the link.")
                                 .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)

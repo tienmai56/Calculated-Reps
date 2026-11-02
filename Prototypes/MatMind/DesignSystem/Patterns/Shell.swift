@@ -249,19 +249,27 @@ extension MMPhotoTile where Overlay == EmptyView {
 
 // MARK: - Wordmark
 
-/// No logo yet: the wordmark is set in type, lowercase, with a coral dot.
+/// Official Silverback artwork with the lowercase Grip Gorillas wordmark.
 struct MMWordmark: View {
     var size: CGFloat = 32
 
     var body: some View {
-        HStack(spacing: 0) {
-            Text("mat mind")
-            Text(".").foregroundStyle(MMColor.accent)
+        HStack(spacing: MMSpace.s4) {
+            Image("SilverbackMark")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+                .accessibilityHidden(true)
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("grip gorillas").lineLimit(1).minimumScaleFactor(0.75)
+                Text(".").foregroundStyle(MMColor.accent)
+            }
         }
         .mmFont(.display, size, tracking: -0.04, lineHeight: 1)
         .foregroundStyle(MMColor.ink900)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("mat mind")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Grip Gorillas")
     }
 }
 

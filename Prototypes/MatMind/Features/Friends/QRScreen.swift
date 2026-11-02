@@ -164,7 +164,7 @@ struct QRScreen: View {
             }
             .frame(width: 220, height: 220)
             .offset(y: -34)
-            Text(found == nil ? "Point at a friend's Mat Mind code" : "Got it!")
+            Text(found == nil ? "Point at a friend's Grip Gorillas code" : "Got it!")
                 .mmFont(.body, 15, .bold)
                 .foregroundStyle(.white)
                 .frame(maxHeight: .infinity, alignment: .bottom)
@@ -199,7 +199,7 @@ private struct ScanCorner: Shape {
     }
 }
 
-/// A stand-in QR pattern (seeded, so it looks the same every time) with the "mm." mark.
+/// A stand-in QR pattern (seeded, so it looks the same every time) with the Silverback mark.
 struct QRGrid: View {
     var seed = 7
     var size: CGFloat = 200
@@ -246,13 +246,15 @@ struct QRGrid: View {
         }
         .frame(width: size, height: size)
         .overlay {
-            Text("mm.")
-                .mmFont(.display, size * 0.07, tracking: 0, lineHeight: 1)
-                .foregroundStyle(.white)
-                .frame(width: size * 0.18, height: size * 0.18)
+            Image("SilverbackMono")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .padding(4)
+                .frame(width: max(32, size * 0.18), height: max(32, size * 0.18))
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MMColor.accent))
         }
-        .accessibilityLabel("Your Mat Mind code")
+        .accessibilityLabel("Your Grip Gorillas code")
     }
 }
 
@@ -330,6 +332,6 @@ private struct LiveQRImage: View {
         return UIImage(cgImage: cg)
     }
     var body: some View {
-        if let image { Image(uiImage: image).interpolation(.none).resizable().scaledToFit().accessibilityLabel("Your Mat Mind friend code") }
+        if let image { Image(uiImage: image).interpolation(.none).resizable().scaledToFit().accessibilityLabel("Your Grip Gorillas friend code") }
     }
 }

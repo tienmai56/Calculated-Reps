@@ -81,7 +81,7 @@ struct PlanTrainingView: View {
                     }
                     monthCalendar
                     Text(daysSelectedLabel)
-                        .font(.matMindBody(size: 15))
+                        .font(.gripGorillasBody(size: 15))
                         .foregroundColor(AppColors.label)
                     if !selectedDays.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
@@ -156,7 +156,7 @@ struct PlanTrainingView: View {
                         dayTaskCard(day)
                     }
                     Text("Planning creates an unchecked entry for each day. Check it off after training to reflect.")
-                        .font(.matMindBody(size: 15))
+                        .font(.gripGorillasBody(size: 15))
                         .foregroundColor(AppColors.label)
                 }
                 .padding(16)
@@ -190,7 +190,7 @@ struct PlanTrainingView: View {
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.label)
                 Text("· \(taskCount) \(taskCount == 1 ? "task" : "tasks")")
-                    .font(.matMindBody(size: 14))
+                    .font(.gripGorillasBody(size: 14))
                     .foregroundColor(AppColors.secondaryLabel)
                 Spacer()
                 if sortedDays.count > 1 {
@@ -319,7 +319,7 @@ struct PlanTrainingView: View {
                     Circle().stroke(AppColors.indigo, lineWidth: 1.5).frame(width: 36, height: 36)
                 }
                 Text("\(calendar.component(.day, from: date))")
-                    .font(.matMindBody(size: 16))
+                    .font(.gripGorillasBody(size: 16))
                     .foregroundColor(selected ? .white : AppColors.label)
             }
             .frame(maxWidth: .infinity, minHeight: 44)

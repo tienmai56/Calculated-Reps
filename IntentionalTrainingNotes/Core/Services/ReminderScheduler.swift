@@ -5,6 +5,7 @@ import UserNotifications
 
 final class ReminderScheduler {
     static let shared = ReminderScheduler()
+    // Keeps the pre-rename (Mat Mind) prefix so existing installs keep their saved state.
     private let notificationId = "matmind.reflection.reminder"
 
     func updateSchedule(enabled: Bool, hour: Int, minute: Int) {

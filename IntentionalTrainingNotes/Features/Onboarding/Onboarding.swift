@@ -113,19 +113,20 @@ struct OnboardingContainerView: View {
 
 // MARK: Onboarding · shared pieces
 
-/// The Mat Mind "MM" monogram stroke used on the splash.
-struct MatMindMarkShape: Shape {
+/// The Grip Gorillas "GG" monogram stroke used on the splash (two open G strokes, drawn with trim).
+struct GripGorillasMarkShape: Shape {
     func path(in rect: CGRect) -> Path {
         let s = min(rect.width, rect.height) / 120
         func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
         var path = Path()
-        path.move(to: p(26, 88))
-        path.addLine(to: p(26, 40))
-        path.addLine(to: p(48, 64))
-        path.addLine(to: p(70, 40))
-        path.addLine(to: p(70, 64))
-        path.addLine(to: p(92, 40))
-        path.addLine(to: p(92, 88))
+        for cx in [CGFloat(36), CGFloat(84)] {
+            let r: CGFloat = 20
+            let start = p(cx + r * 0.7071, 64 - r * 0.7071)
+            path.move(to: start)
+            // Over the top, down the left side, around the bottom to the right-hand side.
+            path.addArc(center: p(cx, 64), radius: r * s, startAngle: .degrees(-45), endAngle: .degrees(0), clockwise: true)
+            path.addLine(to: p(cx + 4, 64))
+        }
         return path
     }
 }
@@ -221,7 +222,7 @@ struct OnboardingSplashView: View {
                         .frame(width: 132, height: 132)
                         .blur(radius: 26)
                         .scaleEffect(pulse ? 1.08 : 0.92)
-                    MatMindMarkShape()
+                    GripGorillasMarkShape()
                         .trim(from: 0, to: drawn ? 1 : 0)
                         .stroke(Color.white, style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round))
                         .frame(width: 118, height: 118)
@@ -236,7 +237,7 @@ struct OnboardingSplashView: View {
                 .padding(.bottom, 34)
 
                 VStack(spacing: 14) {
-                    Text("MAT MIND")
+                    Text("GRIP GORILLAS")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .tracking(2)
                         .foregroundColor(Color.white.opacity(0.62))
@@ -740,7 +741,7 @@ struct OnboardingReflectStepView: View {
                     .tracking(0.6)
                     .foregroundColor(AppColors.mint)
                 Text("Sankaku entry off the knee cut felt automatic.")
-                    .font(.matMindBody(size: 14))
+                    .font(.gripGorillasBody(size: 14))
                     .foregroundColor(.white.opacity(0.9))
             }
             .padding(.horizontal, 16)
@@ -755,7 +756,7 @@ struct OnboardingReflectStepView: View {
                     .tracking(0.6)
                     .foregroundColor(AppColors.coral)
                 Text("Lost the heel when they rotated out.")
-                    .font(.matMindBody(size: 14))
+                    .font(.gripGorillasBody(size: 14))
                     .foregroundColor(.white.opacity(0.9))
             }
             .padding(.horizontal, 16)
@@ -770,7 +771,7 @@ struct OnboardingReflectStepView: View {
                     .tracking(0.6)
                     .foregroundColor(.white.opacity(0.7))
                 Text("Bail to turtle sooner instead of chasing the heel.")
-                    .font(.matMindBody(size: 14))
+                    .font(.gripGorillasBody(size: 14))
                     .foregroundColor(.white.opacity(0.9))
             }
             .padding(.horizontal, 16)

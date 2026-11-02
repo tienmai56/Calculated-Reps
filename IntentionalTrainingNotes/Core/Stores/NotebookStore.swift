@@ -473,11 +473,11 @@ final class NotebookStore: ObservableObject {
     }
 
     /// A goal qualifies for a bounty once `bountyUnlockSessions` of its sessions have been
-    /// reflected on. `MATMIND_FORCE_BOUNTY` force-unlocks eligibility for QA.
+    /// reflected on. `GRIPGORILLAS_FORCE_BOUNTY` force-unlocks eligibility for QA.
     func isGoalBountyEligible(_ goalId: String) -> Bool {
         guard let goal = goal(id: goalId), !goal.isArchived, goal.name.nilIfBlank != nil else { return false }
         #if DEBUG
-        if ProcessInfo.processInfo.environment["MATMIND_FORCE_BOUNTY"] == "1" {
+        if ProcessInfo.processInfo.environment["GRIPGORILLAS_FORCE_BOUNTY"] == "1" {
             return notebook.sessions.contains { $0.goalId == goalId }
         }
         #endif
