@@ -171,6 +171,7 @@ final class AppSessionStore: ObservableObject {
         route = .ready
     }
 
+    // Keeps the pre-rename (Mat Mind) prefix so existing installs keep their saved state.
     static let onboardingCompletedKey = "matmind.hasCompletedOnboarding"
 
     /// Fixed account used when running without authentication (local-only mode).

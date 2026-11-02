@@ -128,7 +128,7 @@ struct EditGoalView: View {
                 }
                 let n = store.tasks(forGoal: goalId).count
                 Text("\(n) \(n == 1 ? "task" : "tasks")")
-                    .font(.matMindBody(size: 16))
+                    .font(.gripGorillasBody(size: 16))
                     .foregroundColor(AppColors.secondaryLabel)
             }
             Spacer(minLength: 0)
@@ -301,7 +301,7 @@ struct TaskEditRow: View {
                 if showLinkField || link.nilIfBlank != nil {
                     HStack(spacing: 8) {
                         Image(systemName: "link").font(.system(size: 13)).foregroundColor(AppColors.secondaryLabel)
-                        TextField("Paste link...", text: linkBinding).font(.matMindBody(size: 14))
+                        TextField("Paste link...", text: linkBinding).font(.gripGorillasBody(size: 14))
                     }
                     .padding(11)
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.systemGray3), lineWidth: 1))

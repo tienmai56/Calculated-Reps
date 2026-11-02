@@ -309,7 +309,7 @@ struct ReflectMoodStep: View {
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.label)
                     Text(longDate(session.date))
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
                 Spacer()
@@ -317,7 +317,7 @@ struct ReflectMoodStep: View {
             if !tasks.isEmpty {
                 WrappingHStack(items: tasks) { task in
                     Text(task.name)
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(color)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)

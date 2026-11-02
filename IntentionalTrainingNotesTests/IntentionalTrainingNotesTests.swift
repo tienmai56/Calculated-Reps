@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
@@ -289,6 +290,12 @@ private final class TestAuthService: AuthServicing {
 
 @MainActor
 final class MatMindLiveUITests: XCTestCase {
+    func testGripGorillasBrandingIsBundledInTheInstalledApp() {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Grip Gorillas")
+        XCTAssertNotNil(UIImage(named: "SilverbackMark"))
+        XCTAssertNotNil(UIImage(named: "SilverbackMono"))
+    }
+
 #if DEBUG
     func testUIReviewUsesAnIsolatedModelWithoutLiveServices() {
         let live = AppModel(live: true)

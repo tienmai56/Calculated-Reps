@@ -71,7 +71,7 @@ struct BountyFlowView: View {
                 .font(.system(size: 27, weight: .heavy, design: .rounded))
                 .foregroundColor(AppColors.label)
             Text("What do you want to hunt?")
-                .font(.matMindBody(size: 14))
+                .font(.gripGorillasBody(size: 14))
                 .foregroundColor(AppColors.secondaryLabel)
                 .padding(.top, 8)
             VStack(spacing: 14) {
@@ -108,7 +108,7 @@ struct BountyFlowView: View {
                     .foregroundColor(AppColors.label)
                     .padding(.top, 12)
                 Text(k.blurb)
-                    .font(.matMindBody(size: 13))
+                    .font(.gripGorillasBody(size: 13))
                     .foregroundColor(AppColors.secondaryLabel)
                     .padding(.top, 3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -134,13 +134,13 @@ struct BountyFlowView: View {
                 .font(.system(size: 27, weight: .heavy, design: .rounded))
                 .foregroundColor(AppColors.label)
             Text("Pick a goal you've reflected on \(NotebookStore.bountyUnlockSessions)+ times.")
-                .font(.matMindBody(size: 14))
+                .font(.gripGorillasBody(size: 14))
                 .foregroundColor(AppColors.secondaryLabel)
                 .padding(.top, 8)
 
             if eligibleGoals.isEmpty && ineligibleGoals.isEmpty {
                 Text("No goals yet. Keep training and reflecting to unlock the hunt.")
-                    .font(.matMindBody(size: 14))
+                    .font(.gripGorillasBody(size: 14))
                     .foregroundColor(AppColors.secondaryLabel)
                     .padding(.top, 20)
             }
@@ -191,7 +191,7 @@ struct BountyFlowView: View {
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.label)
                     Text("\(sessionsReflected) reflections · \(taskCount) \(taskCount == 1 ? "task" : "tasks")")
-                        .font(.matMindBody(size: 12.5))
+                        .font(.gripGorillasBody(size: 12.5))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
                 Spacer()
@@ -230,7 +230,7 @@ struct BountyFlowView: View {
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.tertiaryLabel)
                 Text("\(sessionsReflected)/\(NotebookStore.bountyUnlockSessions) reflections")
-                    .font(.matMindBody(size: 12.5))
+                    .font(.gripGorillasBody(size: 12.5))
                     .foregroundColor(AppColors.tertiaryLabel.opacity(0.7))
             }
             Spacer()
@@ -253,7 +253,7 @@ struct BountyFlowView: View {
                 .font(.system(size: 27, weight: .heavy, design: .rounded))
                 .foregroundColor(AppColors.label)
             Text("How many, and on who? Leave blank for either.")
-                .font(.matMindBody(size: 14))
+                .font(.gripGorillasBody(size: 14))
                 .foregroundColor(AppColors.secondaryLabel)
                 .padding(.top, 8)
 
@@ -306,7 +306,7 @@ struct BountyFlowView: View {
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("No deadline. Hunt at your own pace.")
-                    .font(.matMindBody(size: 12.5))
+                    .font(.gripGorillasBody(size: 12.5))
                     .foregroundColor(AppColors.secondaryLabel)
             }
             .padding(14)
@@ -468,7 +468,7 @@ struct BountyCollectionView: View {
                 .foregroundColor(AppColors.label)
                 .padding(.top, 4)
             Text(summary)
-                .font(.matMindBody(size: 13))
+                .font(.gripGorillasBody(size: 13))
                 .foregroundColor(AppColors.secondaryLabel)
                 .multilineTextAlignment(.center)
                 .padding(.top, 4)
@@ -500,7 +500,7 @@ struct BountyCollectionView: View {
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .foregroundColor(AppColors.label)
             Text(sub)
-                .font(.matMindBody(size: 13))
+                .font(.gripGorillasBody(size: 13))
                 .foregroundColor(AppColors.secondaryLabel)
             HStack(spacing: 8) {
                 statBox("SESSIONS", stats.sessions)
@@ -572,7 +572,7 @@ struct BountyCollectionView: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             Text(sub)
-                .font(.matMindBody(size: 11))
+                .font(.gripGorillasBody(size: 11))
                 .foregroundColor(AppColors.secondaryLabel)
         }
         .padding(12)
@@ -588,7 +588,7 @@ struct BountyCollectionView: View {
                 .font(.system(size: 17, weight: .bold, design: .rounded))
                 .foregroundColor(AppColors.label)
             Text("Land your first hunt and it'll live here.")
-                .font(.matMindBody(size: 13))
+                .font(.gripGorillasBody(size: 13))
                 .foregroundColor(AppColors.secondaryLabel)
         }
         .frame(maxWidth: .infinity)
@@ -612,7 +612,7 @@ struct BountyCollectionView: View {
             .buttonStyle(PlainButtonStyle())
         } else if store.activeBounty != nil {
             Text("Finish your active hunt before starting a new one.")
-                .font(.matMindBody(size: 12.5))
+                .font(.gripGorillasBody(size: 12.5))
                 .foregroundColor(AppColors.secondaryLabel)
                 .frame(maxWidth: .infinity, alignment: .center)
         }

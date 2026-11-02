@@ -451,7 +451,7 @@ struct StatView: View {
             Circle().fill(color).frame(width: 6, height: 6).padding(.top, 7)
             VStack(alignment: .leading, spacing: 3) {
                 Text("\u{201C}\(quote.text)\u{201D}")
-                    .font(.matMindBody(size: 15))
+                    .font(.gripGorillasBody(size: 15))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
@@ -482,7 +482,7 @@ struct StatView: View {
                 .foregroundColor(AppColors.label)
                 .multilineTextAlignment(.center)
             Text("Complete and reflect on sessions to see your month come together here.")
-                .font(.matMindBody(size: 14))
+                .font(.gripGorillasBody(size: 14))
                 .foregroundColor(AppColors.secondaryLabel)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

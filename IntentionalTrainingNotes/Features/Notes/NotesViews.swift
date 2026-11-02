@@ -35,7 +35,7 @@ struct NotesListView: View {
                             .font(.system(size: 17, weight: .medium, design: .rounded))
                             .foregroundColor(AppColors.secondaryLabel)
                         Text("Tap + to start writing.")
-                            .font(.matMindBody(size: 15))
+                            .font(.gripGorillasBody(size: 15))
                             .foregroundColor(Color(.systemGray2))
                     }
                     Spacer()
@@ -77,10 +77,10 @@ struct NotesListView: View {
                                             }) {
                                                 HStack(spacing: 10) {
                                                     Image(systemName: "trash")
-                                                        .font(.matMindBody(size: 14))
+                                                        .font(.gripGorillasBody(size: 14))
                                                         .foregroundColor(AppColors.coral)
                                                     Text("Delete")
-                                                        .font(.matMindBody(size: 15))
+                                                        .font(.gripGorillasBody(size: 15))
                                                         .foregroundColor(AppColors.coral)
                                                     Spacer()
                                                 }
@@ -192,10 +192,10 @@ struct NoteRowView: View {
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     Text(dateLabel)
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                     Text(previewSnippet)
-                        .font(.matMindBody(size: 14))
+                        .font(.gripGorillasBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                         .lineLimit(1)
                 }

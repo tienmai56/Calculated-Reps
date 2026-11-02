@@ -1,4 +1,4 @@
-# Mat Mind v2 — implementation and deployment
+# Grip Gorillas v2 — implementation and deployment
 
 ## Implemented locally
 
@@ -18,7 +18,7 @@ Export uses a streaming ZIP32 writer and the native iOS share sheet. Each export
 
 - Supabase project URL: `https://cmiqavyrazypmulrfezj.supabase.co`.
 - Supplied publishable key is configured in the app's Info.plist. This key is intended to ship in clients; administrative keys must never be placed there.
-- App Store installation destination: [Mat Mind - Jiu-Jitsu Planner](https://apps.apple.com/us/app/mat-mind-jiu-jitsu-planner/id6767997652). Its URL and numeric ID are recorded as `AppStoreURL` and `AppStoreID` in Info.plist.
+- App Store installation destination: [Grip Gorillas - Jiu-Jitsu Planner](https://apps.apple.com/us/app/mat-mind-jiu-jitsu-planner/id6767997652). Its URL and numeric ID are recorded as `AppStoreURL` and `AppStoreID` in Info.plist.
 - Existing production bundle ID is retained: `com.tienmai.intentionaltrainingnotes`.
 - Minimum deployment target is now iOS 17. Older devices need the previous app version; validate App Store rollout strategy before release.
 - Apple sign-in/APNs entitlements are provided. Select the correct development team and regenerate provisioning profiles with these capabilities enabled.

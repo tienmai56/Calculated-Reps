@@ -5,11 +5,11 @@
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Mat Mind uses the microphone so you can speak your reflections instead of typing.</string>
+	<string>Grip Gorillas uses the microphone so you can speak your reflections instead of typing.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Mat Mind lets you attach photos from your library to your goals and tasks.</string>
+	<string>Grip Gorillas lets you attach photos from your library to your goals and tasks.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Mat Mind transcribes your spoken reflections into text so you can review and edit them.</string>
+	<string>Grip Gorillas transcribes your spoken reflections into text so you can review and edit them.</string>
 	<key>GoogleClientID</key>
 	<string>523055768394-20kj4rgm70vmohh0bebegvu13hdqmv1a.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
@@ -34,7 +34,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mat Mind</string>
+	<string>Grip Gorillas</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -46,9 +46,9 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIRequiresFullScreen</key>
