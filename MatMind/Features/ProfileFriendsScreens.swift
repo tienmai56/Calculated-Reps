@@ -35,41 +35,8 @@ struct SocialFriendCodeScreen: View {
     @State private var input = ""
     @State private var scanning = false
     @State private var cameraAllowed = false
-    @State private var connectedFriend: String?
-    @State private var planning = false
-    @Environment(\.dismiss) private var dismiss
     var body: some View {
-        GeometryReader { viewport in
-            ScrollView {
-                if let friendID = connectedFriend {
-                    MMFriendConnectedCard(myName: app.me?.text("name") ?? "You",
-                                          friendName: app.person(friendID),
-                                          onPlan: { planning = true }, onDone: { dismiss() })
-                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                        .padding(16)
-                        .frame(width: viewport.size.width)
-                } else {
-                    codeForm
-                        .frame(width: viewport.size.width)
-                }
-            }
-            .frame(width: viewport.size.width)
-            .background(MMColor.bgApp)
-        }
-        .navigationTitle("Add friends")
-        .sheet(isPresented: $scanning) {
-            PartnerScanner { value in
-                scanning = false
-                openInvitation(value)
-            }
-        }
-        .sheet(isPresented: $planning) {
-            NavigationStack { SocialCreateScreen(initialFriendID: connectedFriend) }.environment(app)
-        }
-    }
-
-    private var codeForm: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        List {
             if app.userID == nil { Text("Sign in from Profile to connect with friends.") }
             if let url {
                 if let image = qrImage(url.absoluteString) { Image(uiImage:image).interpolation(.none).resizable().scaledToFit().padding(24).accessibilityLabel("Your friend QR code") }
@@ -79,20 +46,10 @@ struct SocialFriendCodeScreen: View {
             Button("Generate my code") { Task { if let r = await app.perform("friend_token",[:]),let token = r["token"]?.string { url = app.link(kind:"friend",token:token) } } }.disabled(app.userID == nil || app.busy)
             Button("Scan a partner’s code") { Task { cameraAllowed = await AVCaptureDevice.requestAccess(for:.video); if cameraAllowed && DataScannerViewController.isSupported && DataScannerViewController.isAvailable { scanning = true } else { app.error = "Camera scanning is unavailable. Paste the partner’s invitation link below." } } }
             TextField("Paste invitation link",text:$input).textInputAutocapitalization(.never).autocorrectionDisabled()
-            Button("Open invitation") { openInvitation(input) }.disabled(input.isEmpty || app.userID == nil)
-        }
-        .padding(24)
+            Button("Open invitation") { if let url = URL(string:input) { app.handle(url); Task { await app.redeemPendingLink() } } }.disabled(input.isEmpty || app.userID == nil)
+        }.navigationTitle("Add friends")
+        .sheet(isPresented:$scanning) { PartnerScanner { value in scanning = false; if let url = URL(string:value) { app.handle(url); Task { await app.redeemPendingLink() } } } }
     }
-
-    private func openInvitation(_ value: String) {
-        guard let url = URL(string: value) else { app.error = "Invalid invitation link."; return }
-        app.handle(url)
-        guard app.pendingLink == url else { app.error = "Invalid invitation link."; return }
-        Task {
-            await app.redeemPendingLink { friendID in connectedFriend = friendID }
-        }
-    }
-
     private func qrImage(_ text:String) -> UIImage? {
         let filter = CIFilter.qrCodeGenerator(); filter.message = Data(text.utf8)
         guard let image = filter.outputImage?.transformed(by:CGAffineTransform(scaleX:8,y:8)),let cg = CIContext().createCGImage(image,from:image.extent) else { return nil }

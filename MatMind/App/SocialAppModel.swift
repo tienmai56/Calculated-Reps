@@ -163,18 +163,13 @@ import SwiftData
         if url.scheme == "matmind", !["friend","session"].contains(url.host ?? "") { return }
         pendingLink = url
     }
-    func redeemPendingLink(onFriendConnected: ((String) -> Void)? = nil) async {
+    func redeemPendingLink() async {
         guard let url = pendingLink, userID != nil else { return }
         let pieces = url.pathComponents.filter { $0 != "/" }
         let kind = url.scheme == "matmind" ? url.host : pieces.first
         let token = pieces.last ?? ""
         guard token.count == 64, token.allSatisfy({$0.isHexDigit}), ["friend","session"].contains(kind ?? "") else { error = "Invalid invitation link."; pendingLink = nil; return }
-        if let result = await perform(kind == "friend" ? "redeem_friend":"join_link",["token":token]) {
-            pendingLink = nil
-            if kind == "friend", let friendID = result["id"]?.string {
-                onFriendConnected?(friendID)
-            }
-        }
+        if await perform(kind == "friend" ? "redeem_friend":"join_link",["token":token]) != nil { pendingLink = nil }
     }
     func link(kind: String, token: String) -> URL {
         InvitationLinks.make(kind: kind, token: token,

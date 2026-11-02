@@ -217,15 +217,67 @@ struct QRGrid: View {
     }
 }
 
-/// Adapter for the prototype's in-memory navigation and people.
+/// Sun-yellow "you're friends" moment after a scan.
 private struct ConnectedView: View {
     @Environment(AppModel.self) private var mm
     let friendID: String
     let onDone: () -> Void
 
+    @State private var joined = false
+    @State private var textShown = false
+
     var body: some View {
-        MMFriendConnectedCard(myName: mm.me.name, myPhoto: mm.me.photo,
-                              friendName: mm.person(friendID).name,
-                              onPlan: { mm.replace(.create(friend: friendID)) }, onDone: onDone)
+        let p = mm.person(friendID)
+        let me = mm.me
+        VStack(spacing: 0) {
+            HStack(spacing: -26) {
+                MMAvatar(name: me.name, photo: me.photo, size: 104)
+                    .background(Circle().fill(MMColor.sun400).padding(-5))
+                    .offset(x: joined ? 0 : -90)
+                    .rotationEffect(.degrees(joined ? 0 : -20))
+                    .opacity(joined ? 1 : 0)
+                MMAvatar(name: p.name, size: 104)
+                    .background(Circle().fill(MMColor.sun400).padding(-5))
+                    .offset(x: joined ? 0 : 90)
+                    .rotationEffect(.degrees(joined ? 0 : 20))
+                    .opacity(joined ? 1 : 0)
+            }
+            .overlay(alignment: .bottom) {
+                MMIcon("handshake", size: 28, color: MMColor.sun400)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(MMColor.ink900))
+                    .background(Circle().fill(MMColor.sun400).padding(-5))
+                    .scaleEffect(textShown ? 1 : 0.3)
+                    .opacity(textShown ? 1 : 0)
+                    .offset(y: 6)
+            }
+            .frame(height: 120)
+
+            Group {
+                Text("You & \(p.firstName) are friends").mmFont(.display, 30, tracking: -0.04, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 28)
+                Text("Train together this week to start your first streak.").mmFont(.body, 15).foregroundStyle(MMColor.ink800)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 8)
+                VStack(spacing: 8) {
+                    MMButton("Plan a session with \(p.firstName)", variant: .inverse, size: .lg, iconLeft: "calendar-plus", fullWidth: true) {
+                        mm.replace(.create(friend: friendID))
+                    }
+                    MMButton("Done", variant: .ghost, fullWidth: true, action: onDone)
+                }
+                .padding(.top, 26)
+            }
+            .opacity(textShown ? 1 : 0)
+            .offset(y: textShown ? 0 : 10)
+        }
+        .multilineTextAlignment(.center)
+        .padding(24)
+        .frame(maxWidth: .infinity, minHeight: 560)
+        .background(MMColor.sun400)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { joined = true }
+            withAnimation(MMMotion.bounce(0.5).delay(0.55)) { textShown = true }
+        }
     }
 }
