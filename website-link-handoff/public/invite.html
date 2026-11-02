@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Training together · Mat Mind</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui,sans-serif; color:#1d1b18; background:#faf6ef; }
+    body { margin:0; min-height:100svh; display:grid; place-items:center; }
+    main { max-width:26rem; padding:2rem; text-align:center; }
+    h1 { font-size:2.2rem; letter-spacing:-.06rem; }
+    p { line-height:1.6; color:#4a453d; }
+    a { display:block; margin:1rem 0; padding:1rem; border-radius:2rem; text-decoration:none; background:#ff5c39; color:white; font-weight:650; }
+    a.secondary { background:#eee5d8; color:#1d1b18; }
+    a:focus-visible { outline:3px solid #1d1b18; outline-offset:4px; }
+    [hidden] { display:none; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>mat mind.</h1>
+  <p id="description">Open Mat Mind to connect with your training partners.</p>
+  <a id="open" hidden>Open invitation in Mat Mind</a>
+  <a class="secondary" href="https://apps.apple.com/us/app/mat-mind-jiu-jitsu-planner/id6767997652" rel="noreferrer">Get Mat Mind on the App Store</a>
+  <p id="installation" hidden>After installing, return to your original invitation and open it again. Sign in to accept it.</p>
+</main>
+<script>
+  // No analytics, token persistence, third-party scripts or automatic redirects.
+  const pieces = location.pathname.split('/').filter(Boolean);
+  const [kind, token] = pieces;
+  if (pieces.length === 2 && ['friend','session'].includes(kind) && /^[a-f0-9]{64}$/i.test(token || '')) {
+    document.getElementById('description').textContent = kind === 'friend'
+      ? 'A training partner invited you to connect on Mat Mind.'
+      : 'You’re invited to train together. Open Mat Mind to see the session.';
+    const open = document.getElementById('open');
+    open.href = 'matmind://' + kind + '/' + token;
+    open.hidden = false;
+    document.getElementById('installation').hidden = false;
+  } else {
+    document.getElementById('description').textContent = 'This invitation link is incomplete. Ask your training partner to share it again.';
+  }
+</script>
+</body>
+</html>

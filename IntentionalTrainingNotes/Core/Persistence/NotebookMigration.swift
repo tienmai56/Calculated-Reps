@@ -1,7 +1,23 @@
 import Foundation
 
 enum NotebookMigration {
+    enum DecodingError: Error { case unrecognizedNotebook }
+
+    /// Validate the source format before decoding. Unknown or damaged JSON must
+    /// never be interpreted as a new empty notebook.
+    static func validateSource(_ data: Data) throws {
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              ["goals", "tasks", "sessions", "reflections", "notes", "bounties", "competitions", "focuses", "entries"].contains(where: { object[$0] != nil }) else {
+            throw DecodingError.unrecognizedNotebook
+        }
+        for key in ["goals", "tasks", "sessions", "reflections", "notes", "bounties", "competitions", "focuses", "entries"] {
+            if let value = object[key], !(value is [[String: Any]]) { throw DecodingError.unrecognizedNotebook }
+        }
+        if let version = object["schemaVersion"] as? Int, version > 4 { throw DecodingError.unrecognizedNotebook }
+    }
+
     static func decode(data: Data, accountId: String) throws -> TrainingNotebook {
+        try validateSource(data)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
@@ -22,6 +38,11 @@ enum NotebookMigration {
             return migrated
         }
 
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard object?["focuses"] != nil || object?["entries"] != nil else {
+            // Decode again to surface the precise corruption error.
+            return try decoder.decode(TrainingNotebook.self, from: data)
+        }
         let legacyDecoder = JSONDecoder()
         legacyDecoder.dateDecodingStrategy = .formatted(.trainingDay)
         let legacy = try legacyDecoder.decode(LegacyTrainingNotebook.self, from: data)

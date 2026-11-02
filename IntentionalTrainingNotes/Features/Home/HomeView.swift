@@ -141,12 +141,10 @@ struct HomeView: View {
                 heroNextSession
                     .zIndex(3)
                 bountyCard
-                latestEntrySection
-                    .zIndex(2)
                 patternsSection
                     .zIndex(1)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.top, 8)
             .padding(.bottom, 110)
         }
@@ -189,15 +187,12 @@ struct HomeView: View {
             }
             HStack(spacing: 6) {
                 ForEach(Array(weeks.enumerated()), id: \.offset) { idx, wk in
-                    let mo = cal.component(.month, from: wk)
-                    let prevMo = idx > 0 ? cal.component(.month, from: weeks[idx - 1]) : -1
-                    let showLabel = idx == 0 || mo != prevMo
-                    Text(showLabel ? timelineMonthLabel(wk) : " ")
+                    Text(timelineBlockLabel(wk))
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
                         .foregroundColor(AppColors.tertiaryLabel)
                         .frame(maxWidth: .infinity)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(0.5)
                 }
             }
         }
@@ -211,6 +206,12 @@ struct HomeView: View {
         let month = MonthStatsFormat.monthAbbrev.string(from: date)
         let yr = cal.component(.year, from: date) % 100
         return "\(month) '\(String(format: "%02d", yr))"
+    }
+
+    private func timelineBlockLabel(_ date: Date) -> String {
+        let month = MonthStatsFormat.monthAbbrev.string(from: date)
+        let day = cal.component(.day, from: date)
+        return "\(month) \(day)"
     }
 
     // MARK: - Hero Next Session
@@ -239,7 +240,7 @@ struct HomeView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.cardBorder, lineWidth: 1))
         } else {
             ForEach(nextSessions) { session in
-                heroSessionCard(session)
+                heroSessionWithReflection(session)
             }
         }
     }
@@ -336,15 +337,87 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [AppColors.headerGradientTop, AppColors.headerGradientBottom]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            LinearGradient(
+                gradient: Gradient(colors: [AppColors.headerGradientTop, AppColors.headerGradientBottom]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
+    }
+
+    // MARK: - Hero card + attached last reflection
+
+    private func heroSessionWithReflection(_ session: PlannedSession) -> some View {
+        let goalReflection = latestReflectionForGoal(session.goalId)
+
+        return VStack(spacing: 0) {
+            heroSessionCard(session)
+
+            if let reflection = goalReflection {
+                attachedReflectionSnippet(reflection)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+
+    @ViewBuilder
+    private func attachedReflectionSnippet(_ reflection: Reflection) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Rectangle().fill(AppColors.separator).frame(height: 1)
+
+            HStack {
+                Text("LAST REFLECTION ON THIS GOAL")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(0.6)
+                    .foregroundColor(AppColors.secondaryLabel)
+                Spacer()
+                Text(shortDateLabel(reflection.date))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.tertiaryLabel)
+            }
+
+            if let text = reflection.workedText.nilIfBlank {
+                reflectionSnippetBlock(label: "What worked", text: text, accent: AppColors.winGreen, tintUI: AppColors.winGreenUI)
+            }
+            if let text = reflection.stuckText.nilIfBlank {
+                reflectionSnippetBlock(label: "Where I got stuck", text: text, accent: AppColors.stuckCoral, tintUI: AppColors.stuckCoralUI)
+            }
+            if let text = reflection.tryNextText.nilIfBlank {
+                reflectionSnippetBlock(label: "What I'll try next", text: text, accent: AppColors.indigo, tintUI: AppColors.indigoUI)
+            }
+
+            if let mood = reflection.mood {
+                HStack(spacing: 6) {
+                    Text(mood.glyph).font(.system(size: 18))
+                    Text(mood.label)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(AppColors.secondaryLabel)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.cardBackground)
+    }
+
+    private func reflectionSnippetBlock(label: String, text: String, accent: Color, tintUI: UIColor) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 2).fill(accent).frame(width: 3)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(accent)
+                Text(text)
+                    .font(.matMindBody(size: 13))
+                    .foregroundColor(AppColors.label)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(AppColors.tint(tintUI, light: 0.10, dark: 0.22)))
     }
 
     @ViewBuilder
@@ -367,22 +440,25 @@ struct HomeView: View {
 
             if let notes = task.notes.nilIfBlank {
                 Text(notes)
-                    .font(.matMindBody(size: 13))
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 26)
             }
 
-            if let link = task.link.nilIfBlank {
-                HStack(spacing: 6) {
-                    Image(systemName: "link").font(.system(size: 12)).foregroundColor(.white.opacity(0.8))
-                    Text(link)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.8))
-                        .lineLimit(1)
+            if let link = task.link.nilIfBlank, let url = URL(string: link) {
+                Button(action: { UIApplication.shared.open(url) }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "link").font(.system(size: 12)).foregroundColor(.white.opacity(0.8))
+                        Text(link)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                    }
+                    .padding(.leading, 26)
+                    .padding(.top, 2)
                 }
-                .padding(.leading, 26)
-                .padding(.top, 2)
+                .buttonStyle(PlainButtonStyle())
             }
 
             if !images.isEmpty {
@@ -644,32 +720,6 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Latest Entry
-
-    @ViewBuilder
-    private var latestEntrySection: some View {
-        if let latest = latestReflection {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Latest Entry")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundColor(AppColors.label)
-                    Spacer()
-                    Text(weekdayLabel(latest.date))
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundColor(AppColors.secondaryLabel)
-                }
-                ReflectionCardView(
-                    store: store,
-                    reflection: latest,
-                    onReflect: { onReflect(latest.sessionId) },
-                    onDelete: { store.deleteReflection(id: latest.id) },
-                    onShareFeedback: { sheet = .feedback(latest) }
-                )
-            }
-        }
-    }
-
     // MARK: - Patterns
 
     private var patternsSection: some View {
@@ -887,8 +937,12 @@ struct HomeView: View {
 
     // MARK: - Reflection helpers
 
-    private var latestReflection: Reflection? {
-        store.notebook.reflections.sorted { $0.date > $1.date }.first
+    private func latestReflectionForGoal(_ goalId: String) -> Reflection? {
+        let goalSessionIds = Set(store.notebook.sessions.filter { $0.goalId == goalId }.map { $0.id })
+        return store.notebook.reflections
+            .filter { goalSessionIds.contains($0.sessionId) }
+            .sorted { $0.date > $1.date }
+            .first
     }
 
     private func goal(for reflection: Reflection) -> TrainingGoal? {
@@ -925,7 +979,6 @@ struct HomeView: View {
     // MARK: - Labels
 
     private func weekLabel(_ d: Date) -> String { DateFormatter.monthDay.string(from: d) }
-    private func weekdayLabel(_ d: Date) -> String { DateFormatter.weekdayLongDate.string(from: d) }
     private func shortDateLabel(_ d: Date) -> String { DateFormatter.monthDay.string(from: d) }
 }
 

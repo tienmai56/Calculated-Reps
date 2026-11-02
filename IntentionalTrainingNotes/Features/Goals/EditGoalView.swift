@@ -37,19 +37,17 @@ struct EditGoalView: View {
         _goalName = State(initialValue: goal?.name ?? "")
         _iconName = State(initialValue: goal?.iconName ?? "target")
         _colorName = State(initialValue: goal?.colorName ?? "indigo")
-        // Auto-expand any task that has details OR is missing a description, so the user can
-        // immediately see what needs to be filled in (descriptions are required to save).
+        // Auto-expand any task that already has details so the user can see them.
         let tasks = store.tasks(forGoal: goalId)
         let needsAttention = tasks
-            .filter { $0.hasDetails || $0.notes.nilIfBlank == nil }
+            .filter { $0.hasDetails }
             .map { $0.id }
         _expandedTaskIds = State(initialValue: Set(needsAttention))
     }
 
     var body: some View {
         let tasks = store.tasks(forGoal: goalId)
-        let missingDescription = tasks.contains(where: { $0.notes.nilIfBlank == nil })
-        let saveDisabled = goalName.nilIfBlank == nil || missingDescription
+        let saveDisabled = goalName.nilIfBlank == nil
 
         VStack(spacing: 0) {
             HStack {
@@ -70,19 +68,6 @@ struct EditGoalView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-
-            if missingDescription {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 13))
-                    Text("Add a description to each task before saving.")
-                        .font(.system(size: 13, design: .rounded))
-                }
-                .foregroundColor(AppColors.coral)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 6)
-            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
@@ -302,7 +287,7 @@ struct TaskEditRow: View {
             }
 
             if expanded {
-                TrainingTextView(text: notesBinding, placeholder: "Add a description (required)…")
+                TrainingTextView(text: notesBinding, placeholder: "Add a description…")
                     .frame(height: 76)
 
                 if !imageFileNames.isEmpty {

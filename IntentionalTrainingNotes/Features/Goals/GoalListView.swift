@@ -332,14 +332,17 @@ struct GoalCard: View {
                     }
                 }
             }
-            if let link = task.link.nilIfBlank {
-                HStack(spacing: 8) {
-                    Image(systemName: "link").font(.system(size: 13)).foregroundColor(color)
-                    Text(link).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color).lineLimit(1)
-                    Spacer()
+            if let link = task.link.nilIfBlank, let url = URL(string: link) {
+                Button(action: { UIApplication.shared.open(url) }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "link").font(.system(size: 13)).foregroundColor(color)
+                        Text(link).font(.system(size: 15, weight: .medium, design: .rounded)).foregroundColor(color).lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.secondaryBackground))
                 }
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 12).fill(AppColors.secondaryBackground))
+                .buttonStyle(PlainButtonStyle())
             }
             if reflCount > 0 {
                 viewAllReflectionsCTA(taskId: task.id, count: reflCount)

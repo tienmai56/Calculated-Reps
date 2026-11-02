@@ -311,6 +311,7 @@ struct StrategyFocus: Codable, Equatable, Identifiable {
 enum CompetitionResult: String, Codable {
     case win
     case loss
+    case draw
 }
 
 /// A tournament the user prepares for: a name, a strategy, and — after it happens —
@@ -329,6 +330,7 @@ struct Competition: Codable, Equatable, Identifiable {
     var result: CompetitionResult?
     var wins: Int
     var losses: Int
+    var draws: Int
     var placement: String
     var loggedAt: Date?
 
@@ -339,13 +341,15 @@ struct Competition: Codable, Equatable, Identifiable {
     var tryNextText: String
     var reflectedAt: Date?
 
+    var imageFileNames: [String]
+
     var createdAt: Date
     var updatedAt: Date
 
     var hasResult: Bool { result != nil }
     var hasReflection: Bool { reflectedAt != nil }
     var isUpcoming: Bool { result == nil }
-    var recordString: String { "\(wins)–\(losses)" }
+    var recordString: String { draws > 0 ? "\(wins)–\(losses)–\(draws)" : "\(wins)–\(losses)" }
 
     init(
         id: String = "c_\(UUID().uuidString)",
@@ -359,6 +363,7 @@ struct Competition: Codable, Equatable, Identifiable {
         result: CompetitionResult? = nil,
         wins: Int = 0,
         losses: Int = 0,
+        draws: Int = 0,
         placement: String = "",
         loggedAt: Date? = nil,
         mood: Mood? = nil,
@@ -366,6 +371,7 @@ struct Competition: Codable, Equatable, Identifiable {
         stuckText: String = "",
         tryNextText: String = "",
         reflectedAt: Date? = nil,
+        imageFileNames: [String] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -380,6 +386,7 @@ struct Competition: Codable, Equatable, Identifiable {
         self.result = result
         self.wins = wins
         self.losses = losses
+        self.draws = draws
         self.placement = placement
         self.loggedAt = loggedAt
         self.mood = mood
@@ -387,14 +394,16 @@ struct Competition: Codable, Equatable, Identifiable {
         self.stuckText = stuckText
         self.tryNextText = tryNextText
         self.reflectedAt = reflectedAt
+        self.imageFileNames = imageFileNames
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
 
     enum CodingKeys: String, CodingKey {
         case id, accountId, name, date, venue, division, rank, strategy
-        case result, wins, losses, placement, loggedAt
+        case result, wins, losses, draws, placement, loggedAt
         case mood, workedText, stuckText, tryNextText, reflectedAt
+        case imageFileNames
         case createdAt, updatedAt
     }
 
@@ -411,6 +420,7 @@ struct Competition: Codable, Equatable, Identifiable {
         result = try c.decodeIfPresent(CompetitionResult.self, forKey: .result)
         wins = try c.decodeIfPresent(Int.self, forKey: .wins) ?? 0
         losses = try c.decodeIfPresent(Int.self, forKey: .losses) ?? 0
+        draws = try c.decodeIfPresent(Int.self, forKey: .draws) ?? 0
         placement = try c.decodeIfPresent(String.self, forKey: .placement) ?? ""
         loggedAt = try c.decodeIfPresent(Date.self, forKey: .loggedAt)
         mood = try c.decodeIfPresent(Mood.self, forKey: .mood)
@@ -418,6 +428,7 @@ struct Competition: Codable, Equatable, Identifiable {
         stuckText = try c.decodeIfPresent(String.self, forKey: .stuckText) ?? ""
         tryNextText = try c.decodeIfPresent(String.self, forKey: .tryNextText) ?? ""
         reflectedAt = try c.decodeIfPresent(Date.self, forKey: .reflectedAt)
+        imageFileNames = try c.decodeIfPresent([String].self, forKey: .imageFileNames) ?? []
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
     }

@@ -6,12 +6,20 @@ struct BountyFlowView: View {
 
     @State private var step = 0
     @State private var kind: BountyKind?
-    @State private var selectedTaskId: String?
+    @State private var selectedGoalId: String?
     @State private var count = 5
     @State private var partner = ""
 
-    private var eligible: [(task: TrainingTask, goal: TrainingGoal, sessionCount: Int)] {
-        store.bountyEligibleTasks()
+    /// Goals that qualify for a bounty (4+ reflected sessions).
+    private var eligibleGoals: [(goal: TrainingGoal, sessionsReflected: Int)] {
+        store.activeGoals
+            .filter { store.isGoalBountyEligible($0.id) }
+            .map { (goal: $0, sessionsReflected: store.reflectedSessionsForGoal($0.id)) }
+    }
+
+    /// Goals in progress but not yet eligible.
+    private var ineligibleGoals: [(goal: TrainingGoal, sessionsReflected: Int)] {
+        store.bountyProgressGoals
     }
 
     var body: some View {
@@ -125,42 +133,73 @@ struct BountyFlowView: View {
             Text("Which technique?")
                 .font(.system(size: 27, weight: .heavy, design: .rounded))
                 .foregroundColor(AppColors.label)
-            Text("Tasks from goals you've trained for 2+ weeks.")
+            Text("Pick a goal you've reflected on \(NotebookStore.bountyUnlockSessions)+ times.")
                 .font(.matMindBody(size: 14))
                 .foregroundColor(AppColors.secondaryLabel)
                 .padding(.top, 8)
-            if eligible.isEmpty {
-                Text("No eligible techniques yet. Keep training a goal for two weeks to unlock the hunt.")
+
+            if eligibleGoals.isEmpty && ineligibleGoals.isEmpty {
+                Text("No goals yet. Keep training and reflecting to unlock the hunt.")
                     .font(.matMindBody(size: 14))
                     .foregroundColor(AppColors.secondaryLabel)
                     .padding(.top, 20)
-            } else {
-                VStack(spacing: 11) {
-                    ForEach(eligible, id: \.task.id) { item in
-                        techniqueRow(item)
+            }
+
+            // Eligible goals
+            if !eligibleGoals.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(eligibleGoals, id: \.goal.id) { item in
+                        eligibleGoalRow(item.goal, sessionsReflected: item.sessionsReflected)
                     }
                 }
                 .padding(.top, 16)
             }
+
+            // Ineligible goals (greyed out)
+            if !ineligibleGoals.isEmpty {
+                Text("NOT YET ELIGIBLE")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(0.6)
+                    .foregroundColor(AppColors.tertiaryLabel)
+                    .padding(.top, 22)
+                    .padding(.bottom, 10)
+
+                VStack(spacing: 10) {
+                    ForEach(ineligibleGoals, id: \.goal.id) { item in
+                        ineligibleGoalRow(item.goal, sessionsReflected: item.sessionsReflected)
+                    }
+                }
+            }
         }
     }
 
-    private func techniqueRow(_ item: (task: TrainingTask, goal: TrainingGoal, sessionCount: Int)) -> some View {
-        let selected = selectedTaskId == item.task.id
-        return Button(action: { selectedTaskId = item.task.id }) {
-            HStack {
+    private func eligibleGoalRow(_ goal: TrainingGoal, sessionsReflected: Int) -> some View {
+        let selected = selectedGoalId == goal.id
+        let taskCount = store.tasks(forGoal: goal.id).count
+        return Button(action: { selectedGoalId = goal.id }) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(goal.goalColor.opacity(selected ? 0.22 : 0.14))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: goal.iconName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(goal.goalColor)
+                }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.task.name)
+                    Text(goal.name)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.label)
-                    Text(item.goal.name)
+                    Text("\(sessionsReflected) reflections · \(taskCount) \(taskCount == 1 ? "task" : "tasks")")
                         .font(.matMindBody(size: 12.5))
                         .foregroundColor(AppColors.secondaryLabel)
                 }
                 Spacer()
-                Text("\(item.sessionCount) \(item.sessionCount == 1 ? "session" : "sessions")")
-                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppColors.tertiaryLabel)
+                if selected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(AppColors.coralDeep)
+                }
             }
             .padding(.horizontal, 15).padding(.vertical, 13)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -174,6 +213,37 @@ struct BountyFlowView: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private func ineligibleGoalRow(_ goal: TrainingGoal, sessionsReflected: Int) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(AppColors.label.opacity(0.06))
+                    .frame(width: 38, height: 38)
+                Image(systemName: goal.iconName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(AppColors.tertiaryLabel)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(goal.name)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.tertiaryLabel)
+                Text("\(sessionsReflected)/\(NotebookStore.bountyUnlockSessions) reflections")
+                    .font(.matMindBody(size: 12.5))
+                    .foregroundColor(AppColors.tertiaryLabel.opacity(0.7))
+            }
+            Spacer()
+            Image(systemName: "lock.fill")
+                .font(.system(size: 12))
+                .foregroundColor(AppColors.tertiaryLabel)
+        }
+        .padding(.horizontal, 15).padding(.vertical, 13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(AppColors.cardBackground.opacity(0.5))
+        )
     }
 
     // Step 3
@@ -268,7 +338,7 @@ struct BountyFlowView: View {
     }
 
     private func previewText() -> String {
-        let name = store.task(id: selectedTaskId ?? "")?.name ?? "it"
+        let name = store.goal(id: selectedGoalId ?? "")?.name ?? "it"
         var s = "Hit \(name)"
         if let p = partner.nilIfBlank { s += " on \(p)" }
         if count > 1 { s += ", \(count)×" }
@@ -298,7 +368,7 @@ struct BountyFlowView: View {
     private var canAdvance: Bool {
         switch step {
         case 0: return kind != nil
-        case 1: return selectedTaskId != nil
+        case 1: return selectedGoalId != nil
         default:
             // Hit count doesn't need a partner; targeting a partner does.
             return kind == .hitCount || partner.nilIfBlank != nil
@@ -309,8 +379,8 @@ struct BountyFlowView: View {
         guard canAdvance else { return }
         if step < 2 {
             step += 1
-        } else if let taskId = selectedTaskId, let kind = kind {
-            store.createBounty(taskId: taskId, kind: kind, targetCount: count, targetPartner: partner)
+        } else if let goalId = selectedGoalId, let kind = kind {
+            store.createBountyForGoal(goalId: goalId, kind: kind, targetCount: count, targetPartner: partner)
             onClose()
         }
     }
@@ -379,7 +449,9 @@ struct BountyCollectionView: View {
 
     private func celebrationHero(_ bounty: Bounty) -> some View {
         let stats = store.bountyStats(bounty)
-        let name = store.task(id: bounty.taskId)?.name ?? "your technique"
+        let name = bounty.taskId.isEmpty
+            ? (store.goal(id: bounty.goalId)?.name ?? "your technique")
+            : (store.task(id: bounty.taskId)?.name ?? "your technique")
         var summary = "\(name.capitalizedFirst), landed \(stats.hits)×"
         if let p = bounty.targetPartner?.nilIfBlank { summary += " on \(p)" }
         summary += " over \(stats.days) \(stats.days == 1 ? "day" : "days")."
@@ -414,7 +486,9 @@ struct BountyCollectionView: View {
 
     private func featuredTrophy(_ bounty: Bounty) -> some View {
         let stats = store.bountyStats(bounty)
-        let name = store.task(id: bounty.taskId)?.name ?? "Technique"
+        let name = bounty.taskId.isEmpty
+            ? (store.goal(id: bounty.goalId)?.name ?? "Technique")
+            : (store.task(id: bounty.taskId)?.name ?? "Technique")
         var sub = "\(bounty.hitCount) \(bounty.hitCount == 1 ? "hit" : "hits")"
         if let p = bounty.targetPartner?.nilIfBlank { sub = "on \(p) · " + sub }
         return VStack(alignment: .leading, spacing: 6) {
@@ -481,7 +555,9 @@ struct BountyCollectionView: View {
     }
 
     private func miniCard(_ bounty: Bounty) -> some View {
-        let name = store.task(id: bounty.taskId)?.name ?? "Technique"
+        let name = bounty.taskId.isEmpty
+            ? (store.goal(id: bounty.goalId)?.name ?? "Technique")
+            : (store.task(id: bounty.taskId)?.name ?? "Technique")
         var sub = DateFormatter.monthDay.string(from: bounty.collectedAt ?? bounty.createdAt)
         if let p = bounty.targetPartner?.nilIfBlank {
             sub += " · on \(p)"

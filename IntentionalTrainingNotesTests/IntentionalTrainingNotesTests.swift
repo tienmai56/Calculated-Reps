@@ -2,18 +2,21 @@ import XCTest
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
-    func testSessionRoutingSignedOutMissingProfileAndReady() {
+    func testLegacyLocalSessionRemainsAvailableWithoutCloudSignIn() {
+        let oldFlag = UserDefaults.standard.object(forKey: AppSessionStore.onboardingCompletedKey)
+        defer { UserDefaults.standard.set(oldFlag, forKey: AppSessionStore.onboardingCompletedKey) }
+        UserDefaults.standard.set(true, forKey: AppSessionStore.onboardingCompletedKey)
         let accountStore = TestAccountStore()
         let session = AppSessionStore(accountStore: accountStore, authService: TestAuthService()) { _ in
             TestNotebookPersistence()
         }
 
-        XCTAssertEqual(session.route, .signedOut)
+        XCTAssertEqual(session.route, .ready)
 
         let account = UserAccount(provider: .google, providerSubjectId: "subject-1")
         session.completeSignIn(account: account)
 
-        XCTAssertEqual(session.route, .signedInMissingProfile)
+        XCTAssertEqual(session.route, .ready)
 
         session.saveProfile(firstName: " Alex ", lastName: " Rivera ")
 
@@ -66,7 +69,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertTrue(notebook.reflections.isEmpty)
     }
 
-    func testCorruptedJSONFallsBackToEmptyStoreWithoutCrashing() throws {
+    func testCorruptedJSONPreservesSourceAndDisablesWrites() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let persistence = JSONNotebookPersistence(rootDirectory: root)
         let url = persistence.fileURL(accountId: "recover")
@@ -78,7 +81,9 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertEqual(store.notebook.accountId, "recover")
         XCTAssertTrue(store.activeGoals.isEmpty)
         XCTAssertTrue(store.notebook.sessions.isEmpty)
-        XCTAssertEqual(store.errorMessage, "Could not load saved notebook.")
+        XCTAssertNotNil(store.errorMessage)
+        _ = store.addGoal(name: "Must not overwrite")
+        XCTAssertEqual(try Data(contentsOf: url), Data("not-json".utf8))
     }
 
     func testGoogleSignInIsHiddenWhenProductionConfigurationIsMissing() {
@@ -174,7 +179,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertNil(store.reflection(forSessionId: session.id))
     }
 
-    func testDeletingReflectionLeavesSessionDone() {
+    func testLegacyDeletingReflectionReturnsSessionToPlanned() {
         let store = NotebookStore(accountId: "a_1", persistence: TestNotebookPersistence())
         let goal = store.addGoal(name: "Passing")!
         let session = store.planSessions(
@@ -185,7 +190,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
 
         store.deleteReflection(id: reflection.id)
 
-        XCTAssertEqual(store.notebook.sessions.first?.status, .done)
+        XCTAssertEqual(store.notebook.sessions.first?.status, .planned)
         XCTAssertTrue(store.notebook.reflections.isEmpty)
     }
 

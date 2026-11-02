@@ -41,6 +41,7 @@ struct Bounty: Codable, Equatable, Identifiable {
     var id: String
     var accountId: String
     var goalId: String
+    /// Legacy: was a required task reference. Now optional — goal-level bounties leave this empty.
     var taskId: String
     var kind: BountyKind
     /// Number of times to land it. `nil` means "not specified" → treated as 1.

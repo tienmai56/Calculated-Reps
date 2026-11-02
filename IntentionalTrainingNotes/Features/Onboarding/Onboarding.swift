@@ -240,14 +240,11 @@ struct OnboardingSplashView: View {
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .tracking(2)
                         .foregroundColor(Color.white.opacity(0.62))
-                    Text("Train with\nintention.")
+                    Text("Train with intention,\nprogress faster.")
                         .font(.system(size: 34, weight: .black, design: .rounded))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
-                    Text("Make progress faster.")
-                        .font(.system(size: 21, weight: .bold, design: .rounded))
-                        .foregroundColor(Color.white.opacity(0.72))
                 }
 
                 Spacer()

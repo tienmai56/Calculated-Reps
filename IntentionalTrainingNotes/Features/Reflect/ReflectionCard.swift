@@ -43,8 +43,8 @@ struct ReflectionCardView: View {
                     }
                 } else {
                     Text(goal?.name ?? "Session")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundColor(color)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(color.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 6)

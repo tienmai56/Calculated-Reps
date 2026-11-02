@@ -68,7 +68,7 @@
          <EnvironmentVariable
             key = "RESET_ONBOARDING"
             value = "1"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "SEED_DEMO_DATA"
