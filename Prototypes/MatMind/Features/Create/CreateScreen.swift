@@ -3,7 +3,6 @@ import SwiftUI
 /// Plan a session (invite friends) or log one that already happened.
 struct CreateScreen: View {
     @Environment(AppModel.self) private var mm
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Day: Hashable {
         var label: String
@@ -39,15 +38,13 @@ struct CreateScreen: View {
     @State private var privacy = Privacy.friends.rawValue
     @State private var link: String? = nil
     @State private var focusItems: [TrainingFocus]
-    @State private var showFocus: Bool
 
     init(startPast: Bool = false, friend: String? = nil, initialFocus: [TrainingFocus] = []) {
         _mode = State(initialValue: startPast ? "past" : "plan")
         _dayIndex = State(initialValue: startPast ? 0 : 5)
         _time = State(initialValue: startPast ? "6:00 PM" : "10:00 AM")
         _invited = State(initialValue: friend.map { [$0] } ?? [])
-        _focusItems = State(initialValue: initialFocus)
-        _showFocus = State(initialValue: !initialFocus.isEmpty)
+        _focusItems = State(initialValue: initialFocus.isEmpty ? [TrainingFocus()] : initialFocus)
     }
 
     private var isPast: Bool { mode == "past" }
@@ -134,15 +131,6 @@ struct CreateScreen: View {
                             withAnimation(MMMotion.easeOut()) { showNote = true }
                         }
                     }
-                    if !showFocus {
-                        MMButton("Add a focus", variant: .ghost, size: .sm, iconLeft: "plus") {
-                            withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
-                                focusItems = [TrainingFocus()]
-                                showFocus = true
-                            }
-                        }
-                        .accessibilityHint("Optionally add things to work on and nested details")
-                    }
                 }
                 .padding(.top, MMSpace.s4)
                 .padding(.leading, -MMSpace.s4)
@@ -152,14 +140,12 @@ struct CreateScreen: View {
                 }
             }
 
-            if showFocus {
-                field("What are we working on?", hint: "Optional") {
-                    Text("Big idea first. Details underneath.")
-                        .mmFont(.body, 13)
-                        .foregroundStyle(MMColor.textTertiary)
-                        .padding(.bottom, MMSpace.s5)
-                    TrainingFocusEditor(items: $focusItems)
-                }
+            field("What are we working on?", hint: "Optional") {
+                Text("Big idea first. Details underneath.")
+                    .mmFont(.body, 13)
+                    .foregroundStyle(MMColor.textTertiary)
+                    .padding(.bottom, MMSpace.s5)
+                TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false)
             }
 
             field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {
@@ -203,7 +189,7 @@ struct CreateScreen: View {
         } footer: {
             MMButton(isPast ? "Next: add a photo" : (invited.isEmpty ? "Create session" : "Send invites to \(invited.count)"),
                      size: .lg, iconLeft: isPast ? "camera" : "send", fullWidth: true) { submit() }
-                .disabled(!TrainingFocusTree.isValid(focusItems) || mm.busy || (mm.isLive && gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                .disabled(!TrainingFocusTree.isValid(submittedFocusItems) || mm.busy || (mm.isLive && gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
         }
         .onAppear { if gym.isEmpty { gym = mm.me.gym } }
         .mmSheet(isPresented: $customTime, title: "Choose a time") {
@@ -222,6 +208,10 @@ struct CreateScreen: View {
         return ([time] + Self.times).filter { seen.insert($0).inserted }
     }
 
+    private var submittedFocusItems: [TrainingFocus] {
+        TrainingFocusTree.optionalOutline(focusItems)
+    }
+
     private var selectedDate: Date? {
         guard let value = day.value else { return nil }
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "h:mm a"
@@ -236,7 +226,7 @@ struct CreateScreen: View {
             title: trimmed.isEmpty ? autoName : trimmed, day: day.weekday, date: day.date, month: day.month,
             time: time, gym: gym, note: note, invited: invited,
             privacy: Privacy(rawValue: privacy) ?? .friends, past: isPast,
-            focusItems: TrainingFocusTree.normalized(focusItems), startsAt: selectedDate
+            focusItems: submittedFocusItems, startsAt: selectedDate
         ))
     }
 

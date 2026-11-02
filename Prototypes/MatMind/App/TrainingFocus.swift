@@ -64,7 +64,13 @@ enum TrainingFocusTree {
         }
     }
 
-    /// Review-panel example only; the real composer starts with an empty outline.
+    /// An untouched optional focus card is not part of the saved outline.
+    /// Keep incomplete parents/details so validation never discards entered work.
+    static func optionalOutline(_ items: [TrainingFocus]) -> [TrainingFocus] {
+        normalized(items).filter { !$0.title.isEmpty || !$0.children.isEmpty }
+    }
+
+    /// Review-panel example only; the composer starts with a blank optional card.
     static var example: [TrainingFocus] {
         [TrainingFocus(title: "Guard passing", children: [
             TrainingFocus(title: "Knee-cut entry", children: [TrainingFocus(title: "Win the underhook")]),
