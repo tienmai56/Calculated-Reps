@@ -58,6 +58,47 @@ struct CloudError: LocalizedError {
     let message: String
     var errorDescription: String? { message }
 }
+
+enum CloudSignInError: LocalizedError, Equatable {
+    case googleUnavailable, cancelled, invalidCallback, providerRejected
+
+    var errorDescription: String? {
+        switch self {
+        case .googleUnavailable: "Google sign-in is currently unavailable. Please try again later."
+        case .cancelled: "Sign-in was cancelled."
+        case .invalidCallback: "Couldn’t finish Google sign-in. Please try again."
+        case .providerRejected: "Google couldn’t complete sign-in. Please try again."
+        }
+    }
+}
+
+struct CloudAuthSettings: Decodable {
+    let external: [String: Bool]
+
+    func requireGoogle() throws {
+        guard external["google"] == true else { throw CloudSignInError.googleUnavailable }
+    }
+}
+
+enum GoogleOAuthCallback {
+    static func authorizationCode(from url: URL) throws -> String {
+        guard url.scheme == "matmind", url.host == "auth",
+              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else {
+            throw CloudSignInError.invalidCallback
+        }
+        if let failure = items.first(where: { $0.name == "error" }) {
+            if failure.value == "access_denied" { throw CloudSignInError.cancelled }
+            throw CloudSignInError.providerRejected
+        }
+        let codes = items.filter { $0.name == "code" }
+        guard codes.count == 1, let code = codes.first?.value,
+              !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw CloudSignInError.invalidCallback
+        }
+        return code
+    }
+}
+
 actor BackendClient {
     private let configuration: BackendConfiguration?
     private var credential: CloudCredential?
@@ -66,6 +107,10 @@ actor BackendClient {
         if let data = Self.readKeychain() { credential = try? JSONDecoder().decode(CloudCredential.self, from: data) }
     }
     func identity() -> String? { credential?.user.id }
+    func requireGoogleSignIn() async throws {
+        let data = try await request(path: "auth/v1/settings", body: nil, authenticated: false)
+        try JSONDecoder().decode(CloudAuthSettings.self, from: data).requireGoogle()
+    }
     func signIn(provider: String, idToken: String, nonce: String) async throws -> String {
         let response = try await request(path: "auth/v1/token?grant_type=id_token", body: ["provider": provider, "id_token": idToken, "nonce": nonce], authenticated: false)
         try await accept(response)
@@ -177,9 +222,16 @@ actor BackendClient {
         return try await withCheckedThrowingContinuation { continuation in
             web = ASWebAuthenticationSession(url:components.url!,callbackURLScheme:"matmind") { url,error in
                 Task { @MainActor in
-                    guard let url, let code = URLComponents(url:url,resolvingAgainstBaseURL:false)?.queryItems?.first(where:{$0.name=="code"})?.value else { continuation.resume(throwing:error ?? CloudError(message:"Sign-in cancelled.")); return }
-                    continuation.resume(returning:(code,verifier))
-                    self.web = nil
+                    defer { self.web = nil }
+                    if let error {
+                        let failure = error as NSError
+                        let cancelled = failure.domain == ASWebAuthenticationSessionError.errorDomain && failure.code == ASWebAuthenticationSessionError.Code.canceledLogin.rawValue
+                        continuation.resume(throwing: cancelled ? CloudSignInError.cancelled : error)
+                        return
+                    }
+                    guard let url else { continuation.resume(throwing: CloudSignInError.invalidCallback); return }
+                    do { continuation.resume(returning: (try GoogleOAuthCallback.authorizationCode(from: url), verifier)) }
+                    catch { continuation.resume(throwing: error) }
                 }
             }
             web?.presentationContextProvider = self

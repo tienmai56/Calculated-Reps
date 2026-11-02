@@ -76,16 +76,22 @@ import SwiftData
         catch { if generation==epoch { self.error=error.localizedDescription } }
     }
     func authenticate(_ provider: String) async {
-        guard !busy else { return }; busy = true; defer { busy = false }
+        guard !busy else { return }; busy = true; error = nil; defer { busy = false }
         do {
             guard let config = BackendConfiguration.configured else { throw CloudError(message:"Cloud configuration missing.") }
             if provider == "apple" {
                 let (token,nonce) = try await signIn.apple()
                 _ = try await backend.signIn(provider:"apple",idToken:token,nonce:nonce)
-            } else { let (code,verifier) = try await signIn.google(configuration:config); try await backend.exchange(code:code,verifier:verifier) }
+            } else {
+                try await backend.requireGoogleSignIn()
+                let (code,verifier) = try await signIn.google(configuration:config)
+                try await backend.exchange(code:code,verifier:verifier)
+            }
             userID = await backend.identity(); epoch = UUID(); snapshot = SocialSnapshot()
             if let userID { restoreCache(userID) }
             await refresh()
+        } catch CloudSignInError.cancelled {
+            // Closing the provider sheet leaves the user on Welcome.
         } catch { self.error = error.localizedDescription }
     }
     @discardableResult func perform(_ operation: String, _ payload: [String:Any], key: UUID = UUID()) async -> [String:ArchiveValue]? {

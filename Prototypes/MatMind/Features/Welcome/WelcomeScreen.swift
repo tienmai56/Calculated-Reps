@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The prototype's signed-out entry point. Google continuation is simulated:
-/// no Google SDK, credentials, network requests, or account persistence.
+/// Shared welcome screen. The installed app uses live Google authentication;
+/// the prototype and UI review use the sample-data adapter.
 struct WelcomeScreen: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -53,16 +53,6 @@ struct WelcomeScreen: View {
                         }
 #endif
                         googleButton
-                        if mm.isLive {
-                            Button {
-                                signInTask = Task { _ = await mm.runtime?.perform("sign_in_apple", [:]) }
-                            } label: {
-                                HStack(spacing: 10) { Image(systemName: "apple.logo"); Text("Continue with Apple") }
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(MMButtonStyle(variant: .secondary, size: .lg, fullWidth: true))
-                            .disabled(mm.busy)
-                        }
                         Text("Sign up or log in. You're in the right place.")
                             .mmFont(.body, 13, lineHeight: 1.4)
                             .foregroundStyle(MMColor.textTertiary)
