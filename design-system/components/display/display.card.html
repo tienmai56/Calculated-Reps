@@ -1,0 +1,21 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Display — belt, avatar, badge, tag, card" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:20px;background:var(--bg-app)}.r{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.c{display:flex;flex-direction:column;gap:14px}.lab{font:500 11px var(--font-mono);color:var(--text-tertiary);width:72px;flex-shrink:0}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const NS = window.MatMindDesignSystem_8b0f80;
+const { Belt, Avatar, AvatarStack, StreakBelt, Badge, Tag, Card } = NS;
+function App(){ const [sel,setSel]=React.useState('All'); const T=true,F=false; return <div className="c">
+<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+<Card padding={14}><div style={{font:'800 15px var(--font-display)',marginBottom:10}}>You + Sarah · 8 weeks</div><StreakBelt hue="sky" weeks={[F,T,T,T,T,T,T,T,T]} thisWeek="pending"/></Card>
+<Card padding={14}><div style={{font:'800 15px var(--font-display)',marginBottom:10,color:'var(--ink-500)'}}>You + Jamie · best 12</div><StreakBelt hue="plum" weeks={[T,T,T,T,T,T,F,F,F]} thisWeek="pending" showFlame={false}/></Card></div>
+<div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10}}>{[['white',0],['blue',2],['purple',4],['brown',1],['black',2]].map(([r,s])=><Belt key={r} rank={r} stripes={s} size="sm" label/>)}</div>
+<div className="r"><Avatar name="Ana Ribeiro" size={60} belt="purple"/><Avatar name="Marcus Chen" size={44} belt="blue" online/><Avatar name="Jo Kim" size={40}/><AvatarStack people={[{name:'Sarah Lee'},{name:'Alex Moreno'},{name:'Priya Nair'},{name:'Kenji Ito'},{name:'Lena Park'}]} max={3} label="5 going" ring="var(--bg-app)"/>
+<Badge variant="success" dot>Going</Badge><Badge variant="warning">Invited</Badge><Badge variant="soft">Host</Badge><Badge variant="flame">8 wks</Badge></div>
+<div className="r">{['All','Gi','No-Gi','Open mat'].map(t=><Tag key={t} size="sm" selected={sel===t} onClick={()=>setSel(t)}>{t}</Tag>)}<Tag size="sm" icon="map-pin">Tidewater BJJ</Tag><Tag size="sm" onRemove={()=>{}}>Kenji</Tag></div>
+</div>; }
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>
