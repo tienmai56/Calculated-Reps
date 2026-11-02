@@ -34,6 +34,11 @@ struct TrainingFocusEditor: View {
                     .foregroundStyle(MMColor.textTertiary)
             }
         }
+        .onAppear {
+            if items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
+                focusedID = items[0].id
+            }
+        }
         .alert("Remove this focus?", isPresented: $showRemoval) {
             Button("Keep it", role: .cancel) { removalID = nil }
             Button("Remove", role: .destructive) {

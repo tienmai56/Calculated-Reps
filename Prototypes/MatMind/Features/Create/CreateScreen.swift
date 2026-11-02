@@ -3,6 +3,7 @@ import SwiftUI
 /// Plan a session (invite friends) or log one that already happened.
 struct CreateScreen: View {
     @Environment(AppModel.self) private var mm
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Day: Hashable {
         var label: String
@@ -35,6 +36,7 @@ struct CreateScreen: View {
     @State private var privacy = Privacy.friends.rawValue
     @State private var link: String? = nil
     @State private var focusItems: [TrainingFocus]
+    @State private var showFocus: Bool
 
     init(startPast: Bool = false, friend: String? = nil, initialFocus: [TrainingFocus] = []) {
         _mode = State(initialValue: startPast ? "past" : "plan")
@@ -42,6 +44,7 @@ struct CreateScreen: View {
         _time = State(initialValue: startPast ? "6:00 PM" : "10:00 AM")
         _invited = State(initialValue: friend.map { [$0] } ?? [])
         _focusItems = State(initialValue: initialFocus)
+        _showFocus = State(initialValue: !initialFocus.isEmpty)
     }
 
     private var isPast: Bool { mode == "past" }
@@ -107,24 +110,38 @@ struct CreateScreen: View {
                         MMTag(g, icon: g == mm.me.gym ? "house" : "map-pin", selected: gym == g, size: .sm) { gym = g }
                     }
                 }
+                MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
+                    if !showNote {
+                        MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {
+                            withAnimation(MMMotion.easeOut()) { showNote = true }
+                        }
+                    }
+                    if !showFocus {
+                        MMButton("Add a focus", variant: .ghost, size: .sm, iconLeft: "plus") {
+                            withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
+                                focusItems = [TrainingFocus()]
+                                showFocus = true
+                            }
+                        }
+                        .accessibilityHint("Optionally add things to work on and nested details")
+                    }
+                }
+                .padding(.top, MMSpace.s4)
+                .padding(.leading, -MMSpace.s4)
                 if showNote {
                     MMTextField(placeholder: "Gi or no-gi? Bring anything?", text: $note, multiline: true, rows: 2)
                         .padding(.top, 12)
-                } else {
-                    MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {
-                        withAnimation(MMMotion.easeOut()) { showNote = true }
-                    }
-                    .padding(.top, 8)
-                    .padding(.leading, -8)
                 }
             }
 
-            field("What are we working on?", hint: "Optional") {
-                Text("Big idea first. Details underneath.")
-                    .mmFont(.body, 13)
-                    .foregroundStyle(MMColor.textTertiary)
-                    .padding(.bottom, MMSpace.s5)
-                TrainingFocusEditor(items: $focusItems)
+            if showFocus {
+                field("What are we working on?", hint: "Optional") {
+                    Text("Big idea first. Details underneath.")
+                        .mmFont(.body, 13)
+                        .foregroundStyle(MMColor.textTertiary)
+                        .padding(.bottom, MMSpace.s5)
+                    TrainingFocusEditor(items: $focusItems)
+                }
             }
 
             field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {

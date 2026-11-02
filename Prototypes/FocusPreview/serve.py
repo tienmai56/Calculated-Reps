@@ -15,7 +15,7 @@ for filename in ["BricolageGrotesque.woff2", "Archivo-normal.woff2", "Archivo-it
     FILES[f"/assets/fonts/{filename}"] = ROOT / "assets/fonts" / filename
 for filename in ["roll-gi-2.jpg", "coach-help.jpg", "group-class.jpg", "portrait-gi.jpg"]:
     FILES[f"/assets/photos/{filename}"] = ROOT / "assets/photos" / filename
-for name in ["notebook-pen", "chevron-right", "plus", "trash-2", "x", "chevron-left", "calendar", "map-pin", "send", "check", "camera", "pencil", "calendar-plus"]:
+for name in ["notebook-pen", "chevron-right", "plus", "trash-2", "x", "chevron-left", "calendar", "map-pin", "send", "check", "camera", "pencil", "calendar-plus", "clock", "house", "flame", "link", "copy"]:
     FILES[f"/assets/icons/{name}.svg"] = ROOT / "assets/icons" / f"{name}.svg"
 
 

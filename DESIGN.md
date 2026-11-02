@@ -319,7 +319,7 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 
 ### Session focus outline
 
-Session planning has an optional **What are we working on?** section. Use white focus groups on the paper canvas, Archivo body text, Lucide notebook / chevron icons, a quiet coral Add a detail action, and the existing pill buttons. Big idea first, details underneath. Adding a detail uses the existing bounce motion and respects Reduce Motion.
+Session planning keeps its existing form layout and controls. A compact **Add a focus** action beside Add a note expands the optional **What are we working on?** section. The browser companion must mirror the original date carousel, time pills, gym chips, friend grid, and privacy controls rather than replacing them with a summary. Use white focus groups on the paper canvas, Archivo body text, Lucide notebook / chevron icons, a quiet coral Add a detail action, and the existing pill buttons. Big idea first, details underneath. Adding a detail uses the existing bounce motion and respects Reduce Motion.
 
 Any item can have children; keep stable IDs, retain sibling order, and visually cap indentation to preserve room for text and 44pt controls. Label deeper levels explicitly. Suggestions only populate content when selected; never pre-fill a real user's plan. Named items are required when present; no content at all is allowed.
 
