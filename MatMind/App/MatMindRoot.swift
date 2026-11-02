@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// The installed app renders the same screens as MatMindPrototype, backed by live services.
 struct MatMindRoot: View {
@@ -62,6 +63,7 @@ struct MatMindRoot: View {
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
+                if old.profiles != new.profiles { Task { await runtime?.loadPhotos() } }
                 if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil, let pending = model.pendingLink {
                     Task { await redeemLink(pending) }
                 }
@@ -110,29 +112,214 @@ struct MatMindRoot: View {
     }
 }
 
+/// First-run profile: photo, name, phone, home gym and belt. Stripes are edited
+/// later from Profile; the phone number is stored privately (account settings).
 private struct LiveProfileSetup: View {
+    private struct CountryCode: Hashable { let code: String; let name: String }
+    private static let countryCodes = [
+        CountryCode(code: "+1", name: "United States / Canada"), CountryCode(code: "+44", name: "United Kingdom"),
+        CountryCode(code: "+61", name: "Australia"), CountryCode(code: "+64", name: "New Zealand"),
+        CountryCode(code: "+353", name: "Ireland"), CountryCode(code: "+55", name: "Brazil"),
+        CountryCode(code: "+49", name: "Germany"), CountryCode(code: "+33", name: "France"),
+        CountryCode(code: "+81", name: "Japan"), CountryCode(code: "+84", name: "Vietnam")
+    ]
+
     @Environment(SocialAppModel.self) private var app
     @State private var name = ""
+    @State private var countryCode = "+1"
+    @State private var phone = ""
     @State private var gym = ""
-    @State private var belt = "white"
-    @State private var stripes = "0"
+    @State private var belt: BeltRank = .white
+    @State private var pickedPhoto: PhotosPickerItem?
+    @State private var photo: Data?
+    @State private var photoKey = UUID()
+    @State private var photoRequest = UUID()
+    @State private var loadingPhoto = false
+    @State private var saving = false
+
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedGym: String { gym.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var phoneDigits: String { phone.filter(\.isNumber) }
+    private var canSave: Bool {
+        // E.164: country code + number, 7–15 digits in total (the server checks the same).
+        let totalDigits = countryCode.filter(\.isNumber).count + phoneDigits.count
+        return !trimmedName.isEmpty && !trimmedGym.isEmpty && phoneDigits.count >= 6 && (7...15).contains(totalDigits) && !loadingPhoto && !saving && !app.busy
+    }
+
     var body: some View {
         MMScreen {
-            MMHeader(title: "Your mat profile")
+            HStack { MMWordmark(size: 24); Spacer() }
+                .padding(.horizontal, MMLayout.gutter)
+                .frame(height: MMLayout.headerHeight)
         } content: {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Let your people find you.").mmFont(.display, 30)
-                MMTextField(label: "Name", text: $name)
-                MMTextField(label: "Home gym", text: $gym)
-                MMSelect(label: "Belt", options: BeltRank.adultRanks.map(\.rawValue), selection: $belt)
-                MMSelect(label: "Stripes", options: ["0", "1", "2", "3", "4"], selection: $stripes)
-                MMButton("Sign out", variant: .ghost) { Task { await app.logout() } }
-            }.padding(24)
+                Text("First, who's rolling?").mmFont(.display, 30).foregroundStyle(MMColor.textPrimary)
+                photoRow
+                MMTextField(label: "Name", placeholder: "What your partners call you", text: $name)
+                    .textContentType(.name)
+                phoneField
+                MMTextField(label: "Home gym", placeholder: "Your academy", text: $gym, iconLeft: "map-pin")
+                beltPicker
+            }
+            .padding(.horizontal, MMLayout.gutter)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         } footer: {
-            MMButton("Continue", size: .lg, fullWidth: true) {
-                Task { await app.perform("save_profile", ["name": name.trimmingCharacters(in: .whitespacesAndNewlines), "gym": gym, "belt": belt, "stripes": Int(stripes) ?? 0, "timezone": TimeZone.current.identifier]) }
-            }.disabled(app.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            MMButton("Complete my profile", size: .lg, fullWidth: true) { Task { await save() } }
+                .disabled(!canSave)
         }
+        .onChange(of: pickedPhoto) { _, item in
+            let request = UUID()
+            photoRequest = request
+            loadingPhoto = item != nil
+            Task { await loadPhoto(item, request: request) }
+        }
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text).mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
+    }
+
+    private var photoRow: some View {
+        HStack(spacing: 16) {
+            PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+                ZStack {
+                    if let photo, let image = UIImage(data: photo) {
+                        Image(uiImage: image).resizable().scaledToFill()
+                    } else {
+                        Circle().fill(MMColor.paper2)
+                        Circle().strokeBorder(MMColor.ink300, style: StrokeStyle(lineWidth: 2, dash: [6, 5]))
+                        MMIcon("camera", size: 28, color: MMColor.textSecondary)
+                    }
+                }
+                .frame(width: 96, height: 96)
+                .clipShape(Circle())
+            }
+            .accessibilityLabel(photo == nil ? "Add a profile photo" : "Change profile photo")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(photo == nil ? "Add a photo" : "Looking sharp")
+                    .mmFont(.display, 17).foregroundStyle(MMColor.textPrimary)
+                Text("Optional. Helps your partners spot you on the mat.")
+                    .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if photo != nil {
+                    Button("Remove photo") { photo = nil; pickedPhoto = nil }
+                        .mmFont(.body, 14, .semibold)
+                        .foregroundStyle(MMColor.textLink)
+                        .frame(minHeight: MMLayout.tapTarget)
+                }
+            }
+        }
+    }
+
+    private var phoneField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("Phone number")
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(Self.countryCodes, id: \.self) { country in
+                        Button("\(country.name) \(country.code)") { countryCode = country.code }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(countryCode).font(MMFont.body(16))
+                        MMIcon("chevron-down", size: 16, color: MMColor.textTertiary)
+                    }
+                    .foregroundStyle(MMColor.textPrimary)
+                    .padding(.horizontal, 12)
+                    .frame(height: 50)
+                    .background(MMColor.surfaceInput, in: RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).strokeBorder(MMColor.borderDefault, lineWidth: 1.5))
+                }
+                .accessibilityLabel("Country code \(countryCode)")
+                MMTextField(placeholder: "(555) 000-0000", text: $phone)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .accessibilityLabel("Phone number")
+            }
+            Text("Private. Only you can see your number.")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+        }
+    }
+
+    private var beltPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("Belt")
+            HStack(spacing: 6) {
+                ForEach(BeltRank.adultRanks, id: \.self) { rank in
+                    let selected = belt == rank
+                    Button { belt = rank } label: {
+                        VStack(spacing: 7) {
+                            HStack(spacing: 0) {
+                                Spacer(minLength: 0)
+                                Rectangle().fill(rank.barColor).frame(width: 10)
+                            }
+                            .frame(width: 40, height: 10)
+                            .background(rank.color)
+                            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous).strokeBorder(MMColor.ink900.opacity(0.16), lineWidth: 1))
+                            Text(rank.title).mmFont(.body, 12, .bold).foregroundStyle(MMColor.textPrimary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 64)
+                        .background(selected ? MMColor.paper2 : MMColor.surfaceCard, in: RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
+                            .strokeBorder(selected ? MMColor.ink900 : MMColor.borderDefault, lineWidth: selected ? 2 : 1.5))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(rank.title) belt")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func loadPhoto(_ item: PhotosPickerItem?, request: UUID) async {
+        guard let item else { return }
+        defer { if photoRequest == request { loadingPhoto = false } }
+        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data),
+              let jpeg = Self.avatarJPEG(image) else {
+            if photoRequest == request { app.error = "Couldn't read that photo. Try another one." }
+            return
+        }
+        guard photoRequest == request else { return }
+        photo = jpeg
+        photoKey = UUID()
+    }
+
+    /// Center-crops to a square, caps at 640px, and re-renders to strip EXIF (including location).
+    private static func avatarJPEG(_ image: UIImage) -> Data? {
+        let side = min(image.size.width, image.size.height)
+        guard side > 0 else { return nil }
+        let target = min(640, side)
+        let scale = target / side
+        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: target, height: target), format: format).image { _ in
+            image.draw(in: CGRect(x: (target - drawn.width) / 2, y: (target - drawn.height) / 2, width: drawn.width, height: drawn.height))
+        }.jpegData(compressionQuality: 0.82)
+    }
+
+    private func save() async {
+        guard canSave, let userID = app.userID else { return }
+        saving = true; defer { saving = false }
+        var payload: [String: Any] = [
+            "name": trimmedName, "gym": trimmedGym, "belt": belt.rawValue, "stripes": 0,
+            "phone": countryCode + phoneDigits, "timezone": TimeZone.current.identifier
+        ]
+        if let photo {
+            let key = "\(userID.lowercased())/\(photoKey.uuidString.lowercased()).jpg"
+            do { try await app.backend.upload(photo, objectKey: key, bucket: "avatars") }
+            catch {
+                // A retry after a dropped response finds the earlier upload already stored.
+                guard let existing = try? await app.backend.image(key: key, bucket: "avatars"), existing == photo else {
+                    app.error = "Couldn't upload your photo: \(error.localizedDescription)"
+                    return
+                }
+            }
+            payload["avatar_key"] = key
+        }
+        await app.perform("save_profile", payload)
     }
 }
 
@@ -141,6 +328,10 @@ final class LiveMatMindRuntime: AppRuntime {
     let model: SocialAppModel
     unowned let ui: AppModel
     private var photos: [String: String] = [:]
+    private var avatarPhotos: [String: String] = [:]
+    private var loadingAvatars: Set<String> = []
+    private var photoOwner: String?
+    private let imageLoader: (String, String) async throws -> Data
     private var connecting = false
     private var publishKeys: [String: UUID] = [:]
     private var mediaKeys: [String: UUID] = [:]
@@ -148,7 +339,11 @@ final class LiveMatMindRuntime: AppRuntime {
     private var mediaPhotos: [String: String] = [:]
     var busy: Bool { model.busy }
 
-    init(model: SocialAppModel, ui: AppModel) { self.model = model; self.ui = ui }
+    init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
+        self.model = model
+        self.ui = ui
+        self.imageLoader = imageLoader ?? { key, bucket in try await model.backend.image(key: key, bucket: bucket) }
+    }
     private func localID(_ id: String) -> String { id == model.userID ? "me" : id }
     private func cloudID(_ id: String) -> String { id == "me" ? model.userID ?? "" : id }
     private func dateText(_ date: Date, _ format: String) -> String {
@@ -157,9 +352,15 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     private func person(_ row: SocialRow) -> Person {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
-               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint)
+               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")])
     }
     func sync() {
+        if photoOwner != model.userID {
+            for path in Array(photos.values) + Array(avatarPhotos.values) { try? FileManager.default.removeItem(atPath: path) }
+            photos = [:]
+            avatarPhotos = [:]
+            photoOwner = model.userID
+        }
         guard model.userID != nil else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.isSignedIn = true
         ui.me = model.me.map(person) ?? Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
@@ -207,14 +408,32 @@ final class LiveMatMindRuntime: AppRuntime {
         }
     }
     func loadPhotos() async {
-        let owner = model.userID
+        sync()
+        guard let owner = model.userID else { return }
         for row in model.snapshot.media where photos[row.id] == nil {
             do {
-                let data = try await model.backend.image(key: row.text("object_key"))
+                let data = try await imageLoader(row.text("object_key"), "session-photos")
                 guard model.userID == owner else { return }
                 let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-\(row.id).jpg")
                 try data.write(to: path, options: .atomic); photos[row.id] = path.path
             } catch { continue }
+        }
+        let keys = Set(model.snapshot.profiles.map { $0.text("avatar_key") }.filter { !$0.isEmpty })
+        for key in keys where avatarPhotos[key] == nil {
+            let request = owner + ":" + key
+            guard loadingAvatars.insert(request).inserted else { continue }
+            defer { loadingAvatars.remove(request) }
+            do {
+                let data = try await imageLoader(key, "avatars")
+                guard model.userID == owner else { return }
+                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-avatar-\(UUID().uuidString).jpg")
+                try data.write(to: path, options: .atomic)
+                avatarPhotos[key] = path.path
+            } catch { continue }
+        }
+        let visibleKeys = Set(model.snapshot.profiles.map { $0.text("avatar_key") })
+        for key in Array(avatarPhotos.keys) where !visibleKeys.contains(key) {
+            if let path = avatarPhotos.removeValue(forKey: key) { try? FileManager.default.removeItem(atPath: path) }
         }
         sync()
     }
@@ -222,7 +441,7 @@ final class LiveMatMindRuntime: AppRuntime {
         await model.authenticate("google"); sync()
         if model.userID != nil, model.me != nil, let pending = model.pendingLink { _ = await connect(pending.absoluteString) }
     }
-    func signOut() async { await model.logout(); photos = [:]; sync() }
+    func signOut() async { await model.logout(); sync() }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
         if operation == "enable_notifications" { await SocialPushCoordinator.register(in: model); return model.error == nil }
