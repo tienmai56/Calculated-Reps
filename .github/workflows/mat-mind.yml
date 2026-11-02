@@ -11,7 +11,7 @@ concurrency:
 jobs:
   archive:
     name: Release archive
-    runs-on: macos-latest
+    runs-on: macos-26-intel
     steps:
       - uses: actions/checkout@v4
       - name: Archive the production app for iOS
