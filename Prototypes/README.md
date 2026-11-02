@@ -32,6 +32,18 @@ The review panel includes “First session,” “Plan made · no shared photo y
 
 For a browser visual companion, run `python3 Prototypes/EmptyPreview/serve.py` from the repository root. It serves only the preview's explicit assets on loopback port 4175. Use the state selector outside the phone frame to compare a fresh account, a planned session without a post, and existing history with no upcoming plans. This companion is independent of native state; Google, QR scanning, and backend services are not connected.
 
+## Session focus outline
+
+Plan a session → **What are we working on?** adds optional training content. Start with Add a focus or one of the suggestions (Guard passing, Escapes, Sweeps), then use **Add a detail** on any item to nest another item beneath it. Details can have their own children. Titles are editable in place; the outline is not a checklist or a performance tracker.
+
+Blank items must be named or removed before saving; a completely empty outline is valid. Removing a parent asks for confirmation and removes its descendants. Cancel keeps the whole branch. Indentation is capped visually on small screens; deeper levels are labeled explicitly and retain their actual hierarchy.
+
+The organizer can edit the outline on session details using the pencil beside **What we're working on**. Closing the editor discards unsaved edits. The outline is carried into the completion flow and kept in the published post under **What we worked on**.
+
+For a populated example, long-press the Mat Mind wordmark → States → **Plan a session · nested focus details**. Normal planning starts with an empty outline. This works for both upcoming sessions and logging a past session.
+
+A standalone browser companion is in `Prototypes/FocusPreview/`. Run `python3 Prototypes/FocusPreview/serve.py` from the repository root; it serves only preview assets on loopback port 4176. The Example and Blank buttons are review controls outside the phone. Browser state is independent of the native app. The browser's completion action uses a labeled sample photo; real authentication and backend services are not connected.
+
 ## Layout
 
 `Prototypes/MatMind/` is an Xcode *synchronized folder*: any file added there is part of the target automatically, with no project-file edits needed.

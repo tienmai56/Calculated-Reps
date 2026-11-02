@@ -365,6 +365,10 @@ struct PostDetailScreen: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 8)
                     }
+                    if !post.focusItems.isEmpty {
+                        Text("What we worked on").mmFont(.display, 16).padding(.top, MMSpace.s8)
+                        TrainingFocusOutline(items: post.focusItems).padding(.top, MMSpace.s5)
+                    }
                     Text("On the mat").mmFont(.display, 16).padding(.top, 18)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 14) {

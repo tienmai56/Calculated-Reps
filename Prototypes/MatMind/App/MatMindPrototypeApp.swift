@@ -58,7 +58,7 @@ struct RootView: View {
         switch route {
         case let .post(id, menu, focus): PostDetailScreen(id: id, openMenu: menu, focusComment: focus)
         case let .session(id): SessionDetailScreen(id: id)
-        case let .create(past, friend): CreateScreen(startPast: past, friend: friend)
+        case let .create(past, friend, focus): CreateScreen(startPast: past, friend: friend, initialFocus: focus)
         case let .complete(id): CompleteScreen(id: id)
         case let .friend(id): FriendProfileScreen(id: id)
         case let .qr(scan): QRScreen(startOnScan: scan)

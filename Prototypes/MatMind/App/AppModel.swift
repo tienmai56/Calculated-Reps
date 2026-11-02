@@ -165,11 +165,16 @@ final class AppModel {
     }
 
     func createSession(_ d: SessionDraft) {
+        guard TrainingFocusTree.isValid(d.focusItems) else {
+            showToast("Name each focus, or remove the blank one.")
+            return
+        }
         let id = "n\(Int(Date().timeIntervalSince1970 * 1000))"
         var people = [Attendee(id: "me", status: .going)]
         people += d.invited.map { Attendee(id: $0, status: d.past ? .going : .invited) }
         let session = Session(id: id, title: d.title, day: d.day, date: d.date, month: d.month, time: d.time, gym: d.gym,
-                              organizer: "me", privacy: d.privacy, people: people, note: d.note.isEmpty ? nil : d.note)
+                              organizer: "me", privacy: d.privacy, people: people, note: d.note.isEmpty ? nil : d.note,
+                              focusItems: TrainingFocusTree.normalized(d.focusItems))
         if d.past {
             drafts.append(session)
             replace(.complete(id: id))
@@ -191,11 +196,28 @@ final class AppModel {
         }
     }
 
+    @discardableResult
+    func updateSessionFocus(_ sessionID: String, _ items: [TrainingFocus]) -> Bool {
+        guard let session = findSession(sessionID), session.organizer == "me", TrainingFocusTree.isValid(items) else { return false }
+        let normalized = TrainingFocusTree.normalized(items)
+        if let i = upcoming.firstIndex(where: { $0.id == sessionID }) {
+            upcoming[i].focusItems = normalized
+        } else if let i = drafts.firstIndex(where: { $0.id == sessionID }) {
+            drafts[i].focusItems = normalized
+        } else if toComplete?.id == sessionID {
+            toComplete?.focusItems = normalized
+        } else {
+            return false
+        }
+        showToast("Focus plan updated", .success)
+        return true
+    }
+
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
         guard let s = findSession(sessionID) else { return nil }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
-                        caption: caption, likes: [], extraLikes: 0, comments: [])
+                        caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems)
         let streaks = friends
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }
@@ -264,7 +286,7 @@ final class AppModel {
     /// Deep links from the web prototype's review panel (`index.html#…`).
     enum Preset: String, CaseIterable, Identifiable {
         case welcome, activity, training, create, complete, friends, qr, profile, notifications
-        case empty, firstSession, awaitingPhoto, invite, active, broken, scan, post
+        case empty, firstSession, awaitingPhoto, focusPlan, invite, active, broken, scan, post
         var id: String { rawValue }
     }
 
@@ -278,6 +300,7 @@ final class AppModel {
         case .friends: setTab(.friends)
         case .profile: setTab(.profile)
         case .create: setTab(.training); go(.create())
+        case .focusPlan: setTab(.training); go(.create(focus: TrainingFocusTree.example))
         case .complete: setTab(.training); go(.complete(id: "c1"))
         case .qr: setTab(.friends); go(.qr())
         case .scan: setTab(.friends); go(.qr(scan: true))

@@ -153,6 +153,8 @@ struct SessionDetailScreen: View {
 
     @State private var showAdd = false
     @State private var picked: Set<String> = []
+    @State private var showFocusEditor = false
+    @State private var focusDraft: [TrainingFocus] = []
 
     var body: some View {
         if let s = mm.upcoming.first(where: { $0.id == id }) ?? (mm.toComplete?.id == id ? mm.toComplete : nil) {
@@ -194,6 +196,29 @@ struct SessionDetailScreen: View {
                     Text("“\(note)”").mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink700)
                         .padding(.horizontal, 4)
                         .padding(.top, 14)
+                }
+                if !s.focusItems.isEmpty || isOrganizer {
+                    HStack {
+                        Text("What we're working on").mmFont(.display, 18)
+                        Spacer()
+                        if isOrganizer {
+                            MMIconButton("pencil", label: "Edit session focus") {
+                                focusDraft = s.focusItems
+                                showFocusEditor = true
+                            }
+                        }
+                    }
+                    .padding(.top, MMSpace.s6)
+                    if !s.focusItems.isEmpty {
+                        TrainingFocusOutline(items: s.focusItems)
+                            .padding(.top, MMSpace.s4)
+                    } else {
+                        MMButton("Add a focus", variant: .secondary, iconLeft: "plus", fullWidth: true) {
+                            focusDraft = []
+                            showFocusEditor = true
+                        }
+                        .padding(.top, MMSpace.s4)
+                    }
                 }
                 Text("Who's coming").mmFont(.display, 18)
                     .padding(.horizontal, 4)
@@ -238,6 +263,31 @@ struct SessionDetailScreen: View {
                 }
                 .frame(maxWidth: .infinity)
             }
+        }
+        .sheet(isPresented: $showFocusEditor) {
+            ScrollView {
+                MMDialogBody(title: "What are we working on?", description: "Big idea first. Details underneath.",
+                             onClose: { showFocusEditor = false }) {
+                    TrainingFocusEditor(items: $focusDraft)
+                } actions: {
+                    EmptyView()
+                }
+                .padding(MMSpace.s7)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom) {
+                MMButton("Save focus plan", fullWidth: true) {
+                    if mm.updateSessionFocus(s.id, focusDraft) { showFocusEditor = false }
+                }
+                .disabled(!TrainingFocusTree.isValid(focusDraft))
+                .padding(MMSpace.s6)
+                .background(MMColor.bgApp)
+            }
+            .background(MMColor.bgApp)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(MMRadius.xl)
+            .presentationBackground(MMColor.bgApp)
         }
         .mmSheet(isPresented: $showAdd, title: "Add people", description: "They're added straight to the session.") {
             VStack(alignment: .leading, spacing: 14) {
