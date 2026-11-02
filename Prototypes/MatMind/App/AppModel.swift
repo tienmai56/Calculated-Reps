@@ -101,6 +101,7 @@ final class AppModel {
 
     func enterDemo() {
         if let runtime { Task { await runtime.authenticate() }; return }
+        guard !isLive else { return }
         setTab(.activity)
         isSignedIn = true
     }
@@ -161,39 +162,39 @@ final class AppModel {
     }
 
     func like(_ id: String) {
-        if runtime != nil { send("set_like", ["post_id": id, "liked": !(post(id)?.likes.contains("me") ?? false)]); return }
+        if isLive { send("set_like", ["post_id": id, "liked": !(post(id)?.likes.contains("me") ?? false)]); return }
         updatePost(id) { p in
             if p.likes.contains("me") { p.likes.removeAll { $0 == "me" } } else { p.likes.insert("me", at: 0) }
         }
     }
 
     func comment(_ id: String, _ text: String) {
-        if runtime != nil { send("add_comment", ["post_id": id, "body": text]); return }
+        if isLive { send("add_comment", ["post_id": id, "body": text]); return }
         updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true)) }
     }
 
     func editCaption(_ id: String, _ caption: String) {
-        if runtime != nil { send("edit_post", ["post_id": id, "caption": caption]); return }
+        if isLive { send("edit_post", ["post_id": id, "caption": caption]); return }
         updatePost(id) { $0.caption = caption }
         showToast("Caption updated", .success)
     }
 
     func deletePost(_ id: String) {
-        if runtime != nil { send("delete_post", ["post_id": id], success: { self.back() }); return }
+        if isLive { send("delete_post", ["post_id": id], success: { self.back() }); return }
         posts.removeAll { $0.id == id }
         back()
         showToast("Post deleted from every profile")
     }
 
     func removeMe(from id: String) {
-        if runtime != nil { send("remove_tag", ["post_id": id], success: { self.back() }); return }
+        if isLive { send("remove_tag", ["post_id": id], success: { self.back() }); return }
         updatePost(id) { $0.participants.removeAll { $0 == "me" } }
         back()
         showToast("You're off that post. It's gone from your profile.")
     }
 
     func rsvp(_ sessionID: String, _ status: RSVP) {
-        if runtime != nil { send("set_rsvp", ["session_id": sessionID, "rsvp": status.rawValue]); return }
+        if isLive { send("set_rsvp", ["session_id": sessionID, "rsvp": status.rawValue]); return }
         updateSession(sessionID) { $0.set("me", status) }
         for i in notifications.indices where notifications[i].session == sessionID { notifications[i].unread = false }
         if status == .going {
@@ -205,7 +206,7 @@ final class AppModel {
     }
 
     func removeParticipant(_ sessionID: String, _ personID: String) {
-        if runtime != nil { send("manage_participant", ["session_id": sessionID, "user_id": personID, "remove": true]); return }
+        if isLive { send("manage_participant", ["session_id": sessionID, "user_id": personID, "remove": true]); return }
         updateSession(sessionID) { $0.people.removeAll { $0.id == personID } }
         showToast("\(person(personID).firstName) removed")
     }
@@ -215,6 +216,7 @@ final class AppModel {
             Task { for id in ids { guard await runtime.perform("manage_participant", ["session_id": sessionID, "user_id": id, "remove": false]) else { return } } }
             return
         }
+        guard !isLive else { return }
         updateSession(sessionID) { s in ids.forEach { s.set($0, .going) } }
         if let first = ids.first { fresh = sessionID + first }
         showToast("Added \(ids.count) to the session", .success)
@@ -225,6 +227,7 @@ final class AppModel {
             Task { if let id = await runtime.create(d) { replace(d.past ? .complete(id: id) : .session(id: id)) } }
             return
         }
+        guard !isLive else { return }
         guard TrainingFocusTree.isValid(d.focusItems) else {
             showToast("Name each focus, or remove the blank one.")
             return
@@ -321,12 +324,12 @@ final class AppModel {
     }
 
     func readAll() {
-        if runtime != nil { send("read_notifications", [:]); return }
+        if isLive { send("read_notifications", [:]); return }
         for i in notifications.indices { notifications[i].unread = false }
     }
 
     func updateMe(name: String, email: String, belt: BeltRank, stripes: Int) {
-        if runtime != nil {
+        if isLive {
             send("save_profile", ["name": name, "belt": belt.rawValue, "stripes": stripes, "gym": me.gym, "timezone": TimeZone.current.identifier])
             return
         }

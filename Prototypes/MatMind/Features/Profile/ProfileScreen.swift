@@ -106,10 +106,10 @@ struct ProfileScreen: View {
                 }
                     .padding(.leading, -10)
             }
-        }
-        .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
-        .confirmationDialog("Delete your cloud account and shared training data? This cannot be undone.", isPresented: $deleteAccount, titleVisibility: .visible) {
-            Button("Delete account", role: .destructive) { Task { _ = await mm.runtime?.perform("delete_account", [:]) } }
+            .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
+            .confirmationDialog("Delete your cloud account and shared training data? This cannot be undone.", isPresented: $deleteAccount, titleVisibility: .visible) {
+                Button("Delete account", role: .destructive) { Task { _ = await mm.runtime?.perform("delete_account", [:]) } }
+            }
         }
         .onChange(of: showSettings) { _, open in
             guard !open, mm.isSignedIn else { return }
@@ -218,5 +218,11 @@ private struct NotificationRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(note.unread ? MMColor.coral500.opacity(0.06) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if mm.isLive, let entity = note.session {
+                mm.go(note.kind == .invite || note.kind == .joined ? .session(id: entity) : .post(id: entity))
+            }
+        }
     }
 }

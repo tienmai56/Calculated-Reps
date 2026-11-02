@@ -74,10 +74,12 @@ struct WelcomeScreen: View {
             }
         }
         .mmSheet(isPresented: $showSettings, title: "Settings") {
-            Text("Export").mmFont(.display, 18)
-            MMButton("Export local sessions", variant: .secondary, iconLeft: "download") { showExport = true }
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Export").mmFont(.display, 18)
+                MMButton("Export local sessions", variant: .secondary, iconLeft: "download") { showExport = true }
+            }
+            .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
         }
-        .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
         .onDisappear { signInTask?.cancel() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active && !mm.isLive {

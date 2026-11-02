@@ -130,7 +130,8 @@ final class LiveMatMindRuntime: AppRuntime {
         var calendar = Calendar(identifier: .gregorian); calendar.firstWeekday = 2; calendar.minimumDaysInFirstWeek = 4
         ui.friends = model.snapshot.friendships.filter { $0.flag("active") }.map { row in
             calendar.timeZone = TimeZone(identifier: row.text("timezone")) ?? .current
-            let serverNow = model.snapshot.server_time.flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
+            let clock = ISO8601DateFormatter(); clock.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let serverNow = model.snapshot.server_time.flatMap { clock.date(from: $0) ?? ISO8601DateFormatter().date(from: $0) } ?? Date()
             let week = calendar.dateInterval(of: .weekOfYear, for: serverNow)!.start
             let credits = model.snapshot.credits.filter { $0.text("friendship_id") == row.id }
             let formatter = DateFormatter(); formatter.calendar = calendar; formatter.timeZone = calendar.timeZone; formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
@@ -189,6 +190,7 @@ final class LiveMatMindRuntime: AppRuntime {
         if operation == "enable_notifications" { await SocialPushCoordinator.register(in: model); return model.error == nil }
         if operation == "delete_account" { await model.deleteAccount(); sync(); return model.userID == nil }
         if operation == "load_more_feed" { await model.loadMoreFeed(); await loadPhotos(); return true }
+        if operation == "hydrate_post", let id = payload["post_id"] as? String { await model.hydratePost(id); await loadPhotos(); return true }
         if operation == "load_more_comments", let id = payload["post_id"] as? String { await model.loadMoreComments(id); sync(); return true }
         var body = payload
         if let id = body["user_id"] as? String { body["user_id"] = cloudID(id) }
