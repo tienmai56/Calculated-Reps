@@ -6,13 +6,15 @@ struct TrainingScreen: View {
     @State private var tab = "Upcoming"
 
     var body: some View {
-        let list = mm.emptyTraining ? [] : mm.upcoming
+        let list = mm.plannedSessions
         let invites = list.filter { $0.status(of: "me") == .invited }
         let rest = list.filter { $0.status(of: "me") != .invited && $0.status(of: "me") != .declined }
         MMScreen(tabPadding: true) {
             VStack(spacing: 0) {
                 MMHeader(title: "Training", large: true, trailing: {
-                    MMIconButton("calendar-plus", variant: .filled, label: "Plan a session") { mm.go(.create()) }
+                    if !list.isEmpty {
+                        MMIconButton("calendar-plus", variant: .filled, label: "Plan a session") { mm.go(.create()) }
+                    }
                 })
                 MMTabs(["Upcoming", "Past"], selection: $tab)
                     .padding(.horizontal, 16)
@@ -22,7 +24,7 @@ struct TrainingScreen: View {
             if tab == "Past" {
                 pastList
             } else {
-                if let s = mm.toComplete, !mm.emptyTraining {
+                if let s = mm.toComplete {
                     ReadyToShare(session: s).padding(.top, 12)
                 }
                 if !invites.isEmpty {
@@ -49,9 +51,9 @@ struct TrainingScreen: View {
                     }
                     .padding(.horizontal, 16)
                 }
-                if list.isEmpty {
+                if list.isEmpty && mm.toComplete == nil {
                     EmptyTraining()
-                } else {
+                } else if !list.isEmpty {
                     MMButton("Plan a training session", size: .lg, iconLeft: "plus", fullWidth: true) { mm.go(.create()) }
                         .padding(.horizontal, 16)
                         .padding(.top, 20)
@@ -61,31 +63,40 @@ struct TrainingScreen: View {
         .animation(MMMotion.easeOut(), value: list.map(\.id))
     }
 
+    @ViewBuilder
     private var pastList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Missed a session? Log it after the fact and it still counts for your streaks.")
-                .mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
-                .padding(.horizontal, 4)
-            MMButton("Log a past session", variant: .secondary, iconLeft: "history", fullWidth: true) { mm.go(.create(past: true)) }
-            ForEach(mm.posts.filter { $0.participants.contains("me") }) { p in
-                Button { mm.go(.post(id: p.id)) } label: {
-                    HStack(spacing: 12) {
-                        MMPhotoTile(photo: p.photo, height: 56, radius: 14).frame(width: 56)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(p.title).mmFont(.display, 15).foregroundStyle(MMColor.ink900)
-                            Text("\(p.date) · \(p.participants.count) people").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        MMBadge("Shared", variant: .success)
-                    }
-                    .padding(10)
-                    .mmCardSurface(radius: 20)
-                }
-                .buttonStyle(MMPressStyle())
+        if mm.posts.filter({ $0.participants.contains("me") }).isEmpty {
+            MMEmptyState(artwork: .memory, title: "Your mat memories\nstart here.",
+                         message: "Already got some rounds in?\nLog the session and share a photo.",
+                         actionTitle: "Log a past session", actionIcon: "history") {
+                mm.go(.create(past: true))
             }
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Missed a session? Log it after the fact and it still counts for your streaks.")
+                    .mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
+                    .padding(.horizontal, 4)
+                MMButton("Log a past session", variant: .secondary, iconLeft: "history", fullWidth: true) { mm.go(.create(past: true)) }
+                ForEach(mm.posts.filter { $0.participants.contains("me") }) { p in
+                    Button { mm.go(.post(id: p.id)) } label: {
+                        HStack(spacing: 12) {
+                            MMPhotoTile(photo: p.photo, height: 56, radius: 14).frame(width: 56)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(p.title).mmFont(.display, 15).foregroundStyle(MMColor.ink900)
+                                Text("\(p.date) · \(p.participants.count) people").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            MMBadge("Shared", variant: .success)
+                        }
+                        .padding(10)
+                        .mmCardSurface(radius: 20)
+                    }
+                    .buttonStyle(MMPressStyle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
     }
 }
 
@@ -119,45 +130,18 @@ private struct ReadyToShare: View {
     }
 }
 
-/// Empty schedule: bobbing crew avatars and a nudge to plan.
+/// The next session is an invitation, not a missing-data error.
 private struct EmptyTraining: View {
     @Environment(AppModel.self) private var mm
-    @State private var bob = false
-
-    private let rotations: [Double] = [-8, 4, -3, 6, -5]
-    private let lifts: [CGFloat] = [4, -4, 2, -6, 3]
 
     var body: some View {
-        let crew = mm.friends.prefix(5).map { mm.person($0.id) }
-        VStack(spacing: 0) {
-            HStack(spacing: -14) {
-                ForEach(Array(crew.enumerated()), id: \.offset) { i, p in
-                    MMAvatar(name: p.name, size: 52)
-                        .background(Circle().fill(.white).padding(-3))
-                        .rotationEffect(.degrees(rotations[i]))
-                        .offset(y: lifts[i] + (bob ? -5 : 0))
-                        .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true).delay(Double(i) * 0.2), value: bob)
-                }
-            }
-            .padding(.bottom, 18)
-            Text("Nothing on the calendar").mmFont(.display, 24, tracking: -0.03, lineHeight: 1.1).foregroundStyle(MMColor.ink900)
-            Text("Rolls are better with friends. Pick a day, pick a gym, and bring someone along.")
-                .mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.textSecondary)
-                .padding(.top, 8)
-                .padding(.bottom, 20)
-            MMButton("Plan a training session", size: .lg, iconLeft: "plus", fullWidth: true) { mm.go(.create()) }
-            MMButton("Already trained? Log it", variant: .ghost, size: .sm) { mm.go(.create(past: true)) }
-                .padding(.top, 8)
+        MMEmptyState(artwork: .plan, title: "Make it a\nmat date.",
+                     message: "Pick a day. Bring your people.\nThe rounds will follow.",
+                     actionTitle: "Plan a training session", actionIcon: "plus",
+                     secondaryTitle: "Already trained? Log it", secondaryIcon: "history",
+                     secondaryAction: { mm.go(.create(past: true)) }) {
+            mm.go(.create())
         }
-        .multilineTextAlignment(.center)
-        .padding(.horizontal, 24)
-        .padding(.top, 32)
-        .padding(.bottom, 26)
-        .frame(maxWidth: .infinity)
-        .mmCardSurface(radius: 28)
-        .padding(.horizontal, 16)
-        .padding(.top, 24)
-        .onAppear { bob = true }
     }
 }
 

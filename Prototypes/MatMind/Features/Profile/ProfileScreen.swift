@@ -88,12 +88,15 @@ struct ProfileScreen: View {
                     MMSelect(label: "Stripes", options: ["0", "1", "2", "3", "4"], selection: $stripes)
                         .frame(width: 110)
                 }
-                MMButton("Sign out", variant: .ghost, iconLeft: "log-out") { showSettings = false }
+                MMButton("Sign out", variant: .ghost, iconLeft: "log-out") {
+                    showSettings = false
+                    mm.signOutOfDemo()
+                }
                     .padding(.leading, -10)
             }
         }
         .onChange(of: showSettings) { _, open in
-            guard !open else { return }
+            guard !open, mm.isSignedIn else { return }
             mm.updateMe(name: name.isEmpty ? mm.me.name : name, email: email,
                         belt: BeltRank(rawValue: belt) ?? mm.me.belt, stripes: Int(stripes) ?? mm.me.stripes)
         }

@@ -15,7 +15,6 @@ final class AppModel {
     var toComplete: Session? = SeedData.toComplete
     var notifications = SeedData.notifications
     var drafts: [Session] = []
-    var emptyTraining = false
     let gyms = SeedData.gyms
     let cameraRoll = SeedData.cameraRoll
 
@@ -28,6 +27,8 @@ final class AppModel {
     /// "sessionId + personId" of the attendee row that just joined (plays the join animation).
     var fresh: String?
     var showDemoPanel = false
+    /// Prototype-only entry state; this is not a Google authentication session.
+    var isSignedIn = false
 
     @ObservationIgnored private var timers: [Task<Void, Never>] = []
 
@@ -48,12 +49,28 @@ final class AppModel {
 
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
 
+    /// Invitations and accepted plans only; declined sessions do not fill the schedule.
+    var plannedSessions: [Session] {
+        upcoming.filter { $0.status(of: "me") == .going || $0.status(of: "me") == .invited }
+    }
+
     var unreadCount: Int { notifications.filter(\.unread).count }
 
     /// The Friends tab shows a dot while any live streak still needs this week's session.
     var friendsNeedAttention: Bool { friends.contains { $0.streak > 0 && $0.thisWeek == .pending } }
 
     // MARK: Navigation
+
+    func enterDemo() {
+        setTab(.activity)
+        isSignedIn = true
+    }
+
+    func signOutOfDemo() {
+        reset()
+        showDemoPanel = false
+        isSignedIn = false
+    }
 
     func go(_ route: Route) { path.append(route) }
 
@@ -159,7 +176,6 @@ final class AppModel {
             return
         }
         upcoming.append(session)
-        emptyTraining = false
         replace(.session(id: id))
         showToast(d.invited.isEmpty ? "Session created" : "Invites sent to \(d.invited.count)", .success)
         // The first two invitees accept live, so the plan-together journey feels real.
@@ -239,7 +255,6 @@ final class AppModel {
         toComplete = SeedData.toComplete
         notifications = SeedData.notifications
         drafts = []
-        emptyTraining = false
         path = []
         toast = nil
         highlight = nil
@@ -248,14 +263,16 @@ final class AppModel {
 
     /// Deep links from the web prototype's review panel (`index.html#…`).
     enum Preset: String, CaseIterable, Identifiable {
-        case activity, training, create, complete, friends, qr, profile, notifications
-        case empty, invite, active, broken, scan, post
+        case welcome, activity, training, create, complete, friends, qr, profile, notifications
+        case empty, firstSession, awaitingPhoto, invite, active, broken, scan, post
         var id: String { rawValue }
     }
 
     func run(_ preset: Preset) {
         reset()
+        isSignedIn = preset != .welcome
         switch preset {
+        case .welcome: break
         case .activity: setTab(.activity)
         case .training: setTab(.training)
         case .friends: setTab(.friends)
@@ -266,7 +283,22 @@ final class AppModel {
         case .scan: setTab(.friends); go(.qr(scan: true))
         case .notifications: setTab(.activity); go(.notifications)
         case .post: setTab(.activity); go(.post(id: "p1"))
-        case .empty: emptyTraining = true; setTab(.training)
+        case .empty:
+            upcoming = []
+            toComplete = nil
+            notifications.removeAll { $0.kind == .invite || $0.kind == .joined }
+            setTab(.training)
+        case .firstSession:
+            posts = []
+            upcoming = []
+            friends = []
+            toComplete = nil
+            notifications = []
+            setTab(.activity)
+        case .awaitingPhoto:
+            posts = []
+            toComplete = nil
+            setTab(.activity)
         case .invite: setTab(.training); go(.session(id: "s2"))
         case .broken: setTab(.friends); go(.friend(id: "jamie"))
         case .active: setTab(.friends); go(.friend(id: "sarah"))
