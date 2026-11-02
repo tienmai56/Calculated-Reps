@@ -23,9 +23,11 @@ struct Friendship: Identifiable, Hashable {
     var best: Int
     var together: Int
     var brokeAgo: String?
+    var currentStreak: Int? = nil
 
     /// Consecutive completed weeks ending now (this week counts once it's done).
     var streak: Int {
+        if let currentStreak { return currentStreak }
         var n = 0
         for done in weeks.reversed() {
             if done { n += 1 } else { break }
@@ -106,7 +108,7 @@ struct Session: Identifiable, Hashable {
 }
 
 struct AppNotification: Identifiable, Hashable {
-    enum Kind { case invite, joined, comment, published }
+    enum Kind: String { case invite, joined, comment, published }
 
     let id: String
     var kind: Kind
@@ -146,6 +148,7 @@ struct SessionDraft {
     var privacy: Privacy
     var past: Bool
     var focusItems: [TrainingFocus] = []
+    var startsAt: Date? = nil
 }
 
 struct StreakTick: Identifiable {

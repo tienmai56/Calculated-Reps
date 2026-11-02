@@ -286,3 +286,64 @@ private final class TestAuthService: AuthServicing {
         false
     }
 }
+
+@MainActor
+final class MatMindLiveUITests: XCTestCase {
+    func testInstalledUIStartsWithoutSamplePeopleSessionsOrPosts() {
+        let ui = AppModel(live: true)
+        XCTAssertFalse(ui.isSignedIn)
+        XCTAssertTrue(ui.people.isEmpty)
+        XCTAssertTrue(ui.friends.isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertNil(ui.toComplete)
+        XCTAssertTrue(ui.cameraRoll.isEmpty)
+        ui.run(.active)
+        ui.reset()
+        XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
+    }
+
+    func testLiveSnapshotMapsCurrentUserAndPreservesTagVisibility() throws {
+        let data = Data(#"""
+        {
+          "profiles":[{"id":"owner","name":"Alex","belt":"blue","stripes":2,"gym":"Home gym"},{"id":"friend","name":"Lena","belt":"white","stripes":0,"gym":"Home gym"}],
+          "sessions":[{"id":"session","organizer":"owner","title":"Open mat","starts_at":"2026-10-01T10:00:00Z","venue":"Home gym","status":"planned","join_mode":"friends","note":"Work on passing"}],
+          "participants":[{"session_id":"session","user_id":"owner","rsvp":"going"},{"session_id":"session","user_id":"friend","rsvp":"invited"}],
+          "posts":[{"id":"post","author":"owner","title":"Rounds","venue":"Home gym","occurred_at":"2026-10-01T10:00:00Z","caption":"Good rounds"}],
+          "tags":[{"post_id":"post","user_id":"owner","visible":true},{"post_id":"post","user_id":"friend","visible":false}],
+          "friendships":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]
+        }
+        """#.utf8)
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: data)
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        XCTAssertTrue(ui.isSignedIn)
+        XCTAssertEqual(ui.me.id, "me")
+        XCTAssertEqual(ui.me.name, "Alex")
+        XCTAssertEqual(ui.people["friend"]?.name, "Lena")
+        XCTAssertEqual(ui.upcoming.first?.organizer, "me")
+        XCTAssertEqual(ui.upcoming.first?.status(of: "me"), .going)
+        XCTAssertEqual(ui.upcoming.first?.status(of: "friend"), .invited)
+        XCTAssertEqual(ui.posts.first?.participants, ["me"])
+        XCTAssertEqual(ui.toComplete?.id, "session")
+        model.userID = nil
+        runtime.sync()
+        XCTAssertFalse(ui.isSignedIn)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertTrue(ui.people.isEmpty)
+    }
+
+    func testFocusOutlineRoundTripsWithoutLosingPlainNotes() {
+        let focus = [TrainingFocus(title: "Guard passing", children: [TrainingFocus(title: "Control the hips")])]
+        let encoded = SessionNoteCodec.encode(note: "Bring a gi", focus: focus)
+        let decoded = SessionNoteCodec.decode(encoded)
+        XCTAssertEqual(decoded.note, "Bring a gi")
+        XCTAssertEqual(decoded.focus, focus)
+        XCTAssertEqual(SessionNoteCodec.decode("Existing plain note").note, "Existing plain note")
+        XCTAssertTrue(SessionNoteCodec.decode("Existing plain note").focus.isEmpty)
+        XCTAssertEqual(SessionNoteCodec.decode("matmind-focus-v1:broken").note, "matmind-focus-v1:broken")
+    }
+}

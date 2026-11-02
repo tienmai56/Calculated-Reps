@@ -22,7 +22,7 @@ struct CloudCredential: Codable {
     var user: CloudUser
 }
 struct CloudUser: Codable { var id: String }
-struct SocialRow: Codable, Identifiable {
+struct SocialRow: Codable, Identifiable, Equatable {
     var values: [String: ArchiveValue]
     var id: String { text("id").isEmpty ? [text("session_id"),text("post_id"),text("user_id"),text("friendship_id")].joined(separator:":") : text("id") }
     init(from decoder: Decoder) throws { values = try decoder.singleValueContainer().decode([String: ArchiveValue].self) }
@@ -35,7 +35,7 @@ struct SocialRow: Codable, Identifiable {
         return f.date(from: text(key)) ?? ISO8601DateFormatter().date(from: text(key))
     }
 }
-struct SocialSnapshot: Codable {
+struct SocialSnapshot: Codable, Equatable {
     var server_time: String?
     var profiles: [SocialRow] = [], friendships: [SocialRow] = [], sessions: [SocialRow] = []
     var participants: [SocialRow] = [], posts: [SocialRow] = [], tags: [SocialRow] = []

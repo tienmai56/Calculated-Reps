@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreImage.CIFilterBuiltins
 
 /// Add friends: show my code, or scan someone's. No requests, no approvals.
 struct QRScreen: View {
@@ -6,6 +7,8 @@ struct QRScreen: View {
     @State private var tab: String
     @State private var found: String? = nil
     @State private var sweep = false
+    @State private var liveCode: String?
+    @State private var invitation = ""
 
     init(startOnScan: Bool = false) {
         _tab = State(initialValue: startOnScan ? "scan" : "code")
@@ -18,6 +21,10 @@ struct QRScreen: View {
             screen(width: viewport.size.width)
         }
         .task(id: tab) {
+            if let runtime = mm.runtime {
+                if tab == "code" { liveCode = await runtime.friendCode() }
+                return
+            }
             guard tab == "scan", found == nil else { return }
             try? await Task.sleep(for: .seconds(2.2))
             guard !Task.isCancelled, tab == "scan" else { return }
@@ -59,7 +66,17 @@ struct QRScreen: View {
                 MMBelt(rank: me.belt, stripes: me.stripes, size: .xs, width: 120)
                     .padding(.top, 10)
                     .padding(.bottom, 18)
-                QRGrid(size: 196)
+                Group {
+                    if mm.isLive {
+                        if let liveCode { LiveQRImage(value: liveCode) }
+                        else {
+                            MMButton("Load my code", variant: .secondary) {
+                                Task { liveCode = await mm.runtime?.friendCode() }
+                            }
+                        }
+                    } else { QRGrid(size: 196) }
+                }
+                    .frame(width: 196, height: 196)
                     .padding(18)
                     .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(.white))
                     .shadow(color: Color(mmHex: 0x781E00).opacity(0.3), radius: 15, x: 0, y: 10)
@@ -88,6 +105,7 @@ struct QRScreen: View {
     }
 
     private var scanView: some View {
+        VStack(spacing: 12) {
         Group {
             if let found {
                 ConnectedView(friendID: found) {
@@ -103,6 +121,23 @@ struct QRScreen: View {
         .padding(.horizontal, 16)
         .padding(.top, 14)
         .padding(.bottom, 16)
+        if mm.isLive && found == nil {
+            MMTextField(label: "Or paste a friend's invitation link", text: $invitation)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+            MMButton("Open invitation", variant: .secondary, fullWidth: true) { connect(invitation) }
+                .disabled(invitation.isEmpty || mm.busy)
+        }
+        }
+        .padding(.bottom, 16)
+    }
+
+    private func connect(_ value: String) {
+        guard let runtime = mm.runtime else { return }
+        Task {
+            if let id = await runtime.connect(value) {
+                withAnimation(MMMotion.easeOut(0.25)) { found = id }
+            }
+        }
     }
 
     private var cameraPreview: some View {
@@ -139,9 +174,13 @@ struct QRScreen: View {
         .frame(maxWidth: .infinity)
         // A background cannot enlarge the layout to the photo's aspect ratio.
         .background {
-            Image("team-lineup").resizable().scaledToFill()
-                .brightness(-0.3)
-                .saturation(0.8)
+            if let runtime = mm.runtime {
+                runtime.scannerView { value in connect(value) }
+            } else {
+                Image("team-lineup").resizable().scaledToFill()
+                    .brightness(-0.3)
+                    .saturation(0.8)
+            }
         }
         .clipped()
     }
@@ -279,5 +318,18 @@ private struct ConnectedView: View {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { joined = true }
             withAnimation(MMMotion.bounce(0.5).delay(0.55)) { textShown = true }
         }
+    }
+}
+
+private struct LiveQRImage: View {
+    let value: String
+    private var image: UIImage? {
+        let filter = CIFilter.qrCodeGenerator(); filter.message = Data(value.utf8)
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)),
+              let cg = CIContext().createCGImage(output, from: output.extent) else { return nil }
+        return UIImage(cgImage: cg)
+    }
+    var body: some View {
+        if let image { Image(uiImage: image).interpolation(.none).resizable().scaledToFit().accessibilityLabel("Your Mat Mind friend code") }
     }
 }

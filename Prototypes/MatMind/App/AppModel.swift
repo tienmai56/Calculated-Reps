@@ -1,11 +1,49 @@
 import Observation
 import SwiftUI
 
+/// Live services are supplied by the installed app; the preview keeps its demo adapter.
+@MainActor
+protocol AppRuntime: AnyObject {
+    var busy: Bool { get }
+    func authenticate() async
+    func signOut() async
+    func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
+    func create(_ draft: SessionDraft) async -> String?
+    func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
+    func friendCode() async -> String?
+    func connect(_ value: String) async -> String?
+    func copySessionLink(_ sessionID: String) async
+    func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
+    func scannerView(found: @escaping (String) -> Void) -> AnyView
+    func exportView() -> AnyView
+}
+
 /// All prototype state and actions, ported from `useApp()` in `ui_kits/app/App.jsx`.
 /// Everything is in memory; "Reset demo" restores the seed.
 @MainActor
 @Observable
 final class AppModel {
+    var runtime: (any AppRuntime)?
+    let isLive: Bool
+    var busy: Bool { runtime?.busy ?? false }
+
+    init(live: Bool = false) {
+        isLive = live
+        if live { clearLiveData() }
+    }
+
+    func clearLiveData() {
+        me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
+        gyms = []; cameraRoll = []
+        people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
+        notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
+    }
+
+    private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
+        guard let runtime else { return }
+        Task { if await runtime.perform(operation, payload) { success?() } }
+    }
+
     // MARK: Data
     var me = SeedData.me
     var people = SeedData.people
@@ -15,8 +53,8 @@ final class AppModel {
     var toComplete: Session? = SeedData.toComplete
     var notifications = SeedData.notifications
     var drafts: [Session] = []
-    let gyms = SeedData.gyms
-    let cameraRoll = SeedData.cameraRoll
+    var gyms = SeedData.gyms
+    var cameraRoll = SeedData.cameraRoll
 
     // MARK: Navigation & feedback
     var tab: AppTab = .activity
@@ -51,7 +89,7 @@ final class AppModel {
 
     /// Invitations and accepted plans only; declined sessions do not fill the schedule.
     var plannedSessions: [Session] {
-        upcoming.filter { $0.status(of: "me") == .going || $0.status(of: "me") == .invited }
+        upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
     }
 
     var unreadCount: Int { notifications.filter(\.unread).count }
@@ -62,11 +100,14 @@ final class AppModel {
     // MARK: Navigation
 
     func enterDemo() {
+        if let runtime { Task { await runtime.authenticate() }; return }
+        guard !isLive else { return }
         setTab(.activity)
         isSignedIn = true
     }
 
     func signOutOfDemo() {
+        if let runtime { Task { await runtime.signOut() }; return }
         reset()
         showDemoPanel = false
         isSignedIn = false
@@ -84,6 +125,11 @@ final class AppModel {
     func setTab(_ newTab: AppTab) {
         path = []
         tab = newTab
+    }
+
+    func copySessionLink(_ id: String) {
+        if let runtime { Task { await runtime.copySessionLink(id) } }
+        else { showToast("Invite link copied", .success) }
     }
 
     // MARK: Feedback
@@ -116,33 +162,39 @@ final class AppModel {
     }
 
     func like(_ id: String) {
+        if isLive { send("set_like", ["post_id": id, "liked": !(post(id)?.likes.contains("me") ?? false)]); return }
         updatePost(id) { p in
             if p.likes.contains("me") { p.likes.removeAll { $0 == "me" } } else { p.likes.insert("me", at: 0) }
         }
     }
 
     func comment(_ id: String, _ text: String) {
+        if isLive { send("add_comment", ["post_id": id, "body": text]); return }
         updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true)) }
     }
 
     func editCaption(_ id: String, _ caption: String) {
+        if isLive { send("edit_post", ["post_id": id, "caption": caption]); return }
         updatePost(id) { $0.caption = caption }
         showToast("Caption updated", .success)
     }
 
     func deletePost(_ id: String) {
+        if isLive { send("delete_post", ["post_id": id], success: { self.back() }); return }
         posts.removeAll { $0.id == id }
         back()
         showToast("Post deleted from every profile")
     }
 
     func removeMe(from id: String) {
+        if isLive { send("remove_tag", ["post_id": id], success: { self.back() }); return }
         updatePost(id) { $0.participants.removeAll { $0 == "me" } }
         back()
         showToast("You're off that post. It's gone from your profile.")
     }
 
     func rsvp(_ sessionID: String, _ status: RSVP) {
+        if isLive { send("set_rsvp", ["session_id": sessionID, "rsvp": status.rawValue]); return }
         updateSession(sessionID) { $0.set("me", status) }
         for i in notifications.indices where notifications[i].session == sessionID { notifications[i].unread = false }
         if status == .going {
@@ -154,17 +206,28 @@ final class AppModel {
     }
 
     func removeParticipant(_ sessionID: String, _ personID: String) {
+        if isLive { send("manage_participant", ["session_id": sessionID, "user_id": personID, "remove": true]); return }
         updateSession(sessionID) { $0.people.removeAll { $0.id == personID } }
         showToast("\(person(personID).firstName) removed")
     }
 
     func addParticipants(_ sessionID: String, _ ids: [String]) {
+        if let runtime {
+            Task { for id in ids { guard await runtime.perform("manage_participant", ["session_id": sessionID, "user_id": id, "remove": false]) else { return } } }
+            return
+        }
+        guard !isLive else { return }
         updateSession(sessionID) { s in ids.forEach { s.set($0, .going) } }
         if let first = ids.first { fresh = sessionID + first }
         showToast("Added \(ids.count) to the session", .success)
     }
 
     func createSession(_ d: SessionDraft) {
+        if let runtime {
+            Task { if let id = await runtime.create(d) { replace(d.past ? .complete(id: id) : .session(id: id)) } }
+            return
+        }
+        guard !isLive else { return }
         guard TrainingFocusTree.isValid(d.focusItems) else {
             showToast("Name each focus, or remove the blank one.")
             return
@@ -198,6 +261,10 @@ final class AppModel {
 
     @discardableResult
     func updateSessionFocus(_ sessionID: String, _ items: [TrainingFocus]) -> Bool {
+        if let runtime {
+            Task { _ = await runtime.saveFocus(sessionID, items) }
+            return false
+        }
         guard let session = findSession(sessionID), session.organizer == "me", TrainingFocusTree.isValid(items) else { return false }
         let normalized = TrainingFocusTree.normalized(items)
         if let i = upcoming.firstIndex(where: { $0.id == sessionID }) {
@@ -214,6 +281,7 @@ final class AppModel {
     }
 
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
+        if isLive { return nil }
         guard let s = findSession(sessionID) else { return nil }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
@@ -231,6 +299,7 @@ final class AppModel {
 
     /// After publishing: jump to the feed, highlight the post, and let friends react.
     func showPost(_ id: String) {
+        if isLive { path = []; tab = .activity; highlight = id; return }
         path = []
         tab = .activity
         highlight = id
@@ -249,15 +318,21 @@ final class AppModel {
     }
 
     func addFriend(_ id: String) {
+        if isLive { return }
         guard !friends.contains(where: { $0.id == id }) else { return }
         friends.insert(Friendship(id: id, weeks: Array(repeating: false, count: 9), thisWeek: .pending, best: 0, together: 0), at: 0)
     }
 
     func readAll() {
+        if isLive { send("read_notifications", [:]); return }
         for i in notifications.indices { notifications[i].unread = false }
     }
 
     func updateMe(name: String, email: String, belt: BeltRank, stripes: Int) {
+        if isLive {
+            send("save_profile", ["name": name, "belt": belt.rawValue, "stripes": stripes, "gym": me.gym, "timezone": TimeZone.current.identifier])
+            return
+        }
         me.name = name
         me.email = email
         me.belt = belt
@@ -267,6 +342,7 @@ final class AppModel {
     // MARK: Demo
 
     func reset() {
+        if isLive { return }
         timers.forEach { $0.cancel() }
         timers = []
         me = SeedData.me
@@ -291,6 +367,7 @@ final class AppModel {
     }
 
     func run(_ preset: Preset) {
+        if isLive { return }
         reset()
         isSignedIn = preset != .welcome
         switch preset {

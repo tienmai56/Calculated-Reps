@@ -56,7 +56,7 @@ struct SocialFriendCodeScreen: View {
         return UIImage(cgImage:cg)
     }
 }
-private struct PartnerScanner: UIViewControllerRepresentable {
+struct PartnerScanner: UIViewControllerRepresentable {
     let found: (String)->Void
     func makeCoordinator()->Coordinator { Coordinator(found:found) }
     func makeUIViewController(context:Context)->DataScannerViewController {
@@ -146,5 +146,27 @@ struct SocialNotificationsScreen: View {
             if row.text("kind")=="invite" || row.text("kind")=="joined" { NavigationLink("Open session") { SocialSessionScreen(id:row.text("entity_id")) } }
             else { NavigationLink("Open memory") { SocialPostScreen(postID:row.text("entity_id")) } }
         }.navigationTitle("Notifications").task { await app.perform("read_notifications",[:]) }
+    }
+}
+
+/// Permission and availability belong to the live scanner, not the shared screen layout.
+struct LiveScannerView: View {
+    let found: (String) -> Void
+    @State private var allowed = false
+    @State private var checked = false
+    var body: some View {
+        Group {
+            if allowed { PartnerScanner(found: found) }
+            else if checked {
+                Text("Camera scanning is unavailable. Paste the invitation link below.")
+                    .mmFont(.body, 15).foregroundStyle(.white).multilineTextAlignment(.center).padding(32)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity).background(MMColor.ink900)
+            } else { ProgressView().tint(.white) }
+        }
+        .task {
+            let permission = await AVCaptureDevice.requestAccess(for: .video)
+            allowed = permission && DataScannerViewController.isSupported && DataScannerViewController.isAvailable
+            checked = true
+        }
     }
 }

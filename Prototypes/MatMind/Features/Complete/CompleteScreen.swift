@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 /// The composer: posts only come from completed sessions.
 /// Photo → caption → who trained → mark completed → publish.
@@ -6,6 +8,10 @@ struct CompleteScreen: View {
     @Environment(AppModel.self) private var mm
     let id: String
 
+    @State private var library = false
+    @State private var camera = false
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var publishing = false
     @State private var removed: Set<String> = []
     @State private var photo: String? = nil
     @State private var showRoll = false
@@ -40,7 +46,7 @@ struct CompleteScreen: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                                 .padding(.leading, 12)
                                 .padding(.bottom, 14)
-                            MMIconButton("repeat-2", variant: .overlay, size: 40, label: "Change photo") { showRoll = true }
+                            MMIconButton("repeat-2", variant: .overlay, size: 40, label: "Change photo") { choosePhoto() }
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                                 .padding(12)
                         }
@@ -83,11 +89,26 @@ struct CompleteScreen: View {
             .padding(.top, 4)
         } footer: {
             MMButton(done ? "Publish to Activity" : "Mark as completed to publish", size: .lg, iconLeft: "send", fullWidth: true) {
-                if let r = mm.publish(s.id, photo: photo, caption: caption, people: people) {
+                if let runtime = mm.runtime {
+                    publishing = true
+                    Task {
+                        let published = await runtime.publish(s.id, photo: photo, caption: caption, people: people)
+                        publishing = false
+                        if let published { withAnimation(MMMotion.easeOut(0.3)) { result = published } }
+                    }
+                } else if let r = mm.publish(s.id, photo: photo, caption: caption, people: people) {
                     withAnimation(MMMotion.easeOut(0.3)) { result = r }
                 }
             }
-            .disabled(!done)
+            .disabled(!done || publishing || mm.busy)
+        }
+        .photosPicker(isPresented: $library, selection: $pickerItem, matching: .images)
+        .task(id: pickerItem) {
+            guard let pickerItem, let data = try? await pickerItem.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
+            storePhoto(image)
+        }
+        .sheet(isPresented: $camera) {
+            MMTrainingCamera { image in if let image { storePhoto(image) }; camera = false }
         }
         .mmSheet(isPresented: $showRoll, title: "Recent photos") {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
@@ -112,13 +133,31 @@ struct CompleteScreen: View {
         }
     }
 
+    private func choosePhoto() {
+        if mm.isLive { library = true } else { showRoll = true }
+    }
+
+    private func storePhoto(_ image: UIImage) {
+        let scale = min(1, 1600 / max(image.size.width, image.size.height))
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let normalized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+        guard let data = normalized.jpegData(compressionQuality: 0.8) else { return }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("training-\(UUID().uuidString).jpg")
+        do { try data.write(to: url, options: .atomic); photo = url.path }
+        catch { mm.showToast("Could not save that photo. Please try again.") }
+    }
+
     private var emptyPhoto: some View {
         VStack(spacing: 14) {
             Text("Grab the post-training photo").mmFont(.display, 22, tracking: -0.03, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
             Text("Sweaty, smiling, slightly crooked. That's the one.").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
             HStack(spacing: 8) {
-                MMButton("Take photo", iconLeft: "camera") { showRoll = true }
-                MMButton("Upload", variant: .secondary, iconLeft: "image-plus") { showRoll = true }
+                MMButton("Take photo", iconLeft: "camera") {
+                    if mm.isLive && UIImagePickerController.isSourceTypeAvailable(.camera) { camera = true }
+                    else { choosePhoto() }
+                }
+                MMButton("Upload", variant: .secondary, iconLeft: "image-plus") { choosePhoto() }
             }
             .padding(.top, 4)
         }
@@ -197,7 +236,7 @@ struct CelebrateView: View {
                     MMColor.paper3
                         .frame(height: 200)
                         .overlay {
-                            if let photo = post.photo { Image(photo).resizable().scaledToFill() }
+                            if let photo = post.photo { MMPhoto(source: photo).scaledToFill() }
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                     HStack {
@@ -291,6 +330,23 @@ private struct StreakTickRow: View {
                 value = tick.to
                 weekDone = true
             }
+        }
+    }
+}
+
+private struct MMTrainingCamera: UIViewControllerRepresentable {
+    let completed: (UIImage?) -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(completed: completed) }
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let camera = UIImagePickerController(); camera.sourceType = .camera; camera.delegate = context.coordinator; return camera
+    }
+    func updateUIViewController(_ controller: UIImagePickerController, context: Context) {}
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let completed: (UIImage?) -> Void
+        init(completed: @escaping (UIImage?) -> Void) { self.completed = completed }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { completed(nil) }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            completed(info[.originalImage] as? UIImage)
         }
     }
 }

@@ -8,7 +8,7 @@ struct ActivityScreen: View {
         MMScreen(tabPadding: true) {
             HStack {
                 MMWordmark(size: 32)
-                    .onLongPressGesture { mm.showDemoPanel = true }
+                    .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint("Long press for prototype tools")
                 Spacer()
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
@@ -27,6 +27,11 @@ struct ActivityScreen: View {
                 StreakNudges()
                 ForEach(mm.posts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
+                }
+                if mm.isLive {
+                    MMButton("Load older memories", variant: .ghost) {
+                        Task { _ = await mm.runtime?.perform("load_more_feed", [:]) }
+                    }.padding(.horizontal, 16)
                 }
                 Text("That's everything from your crew this week.\nGo make a new memory.")
                     .mmFont(.body, 13, .medium, lineHeight: 1.45)
@@ -137,7 +142,7 @@ struct PostCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     mmRich([
                         .body(post.organizer == "me" ? "You" : org.name, 15, .bold, color: MMColor.ink900),
-                        .body(" trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
+                        .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
                     ])
                     .lineSpacing(1)
                     Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
@@ -283,10 +288,12 @@ struct PostCard: View {
     private func sendComment() {
         let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        withAnimation(MMMotion.easeOut(MMMotion.base)) {
-            mm.comment(post.id, trimmed)
+        if let runtime = mm.runtime {
+            Task { if await runtime.perform("add_comment", ["post_id": post.id, "body": trimmed]) { commentText = "" } }
+        } else {
+            withAnimation(MMMotion.easeOut(MMMotion.base)) { mm.comment(post.id, trimmed) }
+            commentText = ""
         }
-        commentText = ""
     }
 
     private func doubleTap() {
@@ -321,7 +328,12 @@ struct PostDetailScreen: View {
                     if openMenu { showMenu = true }
                 }
         } else {
-            MMColor.bgApp.ignoresSafeArea().toolbar(.hidden, for: .navigationBar)
+            MMScreen {
+                MMHeader(title: "Memory", leading: { MMIconButton("chevron-left", label: "Back") { mm.back() } })
+            } content: {
+                Text("Loading memory…").mmFont(.body, 15).padding(24)
+            }
+            .task { if mm.isLive { _ = await mm.runtime?.perform("hydrate_post", ["post_id": id]) } }
         }
     }
 
@@ -353,8 +365,9 @@ struct PostDetailScreen: View {
                             MMTextField(text: $caption, multiline: true, rows: 3)
                             HStack(spacing: 8) {
                                 MMButton("Save", size: .sm) {
-                                    mm.editCaption(post.id, caption)
-                                    editing = false
+                                    if let runtime = mm.runtime {
+                                        Task { if await runtime.perform("edit_post", ["post_id": post.id, "caption": caption]) { editing = false } }
+                                    } else { mm.editCaption(post.id, caption); editing = false }
                                 }
                                 MMButton("Cancel", variant: .ghost, size: .sm) { editing = false }
                             }
@@ -389,17 +402,26 @@ struct PostDetailScreen: View {
                     }
                     HStack(spacing: 4) {
                         MMIconButton("heart", active: post.likes.contains("me"), filledWhenActive: true, label: "Like") { mm.like(post.id) }
+                        if post.likes.isEmpty && post.extraLikes == 0 {
+                            Text("Be the first to like this").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
+                        } else {
                         mmRich([
                             .body("Liked by ", 14, .semibold, color: MMColor.textSecondary),
                             .body(mmNames(post.likes.map { $0 == "me" ? "You" : mm.person($0).name }), 14, .bold, color: MMColor.ink900),
-                            .body(" and \(post.extraLikes) others", 14, .semibold, color: MMColor.textSecondary),
+                            .body(post.extraLikes > 0 ? " and \(post.extraLikes) others" : "", 14, .semibold, color: MMColor.textSecondary),
                         ])
+                        }
                     }
                     .padding(.top, 14)
                     .padding(.leading, -6)
                     VStack(alignment: .leading, spacing: 14) {
                         ForEach(post.comments) { c in
                             CommentRow(comment: c)
+                        }
+                        if mm.isLive && !post.comments.isEmpty {
+                            MMButton("Load older comments", variant: .ghost, size: .sm) {
+                                Task { _ = await mm.runtime?.perform("load_more_comments", ["post_id": post.id]) }
+                            }
                         }
                         if post.comments.isEmpty {
                             Text("No comments yet. Be the first.").mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
@@ -423,6 +445,14 @@ struct PostDetailScreen: View {
                  title: isOrganizer ? "Your post" : "Post options",
                  description: isOrganizer ? "Only you, the organizer, can edit or delete this post." : "\(organizer.name) organized this session.") {
             VStack(spacing: 8) {
+                if mm.isLive {
+                    MMButton("Report post", variant: .ghost, iconLeft: "flag", fullWidth: true) {
+                        showMenu = false
+                        Task {
+                            if await mm.runtime?.perform("report_post", ["post_id": post.id, "reason": "Reported from post options"]) == true { mm.showToast("Report sent") }
+                        }
+                    }
+                }
                 if isOrganizer {
                     MMButton("Edit caption", variant: .secondary, iconLeft: "pencil", fullWidth: true) {
                         showMenu = false
@@ -459,8 +489,12 @@ struct PostDetailScreen: View {
     private func send(_ post: Post) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        withAnimation(MMMotion.easeOut(MMMotion.slow)) { mm.comment(post.id, trimmed) }
-        text = ""
+        if let runtime = mm.runtime {
+            Task { if await runtime.perform("add_comment", ["post_id": post.id, "body": trimmed]) { text = "" } }
+        } else {
+            withAnimation(MMMotion.easeOut(MMMotion.slow)) { mm.comment(post.id, trimmed) }
+            text = ""
+        }
     }
 }
 

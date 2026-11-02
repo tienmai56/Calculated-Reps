@@ -232,7 +232,7 @@ struct MMPhotoTile<Overlay: View>: View {
             .frame(height: height)
             .overlay {
                 if let photo {
-                    Image(photo).resizable().scaledToFill()
+                    MMPhoto(source: photo).scaledToFill()
                 }
             }
             .overlay { overlay }
@@ -270,4 +270,18 @@ func mmNames(_ list: [String], max: Int = 2) -> String {
     let firsts = list.map { $0.split(separator: " ").first.map(String.init) ?? $0 }
     if firsts.count <= max { return firsts.joined(separator: " & ") }
     return firsts.prefix(max).joined(separator: ", ") + " +\(firsts.count - max)"
+}
+
+/// Asset names are used in previews; live photos are downloaded to private local files.
+struct MMPhoto: View {
+    let source: String
+    var body: some View {
+        Group {
+            if source.hasPrefix("/"), let image = UIImage(contentsOfFile: source) {
+                Image(uiImage: image).resizable()
+            } else {
+                Image(source).resizable()
+            }
+        }
+    }
 }
