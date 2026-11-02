@@ -238,12 +238,26 @@ struct SessionDetailScreen: View {
             .padding(.horizontal, 16)
         } footer: {
             if isOrganizer {
-                HStack(spacing: 8) {
-                    MMButton("Add people", variant: .secondary, iconLeft: "user-plus", fullWidth: true) {
-                        picked = []
-                        showAdd = true
+                VStack(spacing: 10) {
+                    let photoReady = mm.toComplete?.id == s.id
+                    MMButton("Take a photo", variant: .secondary, size: .lg, iconLeft: "camera", fullWidth: true) {
+                        mm.go(.complete(id: s.id))
                     }
-                    MMButton("Copy link", variant: .soft, iconLeft: "link", fullWidth: true) { mm.copySessionLink(s.id) }
+                    .disabled(!photoReady)
+                    .accessibilityHint(photoReady ? "Opens the session photo composer" : "Available after your session")
+                    if !photoReady {
+                        Text("Available after your session")
+                            .mmFont(.body, 12)
+                            .foregroundStyle(MMColor.textTertiary)
+                            .multilineTextAlignment(.center)
+                    }
+                    HStack(spacing: 8) {
+                        MMButton("Add people", variant: .secondary, iconLeft: "user-plus", fullWidth: true) {
+                            picked = []
+                            showAdd = true
+                        }
+                        MMButton("Copy link", variant: .soft, iconLeft: "link", fullWidth: true) { mm.copySessionLink(s.id) }
+                    }
                 }
             } else if mine == .invited {
                 HStack(spacing: 8) {
