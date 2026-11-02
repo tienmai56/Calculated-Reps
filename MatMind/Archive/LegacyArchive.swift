@@ -261,7 +261,7 @@ actor LegacyArchiveRepository {
                 try fm.copyItem(at: checked.directory.appendingPathComponent("backup/" + a.path), to: dest)
             }
             let readme = """
-            Grip Gorillas previous training data — export format 1
+            Mat Monkeys previous training data — export format 1
 
             training-v1.json contains the seven record collections, original identifiers,
             relationship references and source date strings. Sessions are in the sessions

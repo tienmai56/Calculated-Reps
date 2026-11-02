@@ -249,7 +249,7 @@ extension MMPhotoTile where Overlay == EmptyView {
 
 // MARK: - Wordmark
 
-/// Official Silverback artwork with the lowercase Grip Gorillas wordmark.
+/// Official Silverback artwork with the lowercase Mat Monkeys wordmark.
 struct MMWordmark: View {
     var size: CGFloat = 32
 
@@ -262,14 +262,14 @@ struct MMWordmark: View {
                 .frame(width: size, height: size)
                 .accessibilityHidden(true)
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("grip gorillas").lineLimit(1).minimumScaleFactor(0.75)
+                Text("mat monkeys").lineLimit(1).minimumScaleFactor(0.75)
                 Text(".").foregroundStyle(MMColor.accent)
             }
         }
         .mmFont(.display, size, tracking: -0.04, lineHeight: 1)
         .foregroundStyle(MMColor.ink900)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Grip Gorillas")
+        .accessibilityLabel("Mat Monkeys")
     }
 }
 

@@ -189,11 +189,11 @@ struct AddTaskSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
                     Image(systemName: "checklist")
-                        .font(.gripGorillasBody(size: 16))
+                        .font(.matMonkeysBody(size: 16))
                         .foregroundColor(.gray)
                         .frame(width: 24)
                     TextField("Enter task name", text: $taskName)
-                        .font(.gripGorillasBody(size: 16))
+                        .font(.matMonkeysBody(size: 16))
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)

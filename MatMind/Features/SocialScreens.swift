@@ -11,7 +11,7 @@ struct SocialActivityScreen: View {
                 if app.moreFeed && !app.snapshot.posts.isEmpty { Button("Load more") { Task { await app.loadMoreFeed() } }.disabled(app.busy) }
             }.padding()
         }
-        .background(MMColor.bgApp).navigationTitle("grip gorillas.")
+        .background(MMColor.bgApp).navigationTitle("mat monkeys.")
         .toolbar { NavigationLink { SocialNotificationsScreen() } label: { Image(systemName:"bell") }.accessibilityLabel("Notifications") }
         .refreshable { await app.refresh() }
     }

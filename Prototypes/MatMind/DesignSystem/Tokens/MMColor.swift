@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Grip Gorillas color tokens. Values mirror `.claude/design-system-spec.json` and
+// Mat Monkeys color tokens. Values mirror `.claude/design-system-spec.json` and
 // `design-system/tokens/colors.css`. UI code should use the semantic aliases;
 // the base ramps exist to build them.
 

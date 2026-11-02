@@ -64,7 +64,7 @@ struct GoalListView: View {
                 if store.activeGoals.count > 1 {
                     HStack(spacing: 5) {
                         Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
-                        Text("tap a goal to expand its tasks").font(.gripGorillasBody(size: 14))
+                        Text("tap a goal to expand its tasks").font(.matMonkeysBody(size: 14))
                     }
                     .foregroundColor(AppColors.tertiaryLabel)
                     .frame(maxWidth: .infinity)
@@ -196,7 +196,7 @@ struct GoalCard: View {
                     .foregroundColor(AppColors.label)
                 if isExpanded {
                     Text("\(tasks.count) \(tasks.count == 1 ? "task" : "tasks")")
-                        .font(.gripGorillasBody(size: 14))
+                        .font(.matMonkeysBody(size: 14))
                         .foregroundColor(AppColors.secondaryLabel)
                 } else {
                     HStack(spacing: 10) {
@@ -238,7 +238,7 @@ struct GoalCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Trained this week")
-                    .font(.gripGorillasBody(size: 15))
+                    .font(.matMonkeysBody(size: 15))
                     .foregroundColor(AppColors.secondaryLabel)
                 Spacer()
                 Text("\(trained) / \(tasks.count)")
@@ -306,12 +306,12 @@ struct GoalCard: View {
         VStack(alignment: .leading, spacing: 12) {
             if let notes = task.notes.nilIfBlank {
                 Text(notes)
-                    .font(.gripGorillasBody(size: 16))
+                    .font(.matMonkeysBody(size: 16))
                     .foregroundColor(AppColors.label)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("No notes yet")
-                    .font(.gripGorillasBody(size: 15))
+                    .font(.matMonkeysBody(size: 15))
                     .foregroundColor(AppColors.tertiaryLabel)
             }
             if !task.imageFileNames.isEmpty {

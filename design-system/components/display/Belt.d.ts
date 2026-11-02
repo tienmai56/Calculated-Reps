@@ -1,5 +1,5 @@
 /**
- * Belt rank bar — the Grip Gorillas signature graphic. Rank color, black (or red) rank bar, 0–4 tape stripes.
+ * Belt rank bar — the Mat Monkeys signature graphic. Rank color, black (or red) rank bar, 0–4 tape stripes.
  */
 export interface BeltProps {
   rank?: 'white' | 'blue' | 'purple' | 'brown' | 'black' | 'coral' | 'red' | 'grey' | 'yellow' | 'orange' | 'green';
