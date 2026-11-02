@@ -9,55 +9,60 @@ struct TrainingScreen: View {
         let list = mm.plannedSessions
         let invites = list.filter { $0.status(of: "me") == .invited }
         let rest = list.filter { $0.status(of: "me") != .invited && $0.status(of: "me") != .declined }
-        MMScreen(tabPadding: true) {
-            VStack(spacing: 0) {
-                MMHeader(title: "Training", large: true, trailing: {
-                    if !list.isEmpty {
-                        MMIconButton("calendar-plus", variant: .filled, label: "Plan a session") { mm.go(.create()) }
-                    }
-                })
-                MMTabs(["Upcoming", "Past"], selection: $tab)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-            }
-        } content: {
-            if tab == "Past" {
-                pastList
-            } else {
-                if !invites.isEmpty {
-                    MMEyebrow("Invites")
-                    VStack(spacing: 12) {
-                        ForEach(invites) { s in
-                            VStack(spacing: 8) {
-                                SessionTicket(session: s) { mm.go(.session(id: s.id)) }
-                                HStack(spacing: 8) {
-                                    MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(s.id, .declined) }
-                                    MMButton("Join", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
+        let showsPinnedPlan = tab == "Upcoming" && !list.isEmpty
+        GeometryReader { viewport in
+            MMScreen(tabPadding: !showsPinnedPlan) {
+                VStack(spacing: 0) {
+                    MMHeader(title: "Training", large: true, trailing: {
+                        if !list.isEmpty {
+                            MMIconButton("calendar-plus", variant: .filled, label: "Plan a session") { mm.go(.create()) }
+                        }
+                    })
+                    MMTabs(["Upcoming", "Past"], selection: $tab)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+                }
+            } content: {
+                if tab == "Past" {
+                    pastList
+                } else {
+                    if !invites.isEmpty {
+                        MMEyebrow("Invites")
+                        VStack(spacing: 12) {
+                            ForEach(invites) { s in
+                                VStack(spacing: 8) {
+                                    SessionTicket(session: s) { mm.go(.session(id: s.id)) }
+                                    HStack(spacing: 8) {
+                                        MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(s.id, .declined) }
+                                        MMButton("Join", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
+                                    }
                                 }
                             }
                         }
-                    }
-                    .padding(.horizontal, 16)
-                }
-                if !rest.isEmpty {
-                    MMEyebrow("Coming up")
-                    VStack(spacing: 12) {
-                        ForEach(rest) { s in
-                            SessionTicket(session: s) { mm.go(.session(id: s.id)) }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-                if list.isEmpty {
-                    EmptyTraining()
-                } else if !list.isEmpty {
-                    MMButton("Plan a training session", size: .lg, iconLeft: "plus", fullWidth: true) { mm.go(.create()) }
                         .padding(.horizontal, 16)
-                        .padding(.top, 20)
+                    }
+                    if !rest.isEmpty {
+                        MMEyebrow("Coming up")
+                        VStack(spacing: 12) {
+                            ForEach(rest) { s in
+                                SessionTicket(session: s) { mm.go(.session(id: s.id)) }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    if list.isEmpty {
+                        EmptyTraining()
+                    }
+                }
+            } footer: {
+                if showsPinnedPlan {
+                    MMButton("Plan a training session", size: .lg, iconLeft: "plus", fullWidth: true) { mm.go(.create()) }
+                        // The tab bar overlays the screen and includes the home-indicator inset.
+                        .padding(.bottom, max(0, MMLayout.tabBarHeight - viewport.safeAreaInsets.bottom))
                 }
             }
+            .animation(MMMotion.easeOut(), value: list.map(\.id))
         }
-        .animation(MMMotion.easeOut(), value: list.map(\.id))
     }
 
     @ViewBuilder
