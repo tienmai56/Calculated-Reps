@@ -2,6 +2,10 @@ import SwiftUI
 
 /// Shared welcome screen. The installed app uses live Google authentication;
 /// the prototype and UI review use the sample-data adapter.
+///
+/// Layout (design "S2 · Tape confetti"): calm paper ground, strips of athletic
+/// tape in the friend hues drifting down behind a clear zone around the brand,
+/// a small settled pile above the single primary action.
 struct WelcomeScreen: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,54 +14,37 @@ struct WelcomeScreen: View {
     @State private var showExport = false
     @State private var isContinuing = false
     @State private var signInTask: Task<Void, Never>?
+    @State private var appeared = false
 
     var body: some View {
         GeometryReader { geometry in
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    MMWordmark(size: 36)
-                        .padding(.top, MMSpace.s8)
-                        .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
-                        .accessibilityHint("Long press for prototype tools")
+                    Spacer(minLength: MMSpace.s10)
+                    brand
+                    Spacer(minLength: MMSpace.s10)
 
-                    Spacer(minLength: MMSpace.s8)
-                    WelcomePhotoStack()
-                        .frame(height: 320)
-                    Spacer(minLength: MMSpace.s8)
-
-                    VStack(spacing: MMSpace.s5) {
-                        VStack(spacing: 0) {
-                            Text("Good people.").foregroundStyle(MMColor.textPrimary)
-                            Text("Great rounds.").foregroundStyle(MMColor.textAccent)
-                        }
-                        .mmFont(.display, 36, tracking: -0.03, lineHeight: 1)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityAddTraits(.isHeader)
-
-                        Text("Make plans. Share the mat. Keep showing up.")
-                            .mmFont(.body, 15, lineHeight: 1.45)
-                            .foregroundStyle(MMColor.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .multilineTextAlignment(.center)
-
-                    Spacer(minLength: MMSpace.s9)
-                    VStack(spacing: MMSpace.s6) {
+                    TapePile()
+                        .frame(height: 56)
+                        .padding(.horizontal, -MMSpace.s4)
+                    VStack(spacing: MMSpace.s3) {
+                        googleButton
 #if DEBUG
                         if let previewAction = mm.previewAction {
-                            MMButton("Preview UI", size: .lg, iconLeft: "eye", fullWidth: true, action: previewAction)
-                                .accessibilityIdentifier("welcome-ui-preview")
-                            Text("Sample data. No sign-in required.")
-                                .mmFont(.body, 13)
-                                .foregroundStyle(MMColor.textSecondary)
+                            Button(action: previewAction) {
+                                Text("Preview without signing in")
+                                    .underline()
+                                    .mmFont(.body, 15, .bold)
+                                    .foregroundStyle(MMColor.textLink)
+                                    .frame(minHeight: MMLayout.tapTarget)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Opens the app with sample data. No sign-in required.")
+                            .accessibilityIdentifier("welcome-ui-preview")
                         }
 #endif
-                        googleButton
-                        Text("Sign up or log in. You're in the right place.")
-                            .mmFont(.body, 13, lineHeight: 1.4)
-                            .foregroundStyle(MMColor.textTertiary)
-                            .multilineTextAlignment(.center)
                     }
+                    .padding(.top, MMSpace.s4)
                     .padding(.bottom, MMSpace.s8)
                 }
                 .padding(.horizontal, MMSpace.s8)
@@ -66,7 +53,13 @@ struct WelcomeScreen: View {
                 .frame(minHeight: geometry.size.height)
             }
         }
-        .background(MMColor.bgApp.ignoresSafeArea())
+        .background {
+            ZStack {
+                MMColor.bgApp
+                TapeConfetti(falling: !reduceMotion)
+            }
+            .ignoresSafeArea()
+        }
         .overlay(alignment: .topTrailing) {
             if mm.isLive {
                 MMIconButton("settings", variant: .filled, label: "Settings") { showSettings = true }.padding(12)
@@ -79,6 +72,9 @@ struct WelcomeScreen: View {
             }
             .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
         }
+        .task {
+            withAnimation(reduceMotion ? nil : MMMotion.bounce(MMMotion.slow)) { appeared = true }
+        }
         .onDisappear { signInTask?.cancel() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active && !mm.isLive {
@@ -88,27 +84,63 @@ struct WelcomeScreen: View {
         }
     }
 
+    /// Silverback mark, lowercase wordmark and the one-line promise.
+    private var brand: some View {
+        VStack(spacing: MMSpace.s6) {
+            Image("SilverbackMark")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 104, height: 104)
+                .accessibilityHidden(true)
+            HStack(spacing: 0) {
+                Text("grip gorillas")
+                Text(".").foregroundStyle(MMColor.accent)
+            }
+            .mmFont(.display, 44, tracking: -0.045, lineHeight: 1)
+            .foregroundStyle(MMColor.ink900)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Grip Gorillas")
+            .accessibilityAddTraits(.isHeader)
+            Text("Make plans. Meet on the mat.")
+                .mmFont(.body, 18, .semibold, lineHeight: 1.35)
+                .foregroundStyle(MMColor.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 10)
+        .contentShape(Rectangle())
+        .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
+        .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
+    }
+
     private var googleButton: some View {
         Button(action: continueWithGoogle) {
             HStack(spacing: MMSpace.s5) {
                 if isContinuing {
-                    ProgressView().tint(MMColor.textPrimary)
-                        .frame(width: 20, height: 20)
+                    ProgressView().tint(MMColor.textOnAccent)
+                        .frame(width: 28, height: 28)
                 } else {
+                    // Google's "G" always sits on white.
                     Image("GoogleSignIn")
                         .renderingMode(.original)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 20, height: 20)
+                        .frame(width: 18, height: 18)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color.white))
                         .accessibilityHidden(true)
                 }
                 Text(isContinuing ? "Getting ready…" : "Continue with Google")
             }
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(MMButtonStyle(variant: .secondary, size: .lg, fullWidth: true))
+        .buttonStyle(MMButtonStyle(variant: .primary, size: .lg, fullWidth: true))
         .disabled(isContinuing)
-        .accessibilityHint(mm.isLive ? "Sign in with your Google account" : "Opens the prototype with sample data")
+        .accessibilityHint(mm.isLive ? "Sign up or log in with your Google account" : "Opens the prototype with sample data")
         .accessibilityIdentifier("welcome-google-continue")
     }
 
@@ -134,59 +166,89 @@ struct WelcomeScreen: View {
     }
 }
 
-/// A small fan of photo memories, with a gentle bob while the screen is active.
-/// Reduce Motion removes both the entrance and the continuous movement.
-private struct WelcomePhotoStack: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+// MARK: - Tape confetti
+
+/// Deterministic pseudo-random numbers so the confetti looks the same on every launch.
+private struct TapeRandom {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed }
+    mutating func next() -> Double {
+        state = state &* 6364136223846793005 &+ 1442695040888963407
+        return Double(state >> 33) / Double(1 << 31)
+    }
+}
+
+/// Friend hues only; belt colors stay reserved for rank.
+private let tapeHues: [Color] = [MMColor.coral500, MMColor.sun400, MMColor.mint500, MMColor.sky500, MMColor.plum500]
+
+/// Strips of tape drifting down the whole screen. They fade out in a band around
+/// the brand so the wordmark and tagline always stay readable. Paused off-screen
+/// and replaced by nothing when Reduce Motion is on.
+private struct TapeConfetti: View {
+    var falling: Bool
     @Environment(\.scenePhase) private var scenePhase
-    @State private var appeared = false
+
+    private struct Strip { let x, speed, phase, width, height, spin, angle: Double; let hue: Int }
+    private static let strips: [Strip] = {
+        var random = TapeRandom(seed: 7)
+        return (0..<16).map { index in
+            Strip(x: random.next(), speed: 46 + random.next() * 36, phase: random.next(),
+                  width: 6 + random.next() * 3, height: 14 + random.next() * 8,
+                  spin: (random.next() - 0.5) * 2.4, angle: random.next() * .pi, hue: index % tapeHues.count)
+        }
+    }()
 
     var body: some View {
-        GeometryReader { geometry in
-            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || scenePhase != .active)) { context in
-                let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
-                ZStack {
-                    memory("roll-gi-2", caption: "One more round?", width: 202, height: 206)
-                        .rotationEffect(.degrees(appeared ? -12 + sin(t * 1.4) : 0))
-                        .offset(x: appeared ? -48 : 0, y: appeared ? -22 + sin(t * 1.4) * 3 : 22)
-                    memory("coach-help", caption: "Always learning.", width: 202, height: 206)
-                        .rotationEffect(.degrees(appeared ? 11 - sin(t * 1.4) : 0))
-                        .offset(x: appeared ? 48 : 0, y: appeared ? -14 - sin(t * 1.4) * 3 : 22)
-                    memory("group-class", caption: "Better with your people.", width: 228, height: 230)
-                        .rotationEffect(.degrees(appeared ? -3 : 0))
-                        .offset(y: appeared ? 16 + sin(t * 1.4) * 3 : 28)
-                    MMPairAvatars(a: SeedData.me.avatar, b: (SeedData.people["sarah"]?.avatar ?? SeedData.me.avatar),
-                                  size: 38, hue: .plum, ring: MMColor.bgApp)
-                        .rotationEffect(.degrees(8))
-                        .offset(x: 104, y: appeared ? 126 : 136)
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !falling || scenePhase != .active)) { context in
+            let time = context.date.timeIntervalSinceReferenceDate
+            Canvas { canvas, size in
+                guard falling else { return }
+                let travel = size.height + 60
+                let clearCenter = size.height * 0.42
+                let clearHalf = size.height * 0.2
+                for strip in Self.strips {
+                    let y = (strip.phase * travel + time * strip.speed).truncatingRemainder(dividingBy: travel) - 30
+                    // 0 inside the clear zone around the brand, easing back to 1 outside it.
+                    let distance = abs(y - clearCenter) / clearHalf
+                    let alpha = min(1, max(0, (distance - 0.6) * 1.6))
+                    guard alpha > 0.02 else { continue }
+                    var layer = canvas
+                    layer.opacity = alpha
+                    layer.translateBy(x: strip.x * size.width, y: y)
+                    layer.rotate(by: .radians(strip.angle + time * strip.spin))
+                    let rect = CGRect(x: -strip.width / 2, y: -strip.height / 2, width: strip.width, height: strip.height)
+                    layer.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(tapeHues[strip.hue]))
                 }
-                .opacity(appeared ? 1 : 0)
-                .scaleEffect(appeared ? 1 : 0.94)
-                .frame(width: 344, height: 320)
-                .scaleEffect(min(geometry.size.width / 344, 1))
-                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             }
         }
+        .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .task {
-            withAnimation(reduceMotion ? nil : MMMotion.bounce(MMMotion.slow)) {
-                appeared = true
+    }
+}
+
+/// The settled pile of tape just above the primary action. Static.
+private struct TapePile: View {
+    private struct Piece { let x, y, width, height, angle: Double; let hue: Int }
+    private static let pieces: [Piece] = {
+        var random = TapeRandom(seed: 21)
+        return (0..<26).map { index in
+            Piece(x: random.next(), y: 0.25 + random.next() * 0.75, width: 6 + random.next() * 3,
+                  height: 14 + random.next() * 8, angle: (random.next() - 0.5) * .pi, hue: (index * 2) % tapeHues.count)
+        }
+    }()
+
+    var body: some View {
+        Canvas { canvas, size in
+            for piece in Self.pieces {
+                var layer = canvas
+                layer.translateBy(x: piece.x * size.width, y: piece.y * (size.height - 12) + 6)
+                layer.rotate(by: .radians(piece.angle))
+                let rect = CGRect(x: -piece.width / 2, y: -piece.height / 2, width: piece.width, height: piece.height)
+                layer.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(tapeHues[piece.hue]))
             }
         }
-    }
-
-    private func memory(_ photo: String, caption: String, width: CGFloat, height: CGFloat) -> some View {
-        VStack(spacing: MMSpace.s5) {
-            MMPhotoTile(photo: photo, height: height - 48, radius: MMRadius.md)
-            Text(caption)
-                .mmFont(.display, 13, .bold, tracking: -0.015, lineHeight: 1)
-                .foregroundStyle(MMColor.textSecondary)
-                .padding(.bottom, MMSpace.s2)
-        }
-        .padding(MMSpace.s4)
-        .frame(width: width)
-        .background(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous).fill(MMColor.tape))
-        .mmShadowCard()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
