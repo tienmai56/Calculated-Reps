@@ -4,9 +4,9 @@
 
 The production target now launches `MatMindRoot`: Activity, Training, Friends and Profile, with planning, RSVP, organizer management, completion/photos, shared memories, likes/comments, QR connections, notifications and Settings. SwiftData stores per-account social caches and drafts. Keychain stores backend credentials. The client uses native Apple identity tokens and Google OAuth with PKCE; it does not trust previous local provider IDs as cloud sessions.
 
-The prototype design tokens, fonts and component sources are compiled into the production app. The original prototype's seeded app/features remain reference/demo sources and are **not** included in the production target. No demo source is passed into archive migration.
+The production app and prototype now compile the same `MMAppShell`, feature screens, design tokens, fonts and components. The installed app injects a live runtime into an empty view model. Debug builds also offer an isolated sample-data UI preview. No demo source is passed into archive migration.
 
-Previous data is reachable exclusively through **Profile → Settings → Previous training data**. That row is conditional on verified genuine local training records. It opens View archive and Export data. Nothing is uploaded. Legacy records never enter sessions, posts, attendance or streak commands. The archive keeps source date strings rather than generating social timestamps.
+Previous data is reachable exclusively through **Settings → Export → Export local sessions**, available on Welcome and Profile. That route exposes the exporter without archive browsing. Nothing is uploaded. Legacy records never enter sessions, posts, attendance or streak commands. The archive keeps source date strings rather than generating social timestamps.
 
 Discovery includes guest/local and previous local account namespaces. Only the captured previous local namespace and guest archive can be exposed; a cloud login cannot select a different local account by asserting a provider ID. Access uses device-owner authentication independently of cloud sign-in. Other account folders remain untouched. This intentionally does not claim that all accounts found on a device belong to the current cloud user.
 
@@ -40,7 +40,7 @@ supabase functions deploy delete-account notification-worker --project-ref cmiqa
 
 Both functions validate access in their own handlers: account deletion checks the caller with Supabase Auth, and the notification worker requires its server-only secret. Unauthenticated requests were rejected with HTTP 401. Hosted database lint reports no errors. All public app tables have RLS enabled, anonymous app-function execution is disabled, and authenticated clients cannot directly call the notification/streak write helpers.
 
-**Still required:** Apple and Google sign-in providers are disabled in the project. Configure their provider credentials before testing sign-in. The four APNs secrets and `NOTIFICATION_WORKER_SECRET` are absent; push delivery remains inactive and no worker schedule was enabled.
+**Sign-in setup:** Apple sign-in is hidden for now. Google requires a web OAuth client configured in the hosted provider settings; follow [Google sign-in setup](google-sign-in-setup.md). The app checks provider availability before opening the sign-in sheet. Hosted Google credentials still need to be saved and the live flow verified; local config files and passing CI do not enable the provider. The four APNs secrets and `NOTIFICATION_WORKER_SECRET` are absent; push delivery remains inactive and no worker schedule was enabled.
 
 The migrations create social tables, RLS policies, transactional commands, command receipts, a private photo bucket, bounded reads and cursor pagination. They have no legacy notebook upload route. Worker grants are limited to the specific tables/functions it requires; the app has no administrative credential.
 

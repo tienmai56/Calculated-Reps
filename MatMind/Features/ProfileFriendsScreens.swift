@@ -90,7 +90,6 @@ struct SocialProfileScreen: View {
                 Text("Welcome to Mat Mind").mmFont(.display,28)
                 Text("Connect with your partners and plan your next session.")
                 if app.userID == nil {
-                    Button("Continue with Apple") { Task { await app.authenticate("apple") } }.disabled(app.busy)
                     Button("Continue with Google") { Task { await app.authenticate("google") } }.disabled(app.busy)
                 } else { NavigationLink("Create your profile") { SocialSettingsScreen() } }
             }

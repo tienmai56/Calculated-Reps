@@ -364,3 +364,43 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(SessionNoteCodec.decode("matmind-focus-v1:broken").note, "matmind-focus-v1:broken")
     }
 }
+
+final class GoogleCloudSignInTests: XCTestCase {
+    func testGoogleSignInRequiresAnEnabledServerProvider() throws {
+        let enabled = try JSONDecoder().decode(CloudAuthSettings.self, from: Data(#"{"external":{"google":true,"apple":false}}"#.utf8))
+        XCTAssertNoThrow(try enabled.requireGoogle())
+        for fixture in [#"{"external":{"google":false}}"#, #"{"external":{}}"#] {
+            let disabled = try JSONDecoder().decode(CloudAuthSettings.self, from: Data(fixture.utf8))
+            XCTAssertThrowsError(try disabled.requireGoogle()) { error in
+                XCTAssertEqual(error as? CloudSignInError, .googleUnavailable)
+            }
+        }
+    }
+
+    func testGoogleCallbackAcceptsOnlyTheAppAuthRouteWithOneCode() throws {
+        let callback = try XCTUnwrap(URL(string: "matmind://auth?code=test-authorization-code"))
+        XCTAssertEqual(try GoogleOAuthCallback.authorizationCode(from: callback), "test-authorization-code")
+        for value in ["https://example.com/auth?code=test", "matmind://friend?code=test", "matmind://auth", "matmind://auth?code=", "matmind://auth?code=one&code=two"] {
+            let url = try XCTUnwrap(URL(string: value))
+            XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: url)) { error in
+                XCTAssertEqual(error as? CloudSignInError, .invalidCallback)
+            }
+        }
+    }
+
+    func testGoogleCallbackCancellationAndErrorsCannotBecomeSuccessfulSignIn() throws {
+        let cancelled = try XCTUnwrap(URL(string: "matmind://auth?error=access_denied&code=ignored"))
+        XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: cancelled)) { error in
+            XCTAssertEqual(error as? CloudSignInError, .cancelled)
+        }
+        let rejected = try XCTUnwrap(URL(string: "matmind://auth?error=server_error&error_description=internal-details&code=ignored"))
+        XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: rejected)) { error in
+            XCTAssertEqual(error as? CloudSignInError, .providerRejected)
+            XCTAssertFalse(error.localizedDescription.contains("internal-details"))
+        }
+        let emptyError = try XCTUnwrap(URL(string: "matmind://auth?error&code=ignored"))
+        XCTAssertThrowsError(try GoogleOAuthCallback.authorizationCode(from: emptyError)) { error in
+            XCTAssertEqual(error as? CloudSignInError, .providerRejected)
+        }
+    }
+}
