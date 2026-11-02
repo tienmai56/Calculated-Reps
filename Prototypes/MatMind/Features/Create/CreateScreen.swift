@@ -34,12 +34,14 @@ struct CreateScreen: View {
     @State private var invited: [String]
     @State private var privacy = Privacy.friends.rawValue
     @State private var link: String? = nil
+    @State private var focusItems: [TrainingFocus]
 
-    init(startPast: Bool = false, friend: String? = nil) {
+    init(startPast: Bool = false, friend: String? = nil, initialFocus: [TrainingFocus] = []) {
         _mode = State(initialValue: startPast ? "past" : "plan")
         _dayIndex = State(initialValue: startPast ? 0 : 5)
         _time = State(initialValue: startPast ? "6:00 PM" : "10:00 AM")
         _invited = State(initialValue: friend.map { [$0] } ?? [])
+        _focusItems = State(initialValue: initialFocus)
     }
 
     private var isPast: Bool { mode == "past" }
@@ -117,6 +119,14 @@ struct CreateScreen: View {
                 }
             }
 
+            field("What are we working on?", hint: "Optional") {
+                Text("Big idea first. Details underneath.")
+                    .mmFont(.body, 13)
+                    .foregroundStyle(MMColor.textTertiary)
+                    .padding(.bottom, MMSpace.s5)
+                TrainingFocusEditor(items: $focusItems)
+            }
+
             field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
                     ForEach(mm.friends) { f in friendPick(f) }
@@ -153,6 +163,7 @@ struct CreateScreen: View {
         } footer: {
             MMButton(isPast ? "Next: add a photo" : (invited.isEmpty ? "Create session" : "Send invites to \(invited.count)"),
                      size: .lg, iconLeft: isPast ? "camera" : "send", fullWidth: true) { submit() }
+                .disabled(!TrainingFocusTree.isValid(focusItems))
         }
     }
 
@@ -166,7 +177,8 @@ struct CreateScreen: View {
         mm.createSession(SessionDraft(
             title: trimmed.isEmpty ? autoName : trimmed, day: day.weekday, date: day.date, month: day.month,
             time: time, gym: gym, note: note, invited: invited,
-            privacy: Privacy(rawValue: privacy) ?? .friends, past: isPast
+            privacy: Privacy(rawValue: privacy) ?? .friends, past: isPast,
+            focusItems: TrainingFocusTree.normalized(focusItems)
         ))
     }
 

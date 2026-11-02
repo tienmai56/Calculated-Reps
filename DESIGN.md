@@ -317,6 +317,16 @@ Journeys:
 
 Streak rule: a week counts when two friends both participate in ≥1 **completed** session together within the same Mon–Sun calendar week; consecutive weeks extend the streak.
 
+### Session focus outline
+
+Session planning has an optional **What are we working on?** section. Use white focus groups on the paper canvas, Archivo body text, Lucide notebook / chevron icons, a quiet coral Add a detail action, and the existing pill buttons. Big idea first, details underneath. Adding a detail uses the existing bounce motion and respects Reduce Motion.
+
+Any item can have children; keep stable IDs, retain sibling order, and visually cap indentation to preserve room for text and 44pt controls. Label deeper levels explicitly. Suggestions only populate content when selected; never pre-fill a real user's plan. Named items are required when present; no content at all is allowed.
+
+Removing a branch requires confirmation and removes all descendants; cancel preserves the branch. The organizer can edit the session's outline. Store it with the session and copy it to the completed post so publication does not discard the plan. Read-only outlines retain the same hierarchy. No technique scoring, rankings, completion counters, or free-form posts are added.
+
+Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Browser companion: `Prototypes/FocusPreview/`.
+
 ### Empty Activity and Training
 
 Use the paper canvas with a small photo-memory frame for Activity and an undated ticket for Training, reusing existing typography, surfaces, icons, and pill actions. No placeholder people, fake dates, zero-stat dashboards, or loading skeletons.

@@ -54,6 +54,7 @@ struct Post: Identifiable, Hashable {
     var likes: [String]
     var extraLikes: Int
     var comments: [Comment]
+    var focusItems: [TrainingFocus] = []
 }
 
 enum RSVP: String {
@@ -89,6 +90,7 @@ struct Session: Identifiable, Hashable {
     var privacy: Privacy = .friends
     var people: [Attendee]
     var note: String?
+    var focusItems: [TrainingFocus] = []
 
     func status(of id: String) -> RSVP? { people.first { $0.id == id }?.status }
 
@@ -125,7 +127,7 @@ enum AppTab: String, CaseIterable {
 enum Route: Hashable {
     case post(id: String, menu: Bool = false, focus: Bool = false)
     case session(id: String)
-    case create(past: Bool = false, friend: String? = nil)
+    case create(past: Bool = false, friend: String? = nil, focus: [TrainingFocus] = [])
     case complete(id: String)
     case friend(id: String)
     case qr(scan: Bool = false)
@@ -143,6 +145,7 @@ struct SessionDraft {
     var invited: [String]
     var privacy: Privacy
     var past: Bool
+    var focusItems: [TrainingFocus] = []
 }
 
 struct StreakTick: Identifiable {

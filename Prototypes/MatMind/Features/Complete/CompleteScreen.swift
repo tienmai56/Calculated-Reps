@@ -49,6 +49,13 @@ struct CompleteScreen: View {
                 } else {
                     emptyPhoto
                 }
+                if !s.focusItems.isEmpty {
+                    Text("What we worked on")
+                        .mmFont(.display, 16)
+                        .padding(.top, MMSpace.s8)
+                        .padding(.bottom, MMSpace.s5)
+                    TrainingFocusOutline(items: s.focusItems)
+                }
                 MMTextField(placeholder: "What happened on the mat?", text: $caption, multiline: true, rows: 2)
                     .padding(.top, 16)
                 HStack {
