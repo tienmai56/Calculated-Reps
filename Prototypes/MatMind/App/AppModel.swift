@@ -14,6 +14,7 @@ protocol AppRuntime: AnyObject {
     func connect(_ value: String) async -> String?
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool
     func scannerView(found: @escaping (String) -> Void) -> AnyView
     func exportView() -> AnyView
 }
@@ -368,6 +369,72 @@ final class AppModel {
         me.email = email
         me.belt = belt
         me.stripes = stripes
+    }
+
+    // MARK: Hosting
+
+    /// Host only: change a planned session's name, time, gym or note. People and focus plan stay.
+    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let gym = gym.trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, !gym.isEmpty, findSession(id)?.organizer == "me" else { return false }
+        if let runtime {
+            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note) else { return false }
+            showToast("Session updated", .success)
+            return true
+        }
+        guard !isLive else { return false }
+        updateSession(id) { s in
+            s.title = title
+            s.gym = gym
+            s.note = note.isEmpty ? nil : note
+            s.startsAt = startsAt
+            s.day = Self.sessionText(startsAt, "EEE")
+            s.date = Int(Self.sessionText(startsAt, "d")) ?? s.date
+            s.month = Self.sessionText(startsAt, "MMM")
+            s.time = Self.sessionText(startsAt, "h:mm a")
+        }
+        showToast("Session updated", .success)
+        return true
+    }
+
+    /// Host only: calls a planned session off. It leaves everyone's schedule.
+    func deleteSession(_ id: String) {
+        guard findSession(id)?.organizer == "me" else { return }
+        if isLive {
+            send("cancel_session", ["session_id": id], success: {
+                self.forgetGoal(forSession: id)
+                self.showToast("Session deleted")
+            })
+            return
+        }
+        upcoming.removeAll { $0.id == id }
+        forgetGoal(forSession: id)
+        showToast("Session deleted")
+    }
+
+    /// Where an edit starts: the exact start when known, else the ticket's day and time this year.
+    func startDate(of session: Session) -> Date {
+        if let startsAt = session.startsAt { return startsAt }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy MMM d h:mm a"
+        let year = Calendar.current.component(.year, from: Date())
+        return formatter.date(from: "\(year) \(session.month) \(session.date) \(session.time)") ?? Date()
+    }
+
+    private static func sessionText(_ date: Date, _ format: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = format
+        return formatter.string(from: date)
+    }
+
+    private func forgetGoal(forSession id: String) {
+        guard sessionGoals[id] != nil else { return }
+        sessionGoals[id] = nil
+        persistGoals()
     }
 
     // MARK: Goals

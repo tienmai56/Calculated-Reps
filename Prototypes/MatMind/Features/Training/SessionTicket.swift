@@ -17,6 +17,8 @@ struct SessionTicket: View {
     var big = false
     /// Background behind the card, for the punched notches.
     var notchColor: Color = MMColor.bgApp
+    /// Leaves room at the top right for an overlaid options ("…") button.
+    var reservesMenuSpace = false
     var onTap: (() -> Void)?
 
     var body: some View {
@@ -60,6 +62,7 @@ struct SessionTicket: View {
                         MMBadge("Invite", variant: .warning, dot: true)
                     }
                 }
+                .padding(.trailing, reservesMenuSpace ? 30 : 0)
                 HStack(spacing: 6) {
                     MMIcon("clock", size: 14, color: MMColor.textTertiary)
                     Text(session.time).mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textSecondary)

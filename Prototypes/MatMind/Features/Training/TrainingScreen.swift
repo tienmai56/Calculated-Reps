@@ -15,6 +15,9 @@ struct TrainingScreen: View {
     @State private var attachNewGoalTo: String?
     /// Picking an old-notebook export to bring goals over from.
     @State private var importingGoals = false
+    /// The hosted session being edited, or waiting for delete confirmation.
+    @State private var editingSession: Session?
+    @State private var deletingSession: Session?
 
     private let cardWidth: CGFloat = 300
     private let goalPreviewCount = 3
@@ -74,6 +77,32 @@ struct TrainingScreen: View {
         .fileImporter(isPresented: $importingGoals, allowedContentTypes: [.zip, .json]) { result in
             importGoals(result)
         }
+        .sheet(item: $editingSession) { s in
+            MatSessionEditorSheet(session: s, startsAt: mm.startDate(of: s))
+        }
+        .confirmationDialog("Delete \(deletingSession?.title ?? "this session")?",
+                            isPresented: Binding(get: { deletingSession != nil }, set: { if !$0 { deletingSession = nil } }),
+                            titleVisibility: .visible, presenting: deletingSession) { s in
+            Button("Delete session", role: .destructive) { mm.deleteSession(s.id) }
+            Button("Keep it", role: .cancel) {}
+        } message: { s in
+            Text(s.people.count > 1 ? "It comes off everyone's schedule." : "It comes off your schedule.")
+        }
+    }
+
+    /// Host-only options on a ticket.
+    private func sessionMenu(_ s: Session) -> some View {
+        Menu {
+            Button { editingSession = s } label: { Label("Edit session", image: "pencil") }
+            Button(role: .destructive) { deletingSession = s } label: { Label("Delete session", image: "trash-2") }
+        } label: {
+            MMIcon("ellipsis", size: 20, color: MMColor.ink700)
+                .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Options for \(s.title)")
+        .padding(.top, 2)
+        .padding(.trailing, 2)
     }
 
     /// Brings goals over from the file made by Settings → Export local sessions.
@@ -105,7 +134,10 @@ struct TrainingScreen: View {
 
     private func sessionCard(_ s: Session) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SessionTicket(session: s) { mm.go(.session(id: s.id)) }
+            SessionTicket(session: s, reservesMenuSpace: s.organizer == "me") { mm.go(.session(id: s.id)) }
+                .overlay(alignment: .topTrailing) {
+                    if s.organizer == "me" { sessionMenu(s) }
+                }
             goalRow(s)
             if s.status(of: "me") == .invited {
                 HStack(spacing: 8) {
@@ -379,6 +411,72 @@ private struct MatGoalEditorSheet: View {
                 dismiss()
             }
         }
+    }
+}
+
+/// Host-only edit: name, when, gym and note. People and the focus plan stay as they are.
+private struct MatSessionEditorSheet: View {
+    @Environment(AppModel.self) private var mm
+    @Environment(\.dismiss) private var dismiss
+    let session: Session
+    @State private var title: String
+    @State private var startsAt: Date
+    @State private var gym: String
+    @State private var note: String
+    @State private var saving = false
+
+    init(session: Session, startsAt: Date) {
+        self.session = session
+        _title = State(initialValue: session.title)
+        _startsAt = State(initialValue: startsAt)
+        _gym = State(initialValue: session.gym)
+        _note = State(initialValue: session.note ?? "")
+    }
+
+    private var canSave: Bool {
+        !saving && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        ScrollView {
+            MMDialogBody(title: "Edit session", description: "Everyone in it sees the change.", onClose: { dismiss() }) {
+                VStack(alignment: .leading, spacing: 18) {
+                    MMTextField(label: "Session name", placeholder: "Saturday open mat", text: $title)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("When").mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
+                        DatePicker("When", selection: $startsAt, displayedComponents: [.date, .hourAndMinute])
+                            .labelsHidden()
+                            .tint(MMColor.accent)
+                    }
+                    MMTextField(label: "Gym", placeholder: "Where you're rolling", text: $gym, iconLeft: "map-pin")
+                    MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
+                }
+                .padding(.top, MMSpace.s4)
+            } actions: {
+                EmptyView()
+            }
+            .padding(MMSpace.s7)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            MMButton("Save changes", fullWidth: true) {
+                saving = true
+                Task {
+                    let saved = await mm.editSession(session.id, title: title, startsAt: startsAt, gym: gym, note: note)
+                    saving = false
+                    if saved { dismiss() }
+                }
+            }
+            .disabled(!canSave)
+            .padding(MMSpace.s6)
+            .background(MMColor.bgApp)
+        }
+        .background(MMColor.bgApp)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(MMRadius.xl)
+        .presentationBackground(MMColor.bgApp)
     }
 }
 

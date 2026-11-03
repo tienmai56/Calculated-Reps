@@ -327,6 +327,32 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
     }
 
+    func testHostCanEditAndDeleteOnlyTheirOwnSessions() async {
+        let ui = AppModel()
+        let start = ISO8601DateFormatter().date(from: "2026-11-08T18:30:00Z")!
+
+        let edited = await ui.editSession("s1", title: "  Sunday open mat ", startsAt: start, gym: "Harbor Jiu-Jitsu", note: "")
+        XCTAssertTrue(edited)
+        let session = ui.findSession("s1")
+        XCTAssertEqual(session?.title, "Sunday open mat")
+        XCTAssertEqual(session?.gym, "Harbor Jiu-Jitsu")
+        XCTAssertEqual(session?.startsAt, start)
+        XCTAssertNil(session?.note)
+        XCTAssertEqual(ui.startDate(of: session!), start)
+
+        let blank = await ui.editSession("s1", title: "  ", startsAt: start, gym: "Harbor Jiu-Jitsu", note: "")
+        XCTAssertFalse(blank, "A session needs a name")
+        let notMine = await ui.editSession("s2", title: "Mine now", startsAt: start, gym: "Anywhere", note: "")
+        XCTAssertFalse(notMine, "Only the host can edit")
+
+        XCTAssertNotNil(ui.goal(forSession: "s1"))
+        ui.deleteSession("s1")
+        XCTAssertNil(ui.findSession("s1"))
+        XCTAssertNil(ui.goal(forSession: "s1"), "A deleted session drops its goal")
+        ui.deleteSession("s2")
+        XCTAssertNotNil(ui.findSession("s2"), "Only the host can delete")
+    }
+
     func testGoalsAttachToSessionsAndPersistPerAccountInTheInstalledApp() {
         let ui = AppModel(live: true)
         XCTAssertTrue(ui.goals.isEmpty, "The installed app never shows sample goals")

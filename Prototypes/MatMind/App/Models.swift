@@ -93,6 +93,8 @@ struct Session: Identifiable, Hashable {
     var people: [Attendee]
     var note: String?
     var focusItems: [TrainingFocus] = []
+    /// The exact start, when known (live sessions). Preview sessions only have day/month/time text.
+    var startsAt: Date? = nil
 
     func status(of id: String) -> RSVP? { people.first { $0.id == id }?.status }
 
