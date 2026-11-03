@@ -20,6 +20,16 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertEqual(AppNotification.Kind(rawValue: "mention"), .mention)
     }
 
+    func testSharingNeedsAPhotoOrANote() {
+        XCTAssertFalse(ShareRule.canPublish(hasPhoto: false, caption: ""))
+        XCTAssertFalse(ShareRule.canPublish(hasPhoto: false, caption: "  \n\t "))
+        XCTAssertFalse(ShareRule.canPublish(hasPhoto: false, caption: "@sarah @lena "))
+        XCTAssertTrue(ShareRule.canPublish(hasPhoto: true, caption: ""))
+        XCTAssertTrue(ShareRule.canPublish(hasPhoto: false, caption: "Standups with @sarah"))
+        XCTAssertTrue(ShareRule.canPublish(hasPhoto: false, caption: "😀"))
+        XCTAssertTrue(ShareRule.canPublish(hasPhoto: true, caption: "Leg drags all day"))
+    }
+
     func testLegacyLocalSessionRemainsAvailableWithoutCloudSignIn() {
         let oldFlag = UserDefaults.standard.object(forKey: AppSessionStore.onboardingCompletedKey)
         defer { UserDefaults.standard.set(oldFlag, forKey: AppSessionStore.onboardingCompletedKey) }

@@ -343,7 +343,7 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 **Rule: a photo or a note, at least one.** Photos are optional, but a post is never blank. Publish to Activity unlocks once there is a photo, a note, or both. The session focus ("What we worked on") is copied from the plan and never counts on its own. A note that is only whitespace or only `@tags` counts as empty (trim before checking).
 
 - **Say the rule up front.** One hint line sits centered above Publish (13px Archivo with a 16px Lucide icon). Neither field is labeled required or optional.
-- **Nothing yet:** Publish is disabled (paper-3 fill, ink-500 text, no shade edge). Hint: info icon, ink-700, “Add a photo, a few words, or both to share.”
+- **Nothing yet:** Publish uses the standard disabled button (no shade edge). Hint: info icon, ink-700, “Add a photo, a few words, or both to share.”
 - **Publish tapped while empty:** no banner, toast or dialog. The hint turns coral-700 with a circle-alert icon, “Add a photo or a few words first”, and the note field takes focus (`--ring-focus`, keyboard up), since typing is the fastest fix. Announce the hint to VoiceOver.
 - **Photo, no note:** the photo fills the slot with Retake and Remove. The note placeholder becomes “Add a few words? @tag a partner”. Hint: circle-check, mint-700, “Photo's in. Words are a bonus.”
 - **Note, no photo:** the photo slot stays as the hatched prompt, but Take photo turns white so Publish is the only coral button. Hint: “Words are in. A photo's a bonus.”

@@ -2,8 +2,21 @@ import SwiftUI
 import PhotosUI
 import UIKit
 
+/// What a shared session needs before it can be published: a photo, a note, or both.
+/// The session focus is copied from the plan and never counts on its own, and a note
+/// made only of whitespace or @tags counts as empty. See DESIGN.md, "Share the session".
+enum ShareRule {
+    static func hasWords(_ caption: String) -> Bool {
+        caption.split(whereSeparator: \.isWhitespace).contains { !$0.hasPrefix("@") }
+    }
+
+    static func canPublish(hasPhoto: Bool, caption: String) -> Bool {
+        hasPhoto || hasWords(caption)
+    }
+}
+
 /// The composer: posts only come from completed sessions.
-/// Photo → caption → who trained → publish.
+/// Photo and/or note → who trained → publish.
 struct CompleteScreen: View {
     @Environment(AppModel.self) private var mm
     let id: String
@@ -17,6 +30,12 @@ struct CompleteScreen: View {
     @State private var showRoll = false
     @State private var caption = ""
     @State private var result: PublishResult? = nil
+    /// Set when Publish is tapped with nothing to share; cleared once there is.
+    @State private var nudged = false
+    @State private var noteFocus = 0
+
+    private var hasWords: Bool { ShareRule.hasWords(caption) }
+    private var canPublish: Bool { ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) }
 
     var body: some View {
         if let result {
@@ -61,7 +80,8 @@ struct CompleteScreen: View {
                         .padding(.bottom, MMSpace.s5)
                     TrainingFocusOutline(items: s.focusItems)
                 }
-                MMTextField(placeholder: "What happened on the mat? @tag a partner", text: $caption, multiline: true, rows: 2)
+                MMTextField(placeholder: photo == nil ? "What happened on the mat? @tag a partner" : "Add a few words? @tag a partner",
+                            text: $caption, multiline: true, rows: 2, focusRequest: noteFocus)
                     .padding(.top, 16)
                 MentionSuggestions(text: $caption, people: mm.mentionCandidates(including: people))
                 HStack {
@@ -80,20 +100,14 @@ struct CompleteScreen: View {
             .padding(.horizontal, 16)
             .padding(.top, 4)
         } footer: {
-            MMButton("Publish to Activity", size: .lg, iconLeft: "send", fullWidth: true) {
-                if let runtime = mm.runtime {
-                    publishing = true
-                    Task {
-                        let published = await runtime.publish(s.id, photo: photo, caption: caption, people: people)
-                        publishing = false
-                        if let published { withAnimation(MMMotion.easeOut(0.3)) { result = published } }
-                    }
-                } else if let r = mm.publish(s.id, photo: photo, caption: caption, people: people) {
-                    withAnimation(MMMotion.easeOut(0.3)) { result = r }
-                }
+            VStack(spacing: 12) {
+                shareHint
+                publishButton(s, people: people)
             }
-            .disabled(publishing || mm.busy)
+            .animation(MMMotion.easeOut(MMMotion.fast), value: canPublish)
+            .animation(MMMotion.easeOut(MMMotion.fast), value: nudged)
         }
+        .onChange(of: canPublish) { _, ready in if ready { nudged = false } }
         .photosPicker(isPresented: $library, selection: $pickerItem, matching: .images)
         .task(id: pickerItem) {
             guard let pickerItem, let data = try? await pickerItem.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
@@ -125,6 +139,64 @@ struct CompleteScreen: View {
         }
     }
 
+    /// Locked until there's a photo or a note. A tap while locked doesn't error loudly:
+    /// the hint turns coral and the note field takes focus, since typing is the fastest fix.
+    private func publishButton(_ s: Session, people: [String]) -> some View {
+        MMButton("Publish to Activity", size: .lg, iconLeft: "send", fullWidth: true) {
+            guard canPublish else { nudge(); return }
+            if let runtime = mm.runtime {
+                publishing = true
+                Task {
+                    let published = await runtime.publish(s.id, photo: photo, caption: caption, people: people)
+                    publishing = false
+                    if let published { withAnimation(MMMotion.easeOut(0.3)) { result = published } }
+                }
+            } else if let r = mm.publish(s.id, photo: photo, caption: caption, people: people) {
+                withAnimation(MMMotion.easeOut(0.3)) { result = r }
+            }
+        }
+        .disabled(!canPublish || publishing || mm.busy)
+        .overlay {
+            // A disabled button swallows taps, so catch them here to point at what's missing.
+            if !canPublish && !publishing && !mm.busy {
+                Color.clear
+                    .contentShape(Capsule())
+                    .onTapGesture { nudge() }
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityHint(canPublish ? "" : "Add a photo or a few words first")
+    }
+
+    private func nudge() {
+        nudged = true
+        noteFocus += 1
+        AccessibilityNotification.Announcement("Add a photo or a few words first").post()
+    }
+
+    /// One line above Publish that states the rule up front, then confirms what's in.
+    private var hintContent: (icon: String, text: String, color: Color) {
+        if nudged && !canPublish { return ("circle-alert", "Add a photo or a few words first", MMColor.coral700) }
+        if !canPublish { return ("info", "Add a photo, a few words, or both to share", MMColor.textSecondary) }
+        if photo != nil && hasWords { return ("circle-check", "Photo and words. The crew's going to love it.", MMColor.mint700) }
+        if photo != nil { return ("circle-check", "Photo's in. Words are a bonus.", MMColor.mint700) }
+        return ("circle-check", "Words are in. A photo's a bonus.", MMColor.mint700)
+    }
+
+    private var shareHint: some View {
+        let hint = hintContent
+        return HStack(spacing: 6) {
+            MMIcon(hint.icon, size: 16, color: hint.color)
+            Text(hint.text)
+                .mmFont(.body, 13, nudged && !canPublish ? MMWeight.semibold : MMWeight.regular, lineHeight: 1.3)
+                .foregroundStyle(hint.color)
+        }
+        .frame(maxWidth: .infinity)
+        .multilineTextAlignment(.center)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(hint.text)
+    }
+
     private func choosePhoto() {
         if mm.isLive { library = true } else { showRoll = true }
     }
@@ -145,7 +217,8 @@ struct CompleteScreen: View {
             Text("Grab the post-training photo").mmFont(.display, 22, tracking: -0.03, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
             Text("Sweaty, smiling, slightly crooked. That's the one.").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
             HStack(spacing: 8) {
-                MMButton("Take photo", iconLeft: "camera") {
+                // Once there are words, Publish is the screen's one primary button.
+                MMButton("Take photo", variant: hasWords ? .secondary : .primary, iconLeft: "camera") {
                     if mm.isLive && UIImagePickerController.isSourceTypeAvailable(.camera) { camera = true }
                     else { choosePhoto() }
                 }

@@ -206,7 +206,8 @@ struct SocialCompleteScreen: View {
                     }
                 }
                 Text("Shared with attendees and friends of tagged attendees. You can remove a profile tag later without changing attendance.").font(.caption)
-                Button("Publish to Activity") { Task { await publish() } }.disabled(publishing || app.busy)
+                if !ShareRule.canPublish(hasPhoto: draft.photo != nil, caption: draft.caption) { Text("Add a photo, a few words, or both to share.").font(.caption) }
+                Button("Publish to Activity") { Task { await publish() } }.disabled(publishing || app.busy || !ShareRule.canPublish(hasPhoto: draft.photo != nil, caption: draft.caption))
                 if publishing { ProgressView("Uploading photo and publishing…") }
             }
         }.navigationTitle("Complete & share")
