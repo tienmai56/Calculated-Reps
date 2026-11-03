@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @MainActor @Observable final class SocialAppModel {
-    let backend = BackendClient()
+    let backend: BackendClient
     let archive = LocalArchiveModel()
     var snapshot = SocialSnapshot()
     var userID: String?
@@ -13,9 +13,11 @@ import SwiftData
     var tab = 0
     var pendingLink: URL?
     private var epoch = UUID()
+    @ObservationIgnored private var refreshRequest: (id: UUID, task: Task<SocialSnapshot, Error>)?
     private var cache: ModelContainer?
     private let signIn = NativeCloudSignIn()
-    init() {
+    init(backend: BackendClient = BackendClient()) {
+        self.backend = backend
         do {
             _ = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             cache = try ModelContainer(for: CachedSocialState.self, LocalSocialDraft.self)
@@ -37,11 +39,27 @@ import SwiftData
     func refresh() async {
         guard userID != nil else { return }
         let generation = epoch
+        let request: (id: UUID, task: Task<SocialSnapshot, Error>)
+        if let refreshRequest {
+            request = refreshRequest
+        } else {
+            // This read belongs to the signed-in model. SwiftUI can cancel its
+            // calling view task while switching from Google sign-in to setup.
+            request = (UUID(), Task { [backend] in try await backend.snapshot() })
+            refreshRequest = request
+        }
+        defer { if refreshRequest?.id == request.id { refreshRequest = nil } }
         do {
-            let latest = try await backend.snapshot()
-            guard generation == epoch else { return }
+            let latest = try await request.task.value
+            guard generation == epoch, refreshRequest?.id == request.id else { return }
             snapshot = latest; moreFeed = latest.posts.count == 30; persistCache()
-        } catch { if generation == epoch { self.error = error.localizedDescription } }
+        } catch {
+            guard generation == epoch, refreshRequest?.id == request.id else { return }
+            let failure = error as NSError
+            guard !(error is CancellationError),
+                  !(failure.domain == NSURLErrorDomain && failure.code == NSURLErrorCancelled) else { return }
+            self.error = error.localizedDescription
+        }
     }
     func hydratePost(_ id: String) async {
         let generation = epoch
@@ -87,7 +105,9 @@ import SwiftData
                 let (code,verifier) = try await signIn.google(configuration:config)
                 try await backend.exchange(code:code,verifier:verifier)
             }
-            userID = await backend.identity(); epoch = UUID(); snapshot = SocialSnapshot()
+            userID = await backend.identity(); epoch = UUID()
+            refreshRequest?.task.cancel(); refreshRequest = nil
+            snapshot = SocialSnapshot()
             if let userID { restoreCache(userID) }
             await refresh()
         } catch CloudSignInError.cancelled {
@@ -108,6 +128,7 @@ import SwiftData
     func logout() async {
         error = nil; message = nil
         epoch = UUID(); let old = userID; userID = nil; SocialPushCoordinator.pending = nil; snapshot = SocialSnapshot(); pendingLink = nil
+        refreshRequest?.task.cancel(); refreshRequest = nil
         if let cache, let old {
             let context = ModelContext(cache)
             do {

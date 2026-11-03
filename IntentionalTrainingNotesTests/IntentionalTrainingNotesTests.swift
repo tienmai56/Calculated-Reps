@@ -615,6 +615,67 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertFalse(credential.needsRefresh(at: now))
     }
 
+    @MainActor
+    func testCancelledBackgroundRefreshDoesNotShowAlertOrClearSession() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotError: .cancelled)
+        let (client, _) = try makeClient(fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        model.snapshot = SocialSnapshot(server_time: "previous-snapshot")
+
+        await model.refresh()
+        await model.refresh()
+
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.userID, "owner")
+        XCTAssertEqual(model.snapshot.server_time, "previous-snapshot")
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 2, "Cancellation must release the refresh so a later attempt can run")
+    }
+
+    @MainActor
+    func testBackgroundRefreshStillReportsNetworkAndServerFailures() async throws {
+        // A server message containing "cancelled" is a real failure, not an
+        // NSURLErrorCancelled. Do not filter errors by their display text.
+        for code: URLError.Code? in [.timedOut, nil] {
+            let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(#"{"message":"cancelled"}"#.utf8), snapshotError: code)
+            let (client, _) = try makeClient(fixture: fixture)
+            let model = SocialAppModel(backend: client)
+            model.userID = "owner"
+
+            await model.refresh()
+
+            XCTAssertEqual(model.error, code.map { URLError($0).localizedDescription } ?? "cancelled")
+            XCTAssertEqual(model.userID, "owner")
+        }
+    }
+
+    @MainActor
+    func testCancelledViewTaskStillLoadsProfileThroughSharedRefresh() async throws {
+        let started = expectation(description: "Snapshot request started")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let originalView = Task { await model.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+
+        originalView.cancel()
+        let joined = expectation(description: "Replacement view requested refresh")
+        let nextView = Task { joined.fulfill(); await model.refresh() }
+        await fulfillment(of: [joined], timeout: 5)
+        await fixture.releaseSnapshots()
+        await originalView.value
+        await nextView.value
+
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.userID, "owner")
+        XCTAssertEqual(model.snapshot.server_time, "snapshot-loaded")
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 1, "Overlapping view and foreground refreshes should share a request")
+    }
+
     private func makeClient(credential: CloudCredential = CloudCredential(access_token: "old-token", refresh_token: "old-refresh", user: CloudUser(id: "owner")), fixture: BackendHTTPFixture) throws -> (BackendClient, BackendCredentialStore) {
         let host = UUID().uuidString.lowercased() + ".example.com"
         BackendURLProtocol.register(host: host, fixture: fixture)
@@ -646,12 +707,27 @@ private actor BackendHTTPFixture {
     let failureBody: Data
     let rejectFreshToken: Bool
     let refreshStatus: Int
+    let snapshotError: URLError.Code?
+    let snapshotStarted: XCTestExpectation?
+    private var holdSnapshots: Bool
+    private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
 
-    init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200) {
+    init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200,
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
         self.refreshStatus = refreshStatus
+        self.snapshotError = snapshotError
+        self.snapshotStarted = snapshotStarted
+        self.holdSnapshots = holdSnapshots
+    }
+
+    func releaseSnapshots() {
+        holdSnapshots = false
+        let waiters = snapshotWaiters
+        snapshotWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     func respond(to original: URLRequest) async throws -> (Int, Data) {
@@ -669,6 +745,7 @@ private actor BackendHTTPFixture {
             request.httpBody = bytes
         }
         requests.append(request)
+        if request.url?.path == "/rest/v1/rpc/snapshot", let snapshotError { throw URLError(snapshotError) }
         if request.url?.path == "/auth/v1/token" {
             // Keep refresh in flight while another upload receives its rejection.
             try await Task.sleep(nanoseconds: 50_000_000)
@@ -678,6 +755,11 @@ private actor BackendHTTPFixture {
         }
         if request.value(forHTTPHeaderField: "Authorization") != "Bearer fresh-token" || rejectFreshToken {
             return (failureStatus, failureBody)
+        }
+        if request.url?.path == "/rest/v1/rpc/snapshot" {
+            snapshotStarted?.fulfill()
+            if holdSnapshots { await withCheckedContinuation { snapshotWaiters.append($0) } }
+            return (200, try JSONEncoder().encode(SocialSnapshot(server_time: "snapshot-loaded")))
         }
         return (200, Data("{}".utf8))
     }
