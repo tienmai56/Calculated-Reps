@@ -37,6 +37,8 @@ struct MMTextField: View {
     var multiline = false
     var rows = 3
     var autoFocus = false
+    /// Bump this to move focus into the field from outside (for example, to point at what's missing).
+    var focusRequest = 0
     var onSubmit: (() -> Void)?
     var onFocusChange: ((Bool) -> Void)?
 
@@ -53,6 +55,7 @@ struct MMTextField: View {
         multiline: Bool = false,
         rows: Int = 3,
         autoFocus: Bool = false,
+        focusRequest: Int = 0,
         onFocusChange: ((Bool) -> Void)? = nil,
         onSubmit: (() -> Void)? = nil
     ) {
@@ -66,6 +69,7 @@ struct MMTextField: View {
         self.multiline = multiline
         self.rows = rows
         self.autoFocus = autoFocus
+        self.focusRequest = focusRequest
         self.onSubmit = onSubmit
         self.onFocusChange = onFocusChange
     }
@@ -113,6 +117,7 @@ struct MMTextField: View {
             focused = true
         }
         .onChange(of: focused) { _, active in onFocusChange?(active) }
+        .onChange(of: focusRequest) { focused = true }
     }
 
     @ViewBuilder
