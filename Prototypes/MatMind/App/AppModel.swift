@@ -55,7 +55,7 @@ final class AppModel {
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
-        people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
+        people = [:]; friends = []; posts = []; upcoming = []; completedSessions = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
     }
@@ -71,6 +71,7 @@ final class AppModel {
     var friends: [Friendship] = []
     var posts: [Post] = []
     var upcoming: [Session] = []
+    var completedSessions: [Session] = []
     var toComplete: Session?
     var notifications: [AppNotification] = []
     var drafts: [Session] = []
@@ -115,7 +116,7 @@ final class AppModel {
     func findSession(_ id: String) -> Session? {
         if let s = upcoming.first(where: { $0.id == id }) { return s }
         if let s = toComplete, s.id == id { return s }
-        return drafts.first(where: { $0.id == id })
+        return drafts.first(where: { $0.id == id }) ?? completedSessions.first(where: { $0.id == id })
     }
 
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
@@ -130,14 +131,29 @@ final class AppModel {
         plannedSessions.first { sessionGoals[$0.id] == goalID }
     }
 
-    /// Invitations and accepted plans, soonest first; declined sessions do not fill the schedule.
-    var plannedSessions: [Session] {
-        upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
-            .sorted {
-                let first = startDate(of: $0), second = startDate(of: $1)
-                return first == second ? $0.id < $1.id : first < second
-            }
+    /// Invitations and accepted future plans, soonest first.
+    var plannedSessions: [Session] { trainingSessions(past: false) }
+
+    /// Date, not publication or photo state, determines which Training tab owns a session.
+    /// Label-only sample plans remain upcoming; draft and completion samples remain past.
+    func trainingSessions(past: Bool, relativeTo now: Date = Date()) -> [Session] {
+        let completedIDs = Set(completedSessions.map(\.id))
+        let draftIDs = Set(drafts.map(\.id))
+        var seen: Set<String> = []
+        let sessions = upcoming + drafts + (toComplete.map { [$0] } ?? []) + completedSessions
+        return sessions.filter { session in
+            guard seen.insert(session.id).inserted,
+                  session.status(of: "me") == .going || session.status(of: "me") == .invited else { return false }
+            let elapsed = completedIDs.contains(session.id) || (session.startsAt.map { $0 <= now }
+                ?? (draftIDs.contains(session.id) || session.id == toComplete?.id))
+            return elapsed == past
+        }.sorted {
+            let first = startDate(of: $0), second = startDate(of: $1)
+            return first == second ? $0.id < $1.id : (past ? first > second : first < second)
+        }
     }
+
+    func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
 
     var unreadCount: Int { notifications.filter(\.unread).count }
 
@@ -228,6 +244,11 @@ final class AppModel {
 
     private func updateSession(_ id: String, _ change: (inout Session) -> Void) {
         if let i = upcoming.firstIndex(where: { $0.id == id }) { change(&upcoming[i]) }
+        if let i = drafts.firstIndex(where: { $0.id == id }) { change(&drafts[i]) }
+        if var session = toComplete, session.id == id {
+            change(&session)
+            toComplete = session
+        }
     }
 
     func like(_ id: String) {
@@ -430,6 +451,7 @@ final class AppModel {
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }
         posts.insert(post, at: 0)
+        completedSessions.append(s)
         upcoming.removeAll { $0.id == sessionID }
         drafts.removeAll { $0.id == sessionID }
         if toComplete?.id == sessionID { toComplete = nil }
@@ -554,6 +576,8 @@ final class AppModel {
             return
         }
         upcoming.removeAll { $0.id == id }
+        drafts.removeAll { $0.id == id }
+        if toComplete?.id == id { toComplete = nil }
         forgetGoal(forSession: id)
         showToast("Session deleted")
     }
@@ -791,6 +815,7 @@ final class AppModel {
         sessionGoals = SeedData.sessionGoals
 #endif
         drafts = []
+        completedSessions = []
         path = []
         toast = nil
         highlight = nil

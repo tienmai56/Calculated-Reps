@@ -25,8 +25,8 @@ The first-session state uses the same paper canvas, photo-memory frame, ticket s
 - **Home, no shared posts or plans:** “Good memories start on the mat.” Plan a training session; add friends by QR when the friend list is empty, or log a past session when friends already exist.
 - **Home, a plan exists:** “Your first photo is on its way.” View the plan or invitation. No post is created until a session is completed and published.
 - **Home, a session awaits completion:** Complete & share is the next action.
-- **Training, no upcoming plans/invites:** “Summon your crew” Plan a training session, with “Already trained? Log it” as a secondary action. Existing activity and past sessions remain available.
-- **Past, no personal shared sessions:** Log a past session.
+- **Training → Upcoming, no upcoming plans/invites:** “Summon your crew” Plan a training session, with “Already trained? Log it” as a secondary action. Existing activity and past sessions remain available.
+- **Training → Past:** the same session tickets, newest first, including past sessions without a photo or shared post. Completed sessions stay here after publishing. The empty state offers **Log a past session**.
 
 The review panel includes “First session,” “Plan made · no shared photo yet,” and “Empty training schedule · keep activity history.” These presets update actual in-memory collections, so a newly created plan replaces the empty state without restoring seeded sessions. Declined sessions do not count as upcoming plans.
 

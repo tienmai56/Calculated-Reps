@@ -402,7 +402,7 @@ final class LiveMatMindRuntime: AppRuntime {
             return Friendship(id: other, weeks: weeks, thisWeek: buckets.contains(formatter.string(from: week)) ? .done : .pending,
                               best: model.streak(row).best, together: credits.count, currentStreak: model.streak(row).current)
         }
-        ui.upcoming = model.snapshot.sessions.filter { $0.text("status") == "planned" }.map { row in
+        let sessions = model.snapshot.sessions.filter { ["planned", "completed"].contains($0.text("status")) }.map { row in
             let date = row.date("starts_at") ?? Date()
             let content = SessionNoteCodec.decode(row.text("note"))
             return Session(id: row.id, title: row.text("title"), day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
@@ -411,6 +411,8 @@ final class LiveMatMindRuntime: AppRuntime {
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
+        ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" }
+        ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
         ui.toComplete = ui.upcoming.first { session in
             session.organizer == "me" && (model.session(session.id)?.date("starts_at") ?? .distantFuture) <= Date()
         }
