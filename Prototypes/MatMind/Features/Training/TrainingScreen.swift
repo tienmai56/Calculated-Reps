@@ -242,7 +242,7 @@ private struct EmptyTraining: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        MMEmptyState(artwork: .plan, title: "Make it a\nmat date.",
+        MMEmptyState(artwork: .plan, title: "Summon your crew",
                      message: "Pick a day. Bring your people.\nThe rounds will follow.",
                      actionTitle: "Plan a training session", actionIcon: "plus",
                      secondaryTitle: "Already trained? Log it", secondaryIcon: "history",
