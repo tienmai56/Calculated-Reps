@@ -8,6 +8,7 @@ struct ProfileScreen: View {
     @State private var showSettings = false
     @State private var name = ""
     @State private var username = ""
+    @State private var savingUsername = false
     @State private var gym = ""
     @State private var showExport = false
     @State private var deleteAccount = false
@@ -65,7 +66,22 @@ struct ProfileScreen: View {
                 photoRow
                 MMTextField(label: "Name", text: $name)
                 if mm.isLive {
-                    UsernameSettingsView(username: $username)
+                    MMTextField(label: "Username", placeholder: "hippo", text: $username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Text("Use 3–40 letters, numbers or underscores. Friends can tag you with @username.")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    MMButton("Save username", variant: .secondary) {
+                        savingUsername = true
+                        Task {
+                            defer { savingUsername = false }
+                            if await mm.runtime?.perform("set_username", ["username": username]) == true {
+                                username = mm.me.username
+                                mm.showToast("Username saved")
+                            }
+                        }
+                    }
+                    .disabled(savingUsername || username == mm.me.username)
                 }
                 if mm.isLive { MMTextField(label: "Home gym", text: $gym) }
                 VStack(alignment: .leading, spacing: 8) {
@@ -207,35 +223,6 @@ struct ProfileScreen: View {
         belt = mm.me.belt.rawValue
         stripes = String(mm.me.stripes)
         showSettings = true
-    }
-}
-
-/// Keep the username controls outside the large profile body so the compiler
-/// can optimize their view hierarchy independently.
-private struct UsernameSettingsView: View {
-    @Environment(AppModel.self) private var mm
-    @Binding var username: String
-    @State private var saving = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            MMTextField(label: "Username", placeholder: "hippo", text: $username)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Text("Use 3–40 letters, numbers or underscores. Friends can tag you with @username.")
-                .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
-            MMButton("Save username", variant: .secondary) {
-                saving = true
-                Task {
-                    defer { saving = false }
-                    if await mm.runtime?.perform("set_username", ["username": username]) == true {
-                        username = mm.me.username
-                        mm.showToast("Username saved")
-                    }
-                }
-            }
-            .disabled(saving || username == mm.me.username)
-        }
     }
 }
 
