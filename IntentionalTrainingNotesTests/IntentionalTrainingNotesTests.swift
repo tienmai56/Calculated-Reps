@@ -327,6 +327,37 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
     }
 
+    func testGoalsAttachToSessionsAndPersistPerAccountInTheInstalledApp() {
+        let ui = AppModel(live: true)
+        XCTAssertTrue(ui.goals.isEmpty, "The installed app never shows sample goals")
+        let account = "goal-test-\(UUID().uuidString)"
+        defer { UserDefaults.standard.removeObject(forKey: "matmonkeys.goals.\(account)") }
+        ui.loadGoals(account: account)
+
+        var goal = MatGoal.new()
+        goal.title = "  Single leg from standing  "
+        goal.notes = "Head inside\n- Run the pipe"
+        XCTAssertTrue(ui.saveGoal(goal))
+        XCTAssertEqual(ui.goals.first?.title, "Single leg from standing")
+        XCTAssertEqual(ui.goals.first?.notesPreview, "Head inside Run the pipe")
+        XCTAssertFalse(ui.saveGoal(MatGoal(id: "blank", title: "   ")), "A goal needs a name")
+        ui.setGoal(goal.id, forSession: "session-1")
+        XCTAssertEqual(ui.goal(forSession: "session-1")?.id, goal.id)
+
+        let reopened = AppModel(live: true)
+        reopened.loadGoals(account: account)
+        XCTAssertEqual(reopened.goals.map(\.id), [goal.id])
+        XCTAssertEqual(reopened.sessionGoals["session-1"], goal.id)
+
+        let otherAccount = AppModel(live: true)
+        otherAccount.loadGoals(account: account + "-other")
+        XCTAssertTrue(otherAccount.goals.isEmpty, "Goals are kept per account")
+
+        reopened.deleteGoal(goal.id)
+        XCTAssertTrue(reopened.goals.isEmpty)
+        XCTAssertNil(reopened.goal(forSession: "session-1"))
+    }
+
     func testLiveSnapshotMapsCurrentUserAndPreservesTagVisibility() throws {
         let data = Data(#"""
         {

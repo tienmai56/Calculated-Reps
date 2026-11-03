@@ -361,8 +361,9 @@ final class LiveMatMindRuntime: AppRuntime {
             avatarPhotos = [:]
             photoOwner = model.userID
         }
-        guard model.userID != nil else { ui.clearLiveData(); ui.isSignedIn = false; return }
+        guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.isSignedIn = true
+        ui.loadGoals(account: userID)
         ui.me = model.me.map(person) ?? Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         ui.people = Dictionary(uniqueKeysWithValues: model.snapshot.profiles.filter { $0.id != model.userID }.map { (localID($0.id), person($0)) })
         ui.gyms = Array(Set(model.snapshot.profiles.map { $0.text("gym") }.filter { !$0.isEmpty })).sorted()

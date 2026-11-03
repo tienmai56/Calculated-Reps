@@ -162,3 +162,34 @@ struct PublishResult {
     var post: Post
     var streaks: [StreakTick]
 }
+
+/// Something you're working on for your own game, e.g. "Single leg from standing".
+/// Goals are personal: they live on this device and are attached to sessions
+/// only in your own schedule. There is no scoring or completion tracking.
+struct MatGoal: Identifiable, Hashable, Codable {
+    var id: String
+    var title: String
+    /// Where it happens on the mat ("Standup", "Back"). Optional.
+    var position: String = ""
+    /// Free-form notes; a line starting with "-" reads as a bullet.
+    var notes: String = ""
+    /// Reference links (instructionals, videos).
+    var links: [String] = []
+    /// Reference photos (asset names or private local file paths).
+    var photos: [String] = []
+
+    static let positions = ["Standup", "Guard", "Passing", "Back", "Mount", "Side control", "Escapes", "Leg locks"]
+
+    static func new() -> MatGoal {
+        MatGoal(id: "g\(Int(Date().timeIntervalSince1970 * 1000))", title: "")
+    }
+
+    /// Notes collapsed to one line for card previews.
+    var notesPreview: String {
+        notes.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .map { $0.hasPrefix("-") ? String($0.dropFirst()).trimmingCharacters(in: .whitespaces) : $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+}

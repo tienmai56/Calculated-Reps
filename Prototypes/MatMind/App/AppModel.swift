@@ -47,6 +47,7 @@ final class AppModel {
         gyms = []; cameraRoll = []
         people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
+        goals = []; sessionGoals = [:]; goalAccount = nil
     }
 
     private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
@@ -65,6 +66,12 @@ final class AppModel {
     var drafts: [Session] = []
     var gyms = SeedData.gyms
     var cameraRoll = SeedData.cameraRoll
+    /// What you're working on. Personal and local to this device.
+    var goals = SeedData.goals
+    /// Session id → goal id for sessions you've attached a goal to.
+    var sessionGoals = SeedData.sessionGoals
+    /// The signed-in account whose goals are loaded (installed app only).
+    @ObservationIgnored private var goalAccount: String?
 
     // MARK: Navigation & feedback
     var tab: AppTab = .activity
@@ -96,6 +103,16 @@ final class AppModel {
     }
 
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
+
+    func goal(_ id: String) -> MatGoal? { goals.first { $0.id == id } }
+
+    /// The goal you attached to a session, if it still exists.
+    func goal(forSession sessionID: String) -> MatGoal? { sessionGoals[sessionID].flatMap { goal($0) } }
+
+    /// The soonest planned session this goal is attached to.
+    func nextSession(forGoal goalID: String) -> Session? {
+        plannedSessions.first { sessionGoals[$0.id] == goalID }
+    }
 
     /// Invitations and accepted plans only; declined sessions do not fill the schedule.
     var plannedSessions: [Session] {
@@ -349,6 +366,67 @@ final class AppModel {
         me.stripes = stripes
     }
 
+    // MARK: Goals
+
+    /// Adds a new goal (newest first) or updates an existing one. Returns false for a blank name.
+    @discardableResult
+    func saveGoal(_ goal: MatGoal) -> Bool {
+        var goal = goal
+        goal.title = goal.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        goal.notes = goal.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !goal.title.isEmpty else { return false }
+        if let i = goals.firstIndex(where: { $0.id == goal.id }) {
+            goals[i] = goal
+            showToast("Goal updated", .success)
+        } else {
+            goals.insert(goal, at: 0)
+            showToast("Added to what you're working on", .success)
+        }
+        persistGoals()
+        return true
+    }
+
+    func deleteGoal(_ id: String) {
+        goals.removeAll { $0.id == id }
+        sessionGoals = sessionGoals.filter { $0.value != id }
+        persistGoals()
+        showToast("Goal removed")
+    }
+
+    /// Attaches a goal to one of your sessions, or clears it with `nil`.
+    func setGoal(_ goalID: String?, forSession sessionID: String) {
+        if let goalID, goal(goalID) != nil {
+            sessionGoals[sessionID] = goalID
+        } else {
+            sessionGoals[sessionID] = nil
+        }
+        persistGoals()
+    }
+
+    private struct StoredGoals: Codable {
+        var goals: [MatGoal]
+        var sessionGoals: [String: String]
+    }
+
+    private static func goalsKey(_ account: String) -> String { "matmonkeys.goals.\(account)" }
+
+    /// Installed app: loads the signed-in account's goals from this device.
+    func loadGoals(account: String) {
+        guard isLive, goalAccount != account else { return }
+        goalAccount = account
+        let stored = UserDefaults.standard.data(forKey: Self.goalsKey(account))
+            .flatMap { try? JSONDecoder().decode(StoredGoals.self, from: $0) }
+        goals = stored?.goals ?? []
+        sessionGoals = stored?.sessionGoals ?? [:]
+    }
+
+    private func persistGoals() {
+        guard isLive, let goalAccount else { return }
+        if let data = try? JSONEncoder().encode(StoredGoals(goals: goals, sessionGoals: sessionGoals)) {
+            UserDefaults.standard.set(data, forKey: Self.goalsKey(goalAccount))
+        }
+    }
+
     // MARK: Demo
 
     func reset() {
@@ -362,6 +440,8 @@ final class AppModel {
         upcoming = SeedData.upcoming
         toComplete = SeedData.toComplete
         notifications = SeedData.notifications
+        goals = SeedData.goals
+        sessionGoals = SeedData.sessionGoals
         drafts = []
         path = []
         toast = nil

@@ -78,6 +78,22 @@ enum SeedData {
         AppNotification(id: "n5", kind: .joined, who: "sarah", text: "joined Saturday open mat", time: "1d"),
     ]
 
+    static let goals: [MatGoal] = [
+        MatGoal(id: "g1", title: "Single leg from standing", position: "Standup",
+                notes: "Collar tie, snap down, step in when they post.\n- Head inside, ear on the hip\n- Run the pipe if they sprawl",
+                links: ["https://www.youtube.com/watch?v=single-leg-finishes"], photos: ["coach-help"]),
+        MatGoal(id: "g2", title: "RNC from back mount", position: "Back",
+                notes: "Win the hand fight first. Hide the choking hand behind their head.",
+                links: ["https://www.youtube.com/watch?v=rnc-details"]),
+        MatGoal(id: "g3", title: "Knee cut vs. half guard", position: "Passing",
+                notes: "Crossface before the cut. Keep the knee heavy on their thigh.",
+                photos: ["bw-sweep", "floor-drill"]),
+        MatGoal(id: "g4", title: "Shrimp to recover guard", position: "Escapes"),
+    ]
+
+    /// Session id → goal id, for the sessions you've attached a goal to.
+    static let sessionGoals: [String: String] = ["s1": "g1"]
+
     static let gyms = ["Tidewater BJJ", "North Shore Grappling", "Harbor Jiu-Jitsu", "Eastside MMA"]
     static let cameraRoll = ["roll-gi-2", "team-lineup", "floor-drill", "grapple-match", "bw-sweep", "roll-gi"]
 }

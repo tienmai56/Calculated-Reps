@@ -75,6 +75,12 @@ struct ProfileScreen: View {
                 }
             }
             .padding(.horizontal, 16)
+            // Past sessions live here now that Training only shows what's coming up.
+            MMButton("Log a past session", variant: .secondary, size: .sm, iconLeft: "history", fullWidth: true) {
+                mm.go(.create(past: true))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, mine.isEmpty ? 0 : 12)
         }
         .mmSheet(isPresented: $showSettings, title: "Account") {
             VStack(alignment: .leading, spacing: 16) {

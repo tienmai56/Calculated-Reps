@@ -360,6 +360,17 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 
 Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
 
+### Training: Coming up and Working on
+
+Training shows what's ahead and what you're working on; past sessions live in Profile → Activity (with **Log a past session**), so Training has no Past tab.
+
+- **Coming up:** session tickets, invites first. More than one session becomes a horizontal, snapping row of 300pt tickets with the next one peeking, so the section stays one ticket tall; **See all N** expands it into a list. One session is a full-width ticket; none shows the "Make it a mat date" empty state.
+- Under each ticket: the goal you attached (paper-2 chip with the notebook-pen icon), or a quiet coral **Pick a goal**. Invites keep Decline / Join.
+- **Working on:** your goals as white cards: position badge, name, a two-line notes preview, link/photo counts and when it's next on the mat ("On Sat with Sarah", never a score). Three show by default with **See all N goals**; **Add a goal** sits in the section header. The tab bar's center button stays the screen's one primary action.
+- Goals are personal (name, optional position, free-form notes where "-" starts a bullet, reference links and photos). They're stored on the device per account and attached only to sessions in your own schedule. No progress, completion counts or rankings.
+
+Native: `Features/Training/TrainingScreen.swift`, `MatGoal` in `App/Models.swift`.
+
 ## 9. Guardrails
 **Always**
 - One primary button per screen.
