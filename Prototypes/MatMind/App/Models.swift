@@ -143,7 +143,7 @@ enum Route: Hashable {
     case notifications
 }
 
-struct SessionDraft {
+struct SessionDraft: Equatable {
     var title: String
     var day: String
     var date: Int
@@ -156,6 +156,50 @@ struct SessionDraft {
     var past: Bool
     var focusItems: [TrainingFocus] = []
     var startsAt: Date? = nil
+    var timezone: String = TimeZone.current.identifier
+
+    static func suggestedTitle(weekday: String, time: String) -> String {
+        if weekday == "Sat" { return "Saturday open mat" }
+        if weekday == "Sun" { return "Sunday open mat" }
+        if time.contains("AM") { return "Morning rolls" }
+        if time.hasPrefix("12") { return "Lunch rolls" }
+        return "Evening rolls"
+    }
+
+    /// One independent session per local calendar day, all at the chosen wall-clock time.
+    func scheduled(on dates: [Date], calendar: Calendar = .current) -> [SessionDraft] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "h:mm a"
+        formatter.isLenient = false
+        guard let clock = formatter.date(from: time) else { return [] }
+        let components = calendar.dateComponents([.hour, .minute], from: clock)
+        let days = Set(dates.map { calendar.startOfDay(for: $0) }).sorted()
+        return days.compactMap { day in
+            guard let start = calendar.date(bySettingHour: components.hour ?? 0, minute: components.minute ?? 0, second: 0, of: day) else { return nil }
+            var draft = self
+            formatter.dateFormat = "EEE"; draft.day = formatter.string(from: day)
+            formatter.dateFormat = "MMM"; draft.month = formatter.string(from: day)
+            draft.date = calendar.component(.day, from: day)
+            if draft.title.isEmpty { draft.title = Self.suggestedTitle(weekday: draft.day, time: time) }
+            draft.startsAt = start
+            draft.timezone = calendar.timeZone.identifier
+            return draft
+        }
+    }
+}
+
+/// Kept by the form across retries so a lost response cannot create the same day twice.
+struct SessionCreationRequest: Identifiable {
+    let id: UUID
+    let draft: SessionDraft
+
+    init(draft: SessionDraft, id: UUID = UUID()) {
+        self.id = id
+        self.draft = draft
+    }
 }
 
 struct StreakTick: Identifiable {

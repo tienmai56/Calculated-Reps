@@ -8,7 +8,7 @@ protocol AppRuntime: AnyObject {
     func authenticate() async
     func signOut() async
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
-    func create(_ draft: SessionDraft) async -> String?
+    func create(_ draft: SessionDraft, key: UUID) async -> String?
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
     func friendCode() async -> String?
     func connect(_ value: String) async -> String?
@@ -35,7 +35,10 @@ final class AppModel {
     }
 #endif
     let isLive: Bool
-    var busy: Bool { runtime?.busy ?? false }
+    var busy: Bool { creatingSessions || (runtime?.busy ?? false) }
+    private(set) var creatingSessions = false
+    private var createdSessions: [UUID: String] = [:]
+    private var creationGeneration = UUID()
 
     init(live: Bool = true) {
 #if DEBUG || MAT_MIND_PROTOTYPE
@@ -47,6 +50,7 @@ final class AppModel {
     }
 
     func clearLiveData() {
+        resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
         people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
@@ -265,15 +269,8 @@ final class AppModel {
     }
 
     func createSession(_ d: SessionDraft) {
-        let goalToAttach = d.past ? nil : pendingPlanGoal
-        pendingPlanGoal = nil
-        if let runtime {
-            Task {
-                if let id = await runtime.create(d) {
-                    if let goalToAttach { setGoal(goalToAttach, forSession: id) }
-                    replace(d.past ? .complete(id: id) : .session(id: id))
-                }
-            }
+        if runtime != nil {
+            Task { await createSessions([SessionCreationRequest(draft: d)]) }
             return
         }
         guard !isLive else { return }
@@ -281,21 +278,67 @@ final class AppModel {
             showToast("Name each focus, or remove the blank one.")
             return
         }
-        let id = "n\(Int(Date().timeIntervalSince1970 * 1000))"
+        let id = createPreviewSession(d)
+        if !d.past, let goal = pendingPlanGoal { setGoal(goal, forSession: id) }
+        pendingPlanGoal = nil
+        replace(d.past ? .complete(id: id) : .session(id: id))
+        showToast(d.invited.isEmpty ? "Session created" : "Invites sent to \(d.invited.count)", .success)
+    }
+
+    func createdCount(for requests: [SessionCreationRequest]) -> Int {
+        requests.filter { createdSessions[$0.id] != nil }.count
+    }
+
+    /// Account changes invalidate both retry receipts and any in-flight batch.
+    func resetSessionCreation() {
+        creationGeneration = UUID()
+        createdSessions = [:]
+        creatingSessions = false
+    }
+
+    @discardableResult
+    func createSessions(_ requests: [SessionCreationRequest]) async -> Bool {
+        guard !busy, !requests.isEmpty,
+              requests.allSatisfy({ TrainingFocusTree.isValid($0.draft.focusItems) }),
+              requests.count == 1 || requests.allSatisfy({ !$0.draft.past }),
+              runtime != nil || !isLive else { return false }
+        if isLive {
+            guard requests.allSatisfy({ $0.draft.startsAt != nil && !$0.draft.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else { return false }
+        }
+        let generation = creationGeneration
+        let goalToAttach = requests[0].draft.past ? nil : pendingPlanGoal
+        creatingSessions = true
+        defer { if generation == creationGeneration { creatingSessions = false } }
+        for request in requests {
+            guard generation == creationGeneration, !Task.isCancelled else { return false }
+            if createdSessions[request.id] != nil { continue }
+            let id: String?
+            if let runtime { id = await runtime.create(request.draft, key: request.id) }
+            else { id = createPreviewSession(request.draft) }
+            guard generation == creationGeneration, let id else { return false }
+            createdSessions[request.id] = id
+            if let goalToAttach { setGoal(goalToAttach, forSession: id) }
+        }
+        pendingPlanGoal = nil
+        if requests.count == 1, let request = requests.first, let id = createdSessions[request.id] {
+            replace(request.draft.past ? .complete(id: id) : .session(id: id))
+            showToast(request.draft.invited.isEmpty ? "Session created" : "Invites sent to \(request.draft.invited.count)", .success)
+        } else {
+            setTab(.training)
+            showToast("\(requests.count) sessions created", .success)
+        }
+        return true
+    }
+
+    private func createPreviewSession(_ d: SessionDraft) -> String {
+        let id = "n\(UUID().uuidString)"
         var people = [Attendee(id: "me", status: .going)]
         people += d.invited.map { Attendee(id: $0, status: d.past ? .going : .invited) }
         let session = Session(id: id, title: d.title, day: d.day, date: d.date, month: d.month, time: d.time, gym: d.gym,
                               organizer: "me", privacy: d.privacy, people: people, note: d.note.isEmpty ? nil : d.note,
-                              focusItems: TrainingFocusTree.normalized(d.focusItems))
-        if d.past {
-            drafts.append(session)
-            replace(.complete(id: id))
-            return
-        }
+                              focusItems: TrainingFocusTree.normalized(d.focusItems), startsAt: d.startsAt)
+        if d.past { drafts.append(session); return id }
         upcoming.append(session)
-        if let goalToAttach { setGoal(goalToAttach, forSession: id) }
-        replace(.session(id: id))
-        showToast(d.invited.isEmpty ? "Session created" : "Invites sent to \(d.invited.count)", .success)
         // The first two invitees accept live, so the plan-together journey feels real.
         for (i, pid) in d.invited.prefix(2).enumerated() {
             later(2.2 + Double(i) * 2) { [weak self] in
@@ -307,6 +350,7 @@ final class AppModel {
                 self.showToast("\(self.person(pid).firstName) joined \(d.title)", .friend)
             }
         }
+        return id
     }
 
     @discardableResult
@@ -614,6 +658,7 @@ final class AppModel {
 
     func reset() {
         if isLive { return }
+        resetSessionCreation()
         timers.forEach { $0.cancel() }
         timers = []
 #if DEBUG || MAT_MIND_PROTOTYPE

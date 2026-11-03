@@ -593,6 +593,91 @@ final class MatMindLiveUITests: XCTestCase {
     }
 }
 
+final class MultiDayScheduleTests: XCTestCase {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return calendar
+    }
+
+    private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
+    private func draft(title: String = "", time: String = "7:30 PM") -> SessionDraft {
+        SessionDraft(title: title, day: "", date: 0, month: "", time: time, gym: "Home gym",
+                     note: "Bring a gi", invited: ["friend"], privacy: .link, past: false,
+                     focusItems: [TrainingFocus(title: "Passing")])
+    }
+
+    func testNonconsecutiveDaysAreDistinctSortedAndShareTheEnteredDetailsAcrossYearBoundary() throws {
+        let original = draft(title: "Partner drills")
+        let scheduled = original.scheduled(on: [date("2027-01-02T20:00:00Z"), date("2026-12-31T20:00:00Z"), date("2027-01-02T22:00:00Z")], calendar: calendar)
+        XCTAssertEqual(scheduled.map(\.date), [31, 2])
+        XCTAssertEqual(scheduled.map(\.month), ["Dec", "Jan"])
+        XCTAssertEqual(scheduled.map(\.title), ["Partner drills", "Partner drills"])
+        for session in scheduled {
+            XCTAssertEqual(session.gym, original.gym)
+            XCTAssertEqual(session.note, original.note)
+            XCTAssertEqual(session.invited, original.invited)
+            XCTAssertEqual(session.privacy, original.privacy)
+            XCTAssertEqual(session.focusItems, original.focusItems)
+            XCTAssertEqual(session.timezone, calendar.timeZone.identifier)
+            let start = try XCTUnwrap(session.startsAt)
+            XCTAssertEqual(calendar.component(.hour, from: start), 19)
+            XCTAssertEqual(calendar.component(.minute, from: start), 30)
+        }
+    }
+
+    func testSuggestedTitlesFollowEachSelectedDay() {
+        let scheduled = draft(time: "10:00 AM").scheduled(on: [date("2026-11-06T20:00:00Z"), date("2026-11-07T20:00:00Z"), date("2026-11-08T20:00:00Z")], calendar: calendar)
+        XCTAssertEqual(scheduled.map(\.title), ["Morning rolls", "Saturday open mat", "Sunday open mat"])
+    }
+
+    func testTimeStaysLocalAcrossDaylightSavingChange() throws {
+        let scheduled = draft().scheduled(on: [date("2026-10-31T20:00:00Z"), date("2026-11-01T20:00:00Z")], calendar: calendar)
+        let first = try XCTUnwrap(scheduled.first?.startsAt)
+        let second = try XCTUnwrap(scheduled.last?.startsAt)
+        XCTAssertEqual(calendar.component(.hour, from: first), 19)
+        XCTAssertEqual(calendar.component(.hour, from: second), 19)
+        XCTAssertEqual(second.timeIntervalSince(first), 25 * 60 * 60)
+    }
+
+    func testNoSelectionOrInvalidTimeDoesNotProduceSessions() {
+        XCTAssertTrue(draft().scheduled(on: [], calendar: calendar).isEmpty)
+        XCTAssertTrue(draft(time: "invalid").scheduled(on: [Date()], calendar: calendar).isEmpty)
+    }
+
+    @MainActor
+    func testPreviewBatchCreatesUniqueSessionsAndAttachesGoalToEveryDay() async {
+        let ui = AppModel(live: false)
+        ui.planSession(forGoal: "g2")
+        let scheduled = draft(title: "Partner drills").scheduled(on: [date("2026-11-03T20:00:00Z"), date("2026-11-05T20:00:00Z"), date("2026-11-07T20:00:00Z")], calendar: calendar)
+        let requests = scheduled.map { SessionCreationRequest(draft: $0) }
+        let before = ui.upcoming.count
+        let result = await ui.createSessions(requests)
+        XCTAssertTrue(result)
+        let added = Array(ui.upcoming.suffix(3))
+        XCTAssertEqual(ui.upcoming.count, before + 3)
+        XCTAssertEqual(Set(added.map(\.id)).count, 3)
+        XCTAssertTrue(added.allSatisfy { ui.goal(forSession: $0.id)?.id == "g2" })
+        XCTAssertEqual(ui.tab, .training)
+        XCTAssertTrue(ui.path.isEmpty)
+        XCTAssertFalse(ui.busy)
+        XCTAssertNil(ui.pendingPlanGoal)
+    }
+
+    @MainActor
+    func testPastSessionsRemainSingleAndContinueToPhotoCompletion() async {
+        let ui = AppModel(live: false)
+        var past = draft(title: "Yesterday's rolls")
+        past.past = true
+        let request = SessionCreationRequest(draft: past)
+        let rejected = await ui.createSessions([request, SessionCreationRequest(draft: past)])
+        XCTAssertFalse(rejected)
+        let result = await ui.createSessions([request])
+        XCTAssertTrue(result)
+        XCTAssertEqual(ui.path.last, ui.drafts.last.map { .complete(id: $0.id) })
+    }
+}
+
 final class GoogleCloudSignInTests: XCTestCase {
     func testGoogleSignInRequiresAnEnabledServerProvider() throws {
         let enabled = try JSONDecoder().decode(CloudAuthSettings.self, from: Data(#"{"external":{"google":true,"apple":false}}"#.utf8))
@@ -845,6 +930,112 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertEqual(model.snapshot.server_time, "profile-saved")
     }
 
+    @MainActor
+    func testMultiDayRetrySkipsCompletedDaysAndReusesReceiptAfterLostResponse() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), loseCreateResponseAt: 2)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        ui.go(.create())
+        let requests = creationRequests()
+
+        let first = await ui.createSessions(requests)
+        XCTAssertFalse(first)
+        XCTAssertEqual(ui.createdCount(for: requests), 1)
+        XCTAssertEqual(ui.path.last, .create())
+        XCTAssertFalse(ui.busy)
+        let savedBeforeRetry = await fixture.createdSessionCount
+        XCTAssertEqual(savedBeforeRetry, 2, "The interrupted request committed before its response was lost")
+
+        let retry = await ui.createSessions(requests)
+        XCTAssertTrue(retry)
+        XCTAssertNil(model.error)
+        XCTAssertEqual(ui.createdCount(for: requests), 3)
+        XCTAssertEqual(ui.tab, .training)
+        XCTAssertTrue(ui.path.isEmpty)
+        let savedAfterRetry = await fixture.createdSessionCount
+        XCTAssertEqual(savedAfterRetry, 3, "Retry must not duplicate the day whose response was lost")
+        let wireRequests = await fixture.requests
+        let commands = try wireRequests.filter { $0.url?.path == "/rest/v1/rpc/command" }.map {
+            try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap($0.httpBody)) as? [String: Any])
+        }
+        XCTAssertEqual(commands.compactMap { $0["idempotency_key"] as? String }, [requests[0].id, requests[1].id, requests[1].id, requests[2].id].map(\.uuidString))
+        let retriedPayload = try XCTUnwrap(commands[2]["payload"] as? [String: Any])
+        XCTAssertEqual(retriedPayload["timezone"] as? String, "America/Los_Angeles")
+        XCTAssertEqual(retriedPayload["invited"] as? [String], ["friend"])
+        let note = SessionNoteCodec.decode(try XCTUnwrap(retriedPayload["note"] as? String))
+        XCTAssertEqual(note.note, "Bring a gi")
+        XCTAssertEqual(note.focus.map(\.title), ["Guard passing"])
+    }
+
+    @MainActor
+    func testMultiDayCreationStaysBusyBetweenWritesAndRejectsDuplicateSubmission() async throws {
+        let started = expectation(description: "First session saved, refresh pending")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        let requests = creationRequests()
+        let batch = Task { await ui.createSessions(requests) }
+        await fulfillment(of: [started], timeout: 5)
+        XCTAssertTrue(ui.busy)
+        let duplicate = await ui.createSessions(requests)
+        XCTAssertFalse(duplicate)
+        await fixture.releaseSnapshots()
+        let result = await batch.value
+        XCTAssertTrue(result)
+        let saved = await fixture.createdSessionCount
+        XCTAssertEqual(saved, 3)
+        XCTAssertFalse(ui.busy)
+    }
+
+    @MainActor
+    func testSigningOutStopsRemainingSessionCreationsAndClearsRetryState() async throws {
+        let started = expectation(description: "First session refresh pending")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        let requests = creationRequests()
+        let batch = Task { await ui.createSessions(requests) }
+        await fulfillment(of: [started], timeout: 5)
+        model.userID = nil
+        runtime.sync()
+        await fixture.releaseSnapshots()
+        let result = await batch.value
+        XCTAssertFalse(result)
+        XCTAssertEqual(ui.createdCount(for: requests), 0)
+        let saved = await fixture.createdSessionCount
+        XCTAssertEqual(saved, 1)
+        XCTAssertFalse(ui.busy)
+        XCTAssertTrue(ui.path.isEmpty)
+    }
+
+    private func creationRequests() -> [SessionCreationRequest] {
+        let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
+                                 note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
+                                 focusItems: [TrainingFocus(title: "Guard passing")])
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        let dates = ["2026-11-03T20:00:00Z", "2026-11-05T20:00:00Z", "2026-11-07T20:00:00Z"].map { ISO8601DateFormatter().date(from: $0)! }
+        return draft.scheduled(on: dates, calendar: calendar).map { SessionCreationRequest(draft: $0) }
+    }
+
     private func makeClient(credential: CloudCredential = CloudCredential(access_token: "old-token", refresh_token: "old-refresh", user: CloudUser(id: "owner")), fixture: BackendHTTPFixture) throws -> (BackendClient, BackendCredentialStore) {
         let host = UUID().uuidString.lowercased() + ".example.com"
         BackendURLProtocol.register(host: host, fixture: fixture)
@@ -881,9 +1072,13 @@ private actor BackendHTTPFixture {
     private var holdSnapshots: Bool
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
     private var profileSaved = false
+    private let loseCreateResponseAt: Int?
+    private var createAttempts = 0
+    private var createReceipts: [String: (payload: Data, id: String)] = [:]
+    var createdSessionCount: Int { createReceipts.count }
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200,
-         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false) {
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -891,6 +1086,7 @@ private actor BackendHTTPFixture {
         self.snapshotError = snapshotError
         self.snapshotStarted = snapshotStarted
         self.holdSnapshots = holdSnapshots
+        self.loseCreateResponseAt = loseCreateResponseAt
     }
 
     func releaseSnapshots() {
@@ -930,6 +1126,18 @@ private actor BackendHTTPFixture {
            let body = request.httpBody,
            let command = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
            command["operation"] as? String == "save_profile" { profileSaved = true }
+        if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
+           let command = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+           command["operation"] as? String == "create_session",
+           let key = command["idempotency_key"] as? String, let payload = command["payload"] as? [String: Any] {
+            createAttempts += 1
+            let encoded = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+            let receipt = createReceipts[key] ?? (payload: encoded, id: UUID().uuidString)
+            guard receipt.payload == encoded else { return (409, Data(#"{"message":"Idempotency key reused with different payload"}"#.utf8)) }
+            createReceipts[key] = receipt
+            if createAttempts == loseCreateResponseAt { throw URLError(.networkConnectionLost) }
+            return (200, try JSONSerialization.data(withJSONObject: ["id": receipt.id]))
+        }
         if request.url?.path == "/rest/v1/rpc/snapshot" {
             var snapshot = SocialSnapshot(server_time: profileSaved ? "profile-saved" : "snapshot-loaded")
             if profileSaved {
