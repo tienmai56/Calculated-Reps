@@ -47,26 +47,84 @@ struct MMEmptyState: View {
     private var illustration: some View {
         switch artwork {
         case .memory:
-            VStack(spacing: MMSpace.s5) {
-                RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
-                    .fill(MMColor.surfaceSunken)
-                    .frame(height: 120)
-                    .overlay { MMIcon("camera", size: 36, color: MMColor.textTertiary) }
-                Text("Post-roll, with your people.")
-                    .mmFont(.display, 13, .bold, lineHeight: 1)
-                    .foregroundStyle(MMColor.textSecondary)
-                    .padding(.bottom, MMSpace.s2)
-            }
-            .padding(MMSpace.s4)
-            .frame(width: 200)
-            .background(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous).fill(MMColor.surfaceCard))
-            .mmShadowCard()
-            .rotationEffect(.degrees(-6))
+            PeekABooMemoryArtwork()
         case .plan:
             TiedInPlanArtwork()
         case .goals:
             GoalTapesArtwork()
         }
+    }
+}
+
+/// The photo-memory frame with a Silverback hiding behind it. The mark springs
+/// out past the card's edge, the camera "clicks" (a white flash over the photo
+/// slot while the icon squeezes), it nods, then ducks back behind the card and
+/// goes again. Still (peeking) when Reduce Motion is on. The mark only moves as
+/// a whole; it is never redrawn.
+private struct PeekABooMemoryArtwork: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum Phase: CaseIterable { case hidden, peek, click, nod, hold }
+
+    var body: some View {
+        if reduceMotion {
+            scene(.hold)
+        } else {
+            PhaseAnimator(Phase.allCases) { phase in
+                scene(phase)
+            } animation: { phase in
+                switch phase {
+                case .hidden: MMMotion.easeOut(0.4).delay(0.5)
+                case .peek: MMMotion.bounce(MMMotion.slow).delay(0.9)
+                case .click: MMMotion.easeOut(0.08).delay(0.25)
+                case .nod: MMMotion.bounce().delay(0.1)
+                case .hold: MMMotion.bounce().delay(0.25)
+                }
+            }
+        }
+    }
+
+    private func scene(_ phase: Phase) -> some View {
+        let out = phase != .hidden
+        return ZStack(alignment: .topTrailing) {
+            Image("SilverbackMark")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 64, height: 72)
+                .rotationEffect(.degrees(out ? (phase == .nod ? 6 : 16) : 0), anchor: .bottomLeading)
+                .offset(x: out ? 0 : -52, y: out ? -2 : 26)
+            card(click: phase == .click)
+        }
+        .frame(width: 280)
+    }
+
+    private func card(click: Bool) -> some View {
+        VStack(spacing: MMSpace.s5) {
+            RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
+                .fill(MMColor.surfaceSunken)
+                .frame(height: 120)
+                .overlay {
+                    MMIcon("camera", size: 36, color: MMColor.textTertiary)
+                        .scaleEffect(click ? 0.86 : 1)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
+                        .fill(MMColor.surfaceCard)
+                        .opacity(click ? 0.95 : 0)
+                }
+            Text("Post-roll, with your people.")
+                .mmFont(.display, 13, .bold, lineHeight: 1)
+                .foregroundStyle(MMColor.textSecondary)
+                .padding(.bottom, MMSpace.s2)
+        }
+        .padding(MMSpace.s4)
+        .frame(width: 200)
+        .background(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous).fill(MMColor.surfaceCard))
+        .mmShadowCard()
+        .rotationEffect(.degrees(click ? -7 : -6))
+        .padding(.top, MMSpace.s5)
+        .frame(maxWidth: .infinity)
     }
 }
 
