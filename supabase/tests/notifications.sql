@@ -2,6 +2,7 @@
 begin;
 create function pg_temp.assert_true(value boolean,message text) returns void language plpgsql as $$ begin if value is distinct from true then raise exception 'Assertion failed: %',message; end if; end $$;
 create function pg_temp.fails(statement text) returns boolean language plpgsql as $$ begin execute statement; return false; exception when others then return true; end $$;
+create function pg_temp.refused_as_blank(statement text) returns boolean language plpgsql as $$ begin execute statement; return false; exception when others then return sqlerrm='Add a photo or a few words first'; end $$;
 create function pg_temp.notes(who uuid,k text) returns bigint language sql as $$ select count(*) from public.notifications n join public.notification_outbox o on o.id=n.id where n.recipient=who and n.kind=k $$;
 insert into auth.users values('00000000-0000-0000-0000-000000000031'),('00000000-0000-0000-0000-000000000032');
 set local role authenticated;
@@ -26,7 +27,13 @@ select public.command('create_session',jsonb_build_object('title','Open mat','ve
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000032',true);
 select public.command('set_rsvp',jsonb_build_object('session_id',:'sid','rsvp','going'),gen_random_uuid());
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000031',true);
-select public.command('complete_and_publish',jsonb_build_object('session_id',:'sid','attendees',jsonb_build_array('00000000-0000-0000-0000-000000000031','00000000-0000-0000-0000-000000000032')),gen_random_uuid())->>'id' as pid \gset
+-- A post needs a photo or a few words: blank, whitespace-only and tags-only notes are refused.
+select pg_temp.assert_true(pg_temp.refused_as_blank(format($q$select public.command('complete_and_publish',jsonb_build_object('session_id',%L,'attendees',jsonb_build_array('00000000-0000-0000-0000-000000000031','00000000-0000-0000-0000-000000000032')),gen_random_uuid())$q$,:'sid')),'a post with no photo and no note is refused');
+select pg_temp.assert_true(pg_temp.refused_as_blank(format($q$select public.command('complete_and_publish',jsonb_build_object('session_id',%L,'caption',E' \n\t ','attendees',jsonb_build_array('00000000-0000-0000-0000-000000000031')),gen_random_uuid())$q$,:'sid')),'a whitespace-only note counts as empty');
+select pg_temp.assert_true(pg_temp.refused_as_blank(format($q$select public.command('complete_and_publish',jsonb_build_object('session_id',%L,'caption','@guest @host','attendees',jsonb_build_array('00000000-0000-0000-0000-000000000031')),gen_random_uuid())$q$,:'sid')),'a note of only tags counts as empty');
+select pg_temp.assert_true((select status='planned' from public.sessions where id=:'sid'),'a refused post leaves the session uncompleted');
+select public.command('complete_and_publish',jsonb_build_object('session_id',:'sid','caption','Standups all round','attendees',jsonb_build_array('00000000-0000-0000-0000-000000000031','00000000-0000-0000-0000-000000000032')),gen_random_uuid())->>'id' as pid \gset
+select pg_temp.assert_true(pg_temp.refused_as_blank(format($q$select public.command('edit_post',jsonb_build_object('post_id',%L,'version',1,'caption','  '),gen_random_uuid())$q$,:'pid')),'editing a photo-less post down to nothing is refused');
 select public.command('set_like',jsonb_build_object('post_id',:'pid','liked',true),gen_random_uuid());
 reset role;
 select pg_temp.assert_true(pg_temp.notes('00000000-0000-0000-0000-000000000032','invite')=1,'invites queue a push');
