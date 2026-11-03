@@ -124,7 +124,7 @@ struct AppNotification: Identifiable, Hashable {
 }
 
 enum AppTab: String, CaseIterable {
-    case activity, training, friends, profile
+    case activity, training, goals, profile
 }
 
 /// Pushed screens. The tab bar only shows on the tab roots.
@@ -134,6 +134,9 @@ enum Route: Hashable {
     case create(past: Bool = false, friend: String? = nil, focus: [TrainingFocus] = [])
     case complete(id: String)
     case friend(id: String)
+    /// Friends now open from Profile instead of a tab.
+    case friends
+    case goal(id: String)
     case qr(scan: Bool = false)
     case notifications
 }
@@ -190,6 +193,12 @@ struct MatGoal: Identifiable, Hashable, Codable {
 
     static func new() -> MatGoal {
         MatGoal(id: "g\(Int(Date().timeIntervalSince1970 * 1000))", title: "")
+    }
+
+    /// A stored photo reference as something `MMPhoto` can show: imported files live under `photoRoot`.
+    static func photoSource(_ photo: String) -> String {
+        let file = photoRoot.appendingPathComponent(photo)
+        return FileManager.default.fileExists(atPath: file.path) ? file.path : photo
     }
 
     /// Notes collapsed to one line for card previews.

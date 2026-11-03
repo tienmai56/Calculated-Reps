@@ -327,6 +327,36 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
     }
 
+    func testPlanningFromAGoalAttachesItToTheNewSession() {
+        let ui = AppModel()
+        ui.setTab(.goals)
+        ui.go(.goal(id: "g2"))
+        ui.planSession(forGoal: "g2")
+        XCTAssertEqual(ui.path.last, .create())
+        let draft = SessionDraft(title: "Back takes", day: "Wed", date: 11, month: "Nov", time: "6:00 PM", gym: "Tidewater BJJ",
+                                 note: "", invited: [], privacy: .friends, past: false)
+        ui.createSession(draft)
+        let created = ui.upcoming.last
+        XCTAssertEqual(created?.title, "Back takes")
+        XCTAssertEqual(created.flatMap { ui.goal(forSession: $0.id)?.id }, "g2")
+        XCTAssertNil(ui.pendingPlanGoal)
+
+        // Backing out of the plan form forgets the goal.
+        ui.planSession(forGoal: "g3")
+        ui.back()
+        XCTAssertNil(ui.pendingPlanGoal)
+    }
+
+    func testReferenceLinksAreNormalizedAndValidated() {
+        let ui = AppModel()
+        XCTAssertTrue(ui.addLink("  youtube.com/watch?v=abc ", toGoal: "g4"))
+        XCTAssertEqual(ui.goal("g4")?.links, ["https://youtube.com/watch?v=abc"])
+        XCTAssertTrue(ui.addLink("https://youtube.com/watch?v=abc", toGoal: "g4"))
+        XCTAssertEqual(ui.goal("g4")?.links.count, 1, "The same link is kept once")
+        XCTAssertFalse(ui.addLink("not a link", toGoal: "g4"))
+        XCTAssertFalse(ui.addLink("ftp://files.example.com", toGoal: "g4"))
+    }
+
     func testHostCanEditAndDeleteOnlyTheirOwnSessions() async {
         let ui = AppModel()
         let start = ISO8601DateFormatter().date(from: "2026-11-08T18:30:00Z")!

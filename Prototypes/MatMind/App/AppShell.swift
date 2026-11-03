@@ -43,6 +43,8 @@ struct MMAppShell: View {
         case let .create(past, friend, focus): CreateScreen(startPast: past, friend: friend, initialFocus: focus)
         case let .complete(id): CompleteScreen(id: id)
         case let .friend(id): FriendProfileScreen(id: id)
+        case .friends: FriendsScreen(pushed: true)
+        case let .goal(id): GoalDetailScreen(id: id)
         case let .qr(scan): QRScreen(startOnScan: scan)
         case .notifications: NotificationsScreen()
         }
@@ -58,7 +60,7 @@ struct TabRoot: View {
             switch mm.tab {
             case .activity: ActivityScreen()
             case .training: TrainingScreen()
-            case .friends: FriendsScreen()
+            case .goals: GoalsScreen()
             case .profile: ProfileScreen()
             }
         }
@@ -67,8 +69,9 @@ struct TabRoot: View {
                 items: [
                     MMTabBarItem(id: AppTab.activity.rawValue, label: "Activity", icon: "house"),
                     MMTabBarItem(id: AppTab.training.rawValue, label: "Training", icon: "calendar"),
-                    MMTabBarItem(id: AppTab.friends.rawValue, label: "Friends", icon: "users", badge: mm.friendsNeedAttention),
-                    MMTabBarItem(id: AppTab.profile.rawValue, label: "Profile", icon: "user"),
+                    MMTabBarItem(id: AppTab.goals.rawValue, label: "Goals", icon: "notebook-pen"),
+                    // Friends live in Profile, so the streak reminder dot does too.
+                    MMTabBarItem(id: AppTab.profile.rawValue, label: "Profile", icon: "user", badge: mm.friendsNeedAttention),
                 ],
                 selection: Binding(
                     get: { mm.tab.rawValue },

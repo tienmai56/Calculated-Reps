@@ -28,16 +28,26 @@ private struct StreakCopy {
     }
 }
 
-/// Tab 3: weekly streaks, grouped by what each friendship needs.
+/// Weekly streaks, grouped by what each friendship needs. Opened from Profile.
 struct FriendsScreen: View {
     @Environment(AppModel.self) private var mm
+    /// Pushed from Profile (back button, no tab bar) rather than shown as a tab root.
+    var pushed = false
 
     var body: some View {
         let all = mm.friends
-        MMScreen(tabPadding: true) {
-            MMHeader(title: "Friends", large: true, trailing: {
-                MMIconButton("qr-code", variant: .filled, label: "My QR code") { mm.go(.qr()) }
-            })
+        MMScreen(tabPadding: !pushed) {
+            if pushed {
+                MMHeader(title: "Friends", leading: {
+                    MMIconButton("chevron-left", label: "Back") { mm.back() }
+                }, trailing: {
+                    MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                })
+            } else {
+                MMHeader(title: "Friends", large: true, trailing: {
+                    MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                })
+            }
         } content: {
             Button { mm.go(.qr(scan: true)) } label: {
                 HStack(spacing: 14) {

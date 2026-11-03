@@ -71,6 +71,8 @@ final class AppModel {
     var goals = SeedData.goals
     /// Session id → goal id for sessions you've attached a goal to.
     var sessionGoals = SeedData.sessionGoals
+    /// A goal waiting to be attached to the session being planned from its page.
+    var pendingPlanGoal: String?
     /// The signed-in account whose goals are loaded (installed app only).
     @ObservationIgnored private var goalAccount: String?
     /// Reads an old-notebook export into goals. Supplied by the installed app, which
@@ -126,7 +128,7 @@ final class AppModel {
 
     var unreadCount: Int { notifications.filter(\.unread).count }
 
-    /// The Friends tab shows a dot while any live streak still needs this week's session.
+    /// The Profile tab (home of Friends) shows a dot while any live streak still needs this week's session.
     var friendsNeedAttention: Bool { friends.contains { $0.streak > 0 && $0.thisWeek == .pending } }
 
     // MARK: Navigation
@@ -147,7 +149,11 @@ final class AppModel {
 
     func go(_ route: Route) { path.append(route) }
 
-    func back() { if !path.isEmpty { path.removeLast() } }
+    func back() {
+        guard !path.isEmpty else { return }
+        if case .create = path.last { pendingPlanGoal = nil }
+        path.removeLast()
+    }
 
     func replace(_ route: Route) {
         if !path.isEmpty { path.removeLast() }
@@ -155,6 +161,7 @@ final class AppModel {
     }
 
     func setTab(_ newTab: AppTab) {
+        pendingPlanGoal = nil
         path = []
         tab = newTab
     }
@@ -255,8 +262,15 @@ final class AppModel {
     }
 
     func createSession(_ d: SessionDraft) {
+        let goalToAttach = d.past ? nil : pendingPlanGoal
+        pendingPlanGoal = nil
         if let runtime {
-            Task { if let id = await runtime.create(d) { replace(d.past ? .complete(id: id) : .session(id: id)) } }
+            Task {
+                if let id = await runtime.create(d) {
+                    if let goalToAttach { setGoal(goalToAttach, forSession: id) }
+                    replace(d.past ? .complete(id: id) : .session(id: id))
+                }
+            }
             return
         }
         guard !isLive else { return }
@@ -276,6 +290,7 @@ final class AppModel {
             return
         }
         upcoming.append(session)
+        if let goalToAttach { setGoal(goalToAttach, forSession: id) }
         replace(.session(id: id))
         showToast(d.invited.isEmpty ? "Session created" : "Invites sent to \(d.invited.count)", .success)
         // The first two invitees accept live, so the plan-together journey feels real.
@@ -484,6 +499,29 @@ final class AppModel {
         return fresh.count
     }
 
+    /// "Plan a session for this": opens the plan form; the new session gets this goal.
+    func planSession(forGoal id: String) {
+        guard goal(id) != nil else { return }
+        go(.create())
+        pendingPlanGoal = id
+    }
+
+    /// Adds a reference link to a goal. Bare domains get https://. Returns false if it isn't a web link.
+    @discardableResult
+    func addLink(_ raw: String, toGoal id: String) -> Bool {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty, !text.contains("://") { text = "https://" + text }
+        guard !text.contains(where: \.isWhitespace), let url = URL(string: text), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              url.host?.isEmpty == false, let i = goals.firstIndex(where: { $0.id == id }) else {
+            showToast("That doesn't look like a link")
+            return false
+        }
+        if !goals[i].links.contains(text) { goals[i].links.append(text) }
+        persistGoals()
+        showToast("Link added", .success)
+        return true
+    }
+
     private struct StoredGoals: Codable {
         var goals: [MatGoal]
         var sessionGoals: [String: String]
@@ -545,13 +583,13 @@ final class AppModel {
         case .welcome: break
         case .activity: setTab(.activity)
         case .training: setTab(.training)
-        case .friends: setTab(.friends)
+        case .friends: setTab(.profile); go(.friends)
         case .profile: setTab(.profile)
         case .create: setTab(.training); go(.create())
         case .focusPlan: setTab(.training); go(.create(focus: TrainingFocusTree.example))
         case .complete: setTab(.training); go(.complete(id: "c1"))
-        case .qr: setTab(.friends); go(.qr())
-        case .scan: setTab(.friends); go(.qr(scan: true))
+        case .qr: setTab(.profile); go(.qr())
+        case .scan: setTab(.profile); go(.qr(scan: true))
         case .notifications: setTab(.activity); go(.notifications)
         case .post: setTab(.activity); go(.post(id: "p1"))
         case .empty:
@@ -571,8 +609,8 @@ final class AppModel {
             toComplete = nil
             setTab(.activity)
         case .invite: setTab(.training); go(.session(id: "s2"))
-        case .broken: setTab(.friends); go(.friend(id: "jamie"))
-        case .active: setTab(.friends); go(.friend(id: "sarah"))
+        case .broken: setTab(.profile); go(.friends); go(.friend(id: "jamie"))
+        case .active: setTab(.profile); go(.friends); go(.friend(id: "sarah"))
         }
     }
 }
