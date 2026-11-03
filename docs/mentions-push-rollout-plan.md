@@ -7,7 +7,7 @@ The live checks were read-only. Backend deployment and the account owner’s dev
 
 - Project: `cmiqavyrazypmulrfezj`.
 - `202611030001_push_and_reports.sql` is deployed.
-- `notification-worker` version 7 is active and its source matches the local worker.
+- `notification-worker` version 8 is active (deployed November 3, 2026 from `main`; only change from version 7 is the **Mat Monkey** push title).
 - An active `notification-worker` Cron job runs every minute (`* * * * *`).
 - The five most recent retained HTTP responses were HTTP 200 without timeouts.
 - Two device tokens are registered and there are zero pending outbox jobs.
