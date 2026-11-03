@@ -13,7 +13,7 @@ insert into public.profiles(id,name,username) values
  ('00000000-0000-0000-0000-000000000044','Blocked','blocked'),
  ('00000000-0000-0000-0000-000000000045','Quiet','quiet');
 insert into public.profiles(id,name) values('00000000-0000-0000-0000-000000000046','Partner');
-select pg_temp.assert_true((select username='member_00000000000000000000000000000046' from public.profiles where name='Partner'),'older clients receive a unique default username');
+select pg_temp.assert_true((select username='partner' from public.profiles where name='Partner'),'older clients receive a unique default username');
 insert into public.account_settings(user_id,push_enabled) select id,username<>'quiet' from public.profiles;
 insert into public.friendships(a,b,timezone) select '00000000-0000-0000-0000-000000000041',id,'UTC' from public.profiles where username in ('hippo','blocked','quiet') or name='Partner';
 insert into public.blocks values('00000000-0000-0000-0000-000000000044','00000000-0000-0000-0000-000000000041');
