@@ -13,6 +13,10 @@
           {
             "/": "/session/*",
             "comment": "Join a session using an authenticated invitation."
+          },
+          {
+            "/": "/goal/*",
+            "comment": "Open a goal someone shared, to accept or decline it."
           }
         ]
       }

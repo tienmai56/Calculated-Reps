@@ -30,10 +30,12 @@
   // No analytics, token persistence, third-party scripts or automatic redirects.
   const pieces = location.pathname.split('/').filter(Boolean);
   const [kind, token] = pieces;
-  if (pieces.length === 2 && ['friend','session'].includes(kind) && /^[a-f0-9]{64}$/i.test(token || '')) {
-    document.getElementById('description').textContent = kind === 'friend'
-      ? 'A training partner invited you to connect on Mat Monkey.'
-      : 'You’re invited to train together. Open Mat Monkey to see the session.';
+  if (pieces.length === 2 && ['friend','session','goal'].includes(kind) && /^[a-f0-9]{64}$/i.test(token || '')) {
+    document.getElementById('description').textContent = {
+      friend: 'A training partner invited you to connect on Mat Monkey.',
+      session: 'You’re invited to train together. Open Mat Monkey to see the session.',
+      goal: 'Someone shared a goal with you. Open it in Mat Monkey to see who it’s from and accept or decline.'
+    }[kind];
     const open = document.getElementById('open');
     open.href = 'matmind://' + kind + '/' + token;
     open.hidden = false;

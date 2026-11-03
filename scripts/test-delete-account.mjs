@@ -29,6 +29,8 @@ test('account deletion removes all profile-photo pages before deleting the accou
   const remaining = new Set(Array.from({ length: 1001 }, (_, i) => `${i}.jpg`));
   const removed = [];
   let lists = 0;
+  const goalPhotos = ['a'.repeat(64) + '.jpg'];
+  let goalLists = 0;
   let erased = false;
   let deleted = false;
   t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
@@ -51,8 +53,19 @@ test('account deletion removes all profile-photo pages before deleting the accou
       }
       return Response.json({});
     }
+    if (path === '/storage/v1/object/list/goal-media') {
+      assert.equal(JSON.parse(options.body).prefix, 'member');
+      goalLists++;
+      return Response.json(goalPhotos.length ? [{ name: goalPhotos[0] }] : []);
+    }
+    if (path === '/storage/v1/object/goal-media') {
+      assert.equal(options.method, 'DELETE');
+      assert.deepEqual(JSON.parse(options.body).prefixes, ['member/' + goalPhotos.shift()]);
+      return Response.json({});
+    }
     if (path === '/rest/v1/rpc/erase_social_account') {
       assert.equal(remaining.size, 0);
+      assert.equal(goalPhotos.length, 0, 'shared goal photos are removed first');
       assert.deepEqual(JSON.parse(options.body), { target: 'member' });
       erased = true;
       return Response.json({});
@@ -68,6 +81,7 @@ test('account deletion removes all profile-photo pages before deleting the accou
   assert.equal((await handler(request())).status, 200);
   assert.equal(removed.length, 1001);
   assert.equal(lists, 3);
+  assert.equal(goalLists, 2);
   assert.ok(deleted);
 });
 

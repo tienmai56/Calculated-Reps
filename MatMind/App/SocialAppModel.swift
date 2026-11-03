@@ -191,7 +191,7 @@ import SwiftData
         guard ["matmind","https"].contains(url.scheme ?? "") else { return }
         // HTTPS host must be explicitly configured; never redeem arbitrary web URLs.
         if url.scheme == "https", url.host != Bundle.main.object(forInfoDictionaryKey:"AppLinkHost") as? String { return }
-        if url.scheme == "matmind", !["friend","session"].contains(url.host ?? "") { return }
+        if url.scheme == "matmind", !["friend","session","goal"].contains(url.host ?? "") { return }
         pendingLink = url
     }
     func redeemPendingLink() async {
@@ -199,8 +199,9 @@ import SwiftData
         let pieces = url.pathComponents.filter { $0 != "/" }
         let kind = url.scheme == "matmind" ? url.host : pieces.first
         let token = pieces.last ?? ""
-        guard token.count == 64, token.allSatisfy({$0.isHexDigit}), ["friend","session"].contains(kind ?? "") else { error = "Invalid invitation link."; pendingLink = nil; return }
-        if await perform(kind == "friend" ? "redeem_friend":"join_link",["token":token]) != nil { pendingLink = nil }
+        guard token.count == 64, token.allSatisfy({$0.isHexDigit}), ["friend","session","goal"].contains(kind ?? "") else { error = "Invalid invitation link."; pendingLink = nil; return }
+        let operation = kind == "friend" ? "redeem_friend" : kind == "goal" ? "redeem_goal_link" : "join_link"
+        if await perform(operation,["token":token]) != nil { pendingLink = nil }
     }
     func link(kind: String, token: String) -> URL {
         InvitationLinks.make(kind: kind, token: token,

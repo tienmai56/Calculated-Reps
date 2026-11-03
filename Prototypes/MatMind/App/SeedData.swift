@@ -71,6 +71,7 @@ enum SeedData {
                                     people: ["me", "sarah", "alex", "priya", "kenji"].map { Attendee(id: $0, status: .going) })
 
     static let notifications: [AppNotification] = [
+        AppNotification(id: "n0", kind: .goalShare, who: "kenji", session: "sg-berimbolo", text: "shared Berimbolo entries with you", time: "20m", unread: true),
         AppNotification(id: "n1", kind: .invite, who: "jamie", session: "s2", time: "20m", unread: true),
         AppNotification(id: "n2", kind: .joined, who: "alex", text: "joined Saturday open mat", time: "2h", unread: true),
         AppNotification(id: "n3", kind: .comment, who: "kenji", text: "commented on Sunday No-Gi open mat", quote: "Rematch Thursday?",
@@ -98,6 +99,32 @@ enum SeedData {
                 notes: "Crossface before the cut. Keep the knee heavy on their thigh.",
                 photos: ["bw-sweep", "floor-drill"]),
         MatGoal(id: "g4", title: "Shrimp to recover guard", position: "Escapes"),
+    ]
+
+    /// Goals training partners shared with you: one waiting for an answer, two accepted.
+    static let sharedGoals: [SharedGoal] = [
+        SharedGoal(id: "sg-berimbolo", owner: "kenji", title: "Berimbolo entries",
+                   notes: "Off the De La Riva hook only. Don't force it from closed guard.",
+                   links: ["https://www.youtube.com/watch?v=berimbolo-entries"],
+                   parts: [
+                       GoalPart(id: "sg-b1", title: "Hook and grips", notes: "- Cross collar grip first\n- Hook deep behind the knee"),
+                       GoalPart(id: "sg-b2", title: "Invert", link: "https://www.youtube.com/watch?v=berimbolo-invert&t=95"),
+                   ],
+                   status: .pending, sharedAt: Date().addingTimeInterval(-20 * 60)),
+        SharedGoal(id: "sg-single-leg", owner: "sarah", title: "Single leg finish",
+                   notes: "Head on the hip, not the chest. Run the pipe before they sprawl.",
+                   links: ["https://www.bjjfanatics.com/single-leg", "https://www.youtube.com/watch?v=single-leg-chain"],
+                   photos: ["roll-gi", "floor-drill"],
+                   parts: [
+                       GoalPart(id: "sg-s1", title: "Entry from collar tie", notes: "- Snap the head down first\n- Level change, don't reach", photos: ["coach-help", "team-lineup"]),
+                       GoalPart(id: "sg-s2", title: "Run the pipe", notes: "Corner, don't lift.", link: "https://www.youtube.com/watch?v=run-the-pipe&t=102"),
+                       GoalPart(id: "sg-s3", title: "Knee tap backup", notes: "If they whizzer, switch to the knee tap."),
+                   ],
+                   status: .accepted, sharedAt: Date().addingTimeInterval(-2 * 3600)),
+        SharedGoal(id: "sg-closed-guard", owner: "kenji", title: "Closed guard breaks",
+                   notes: "Posture first. Two hands on the belt line, then stand.",
+                   photos: ["bw-sweep"],
+                   status: .accepted, sharedAt: Date().addingTimeInterval(-3 * 86400)),
     ]
 
     /// Session id → goal id, for the sessions you've attached a goal to.
