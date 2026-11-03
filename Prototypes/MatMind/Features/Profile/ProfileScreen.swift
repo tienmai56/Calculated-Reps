@@ -355,7 +355,7 @@ struct ProfileHistory {
 
     /// Newest first, grouped by month.
     func photoGroups() -> [Group] {
-        group(items.filter { $0.post.photo != nil }, by: monthTitle)
+        group(items.filter { $0.post.photo != nil }, by: { monthTitle($0.day) })
     }
 
     private func monthTitle(_ date: Date) -> String {
