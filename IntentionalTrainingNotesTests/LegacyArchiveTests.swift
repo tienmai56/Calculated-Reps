@@ -180,7 +180,7 @@ final class LegacyArchiveTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: photos.appendingPathComponent("legacy-g1/t1-grip.jpg")), Data([9, 8, 7]))
 
         let counts = await MainActor.run { () -> (Int, Int) in
-            let model = AppModel()
+            let model = AppModel(live: false)
             return (model.importGoals(imported.goals), model.importGoals(imported.goals))
         }
         XCTAssertEqual(counts.0, 1)

@@ -19,8 +19,7 @@ protocol AppRuntime: AnyObject {
     func exportView() -> AnyView
 }
 
-/// All prototype state and actions, ported from `useApp()` in `ui_kits/app/App.jsx`.
-/// Everything is in memory; "Reset demo" restores the seed.
+/// Shared UI state. Live models start empty; only an explicit preview model loads fixtures.
 @MainActor
 @Observable
 final class AppModel {
@@ -30,7 +29,7 @@ final class AppModel {
 
     /// A separate local model: entering review mode never authenticates the live app.
     static func uiReviewPreview() -> AppModel {
-        let preview = AppModel()
+        let preview = AppModel(live: false)
         preview.enterDemo()
         return preview
     }
@@ -38,9 +37,13 @@ final class AppModel {
     let isLive: Bool
     var busy: Bool { runtime?.busy ?? false }
 
-    init(live: Bool = false) {
+    init(live: Bool = true) {
+#if DEBUG || MAT_MIND_PROTOTYPE
         isLive = live
-        if live { clearLiveData() }
+#else
+        isLive = true
+#endif
+        if !isLive { reset() }
     }
 
     func clearLiveData() {
@@ -57,20 +60,20 @@ final class AppModel {
     }
 
     // MARK: Data
-    var me = SeedData.me
-    var people = SeedData.people
-    var friends = SeedData.friends
-    var posts = SeedData.posts
-    var upcoming = SeedData.upcoming
-    var toComplete: Session? = SeedData.toComplete
-    var notifications = SeedData.notifications
+    var me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
+    var people: [String: Person] = [:]
+    var friends: [Friendship] = []
+    var posts: [Post] = []
+    var upcoming: [Session] = []
+    var toComplete: Session?
+    var notifications: [AppNotification] = []
     var drafts: [Session] = []
-    var gyms = SeedData.gyms
-    var cameraRoll = SeedData.cameraRoll
+    var gyms: [String] = []
+    var cameraRoll: [String] = []
     /// What you're working on. Personal and local to this device.
-    var goals = SeedData.goals
+    var goals: [MatGoal] = []
     /// Session id → goal id for sessions you've attached a goal to.
-    var sessionGoals = SeedData.sessionGoals
+    var sessionGoals: [String: String] = [:]
     /// A goal waiting to be attached to the session being planned from its page.
     var pendingPlanGoal: String?
     /// The signed-in account whose goals are loaded (installed app only).
@@ -552,6 +555,7 @@ final class AppModel {
         if isLive { return }
         timers.forEach { $0.cancel() }
         timers = []
+#if DEBUG || MAT_MIND_PROTOTYPE
         me = SeedData.me
         people = SeedData.people
         friends = SeedData.friends
@@ -559,8 +563,11 @@ final class AppModel {
         upcoming = SeedData.upcoming
         toComplete = SeedData.toComplete
         notifications = SeedData.notifications
+        gyms = SeedData.gyms
+        cameraRoll = SeedData.cameraRoll
         goals = SeedData.goals
         sessionGoals = SeedData.sessionGoals
+#endif
         drafts = []
         path = []
         toast = nil

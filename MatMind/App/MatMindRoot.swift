@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import MapKit
 
 /// The installed app renders the same screens as MatMindPrototype, backed by live services.
 struct MatMindRoot: View {
@@ -114,7 +115,7 @@ struct MatMindRoot: View {
 }
 
 /// First-run profile: photo, name, phone, home gym and belt. Stripes are edited
-/// later from Profile; the phone number is stored privately (account settings).
+/// later from Profile; the phone number is optional and stored privately (account settings).
 private struct LiveProfileSetup: View {
     private struct CountryCode: Hashable { let code: String; let name: String }
     private static let countryCodes = [
@@ -130,7 +131,10 @@ private struct LiveProfileSetup: View {
     @State private var countryCode = "+1"
     @State private var phone = ""
     @State private var gym = ""
-    @State private var belt: BeltRank = .white
+    @State private var belt: BeltRank?
+    @State private var gymSearch = GymSearch()
+    /// The suggestion the gym text came from, so picking one closes the list.
+    @State private var pickedGym: String?
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var photo: Data?
     @State private var photoKey = UUID()
@@ -141,25 +145,37 @@ private struct LiveProfileSetup: View {
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedGym: String { gym.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var phoneDigits: String { phone.filter(\.isNumber) }
-    private var canSave: Bool {
-        // E.164: country code + number, 7–15 digits in total (the server checks the same).
+    /// Optional, but if entered it must be E.164: country code + number, 7–15 digits in total (the server checks the same).
+    private var phoneValid: Bool {
+        if phoneDigits.isEmpty { return true }
         let totalDigits = countryCode.filter(\.isNumber).count + phoneDigits.count
-        return !trimmedName.isEmpty && !trimmedGym.isEmpty && phoneDigits.count >= 6 && (7...15).contains(totalDigits) && !loadingPhoto && !saving && !app.busy
+        return phoneDigits.count >= 6 && (7...15).contains(totalDigits)
+    }
+    private var canSave: Bool {
+        !trimmedName.isEmpty && !trimmedGym.isEmpty && belt != nil && phoneValid && !loadingPhoto && !saving && !app.busy
     }
 
     var body: some View {
         MMScreen {
-            HStack { MMWordmark(size: 24); Spacer() }
-                .padding(.horizontal, MMLayout.gutter)
-                .frame(height: MMLayout.headerHeight)
+            HStack {
+                MMWordmark(size: 24)
+                Spacer()
+                MMButton("Sign out", variant: .ghost) {
+                    Task { await app.logout() }
+                }
+                .disabled(saving || app.busy)
+                .accessibilityIdentifier("profile-setup-sign-out")
+            }
+            .padding(.horizontal, MMLayout.gutter)
+            .frame(height: MMLayout.headerHeight)
         } content: {
             VStack(alignment: .leading, spacing: 20) {
                 Text("First, who's rolling?").mmFont(.display, 30).foregroundStyle(MMColor.textPrimary)
                 photoRow
-                MMTextField(label: "Name", placeholder: "What your partners call you", text: $name)
+                MMTextField(label: "Name", required: true, placeholder: "What your partners call you", text: $name)
                     .textContentType(.name)
                 phoneField
-                MMTextField(label: "Home gym", placeholder: "Your academy", text: $gym, iconLeft: "map-pin")
+                gymField
                 beltPicker
             }
             .padding(.horizontal, MMLayout.gutter)
@@ -177,8 +193,55 @@ private struct LiveProfileSetup: View {
         }
     }
 
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text).mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
+    private var gymField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            MMTextField(label: "Home gym", required: true, placeholder: "Search for your academy", text: $gym, iconLeft: "map-pin")
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .onChange(of: gym) { _, text in
+                    if text != pickedGym { pickedGym = nil }
+                    gymSearch.query = pickedGym == nil ? text : ""
+                }
+            if pickedGym == nil, !gymSearch.results.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(gymSearch.results.prefix(5).enumerated()), id: \.offset) { index, place in
+                        if index > 0 { Divider().overlay(MMColor.borderSubtle).padding(.leading, 44) }
+                        Button { pickGym(place) } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                MMIcon("map-pin", size: 18, color: MMColor.textTertiary).padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(place.title).mmFont(.body, 15, .semibold).foregroundStyle(MMColor.textPrimary)
+                                    if !place.subtitle.isEmpty {
+                                        Text(place.subtitle).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary).lineLimit(1)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .frame(minHeight: MMLayout.tapTarget)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(place.subtitle.isEmpty ? place.title : "\(place.title), \(place.subtitle)")
+                    }
+                }
+                .mmCardSurface(radius: MMRadius.md)
+                .transition(.opacity)
+            }
+        }
+        .animation(MMMotion.easeOut(MMMotion.fast), value: gymSearch.results.isEmpty || pickedGym != nil)
+    }
+
+    private func pickGym(_ place: MKLocalSearchCompletion) {
+        pickedGym = place.title
+        gym = place.title
+        gymSearch.query = ""
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func fieldLabel(_ text: String, required: Bool = false) -> some View {
+        MMFieldLabel(text, required: required)
     }
 
     private var photoRow: some View {
@@ -215,7 +278,10 @@ private struct LiveProfileSetup: View {
 
     private var phoneField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            fieldLabel("Phone number")
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                fieldLabel("Phone number")
+                Text("Optional").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            }
             HStack(spacing: 8) {
                 Menu {
                     ForEach(Self.countryCodes, id: \.self) { country in
@@ -245,7 +311,7 @@ private struct LiveProfileSetup: View {
 
     private var beltPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            fieldLabel("Belt")
+            fieldLabel("Belt", required: true)
             HStack(spacing: 6) {
                 ForEach(BeltRank.adultRanks, id: \.self) { rank in
                     let selected = belt == rank
@@ -302,12 +368,13 @@ private struct LiveProfileSetup: View {
     }
 
     private func save() async {
-        guard canSave, let userID = app.userID else { return }
+        guard canSave, let belt, let userID = app.userID else { return }
         saving = true; defer { saving = false }
         var payload: [String: Any] = [
             "name": trimmedName, "gym": trimmedGym, "belt": belt.rawValue, "stripes": 0,
-            "phone": countryCode + phoneDigits, "timezone": TimeZone.current.identifier
+            "timezone": TimeZone.current.identifier
         ]
+        if !phoneDigits.isEmpty { payload["phone"] = countryCode + phoneDigits }
         if let photo {
             let key = "\(userID.lowercased())/\(photoKey.uuidString.lowercased()).jpg"
             do { try await app.backend.upload(photo, objectKey: key, bucket: "avatars") }
@@ -321,6 +388,37 @@ private struct LiveProfileSetup: View {
             payload["avatar_key"] = key
         }
         await app.perform("save_profile", payload)
+    }
+}
+
+/// Type-ahead place search for the home gym (Apple Maps; no API key or location permission needed).
+@MainActor
+@Observable
+final class GymSearch: NSObject, MKLocalSearchCompleterDelegate {
+    private(set) var results: [MKLocalSearchCompletion] = []
+    var query = "" {
+        didSet {
+            let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.count < 2 { completer.cancel(); results = [] } else { completer.queryFragment = text }
+        }
+    }
+    @ObservationIgnored private let completer = MKLocalSearchCompleter()
+
+    override init() {
+        super.init()
+        completer.resultTypes = [.pointOfInterest, .address]
+        completer.delegate = self
+    }
+
+    nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        let found = completer.results
+        MainActor.assumeIsolated {
+            results = query.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 ? [] : found
+        }
+    }
+
+    nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        MainActor.assumeIsolated { results = [] }
     }
 }
 

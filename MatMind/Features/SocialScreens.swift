@@ -185,7 +185,6 @@ struct SocialCompleteScreen: View {
     let session: SocialRow
     @State private var draft = CompletionDraft()
     @State private var photo: PhotosPickerItem?
-    @State private var completed = false
     @State private var publishing = false
     @State private var published = false
     @State private var camera = false
@@ -206,9 +205,8 @@ struct SocialCompleteScreen: View {
                         Toggle(app.person(id),isOn:Binding(get:{draft.attendees.contains(id)},set:{selected in if selected { draft.attendees.append(id) } else { draft.attendees.removeAll{$0==id} } })).disabled(id==app.userID)
                     }
                 }
-                Toggle("Training completed",isOn:$completed)
                 Text("Shared with attendees and friends of tagged attendees. You can remove a profile tag later without changing attendance.").font(.caption)
-                Button("Publish to Activity") { Task { await publish() } }.disabled(!completed || publishing || app.busy)
+                Button("Publish to Activity") { Task { await publish() } }.disabled(publishing || app.busy)
                 if publishing { ProgressView("Uploading photo and publishing…") }
             }
         }.navigationTitle("Complete & share")

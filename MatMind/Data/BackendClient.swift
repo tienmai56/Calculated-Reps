@@ -16,12 +16,31 @@ struct BackendConfiguration {
         return BackendConfiguration(url: url, key: key)
     }
 }
-struct CloudCredential: Codable {
+struct CloudCredential: Codable, Equatable, Sendable {
     var access_token: String
     var refresh_token: String
     var user: CloudUser
+    var expires_at: TimeInterval? = nil
+
+    func needsRefresh(at date: Date = Date()) -> Bool {
+        var expiration = expires_at
+        // Older Keychain sessions predate expires_at. Read exp only to schedule
+        // refresh; the server still validates the token and all authorization.
+        if expiration == nil {
+            let parts = access_token.split(separator: ".", omittingEmptySubsequences: false)
+            if parts.count == 3 {
+                var payload = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+                payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
+                if let data = Data(base64Encoded: payload),
+                   let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    expiration = claims["exp"] as? TimeInterval
+                }
+            }
+        }
+        return expiration.map { $0 <= date.timeIntervalSince1970 + 60 } ?? false
+    }
 }
-struct CloudUser: Codable { var id: String }
+struct CloudUser: Codable, Equatable, Sendable { var id: String }
 struct SocialRow: Codable, Identifiable, Equatable {
     var values: [String: ArchiveValue]
     var id: String { text("id").isEmpty ? [text("session_id"),text("post_id"),text("user_id"),text("friendship_id")].joined(separator:":") : text("id") }
@@ -101,10 +120,17 @@ enum GoogleOAuthCallback {
 
 actor BackendClient {
     private let configuration: BackendConfiguration?
+    private let session: URLSession
+    private let saveCredential: (Data) throws -> Void
     private var credential: CloudCredential?
-    init(configuration: BackendConfiguration? = .configured) {
+    private var refreshTask: Task<Void, Error>?
+    init(configuration: BackendConfiguration? = .configured, session: URLSession = .shared,
+         loadCredential: () -> Data? = BackendClient.readKeychain,
+         saveCredential: @escaping (Data) throws -> Void = BackendClient.saveKeychain) {
         self.configuration = configuration
-        if let data = Self.readKeychain() { credential = try? JSONDecoder().decode(CloudCredential.self, from: data) }
+        self.session = session
+        self.saveCredential = saveCredential
+        if let data = loadCredential() { credential = try? JSONDecoder().decode(CloudCredential.self, from: data) }
     }
     func identity() -> String? { credential?.user.id }
     func requireGoogleSignIn() async throws {
@@ -128,7 +154,7 @@ actor BackendClient {
             let verified = try await request(path:"auth/v1/user", body:nil)
             let user = try JSONDecoder().decode(CloudUser.self, from: verified)
             guard user.id == candidate.user.id else { throw CloudError(message:"Identity verification failed.") }
-            try Self.saveKeychain(JSONEncoder().encode(candidate))
+            if let credential { try saveCredential(JSONEncoder().encode(credential)) }
         } catch { credential = nil; throw error }
     }
     func signOut() async {
@@ -161,22 +187,55 @@ actor BackendClient {
         _ = try await request(path:"functions/v1/delete-account",body:[:])
         credential = nil; SecItemDelete(Self.keychainQuery() as CFDictionary)
     }
+
+    private func refreshCredential(rejected: CloudCredential) async throws {
+        guard credential == rejected else { return } // Another request already refreshed.
+        if let refreshTask { return try await refreshTask.value }
+        let task = Task {
+            let data = try await request(path: "auth/v1/token?grant_type=refresh_token",
+                                         body: ["refresh_token": rejected.refresh_token], authenticated: false, retry: false)
+            let refreshed = try JSONDecoder().decode(CloudCredential.self, from: data)
+            guard credential == rejected, refreshed.user.id == rejected.user.id else {
+                throw CloudError(message: "Sign-in changed. Please try again.")
+            }
+            try saveCredential(JSONEncoder().encode(refreshed))
+            credential = refreshed
+        }
+        refreshTask = task
+        defer { refreshTask = nil }
+        try await task.value
+    }
+
+    private static func needsAuthRetry(status: Int, path: String, data: Data) -> Bool {
+        if status == 401 { return true }
+        // Storage also uses legacy 400/403 responses for JWT failures. Do not
+        // refresh on ordinary upload validation or row-level permission errors.
+        guard path.hasPrefix("storage/v1/"), [400, 403].contains(status),
+              let error = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        if error["code"] as? String == "InvalidJWT" || error["error"] as? String == "InvalidJWT" { return true }
+        let message = (error["message"] as? String ?? "").lowercased()
+        return message.contains("\"exp\" claim timestamp check failed") || message.contains("jwt expired")
+    }
+
     private func request(path: String, body: [String: Any]?, authenticated: Bool = true, bytes: Data? = nil, contentType: String = "application/json", retry: Bool = true) async throws -> Data {
         guard let configuration else { throw CloudError(message:"Cloud services are not configured for this build. Local training data remains available in Settings.") }
+        if authenticated, retry, let credential, credential.needsRefresh() {
+            try await refreshCredential(rejected: credential)
+        }
         guard !authenticated || credential != nil else { throw CloudError(message:"Sign in to use shared training.") }
+        let sentCredential = authenticated ? credential : nil
         let url = URL(string:configuration.url.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn:"/")) + "/" + path)!
         var req = URLRequest(url:url); req.timeoutInterval = 30
         req.httpMethod = body != nil || bytes != nil ? "POST" : "GET"
         req.setValue(configuration.key,forHTTPHeaderField:"apikey")
-        if authenticated, let credential { req.setValue("Bearer " + credential.access_token,forHTTPHeaderField:"Authorization") }
+        if let sentCredential { req.setValue("Bearer " + sentCredential.access_token,forHTTPHeaderField:"Authorization") }
         req.setValue(contentType,forHTTPHeaderField:"Content-Type")
         req.httpBody = try bytes ?? body.map { try JSONSerialization.data(withJSONObject:$0) }
-        let (data,response) = try await URLSession.shared.data(for:req)
+        let (data,response) = try await session.data(for:req)
         guard let http = response as? HTTPURLResponse else { throw CloudError(message:"No server response.") }
-        if http.statusCode == 401, authenticated, retry, let old = credential {
-            let refreshed = try await request(path:"auth/v1/token?grant_type=refresh_token",body:["refresh_token":old.refresh_token],authenticated:false,retry:false)
-            credential = try JSONDecoder().decode(CloudCredential.self,from:refreshed)
-            try Self.saveKeychain(JSONEncoder().encode(credential!))
+        if authenticated, retry, let sentCredential, Self.needsAuthRetry(status: http.statusCode, path: path, data: data) {
+            try await refreshCredential(rejected: sentCredential)
+            guard credential?.user.id == sentCredential.user.id else { throw CloudError(message: "Sign-in changed. Please try again.") }
             return try await request(path:path,body:body,authenticated:authenticated,bytes:bytes,contentType:contentType,retry:false)
         }
         guard (200..<300).contains(http.statusCode) else {

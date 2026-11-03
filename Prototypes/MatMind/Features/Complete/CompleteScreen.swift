@@ -3,7 +3,7 @@ import PhotosUI
 import UIKit
 
 /// The composer: posts only come from completed sessions.
-/// Photo → caption → who trained → mark completed → publish.
+/// Photo → caption → who trained → publish.
 struct CompleteScreen: View {
     @Environment(AppModel.self) private var mm
     let id: String
@@ -16,7 +16,6 @@ struct CompleteScreen: View {
     @State private var photo: String? = nil
     @State private var showRoll = false
     @State private var caption = ""
-    @State private var done = false
     @State private var result: PublishResult? = nil
 
     var body: some View {
@@ -75,20 +74,12 @@ struct CompleteScreen: View {
                 MMFlowLayout(spacing: 8, lineSpacing: 8) {
                     ForEach(attendees, id: \.self) { pid in personChip(pid) }
                 }
-                MMSwitch(isOn: $done, label: "Training completed", description: "Counts toward weekly streaks for everyone here.")
-                    .padding(16)
-                    .background {
-                        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        shape.fill(done ? MMColor.mint100 : MMColor.white).mmShadowCard(!done)
-                    }
-                    .animation(MMMotion.easeOut(), value: done)
-                    .padding(.top, 22)
                 Color.clear.frame(height: 20)
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
         } footer: {
-            MMButton(done ? "Publish to Activity" : "Mark as completed to publish", size: .lg, iconLeft: "send", fullWidth: true) {
+            MMButton("Publish to Activity", size: .lg, iconLeft: "send", fullWidth: true) {
                 if let runtime = mm.runtime {
                     publishing = true
                     Task {
@@ -100,7 +91,7 @@ struct CompleteScreen: View {
                     withAnimation(MMMotion.easeOut(0.3)) { result = r }
                 }
             }
-            .disabled(!done || publishing || mm.busy)
+            .disabled(publishing || mm.busy)
         }
         .photosPicker(isPresented: $library, selection: $pickerItem, matching: .images)
         .task(id: pickerItem) {
