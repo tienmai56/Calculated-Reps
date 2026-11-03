@@ -153,6 +153,7 @@ struct PostCard: View {
     let post: Post
     var highlight = false
 
+    @State private var showMenu = false
     @State private var burst = false
     @State private var commentsExpanded = false
     @State private var commentText = ""
@@ -178,7 +179,8 @@ struct PostCard: View {
                     Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                MMIconButton("ellipsis", size: 36, label: "Post options") { mm.go(.post(id: post.id, menu: true)) }
+                MMIconButton("ellipsis", size: 36, label: "Post options") { showMenu = true }
+                    .accessibilityIdentifier("post-options-\(post.id)")
             }
             .padding(.horizontal, 2)
             .padding(.top, 2)
@@ -279,6 +281,7 @@ struct PostCard: View {
         .animation(MMMotion.bounce(MMMotion.slow), value: highlight)
         .padding(.horizontal, 12)
         .padding(.bottom, 14)
+        .modifier(PostOptionsModifier(postID: post.id, isPresented: $showMenu))
     }
 
     private var inlineComments: some View {
@@ -346,15 +349,11 @@ struct PostDetailScreen: View {
 
     @State private var text = ""
     @State private var showMenu = false
-    @State private var showDelete = false
-    @State private var editing = false
-    @State private var caption = ""
 
     var body: some View {
         if let post = mm.post(id) {
             content(post)
                 .onAppear {
-                    caption = post.caption
                     if openMenu { showMenu = true }
                 }
         } else {
@@ -390,24 +389,9 @@ struct PostDetailScreen: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("\(post.date) · organized by \(isOrganizer ? "you" : organizer.name)")
                         .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
-                    if editing {
-                        VStack(alignment: .leading, spacing: 10) {
-                            MMTextField(text: $caption, multiline: true, rows: 3)
-                            HStack(spacing: 8) {
-                                MMButton("Save", size: .sm) {
-                                    if let runtime = mm.runtime {
-                                        Task { if await runtime.perform("edit_post", ["post_id": post.id, "caption": caption]) { editing = false } }
-                                    } else { mm.editCaption(post.id, caption); editing = false }
-                                }
-                                MMButton("Cancel", variant: .ghost, size: .sm) { editing = false }
-                            }
-                        }
-                        .padding(.top, 10)
-                    } else {
-                        Text(post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 8)
-                    }
+                    Text(post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 8)
                     if !post.focusItems.isEmpty {
                         Text("What we worked on").mmFont(.display, 16).padding(.top, MMSpace.s8)
                         TrainingFocusOutline(items: post.focusItems).padding(.top, MMSpace.s5)
@@ -471,41 +455,7 @@ struct PostDetailScreen: View {
                 MMIconButton("send", variant: .accent, label: "Send") { send(post) }
             }
         }
-        .mmSheet(isPresented: $showMenu,
-                 title: isOrganizer ? "Your post" : "Post options",
-                 description: isOrganizer ? "Only you, the organizer, can edit or delete this post." : "\(organizer.name) organized this session.") {
-            VStack(spacing: 8) {
-                if isOrganizer {
-                    MMButton("Edit caption", variant: .secondary, iconLeft: "pencil", fullWidth: true) {
-                        showMenu = false
-                        editing = true
-                    }
-                    MMButton("Delete post", variant: .danger, iconLeft: "trash-2", fullWidth: true) {
-                        showMenu = false
-                        Task {
-                            try? await Task.sleep(for: .seconds(0.35))
-                            showDelete = true
-                        }
-                    }
-                } else if isIn {
-                    MMButton("Remove me from this post", variant: .danger, iconLeft: "user-minus", fullWidth: true) {
-                        showMenu = false
-                        mm.removeMe(from: post.id)
-                    }
-                } else {
-                    Text("You weren't in this session.").mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
-                }
-            }
-        }
-        .mmModal(isPresented: $showDelete,
-                 title: "Delete this post?",
-                 description: "It disappears from all \(post.participants.count) profiles and your friends' feeds.") {
-            MMButton("Keep it", variant: .secondary, fullWidth: true) { showDelete = false }
-            MMButton("Delete", variant: .danger, fullWidth: true) {
-                showDelete = false
-                mm.deletePost(post.id)
-            }
-        }
+        .modifier(PostOptionsModifier(postID: post.id, isPresented: $showMenu))
     }
 
     private func send(_ post: Post) {
@@ -516,6 +466,101 @@ struct PostDetailScreen: View {
         } else {
             withAnimation(MMMotion.easeOut(MMMotion.slow)) { mm.comment(post.id, trimmed) }
             text = ""
+        }
+    }
+}
+
+/// Shared by feed cards and post details so options never require a navigation push.
+private struct PostOptionsModifier: ViewModifier {
+    @Environment(AppModel.self) private var mm
+    let postID: String
+    @Binding var isPresented: Bool
+
+    private enum Panel { case options, edit, delete }
+    @State private var panel: Panel = .options
+    @State private var caption = ""
+    @State private var saving = false
+
+    func body(content: Content) -> some View {
+        content.mmSheet(isPresented: $isPresented,
+                        title: title,
+                        description: description) {
+            if let post = mm.post(postID) {
+                VStack(spacing: 8) {
+                    if post.organizer == "me" {
+                        switch panel {
+                        case .options:
+                            MMButton("Edit caption", variant: .secondary, iconLeft: "pencil", fullWidth: true) {
+                                caption = post.caption
+                                panel = .edit
+                            }
+                            MMButton("Delete post", variant: .danger, iconLeft: "trash-2", fullWidth: true) {
+                                panel = .delete
+                            }
+                        case .edit:
+                            MMTextField(placeholder: "Caption", text: $caption, multiline: true, rows: 3)
+                                .disabled(saving)
+                            MMButton("Save", fullWidth: true) { saveCaption() }
+                                .disabled(saving)
+                            MMButton("Cancel", variant: .ghost, fullWidth: true) { isPresented = false }
+                                .disabled(saving)
+                        case .delete:
+                            MMButton("Keep it", variant: .secondary, fullWidth: true) { isPresented = false }
+                            MMButton("Delete", variant: .danger, fullWidth: true) {
+                                isPresented = false
+                                mm.deletePost(postID)
+                            }
+                        }
+                    } else if post.participants.contains("me") {
+                        MMButton("Remove me from this post", variant: .danger, iconLeft: "user-minus", fullWidth: true) {
+                            isPresented = false
+                            mm.removeMe(from: postID)
+                        }
+                    } else {
+                        Text("You weren't in this session.").mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
+                    }
+                }
+            }
+        }
+        .onChange(of: isPresented) { _, presented in
+            if presented { panel = .options }
+        }
+    }
+
+    private var title: String {
+        switch panel {
+        case .options: mm.post(postID)?.organizer == "me" ? "Your post" : "Post options"
+        case .edit: "Edit caption"
+        case .delete: "Delete this post?"
+        }
+    }
+
+    private var description: String? {
+        guard let post = mm.post(postID) else { return nil }
+        switch panel {
+        case .options:
+            return post.organizer == "me"
+                ? "Only you, the organizer, can edit or delete this post."
+                : "\(mm.person(post.organizer).name) organized this session."
+        case .edit:
+            return nil
+        case .delete:
+            return "It disappears from all \(post.participants.count) profiles and your friends' feeds."
+        }
+    }
+
+    private func saveCaption() {
+        guard !saving else { return }
+        if let runtime = mm.runtime {
+            saving = true
+            Task {
+                let saved = await runtime.perform("edit_post", ["post_id": postID, "caption": caption])
+                saving = false
+                if saved { isPresented = false }
+            }
+        } else {
+            mm.editCaption(postID, caption)
+            isPresented = false
         }
     }
 }
@@ -548,3 +593,4 @@ private struct CommentRow: View {
         }
     }
 }
+
