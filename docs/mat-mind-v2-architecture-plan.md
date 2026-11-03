@@ -1,4 +1,4 @@
-# Mat Monkeys v2 — architecture and implementation draft
+# Mat Monkey v2 — architecture and implementation draft
 
 Prepared November 1, 2026 (America/Los_Angeles).
 
@@ -30,7 +30,7 @@ Source review only: the prototype was not run or visually validated for this dra
 
 ```mermaid
 flowchart TD
-    UI[SwiftUI screens and Mat Monkeys design system] --> State[Feature models and router]
+    UI[SwiftUI screens and Mat Monkey design system] --> State[Feature models and router]
     State --> Repos[Repository interfaces and domain commands]
     Repos --> Local[SwiftData cache and local drafts]
     Repos --> Auth[Supabase Auth]
@@ -126,7 +126,7 @@ Uploads and PostgreSQL cannot commit atomically together: create a pending media
 ### Rules already specified by the prototype
 
 1. Four tabs and a global planning action.
-2. Join through an invitation, direct addition, or valid link; an authenticated Mat Monkeys account is required. Reading a feed post is not permission to join.
+2. Join through an invitation, direct addition, or valid link; an authenticated Mat Monkey account is required. Reading a feed post is not permission to join.
 3. Only the organizer publishes, edits, or deletes the session's shared post. Participants can remove their own profile tag.
 4. One shared post per session, displayed through participant relationships.
 5. QR creates a friendship instantly; no request/approval queue.

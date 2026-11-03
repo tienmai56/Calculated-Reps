@@ -212,7 +212,7 @@ struct OnboardingSplashView: View {
                 .padding(.bottom, 34)
 
                 VStack(spacing: 14) {
-                    Text("MAT MONKEYS")
+                    Text("MAT MONKEY")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .tracking(2)
                         .foregroundColor(Color.white.opacity(0.62))

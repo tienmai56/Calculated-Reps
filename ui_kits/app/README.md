@@ -1,6 +1,6 @@
-# Mat Monkeys — mobile app prototype
+# Mat Monkey — mobile app prototype
 
-Interactive first draft of the Mat Monkeys MVP at 390×844, composed from the design-system bundle (`window.MatMonkeysDesignSystem_8b0f80`).
+Interactive first draft of the Mat Monkey MVP at 390×844, composed from the design-system bundle (`window.MatMonkeysDesignSystem_8b0f80`).
 
 - `flows.html` — IA sitemap, journeys A–C, MVP guardrails (nodes deep-link into the prototype)
 - `index.html` — phone + review panel (journeys, 8 screens, key states). Deep links: `#activity|training|create|complete|friends|qr|scan|profile|notifications|post|empty|invite|active|broken`

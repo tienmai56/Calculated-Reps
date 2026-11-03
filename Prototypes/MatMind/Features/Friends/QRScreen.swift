@@ -164,7 +164,7 @@ struct QRScreen: View {
             }
             .frame(width: 220, height: 220)
             .offset(y: -34)
-            Text(found == nil ? "Point at a friend's Mat Monkeys code" : "Got it!")
+            Text(found == nil ? "Point at a friend's Mat Monkey code" : "Got it!")
                 .mmFont(.body, 15, .bold)
                 .foregroundStyle(.white)
                 .frame(maxHeight: .infinity, alignment: .bottom)
@@ -254,7 +254,7 @@ struct QRGrid: View {
                 .frame(width: max(32, size * 0.18), height: max(32, size * 0.18))
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MMColor.accent))
         }
-        .accessibilityLabel("Your Mat Monkeys code")
+        .accessibilityLabel("Your Mat Monkey code")
     }
 }
 
@@ -332,6 +332,6 @@ private struct LiveQRImage: View {
         return UIImage(cgImage: cg)
     }
     var body: some View {
-        if let image { Image(uiImage: image).interpolation(.none).resizable().scaledToFit().accessibilityLabel("Your Mat Monkeys friend code") }
+        if let image { Image(uiImage: image).interpolation(.none).resizable().scaledToFit().accessibilityLabel("Your Mat Monkey friend code") }
     }
 }

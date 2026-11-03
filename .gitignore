@@ -17,7 +17,7 @@ xcuserdata/
 .build/
 .swiftpm/
 
-# Mat Monkeys design system export metadata
+# Mat Monkey design system export metadata
 .thumbnail
 _adherence.oxlintrc.json
 _ds_manifest.json

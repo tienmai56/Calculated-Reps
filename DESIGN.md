@@ -1,4 +1,4 @@
-# DESIGN.md — Mat Monkeys Design System
+# DESIGN.md — Mat Monkey Design System
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
@@ -19,13 +19,13 @@
 ---
 
 ## 1. Product
-**Mat Monkeys** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
+**Mat Monkey** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
 One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Goals, Profile) and a center **Plan a session** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
-- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "mat monkeys." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. **Mat Monkeys** is the product name as of design-system v1.2.0. Existing bundle identifiers, callbacks and storage keys (including `matmind.hasCompletedOnboarding` and `matmind.reflection.reminder`) retain their original values so existing installs, links and sign-in continue working.
+- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "mat monkey." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. **Mat Monkey** is the product name as of design-system v1.2.0. Existing bundle identifiers, callbacks and storage keys (including `matmind.hasCompletedOnboarding` and `matmind.reflection.reminder`) retain their original values so existing installs, links and sign-in continue working.
 - Fonts (Google Fonts, self-hosted in `assets/fonts/`): **Bricolage Grotesque** (display), **Archivo** (body), **JetBrains Mono** (codes/links only).
 - Icons: **Lucide v0.454.0** (ISC), copied from `lucide-static` into `assets/icons/` and embedded in `design-system/components/core/Icon.jsx`.
 - Photos: Unsplash (free license), 10 training photos in `assets/photos/`. Swap for real community photos when available.
@@ -269,7 +269,7 @@ A calm, front-facing gorilla head built from simple geometry: an ink head, a pap
 | `assets/brand/logo-mark-mono.svg` | Ink brow. On coral backgrounds and for one-color print. |
 | `assets/brand/app-icon.svg` | 1024² app icon: default mark on **sun #FFC93C**. Also the reversed logo on ink or photos (as a rounded tile). |
 | `assets/brand/app-icon-1024.png` | Opaque 1024² PNG render of the app icon, used by the iOS `AppIcon` set. Re-render it from the SVG if the SVG changes. |
-| `assets/brand/logo-lockup.svg` | Horizontal lockup: mark + "mat monkeys." wordmark. |
+| `assets/brand/logo-lockup.svg` | Horizontal lockup: mark + "mat monkey." wordmark. |
 
 - **Colors:** ink `#1D1B18`, paper-3 `#E9E0D1`, coral `#FF5C39` brow; app icon ground sun `#FFC93C`. Nothing else.
 - **Lockup:** mark left of the wordmark, mark height ≈ 1.7× the wordmark cap height, gap ≈ 0.3× mark height. The wordmark is always lowercase with a coral period (ink period on coral).
@@ -416,7 +416,7 @@ Native: `Features/Goals/GoalsScreen.swift`, `Features/Training/TrainingScreen.sw
 
 **Product constraints (MVP)**
 - Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
-- Join sessions only via invitation, direct addition, or a valid link (Mat Monkeys account required), never from the feed.
+- Join sessions only via invitation, direct addition, or a valid link (Mat Monkey account required), never from the feed.
 - Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
 - Friends connect instantly via QR, with no requests or approvals.
 

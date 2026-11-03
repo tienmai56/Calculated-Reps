@@ -471,7 +471,7 @@ function Wordmark({
       color,
       whiteSpace: 'nowrap'
     }
-  }, "mat monkeys", /*#__PURE__*/React.createElement("span", {
+  }, "mat monkey", /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--accent)'
     }
@@ -480,7 +480,7 @@ function Wordmark({
 function Logo({
   variant = 'mark',
   size = 40,
-  label = 'Mat Monkeys',
+  label = 'Mat Monkey',
   style,
   ...rest
 }) {
@@ -1765,7 +1765,7 @@ Object.assign(__ds_scope, { Tabs });
 // design-system/tailwind.config.js
 try { (() => {
 /**
- * Mat Monkeys — Tailwind preset. Every value points at a CSS custom property, so
+ * Mat Monkey — Tailwind preset. Every value points at a CSS custom property, so
  * load styles.css (or design-system/tokens/*.css) before Tailwind's output.
  * Usage: module.exports = { presets: [require('./design-system/tailwind.config.js')], content: [...] }
  * Generated from design-system/tokens — edit the tokens, not this file.
@@ -2273,7 +2273,7 @@ function ActivityScreen({
     tabPad: true,
     header: /*#__PURE__*/React.createElement(Header, {
       large: true,
-      title: /*#__PURE__*/React.createElement("span", null, "mat monkeys", /*#__PURE__*/React.createElement("span", {
+      title: /*#__PURE__*/React.createElement("span", null, "mat monkey", /*#__PURE__*/React.createElement("span", {
         style: {
           color: 'var(--accent)'
         }
@@ -3096,7 +3096,7 @@ function ReviewPanel({
       letterSpacing: '-.04em',
       padding: '0 10px'
     }
-  }, "mat monkeys", /*#__PURE__*/React.createElement("span", {
+  }, "mat monkey", /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--accent)'
     }
@@ -3949,7 +3949,7 @@ function CreateScreen({
   }, /*#__PURE__*/React.createElement(Txt, {
     s: 14,
     c: "var(--text-secondary)"
-  }, privacy === 'link' ? 'Anyone with a Mat Monkeys account can join from the link.' : 'Only your friends can join from the link.')), /*#__PURE__*/React.createElement(CBtn, {
+  }, privacy === 'link' ? 'Anyone with a Mat Monkey account can join from the link.' : 'Only your friends can join from the link.')), /*#__PURE__*/React.createElement(CBtn, {
     size: "sm",
     variant: "secondary",
     iconLeft: "link",
@@ -4597,7 +4597,7 @@ function QRScreen({
       color: '#fff',
       font: '700 15px var(--font-body)'
     }
-  }, found ? 'Got it!' : 'Point at a friend\'s Mat Monkeys code'), found && /*#__PURE__*/React.createElement(Connected, {
+  }, found ? 'Got it!' : 'Point at a friend\'s Mat Monkey code'), found && /*#__PURE__*/React.createElement(Connected, {
     id: found,
     onDone: () => {
       setFound(null);
@@ -6191,7 +6191,7 @@ function SessionDetail({
       borderRadius: 22,
       boxShadow: 'var(--shadow-card)'
     }
-  }, [['map-pin', s.gym], ['clock', s.day + ', ' + s.month + ' ' + s.date + ' · ' + s.time], [s.privacy === 'link' ? 'globe' : 'lock', s.privacy === 'link' ? 'Anyone with the link (Mat Monkeys account required)' : 'Friends only']].map(([ic, t], i) => /*#__PURE__*/React.createElement(Row, {
+  }, [['map-pin', s.gym], ['clock', s.day + ', ' + s.month + ' ' + s.date + ' · ' + s.time], [s.privacy === 'link' ? 'globe' : 'lock', s.privacy === 'link' ? 'Anyone with the link (Mat Monkey account required)' : 'Friends only']].map(([ic, t], i) => /*#__PURE__*/React.createElement(Row, {
     key: i,
     style: {
       padding: '11px 0',

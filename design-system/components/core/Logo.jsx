@@ -31,12 +31,12 @@ function Tile({ size }) {
 function Wordmark({ size, color }) {
   return (
     <span style={{ font: `800 ${Math.round(size * 0.6)}px/1 var(--font-display)`, letterSpacing: '-0.045em', color, whiteSpace: 'nowrap' }}>
-      mat monkeys<span style={{ color: 'var(--accent)' }}>.</span>
+      mat monkey<span style={{ color: 'var(--accent)' }}>.</span>
     </span>
   );
 }
 
-export function Logo({ variant = 'mark', size = 40, label = 'Mat Monkeys', style, ...rest }) {
+export function Logo({ variant = 'mark', size = 40, label = 'Mat Monkey', style, ...rest }) {
   let content;
   if (variant === 'mono') content = <Mark height={size} brow="var(--ink-900)" />;
   else if (variant === 'appIcon') content = <Tile size={size} />;
