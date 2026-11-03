@@ -130,9 +130,13 @@ final class AppModel {
         plannedSessions.first { sessionGoals[$0.id] == goalID }
     }
 
-    /// Invitations and accepted plans only; declined sessions do not fill the schedule.
+    /// Invitations and accepted plans, soonest first; declined sessions do not fill the schedule.
     var plannedSessions: [Session] {
         upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
+            .sorted {
+                let first = startDate(of: $0), second = startDate(of: $1)
+                return first == second ? $0.id < $1.id : first < second
+            }
     }
 
     var unreadCount: Int { notifications.filter(\.unread).count }
