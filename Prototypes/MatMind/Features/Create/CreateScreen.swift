@@ -182,7 +182,7 @@ struct CreateScreen: View {
                                 MMButton("Copy", variant: .soft, size: .sm, iconLeft: "copy") { mm.showToast("Invite link copied", .success) }
                             } else {
                                 Text(privacy == Privacy.link.rawValue
-                                     ? "Anyone with a Mat Monkeys account can join from the link."
+                                     ? "Anyone with a Mat Monkey account can join from the link."
                                      : "Only your friends can join from the link.")
                                     .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)

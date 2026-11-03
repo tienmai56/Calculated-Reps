@@ -1,4 +1,4 @@
-name: Mat Monkeys checks
+name: Mat Monkey checks
 on:
   pull_request:
   push:

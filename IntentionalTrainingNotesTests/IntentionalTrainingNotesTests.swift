@@ -328,7 +328,7 @@ private final class TestAuthService: AuthServicing {
 @MainActor
 final class MatMindLiveUITests: XCTestCase {
     func testMatMonkeysBrandingIsBundledInTheInstalledApp() {
-        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Mat Monkeys")
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Mat Monkey")
         XCTAssertNotNil(UIImage(named: "SilverbackMark"))
         XCTAssertNotNil(UIImage(named: "SilverbackMono"))
     }

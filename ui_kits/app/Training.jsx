@@ -87,7 +87,7 @@ function SessionDetail({ id }) {
     <div style={{ padding: '0 16px' }}>
       <SessionTicket s={s} big />
       <div style={{ marginTop: 14, padding: '6px 16px', background: 'var(--white)', borderRadius: 22, boxShadow: 'var(--shadow-card)' }}>
-        {[['map-pin', s.gym], ['clock', s.day + ', ' + s.month + ' ' + s.date + ' · ' + s.time], [s.privacy === 'link' ? 'globe' : 'lock', s.privacy === 'link' ? 'Anyone with the link (Mat Monkeys account required)' : 'Friends only']].map(([ic, t], i) =>
+        {[['map-pin', s.gym], ['clock', s.day + ', ' + s.month + ' ' + s.date + ' · ' + s.time], [s.privacy === 'link' ? 'globe' : 'lock', s.privacy === 'link' ? 'Anyone with the link (Mat Monkey account required)' : 'Friends only']].map(([ic, t], i) =>
           <Row key={i} style={{ padding: '11px 0', boxShadow: i < 2 ? 'inset 0 -1px 0 var(--border-subtle)' : 'none' }}><TIcon name={ic} size={18} color="var(--text-tertiary)" /><Txt s={15} w={500}>{t}</Txt></Row>)}
       </div>
       {s.note && <p style={{ margin: '14px 4px 0', font: '400 15px/1.45 var(--font-body)', color: 'var(--ink-700)' }}>“{s.note}”</p>}

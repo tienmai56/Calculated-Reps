@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
-  <title>Training together · Mat Monkeys</title>
+  <title>Training together · Mat Monkey</title>
   <style>
     :root { color-scheme: light; font-family: system-ui,sans-serif; color:#1d1b18; background:#faf6ef; }
     body { margin:0; min-height:100svh; display:grid; place-items:center; }
@@ -20,10 +20,10 @@
 </head>
 <body>
 <main>
-  <h1>mat monkeys.</h1>
-  <p id="description">Open Mat Monkeys to connect with your training partners.</p>
-  <a id="open" hidden>Open invitation in Mat Monkeys</a>
-  <a class="secondary" href="https://apps.apple.com/app/id6767997652" rel="noreferrer">Get Mat Monkeys on the App Store</a>
+  <h1>mat monkey.</h1>
+  <p id="description">Open Mat Monkey to connect with your training partners.</p>
+  <a id="open" hidden>Open invitation in Mat Monkey</a>
+  <a class="secondary" href="https://apps.apple.com/app/id6767997652" rel="noreferrer">Get Mat Monkey on the App Store</a>
   <p id="installation" hidden>After installing, return to your original invitation and open it again. Sign in to accept it.</p>
 </main>
 <script>
@@ -32,8 +32,8 @@
   const [kind, token] = pieces;
   if (pieces.length === 2 && ['friend','session'].includes(kind) && /^[a-f0-9]{64}$/i.test(token || '')) {
     document.getElementById('description').textContent = kind === 'friend'
-      ? 'A training partner invited you to connect on Mat Monkeys.'
-      : 'You’re invited to train together. Open Mat Monkeys to see the session.';
+      ? 'A training partner invited you to connect on Mat Monkey.'
+      : 'You’re invited to train together. Open Mat Monkey to see the session.';
     const open = document.getElementById('open');
     open.href = 'matmind://' + kind + '/' + token;
     open.hidden = false;

@@ -12,7 +12,7 @@ struct SettingsSheet: View {
                     settingsRow(icon: "bell.fill", iconColor: Color(red: 0.9, green: 0.4, blue: 0.4), label: "Reminders", showDivider: true) {
                         showReminders = true
                     }
-                    settingsRow(icon: "star.fill", iconColor: AppColors.mint, label: "Rate Mat Monkeys", showDivider: true) {
+                    settingsRow(icon: "star.fill", iconColor: AppColors.mint, label: "Rate Mat Monkey", showDivider: true) {
                         openAppStoreRating()
                     }
                     settingsRow(icon: "envelope.fill", iconColor: AppColors.indigo, label: "Feedback", showDivider: false) {
