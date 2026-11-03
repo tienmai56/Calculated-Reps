@@ -444,6 +444,7 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     func sync() {
         if photoOwner != model.userID {
+            ui.resetSessionCreation()
             for path in Array(photos.values) + Array(avatarPhotos.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
             avatarPhotos = [:]
@@ -548,13 +549,13 @@ final class LiveMatMindRuntime: AppRuntime {
         sync()
         return result != nil
     }
-    func create(_ draft: SessionDraft) async -> String? {
+    func create(_ draft: SessionDraft, key: UUID) async -> String? {
         guard let date = draft.startsAt, !draft.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             model.error = "Choose a date, time and gym."; return nil
         }
-        let result = await model.perform("create_session", ["title": draft.title, "starts_at": ISO8601DateFormatter().string(from: date), "timezone": TimeZone.current.identifier,
+        let result = await model.perform("create_session", ["title": draft.title, "starts_at": ISO8601DateFormatter().string(from: date), "timezone": draft.timezone,
                                                           "venue": draft.gym, "note": SessionNoteCodec.encode(note: draft.note, focus: draft.focusItems),
-                                                          "invited": draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue])
+                                                          "invited": draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue], key: key)
         // Past sessions require the organizer to confirm attendance before publishing.
         if draft.past, let id = result?["id"]?.string {
             for person in draft.invited { _ = await model.perform("manage_participant", ["session_id": id, "user_id": cloudID(person), "remove": false]) }

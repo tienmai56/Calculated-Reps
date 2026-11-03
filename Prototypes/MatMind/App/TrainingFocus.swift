@@ -84,7 +84,9 @@ enum SessionNoteCodec {
     private struct Content: Codable { var note: String; var focus: [TrainingFocus] }
     private static let prefix = "matmind-focus-v1:"
     static func encode(note: String, focus: [TrainingFocus]) -> String {
-        guard !focus.isEmpty, let data = try? JSONEncoder().encode(Content(note: note, focus: TrainingFocusTree.normalized(focus))) else { return note }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard !focus.isEmpty, let data = try? encoder.encode(Content(note: note, focus: TrainingFocusTree.normalized(focus))) else { return note }
         return prefix + data.base64EncodedString()
     }
     static func decode(_ value: String) -> (note: String, focus: [TrainingFocus]) {

@@ -9,25 +9,19 @@ struct CreateScreen: View {
         var weekday: String
         var date: Int
         var month: String
-        var value: Date? = nil
+        var value: Date
     }
 
-    private static let future = [
-        Day(label: "Today", weekday: "Mon", date: 2, month: "Nov"), Day(label: "Tue", weekday: "Tue", date: 3, month: "Nov"),
-        Day(label: "Wed", weekday: "Wed", date: 4, month: "Nov"), Day(label: "Thu", weekday: "Thu", date: 5, month: "Nov"),
-        Day(label: "Fri", weekday: "Fri", date: 6, month: "Nov"), Day(label: "Sat", weekday: "Sat", date: 7, month: "Nov"),
-        Day(label: "Sun", weekday: "Sun", date: 8, month: "Nov"),
-    ]
-    private static let past = [
-        Day(label: "Yesterday", weekday: "Sun", date: 1, month: "Nov"), Day(label: "Sat", weekday: "Sat", date: 31, month: "Oct"),
-        Day(label: "Fri", weekday: "Fri", date: 30, month: "Oct"), Day(label: "Thu", weekday: "Thu", date: 29, month: "Oct"),
-        Day(label: "Wed", weekday: "Wed", date: 28, month: "Oct"),
-    ]
     private static let times = ["6:30 AM", "12:15 PM", "6:00 PM", "7:30 PM"]
 
     @State private var mode: String
     @State private var name = ""
     @State private var dayIndex: Int
+    @State private var selectedDays: Set<Int> = []
+    @State private var calendar = Calendar.current
+    @State private var baseDate = Date()
+    @State private var requests: [SessionCreationRequest] = []
+    @State private var submitting = false
     @State private var time: String
     @State private var gym = ""
     @State private var customTime = false
@@ -41,7 +35,7 @@ struct CreateScreen: View {
 
     init(startPast: Bool = false, friend: String? = nil, initialFocus: [TrainingFocus] = []) {
         _mode = State(initialValue: startPast ? "past" : "plan")
-        _dayIndex = State(initialValue: startPast ? 0 : 5)
+        _dayIndex = State(initialValue: 0)
         _time = State(initialValue: startPast ? "6:00 PM" : "10:00 AM")
         _invited = State(initialValue: friend.map { [$0] } ?? [])
         _focusItems = State(initialValue: initialFocus.isEmpty ? [TrainingFocus()] : initialFocus)
@@ -49,147 +43,166 @@ struct CreateScreen: View {
 
     private var isPast: Bool { mode == "past" }
     private var days: [Day] {
-        guard mm.isLive else { return isPast ? Self.past : Self.future }
-        let calendar = Calendar.current
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar; formatter.timeZone = calendar.timeZone
         return (0..<(isPast ? 5 : 7)).map { index in
-            let date = calendar.date(byAdding: .day, value: isPast ? -index - 1 : index, to: Date())!
+            let date = calendar.date(byAdding: .day, value: isPast ? -index - 1 : index, to: baseDate)!
             formatter.dateFormat = "EEE"; let weekday = formatter.string(from: date)
             formatter.dateFormat = "MMM"; let month = formatter.string(from: date)
             return Day(label: index == 0 ? (isPast ? "Yesterday" : "Today") : weekday,
                        weekday: weekday, date: calendar.component(.day, from: date), month: month, value: date)
         }
     }
-    private var day: Day { days[min(dayIndex, days.count - 1)] }
-
-    private var autoName: String {
-        if day.weekday == "Sat" { return "Saturday open mat" }
-        if day.weekday == "Sun" { return "Sunday open mat" }
-        if time.contains("AM") { return "Morning rolls" }
-        if time.hasPrefix("12") { return "Lunch rolls" }
-        return "Evening rolls"
+    private var day: Day { days[min(isPast ? dayIndex : (selectedDays.min() ?? 0), days.count - 1)] }
+    private var completedCount: Int { mm.createdCount(for: requests) }
+    private var autoName: String { SessionDraft.suggestedTitle(weekday: day.weekday, time: time) }
+    private var selectionCount: Int { isPast ? 1 : selectedDays.count }
+    private var buttonTitle: String {
+        if submitting { return "Creating \(completedCount) of \(requests.count)…" }
+        if completedCount > 0 { return "Retry remaining \(requests.count - completedCount)" }
+        if isPast { return "Next: add a photo" }
+        if selectionCount > 1 { return "Create \(selectionCount) sessions" }
+        return invited.isEmpty ? "Create session" : "Send invites to \(invited.count)"
     }
 
     var body: some View {
         MMScreen {
             MMHeader(title: isPast ? "Log a past session" : "Plan a session", leading: {
                 MMIconButton("x", label: "Close") { mm.back() }
+                    .disabled(mm.busy || submitting)
             })
         } content: {
-            MMTabs(items: [MMTabItem("plan", "Upcoming"), MMTabItem("past", "Already happened")], selection: Binding(
-                get: { mode },
-                set: { newMode in
-                    mode = newMode
-                    dayIndex = newMode == "past" ? 0 : 5
+            Group {
+                MMTabs(items: [MMTabItem("plan", "Upcoming"), MMTabItem("past", "Already happened")], selection: Binding(
+                    get: { mode },
+                    set: { newMode in
+                        mode = newMode
+                        dayIndex = 0
+                    }
+                ))
+                .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField(autoName, text: $name)
+                        .mmFont(.display, 30, tracking: -0.035, lineHeight: 1.1)
+                        .foregroundStyle(MMColor.ink900)
+                        .tint(MMColor.accent)
+                    Text(selectionCount > 1 ? "Name each session, or keep our suggestions." : "Name it, or keep our suggestion.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
-            ))
-            .padding(.horizontal, 16)
+                .padding(.horizontal, 16)
+                .padding(.top, 18)
 
-            VStack(alignment: .leading, spacing: 4) {
-                TextField(autoName, text: $name)
-                    .mmFont(.display, 30, tracking: -0.035, lineHeight: 1.1)
-                    .foregroundStyle(MMColor.ink900)
-                    .tint(MMColor.accent)
-                Text("Name it, or keep our suggestion.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-
-            field("When") {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(days.enumerated()), id: \.offset) { i, d in
-                            dayChip(d, on: i == dayIndex) { dayIndex = i }
+                field("When", hint: isPast ? nil : "\(selectedDays.count) selected") {
+                    if !isPast {
+                        Text("Pick one or more days. Same time and details for each.")
+                            .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                            .padding(.bottom, 12)
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(days.enumerated()), id: \.offset) { i, d in
+                                dayChip(d, on: isPast ? i == dayIndex : selectedDays.contains(i)) {
+                                    if isPast { dayIndex = i }
+                                    else if selectedDays.contains(i) { selectedDays.remove(i) }
+                                    else { selectedDays.insert(i) }
+                                }
+                            }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 2)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 2)
-                }
-                .padding(.horizontal, -16)
-                MMFlowLayout(spacing: 8, lineSpacing: 8) {
-                    ForEach(timeOptions, id: \.self) { t in
-                        MMTag(t, selected: time == t, size: .sm) { time = t }
-                    }
-                    MMTag("Other", icon: "clock", size: .sm) { customTime = true }
-                }
-                .padding(.top, 10)
-            }
-
-            field("Where") {
-                if mm.isLive {
-                    MMTextField(label: "Gym or venue", text: $gym)
-                        .padding(.bottom, 12)
-                }
-                MMFlowLayout(spacing: 8, lineSpacing: 8) {
-                    ForEach(mm.gyms, id: \.self) { g in
-                        MMTag(g, icon: g == mm.me.gym ? "house" : "map-pin", selected: gym == g, size: .sm) { gym = g }
-                    }
-                }
-                MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
-                    if !showNote {
-                        MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {
-                            withAnimation(MMMotion.easeOut()) { showNote = true }
+                    .padding(.horizontal, -16)
+                    MMFlowLayout(spacing: 8, lineSpacing: 8) {
+                        ForEach(timeOptions, id: \.self) { t in
+                            MMTag(t, selected: time == t, size: .sm) { time = t }
                         }
+                        MMTag("Other", icon: "clock", size: .sm) { customTime = true }
                     }
+                    .padding(.top, 10)
                 }
-                .padding(.top, MMSpace.s4)
-                .padding(.leading, -MMSpace.s4)
-                if showNote {
-                    MMTextField(placeholder: "Gi or no-gi? Bring anything?", text: $note, multiline: true, rows: 2)
-                        .padding(.top, 12)
-                }
-            }
 
-            field("What are we working on?", hint: "Optional") {
-                Text("Big idea first. Details underneath.")
-                    .mmFont(.body, 13)
-                    .foregroundStyle(MMColor.textTertiary)
-                    .padding(.bottom, MMSpace.s5)
-                TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false)
-            }
-
-            field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-                    ForEach(mm.friends) { f in friendPick(f) }
-                }
-            }
-
-            if !isPast {
-                field("Who can join") {
-                    MMTabs(items: [MMTabItem("friends", "Friends only"), MMTabItem("link", "Anyone with link")], selection: $privacy)
+                field("Where") {
                     if mm.isLive {
-                        Text("Create the session, then share its invitation link.")
-                            .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 12)
-                    } else {
-                    HStack(spacing: 12) {
-                        if let link {
-                            MMIcon("link", size: 18, color: MMColor.accent)
-                            Text("matmonkeys.app/s/\(link)").mmFont(.mono, 14, .semibold, lineHeight: 1).foregroundStyle(MMColor.ink900)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            MMButton("Copy", variant: .soft, size: .sm, iconLeft: "copy") { mm.showToast("Invite link copied", .success) }
-                        } else {
-                            Text(privacy == Privacy.link.rawValue
-                                 ? "Anyone with a Mat Monkeys account can join from the link."
-                                 : "Only your friends can join from the link.")
-                                .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            MMButton("Get link", variant: .secondary, size: .sm, iconLeft: "link") {
-                                withAnimation(MMMotion.easeOut()) { link = "k3x9q" }
+                        MMTextField(label: "Gym or venue", text: $gym)
+                            .padding(.bottom, 12)
+                    }
+                    MMFlowLayout(spacing: 8, lineSpacing: 8) {
+                        ForEach(mm.gyms, id: \.self) { g in
+                            MMTag(g, icon: g == mm.me.gym ? "house" : "map-pin", selected: gym == g, size: .sm) { gym = g }
+                        }
+                    }
+                    MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
+                        if !showNote {
+                            MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {
+                                withAnimation(MMMotion.easeOut()) { showNote = true }
                             }
                         }
                     }
-                    .padding(14)
-                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(MMColor.white))
-                    .mmOutline(radius: 18)
-                    .padding(.top, 12)
+                    .padding(.top, MMSpace.s4)
+                    .padding(.leading, -MMSpace.s4)
+                    if showNote {
+                        MMTextField(placeholder: "Gi or no-gi? Bring anything?", text: $note, multiline: true, rows: 2)
+                            .padding(.top, 12)
                     }
                 }
+
+                field("What are we working on?", hint: "Optional") {
+                    Text("Big idea first. Details underneath.")
+                        .mmFont(.body, 13)
+                        .foregroundStyle(MMColor.textTertiary)
+                        .padding(.bottom, MMSpace.s5)
+                    TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false)
+                }
+
+                field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
+                        ForEach(mm.friends) { f in friendPick(f) }
+                    }
+                }
+
+                if !isPast {
+                    field("Who can join") {
+                        MMTabs(items: [MMTabItem("friends", "Friends only"), MMTabItem("link", "Anyone with link")], selection: $privacy)
+                        if mm.isLive {
+                            Text("Create the session, then share its invitation link.")
+                                .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 12)
+                        } else {
+                        HStack(spacing: 12) {
+                            if let link {
+                                MMIcon("link", size: 18, color: MMColor.accent)
+                                Text("matmonkeys.app/s/\(link)").mmFont(.mono, 14, .semibold, lineHeight: 1).foregroundStyle(MMColor.ink900)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                MMButton("Copy", variant: .soft, size: .sm, iconLeft: "copy") { mm.showToast("Invite link copied", .success) }
+                            } else {
+                                Text(privacy == Privacy.link.rawValue
+                                     ? "Anyone with a Mat Monkeys account can join from the link."
+                                     : "Only your friends can join from the link.")
+                                    .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                MMButton("Get link", variant: .secondary, size: .sm, iconLeft: "link") {
+                                    withAnimation(MMMotion.easeOut()) { link = "k3x9q" }
+                                }
+                            }
+                        }
+                        .padding(14)
+                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(MMColor.white))
+                        .mmOutline(radius: 18)
+                        .padding(.top, 12)
+                        }
+                    }
+                }
+                Color.clear.frame(height: 24)
             }
-            Color.clear.frame(height: 24)
+            .disabled(mm.busy || submitting || completedCount > 0)
         } footer: {
-            MMButton(isPast ? "Next: add a photo" : (invited.isEmpty ? "Create session" : "Send invites to \(invited.count)"),
-                     size: .lg, iconLeft: isPast ? "camera" : "send", fullWidth: true) { submit() }
-                .disabled(!TrainingFocusTree.isValid(submittedFocusItems) || mm.busy || (mm.isLive && gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+            VStack(spacing: 10) {
+                if completedCount > 0 && !submitting {
+                    Text("\(completedCount) of \(requests.count) sessions created. Retry to create the rest, or close to keep the sessions already created.")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+                }
+                MMButton(buttonTitle, size: .lg, iconLeft: isPast ? "camera" : "send", fullWidth: true) { submit() }
+                    .disabled(!TrainingFocusTree.isValid(submittedFocusItems) || mm.busy || submitting || selectionCount == 0 || (mm.isLive && gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+            }
         }
         .onAppear { if gym.isEmpty { gym = mm.me.gym } }
         .mmSheet(isPresented: $customTime, title: "Choose a time") {
@@ -197,7 +210,7 @@ struct CreateScreen: View {
                 .datePickerStyle(.wheel)
         } actions: {
             MMButton("Use this time", fullWidth: true) {
-                let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "h:mm a"
+                let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = calendar.timeZone; formatter.dateFormat = "h:mm a"
                 time = formatter.string(from: chosenTime); customTime = false
             }
         }
@@ -212,22 +225,25 @@ struct CreateScreen: View {
         TrainingFocusTree.optionalOutline(focusItems)
     }
 
-    private var selectedDate: Date? {
-        guard let value = day.value else { return nil }
-        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "h:mm a"
-        guard let clock = formatter.date(from: time) else { return nil }
-        let components = Calendar.current.dateComponents([.hour, .minute], from: clock)
-        return Calendar.current.date(bySettingHour: components.hour ?? 0, minute: components.minute ?? 0, second: 0, of: value)
-    }
-
     private func submit() {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        mm.createSession(SessionDraft(
-            title: trimmed.isEmpty ? autoName : trimmed, day: day.weekday, date: day.date, month: day.month,
-            time: time, gym: gym, note: note, invited: invited,
-            privacy: Privacy(rawValue: privacy) ?? .friends, past: isPast,
-            focusItems: submittedFocusItems, startsAt: selectedDate
-        ))
+        guard !submitting, !mm.busy else { return }
+        if completedCount == 0 {
+            let dates = isPast ? [day.value] : selectedDays.sorted().map { days[$0].value }
+            let draft = SessionDraft(
+                title: name.trimmingCharacters(in: .whitespacesAndNewlines), day: "", date: 0, month: "",
+                time: time, gym: gym, note: note, invited: invited,
+                privacy: Privacy(rawValue: privacy) ?? .friends, past: isPast, focusItems: submittedFocusItems
+            )
+            let scheduled = draft.scheduled(on: dates, calendar: calendar)
+            // Reuse request keys when retrying unchanged input, including a lost response.
+            if requests.map(\.draft) != scheduled { requests = scheduled.map { SessionCreationRequest(draft: $0) } }
+        }
+        guard !requests.isEmpty else { return }
+        submitting = true
+        Task {
+            await mm.createSessions(requests)
+            submitting = false
+        }
     }
 
     private func field<Content: View>(_ label: String, hint: String? = nil, @ViewBuilder content: () -> Content) -> some View {
@@ -263,6 +279,8 @@ struct CreateScreen: View {
             .animation(MMMotion.easeOut(MMMotion.fast), value: on)
         }
         .buttonStyle(MMPressStyle(scale: 0.95))
+        .accessibilityLabel("\(d.weekday), \(d.month) \(d.date)")
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func friendPick(_ f: Friendship) -> some View {
