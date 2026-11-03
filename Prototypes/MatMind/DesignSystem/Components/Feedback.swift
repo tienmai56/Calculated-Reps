@@ -114,7 +114,7 @@ private struct MMSheetHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// Bottom sheet: white, 28pt top radius, ink 48% overlay, sized to its content.
+/// Bottom sheet: sized to its content, scrolling when it exceeds the available height.
 private struct MMSheetModifier<SheetContent: View, Actions: View>: ViewModifier {
     @Binding var isPresented: Bool
     var title: String?
@@ -126,18 +126,24 @@ private struct MMSheetModifier<SheetContent: View, Actions: View>: ViewModifier 
 
     func body(content: Content) -> some View {
         content.sheet(isPresented: $isPresented) {
-            MMDialogBody(title: title, description: description, onClose: { isPresented = false }) {
-                sheetContent()
-            } actions: {
-                actions()
+            ScrollView {
+                MMDialogBody(title: title, description: description, onClose: { isPresented = false }) {
+                    sheetContent()
+                } actions: {
+                    actions()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 26)
+                .padding(.bottom, 20)
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    // Measure the full body, not the viewport. iOS caps the detent
+                    // to the screen; the rest must remain reachable by scrolling.
+                    GeometryReader { g in Color.clear.preference(key: MMSheetHeightKey.self, value: g.size.height) }
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 26)
-            .padding(.bottom, 20)
-            .fixedSize(horizontal: false, vertical: true)
-            .background {
-                GeometryReader { g in Color.clear.preference(key: MMSheetHeightKey.self, value: g.size.height) }
-            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
             .onPreferenceChange(MMSheetHeightKey.self) { value in
                 if value > 0 { height = value }
             }
