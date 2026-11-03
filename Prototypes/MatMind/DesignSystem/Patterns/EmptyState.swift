@@ -17,7 +17,7 @@ struct MMEmptyState: View {
     var body: some View {
         VStack(spacing: 0) {
             illustration
-                .frame(height: 200)
+                .frame(height: artwork == .plan ? 250 : 200)
                 .accessibilityHidden(true)
             Text(title)
                 .mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05)
@@ -63,33 +63,7 @@ struct MMEmptyState: View {
             .mmShadowCard()
             .rotationEffect(.degrees(-6))
         case .plan:
-            HStack(spacing: 0) {
-                MMIcon("calendar-plus", size: 32, color: MMColor.textTertiary)
-                    .frame(width: 76, height: 124)
-                    .background(MMColor.surfaceSunken)
-                Path { path in
-                    path.move(to: .zero)
-                    path.addLine(to: CGPoint(x: 0, y: 100))
-                }
-                .stroke(MMColor.controlOff, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                .frame(width: 1, height: 100)
-                Text("Next up?\nYou decide.")
-                    .mmFont(.display, 20, tracking: -0.02, lineHeight: 1.15)
-                    .foregroundStyle(MMColor.textSecondary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, MMSpace.s6)
-            }
-            .frame(width: 256)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .mmCardSurface(radius: 24)
-            .overlay(alignment: .topLeading) {
-                Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: 69, y: -8)
-            }
-            .overlay(alignment: .bottomLeading) {
-                Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: 69, y: 8)
-            }
-            .rotationEffect(.degrees(5))
+            TiedInPlanArtwork()
         case .goals:
             GoalTapesArtwork()
         }
@@ -138,6 +112,113 @@ private struct GoalTapesArtwork: View {
             landed = true
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true).delay(1)) { sway = true }
+        }
+    }
+}
+
+/// The plan ticket with two Silverbacks under it. They slide in from either side,
+/// bump heads with a bounce, and a sun "knot" ties them together while the stub
+/// warms to the sun tint, then they part and go again. Still (tied) when Reduce
+/// Motion is on. The mark only moves as a whole; it is never redrawn.
+private struct TiedInPlanArtwork: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum Phase: CaseIterable { case apart, bump, tied }
+
+    var body: some View {
+        if reduceMotion {
+            scene(.tied)
+        } else {
+            PhaseAnimator(Phase.allCases) { phase in
+                scene(phase)
+            } animation: { phase in
+                switch phase {
+                case .apart: MMMotion.easeOut(0.5).delay(1.4)
+                case .bump: MMMotion.bounce(MMMotion.slow).delay(0.8)
+                case .tied: MMMotion.easeOut(0.4).delay(0.12)
+                }
+            }
+        }
+    }
+
+    private func scene(_ phase: Phase) -> some View {
+        let together = phase != .apart
+        return VStack(spacing: 44) {
+            PlanTicket(stubTint: together ? MMColor.sun100 : MMColor.surfaceSunken,
+                       iconColor: together ? MMColor.textPrimary : MMColor.textTertiary)
+                .rotationEffect(.degrees(phase == .bump ? 2 : 4))
+                .offset(y: phase == .bump ? -3 : 0)
+            ZStack(alignment: .bottom) {
+                burst
+                    .opacity(phase == .bump ? 1 : 0)
+                    .offset(y: phase == .tied ? -86 : -76)
+                silverback
+                    .rotationEffect(.degrees(together ? 6 : -12), anchor: .bottom)
+                    .offset(x: together ? -24 : -98)
+                silverback
+                    .rotationEffect(.degrees(together ? -6 : 12), anchor: .bottom)
+                    .offset(x: together ? 24 : 98)
+                Circle()
+                    .fill(MMColor.sun400)
+                    .frame(width: 26, height: 26)
+                    .overlay(Circle().stroke(MMColor.bgApp, lineWidth: 3))
+                    .scaleEffect(together ? 1 : 0.01)
+                    .offset(y: 10)
+            }
+            .frame(height: 72)
+        }
+    }
+
+    private var silverback: some View {
+        Image("SilverbackMark")
+            .renderingMode(.original)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 64, height: 72)
+    }
+
+    /// Three short coral spark lines above the spot where the heads meet.
+    private var burst: some View {
+        HStack(alignment: .bottom, spacing: 6) {
+            Capsule().frame(width: 4, height: 12).rotationEffect(.degrees(-35))
+            Capsule().frame(width: 4, height: 14).offset(y: -6)
+            Capsule().frame(width: 4, height: 12).rotationEffect(.degrees(35))
+        }
+        .foregroundStyle(MMColor.accent)
+    }
+}
+
+/// The ticket-stub card: tinted date stub, dashed tear, punched notches.
+private struct PlanTicket: View {
+    var stubTint: Color
+    var iconColor: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            MMIcon("calendar-plus", size: 32, color: iconColor)
+                .frame(width: 76, height: 124)
+                .background(stubTint)
+            Path { path in
+                path.move(to: .zero)
+                path.addLine(to: CGPoint(x: 0, y: 100))
+            }
+            .stroke(MMColor.controlOff, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+            .frame(width: 1, height: 100)
+            Text("Next up?\nYou decide.")
+                .mmFont(.display, 20, tracking: -0.02, lineHeight: 1.15)
+                .foregroundStyle(MMColor.textSecondary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, MMSpace.s6)
+        }
+        .frame(width: 256)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .mmCardSurface(radius: 24)
+        .overlay(alignment: .topLeading) {
+            Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: 69, y: -8)
+        }
+        .overlay(alignment: .bottomLeading) {
+            Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: 69, y: 8)
         }
     }
 }
