@@ -686,7 +686,7 @@ private actor BackendHTTPFixture {
 private final class BackendURLProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var fixtures: [String: BackendHTTPFixture] = [:]
-    private var task: Task<Void, Never>?
+    private var responseTask: Task<Void, Never>?
 
     static func register(host: String, fixture: BackendHTTPFixture) {
         lock.lock(); defer { lock.unlock() }; fixtures[host] = fixture
@@ -701,7 +701,7 @@ private final class BackendURLProtocol: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         guard let fixture = Self.fixture(for: request), let url = request.url else { return }
-        task = Task {
+        responseTask = Task {
             do {
                 let (status, data) = try await fixture.respond(to: request)
                 let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
@@ -711,5 +711,5 @@ private final class BackendURLProtocol: URLProtocol {
             } catch { client?.urlProtocol(self, didFailWithError: error) }
         }
     }
-    override func stopLoading() { task?.cancel() }
+    override func stopLoading() { responseTask?.cancel() }
 }
