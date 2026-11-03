@@ -1,4 +1,4 @@
-/** The Silverback logo: mark, one-color mark, app-icon tile, and lockups with the "grip gorillas." wordmark. */
+/** The Silverback logo: mark, one-color mark, app-icon tile, and lockups with the "mat monkeys." wordmark. */
 export interface LogoProps {
   /**
    * mark: default (coral brow) on paper / white / sun ·
@@ -10,7 +10,7 @@ export interface LogoProps {
   variant?: 'mark' | 'mono' | 'appIcon' | 'lockup' | 'lockupInverse';
   /** Mark height (or tile side) in px, default 40. Minimum 24 for the mark. */
   size?: number;
-  /** Accessible name, default "Grip Gorillas" */
+  /** Accessible name, default "Mat Monkeys" */
   label?: string;
   style?: React.CSSProperties;
 }

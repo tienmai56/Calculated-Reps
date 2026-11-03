@@ -94,7 +94,7 @@ struct WelcomeScreen: View {
                 .frame(width: 104, height: 104)
                 .accessibilityHidden(true)
             HStack(spacing: 0) {
-                Text("grip gorillas")
+                Text("mat monkeys")
                 Text(".").foregroundStyle(MMColor.accent)
             }
             .mmFont(.display, 44, tracking: -0.045, lineHeight: 1)
@@ -102,7 +102,7 @@ struct WelcomeScreen: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Grip Gorillas")
+            .accessibilityLabel("Mat Monkeys")
             .accessibilityAddTraits(.isHeader)
             Text("Make plans. Meet on the mat.")
                 .mmFont(.body, 18, .semibold, lineHeight: 1.35)

@@ -1,4 +1,4 @@
-name: Mat Mind checks
+name: Mat Monkeys checks
 on:
   pull_request:
   push:
@@ -19,7 +19,7 @@ jobs:
           xcodebuild -scheme IntentionalTrainingNotes
           -configuration Release
           -destination 'generic/platform=iOS'
-          -archivePath "$RUNNER_TEMP/GripGorillas.xcarchive"
+          -archivePath "$RUNNER_TEMP/MatMonkeys.xcarchive"
           CODE_SIGNING_ALLOWED=NO archive
       - name: Verify archived version metadata
         run: |
@@ -28,18 +28,18 @@ jobs:
           import json, os, pathlib, plistlib
           temp = pathlib.Path(os.environ['RUNNER_TEMP'])
           settings = next(row['buildSettings'] for row in json.loads((temp / 'release-settings.json').read_text()) if row['target'] == 'IntentionalTrainingNotes')
-          with (temp / 'GripGorillas.xcarchive/Products/Applications/IntentionalTrainingNotes.app/Info.plist').open('rb') as source:
+          with (temp / 'MatMonkeys.xcarchive/Products/Applications/IntentionalTrainingNotes.app/Info.plist').open('rb') as source:
               info = plistlib.load(source)
           for key, setting in [('CFBundleShortVersionString', 'MARKETING_VERSION'), ('CFBundleVersion', 'CURRENT_PROJECT_VERSION')]:
               assert info[key] == settings[setting], f'{key}: archived {info[key]!r}, expected {settings[setting]!r}'
           print(f"Verified archive version {info['CFBundleShortVersionString']} ({info['CFBundleVersion']})")
           PY
       - name: Package the unsigned archive
-        run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/GripGorillas.xcarchive" "$RUNNER_TEMP/GripGorillas-unsigned.xcarchive.zip"
+        run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/MatMonkeys.xcarchive" "$RUNNER_TEMP/MatMonkeys-unsigned.xcarchive.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: GripGorillas-unsigned-${{ github.sha }}
-          path: ${{ runner.temp }}/GripGorillas-unsigned.xcarchive.zip
+          name: MatMonkeys-unsigned-${{ github.sha }}
+          path: ${{ runner.temp }}/MatMonkeys-unsigned.xcarchive.zip
           if-no-files-found: error
           retention-days: 7
   ios:

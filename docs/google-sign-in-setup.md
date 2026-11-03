@@ -5,7 +5,7 @@ The installed app uses Supabase's Google OAuth flow with PKCE in an iOS system a
 ## Google Cloud
 
 1. Open Google Cloud Console → Google Auth Platform (or APIs & Services) → Credentials/Clients in the app's Google project.
-2. If prompted, configure the consent screen with the Grip Gorillas name, support email and developer contact. In Testing mode, add the Google accounts used for verification under Audience → Test users.
+2. If prompted, configure the consent screen with the Mat Monkeys name, support email and developer contact. In Testing mode, add the Google accounts used for verification under Audience → Test users.
 3. Create an OAuth client with application type **Web application**. The existing iOS client recorded as `GoogleClientID` in Info.plist is a different client type; this hosted OAuth flow needs the web client.
 4. Add this exact authorized redirect URI:
 

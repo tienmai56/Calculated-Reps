@@ -1,10 +1,10 @@
 ---
-name: grip-gorillas-design
-description: Use this skill to design or build anything for Grip Gorillas, the friendship-first BJJ social app: production UI (SwiftUI or web), prototypes, mocks, or brand assets. Contains core styling rules, visual guidelines and guardrails; exact tokens are in design-system-spec.json.
+name: mat-monkeys-design
+description: Use this skill to design or build anything for Mat Monkeys, the friendship-first BJJ social app: production UI (SwiftUI or web), prototypes, mocks, or brand assets. Contains core styling rules, visual guidelines and guardrails; exact tokens are in design-system-spec.json.
 user-invocable: true
 ---
 
-# Grip Gorillas design skill
+# Mat Monkeys design skill
 
 Read `DESIGN.md` at the repo root first (it is the source of truth). Exact values: `.claude/design-system-spec.json`. CSS variables: `design-system/tokens/` via `styles.css`. Components: `design-system/components/`. Reference prototype: `ui_kits/app/index.html`.
 
@@ -24,7 +24,7 @@ If invoked with no task, ask what they want to build, then act as an expert prod
 - **Spacing:** 16px screen gutters, 44px minimum tap targets, 22px between sections.
 
 ## Logo
-- **The Silverback**: geometric gorilla head with a coral brow band, paired with the lowercase "grip gorillas." wordmark (coral period). Files: `assets/brand/logo-mark.svg` (default), `logo-mark-mono.svg` (on coral / 1-color), `app-icon.svg` (sun ground; also the reversed logo on ink and photos), `app-icon-1024.png`, `logo-lockup.svg`. In React use `<Logo variant="mark|mono|appIcon|lockup|lockupInverse" />` from `design-system/components/core/`.
+- **The Silverback**: geometric gorilla head with a coral brow band, paired with the lowercase "mat monkeys." wordmark (coral period). Files: `assets/brand/logo-mark.svg` (default), `logo-mark-mono.svg` (on coral / 1-color), `app-icon.svg` (sun ground; also the reversed logo on ink and photos), `app-icon-1024.png`, `logo-lockup.svg`. In React use `<Logo variant="mark|mono|appIcon|lockup|lockupInverse" />` from `design-system/components/core/`.
 - Clear space = brow height; min 24px mark, 120px lockup. Never recolor, outline, animate a new expression, or redraw it. Full rules: `DESIGN.md` §5.1.
 
 ## Signature motifs (use them, don't dilute them)

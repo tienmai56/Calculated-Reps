@@ -290,8 +290,8 @@ private final class TestAuthService: AuthServicing {
 
 @MainActor
 final class MatMindLiveUITests: XCTestCase {
-    func testGripGorillasBrandingIsBundledInTheInstalledApp() {
-        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Grip Gorillas")
+    func testMatMonkeysBrandingIsBundledInTheInstalledApp() {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Mat Monkeys")
         XCTAssertNotNil(UIImage(named: "SilverbackMark"))
         XCTAssertNotNil(UIImage(named: "SilverbackMono"))
     }

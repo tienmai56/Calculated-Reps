@@ -1,4 +1,4 @@
-const { Avatar: FAv, IconButton: FIB, Icon: FIcon, Button: FBtn, Tabs: FTabs, StreakBelt: FBelt, Belt: FRank, Badge: FBadge } = window.GripGorillasDesignSystem_8b0f80;
+const { Avatar: FAv, IconButton: FIB, Icon: FIcon, Button: FBtn, Tabs: FTabs, StreakBelt: FBelt, Belt: FRank, Badge: FBadge } = window.MatMonkeysDesignSystem_8b0f80;
 
 function streakCopy(mm, f) {
   const n = mm.streakOf(f); const first = mm.person(f.id).name.split(' ')[0];
@@ -108,7 +108,7 @@ function QRScreen({ tab: t0 }) {
         {[[0, 0, '0 0'], [1, 0, '0 0'], [0, 1, '0 0'], [1, 1, '0 0']].map(([r, b], i) => <span key={i} style={{ position: 'absolute', width: 44, height: 44, [r ? 'right' : 'left']: 0, [b ? 'bottom' : 'top']: 0, borderStyle: 'solid', borderColor: found ? 'var(--mint-500)' : '#fff', borderWidth: `${b ? 0 : 5}px ${r ? 5 : 0}px ${b ? 5 : 0}px ${r ? 0 : 5}px`, borderRadius: `${!r && !b ? 18 : 0}px ${r && !b ? 18 : 0}px ${r && b ? 18 : 0}px ${!r && b ? 18 : 0}px`, transition: 'border-color .2s' }}></span>)}
         {!found && <span style={{ position: 'absolute', left: 14, right: 14, height: 3, borderRadius: 3, background: 'var(--sun-400)', boxShadow: '0 0 16px var(--sun-400)', animation: 'mmScan 1.6s ease-in-out infinite alternate' }}></span>}
       </div>
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 28, textAlign: 'center', color: '#fff', font: '700 15px var(--font-body)' }}>{found ? 'Got it!' : 'Point at a friend\'s Grip Gorillas code'}</div>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 28, textAlign: 'center', color: '#fff', font: '700 15px var(--font-body)' }}>{found ? 'Got it!' : 'Point at a friend\'s Mat Monkeys code'}</div>
       {found && <Connected id={found} onDone={() => { setFound(null); mm.back(); }} />}
     </div>}
   </Screen>;

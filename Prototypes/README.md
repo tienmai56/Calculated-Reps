@@ -1,20 +1,20 @@
-# Grip Gorillas prototype (SwiftUI)
+# Mat Monkeys prototype (SwiftUI)
 
-A native port of the interactive prototype in `ui_kits/app/`, built on the Grip Gorillas design system (`DESIGN.md`, `.claude/design-system-spec.json`). The production and prototype schemes share these screens; the prototype keeps an independent sample-data adapter.
+A native port of the interactive prototype in `ui_kits/app/`, built on the Mat Monkeys design system (`DESIGN.md`, `.claude/design-system-spec.json`). The production and prototype schemes share these screens; the prototype keeps an independent sample-data adapter.
 
 ## Run it
 
 1. Open `IntentionalTrainingNotes.xcodeproj` in Xcode 26.
 2. Pick the **MatMindPrototype** scheme and an iPhone simulator.
-3. Run. It installs as "Grip Gorillas Proto" (`com.tienmai.intentionaltrainingnotes.matmind`, iOS 17+), next to the production app.
+3. Run. It installs as "Mat Monkeys Proto" (`com.tienmai.intentionaltrainingnotes.matmind`, iOS 17+), next to the production app.
 
-The app now starts on the Grip Gorillas welcome screen. **Continue with Google** shows a short loading state and opens the demo Activity feed. This is a simulated sign-up/login interaction: it does not connect a Google account or request credentials. Profile → Settings → Sign out returns to Welcome and resets sample data. A fresh launch also starts signed out.
+The app now starts on the Mat Monkeys welcome screen. **Continue with Google** shows a short loading state and opens the demo Activity feed. This is a simulated sign-up/login interaction: it does not connect a Google account or request credentials. Profile → Settings → Sign out returns to Welcome and resets sample data. A fresh launch also starts signed out.
 
-The welcome photo stack fans into place and gently floats while the app is active. Both effects stop with Reduce Motion enabled. The lowercase Grip Gorillas wordmark and existing design-system photos, type, surfaces, and buttons are reused. The Google icon is bundled unchanged from [FirebaseUI's official asset](https://github.com/firebase/firebaseui-web/blob/master/image/google.svg).
+The welcome photo stack fans into place and gently floats while the app is active. Both effects stop with Reduce Motion enabled. The lowercase Mat Monkeys wordmark and existing design-system photos, type, surfaces, and buttons are reused. The Google icon is bundled unchanged from [FirebaseUI's official asset](https://github.com/firebase/firebaseui-web/blob/master/image/google.svg).
 
 For visual review without Xcode, run `python3 Prototypes/WelcomePreview/serve.py` from the repository root and open the welcome preview on loopback port 4174. This standalone browser companion uses the same design-system tokens and assets; its demo continuation and return flow are independent of SwiftUI. Native compilation still requires Xcode 26 on macOS.
 
-**Prototype tools:** long-press the "grip gorillas." wordmark on Welcome or Activity. That opens the review panel: journeys A–C, jumps to Welcome and the app screens, the key states, a component gallery, and "Reset demo".
+**Prototype tools:** long-press the "mat monkeys." wordmark on Welcome or Activity. That opens the review panel: journeys A–C, jumps to Welcome and the app screens, the key states, a component gallery, and "Reset demo".
 
 All data is sample data held in memory (`App/SeedData.swift`, from `ui_kits/app/data.js`). Nothing is saved or sent anywhere.
 
@@ -40,7 +40,7 @@ Blank items must be named or removed before saving; a completely empty outline i
 
 The organizer can edit the outline on session details using the pencil beside **What we're working on**. Closing the editor discards unsaved edits. The outline is carried into the completion flow and kept in the published post under **What we worked on**.
 
-For a populated example, long-press the Grip Gorillas wordmark → States → **Plan a session · nested focus details**. Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
+For a populated example, long-press the Mat Monkeys wordmark → States → **Plan a session · nested focus details**. Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
 
 A standalone browser companion is in `Prototypes/FocusPreview/`. Run `python3 Prototypes/FocusPreview/serve.py` from the repository root; it serves only preview assets on loopback port 4176. The browser companion mirrors the native planning form, including the original date/time, gym, note, friend, and privacy controls. The Example and Blank buttons are review controls outside the phone. Browser state is independent of the native app. The browser's completion action uses a labeled sample photo; real authentication and backend services are not connected.
 

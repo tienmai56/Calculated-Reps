@@ -35,7 +35,7 @@ struct ComponentGallery: View {
                     ForEach([MMTextStyle.displayXL, .displayL, .displayM, .titleL, .titleM, .titleS, .bodyL, .body, .bodyS, .caption], id: \.size) { style in
                         Text("Roll together by Sunday").mmText(style).foregroundStyle(MMColor.textPrimary).lineLimit(1)
                     }
-                    Text("gripgorillas.app/s/k3x9q").mmFont(.mono, 14, .semibold).foregroundStyle(MMColor.textPrimary)
+                    Text("matmonkeys.app/s/k3x9q").mmFont(.mono, 14, .semibold).foregroundStyle(MMColor.textPrimary)
                 }
                 group("Button") {
                     MMButton("Plan a session", iconLeft: "plus") {}

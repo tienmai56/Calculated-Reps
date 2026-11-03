@@ -1,4 +1,4 @@
-const { Avatar: KAv, AvatarStack: KStack, IconButton: KIB, Icon: KIcon, Button: KBtn, Input: KIn, Dialog: KDlg, StreakBelt: KBelt } = window.GripGorillasDesignSystem_8b0f80;
+const { Avatar: KAv, AvatarStack: KStack, IconButton: KIB, Icon: KIcon, Button: KBtn, Input: KIn, Dialog: KDlg, StreakBelt: KBelt } = window.MatMonkeysDesignSystem_8b0f80;
 
 function CompleteScreen({ id }) {
   const mm = useMM(); const P = mm.person;
