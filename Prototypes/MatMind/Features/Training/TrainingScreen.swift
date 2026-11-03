@@ -206,7 +206,7 @@ private struct MatSessionEditorSheet: View {
                             .labelsHidden()
                             .tint(MMColor.accent)
                     }
-                    MMTextField(label: "Gym", placeholder: "Where you're rolling", text: $gym, iconLeft: "map-pin")
+                    MMPlaceSearchField(label: "Gym", placeholder: "Search gyms or addresses", text: $gym)
                     MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
                 }
                 .padding(.top, MMSpace.s4)

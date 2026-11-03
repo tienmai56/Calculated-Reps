@@ -1,6 +1,5 @@
 import SwiftUI
 import PhotosUI
-import MapKit
 
 /// The installed app renders the same screens as MatMindPrototype, backed by live services.
 struct MatMindRoot: View {
@@ -142,9 +141,6 @@ private struct LiveProfileSetup: View {
     @State private var phone = ""
     @State private var gym = ""
     @State private var belt: BeltRank?
-    @State private var gymSearch = GymSearch()
-    /// The suggestion the gym text came from, so picking one closes the list.
-    @State private var pickedGym: String?
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var photo: Data?
     @State private var photoKey = UUID()
@@ -204,50 +200,7 @@ private struct LiveProfileSetup: View {
     }
 
     private var gymField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            MMTextField(label: "Home gym", required: true, placeholder: "Search for your academy", text: $gym, iconLeft: "map-pin")
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-                .onChange(of: gym) { _, text in
-                    if text != pickedGym { pickedGym = nil }
-                    gymSearch.query = pickedGym == nil ? text : ""
-                }
-            if pickedGym == nil, !gymSearch.results.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(Array(gymSearch.results.prefix(5).enumerated()), id: \.offset) { index, place in
-                        if index > 0 { Divider().overlay(MMColor.borderSubtle).padding(.leading, 44) }
-                        Button { pickGym(place) } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                MMIcon("map-pin", size: 18, color: MMColor.textTertiary).padding(.top, 2)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(place.title).mmFont(.body, 15, .semibold).foregroundStyle(MMColor.textPrimary)
-                                    if !place.subtitle.isEmpty {
-                                        Text(place.subtitle).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary).lineLimit(1)
-                                    }
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .frame(minHeight: MMLayout.tapTarget)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(place.subtitle.isEmpty ? place.title : "\(place.title), \(place.subtitle)")
-                    }
-                }
-                .mmCardSurface(radius: MMRadius.md)
-                .transition(.opacity)
-            }
-        }
-        .animation(MMMotion.easeOut(MMMotion.fast), value: gymSearch.results.isEmpty || pickedGym != nil)
-    }
-
-    private func pickGym(_ place: MKLocalSearchCompletion) {
-        pickedGym = place.title
-        gym = place.title
-        gymSearch.query = ""
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        MMPlaceSearchField(label: "Home gym", required: true, placeholder: "Search for your academy", text: $gym)
     }
 
     private func fieldLabel(_ text: String, required: Bool = false) -> some View {
@@ -385,37 +338,6 @@ private struct LiveProfileSetup: View {
             payload["avatar_key"] = key
         }
         await app.perform("save_profile", payload)
-    }
-}
-
-/// Type-ahead place search for the home gym (Apple Maps; no API key or location permission needed).
-@MainActor
-@Observable
-final class GymSearch: NSObject, MKLocalSearchCompleterDelegate {
-    private(set) var results: [MKLocalSearchCompletion] = []
-    var query = "" {
-        didSet {
-            let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.count < 2 { completer.cancel(); results = [] } else { completer.queryFragment = text }
-        }
-    }
-    @ObservationIgnored private let completer = MKLocalSearchCompleter()
-
-    override init() {
-        super.init()
-        completer.resultTypes = [.pointOfInterest, .address]
-        completer.delegate = self
-    }
-
-    nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        let found = completer.results
-        MainActor.assumeIsolated {
-            results = query.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 ? [] : found
-        }
-    }
-
-    nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        MainActor.assumeIsolated { results = [] }
     }
 }
 
