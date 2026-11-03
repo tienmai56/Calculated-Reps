@@ -676,6 +676,34 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertEqual(requests.count, 1, "Overlapping view and foreground refreshes should share a request")
     }
 
+    @MainActor
+    func testSavingProfileReplacesAnOlderRefresh() async throws {
+        let started = expectation(description: "Pre-save snapshot started")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let previousRefresh = Task { await model.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+
+        let finished = expectation(description: "Save fetched the new profile without waiting for the old snapshot")
+        let save = Task {
+            let result = await model.perform("save_profile", ["name": "Alex"])
+            finished.fulfill()
+            return result
+        }
+        await fulfillment(of: [finished], timeout: 5)
+        await fixture.releaseSnapshots()
+        let result = await save.value
+        await previousRefresh.value
+
+        XCTAssertNotNil(result)
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.me?.text("name"), "Alex")
+        XCTAssertEqual(model.snapshot.server_time, "profile-saved")
+    }
+
     private func makeClient(credential: CloudCredential = CloudCredential(access_token: "old-token", refresh_token: "old-refresh", user: CloudUser(id: "owner")), fixture: BackendHTTPFixture) throws -> (BackendClient, BackendCredentialStore) {
         let host = UUID().uuidString.lowercased() + ".example.com"
         BackendURLProtocol.register(host: host, fixture: fixture)
@@ -711,6 +739,7 @@ private actor BackendHTTPFixture {
     let snapshotStarted: XCTestExpectation?
     private var holdSnapshots: Bool
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
+    private var profileSaved = false
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200,
          snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false) {
@@ -756,10 +785,21 @@ private actor BackendHTTPFixture {
         if request.value(forHTTPHeaderField: "Authorization") != "Bearer fresh-token" || rejectFreshToken {
             return (failureStatus, failureBody)
         }
+        if request.url?.path == "/rest/v1/rpc/command",
+           let body = request.httpBody,
+           let command = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+           command["operation"] as? String == "save_profile" { profileSaved = true }
         if request.url?.path == "/rest/v1/rpc/snapshot" {
-            snapshotStarted?.fulfill()
-            if holdSnapshots { await withCheckedContinuation { snapshotWaiters.append($0) } }
-            return (200, try JSONEncoder().encode(SocialSnapshot(server_time: "snapshot-loaded")))
+            var snapshot = SocialSnapshot(server_time: profileSaved ? "profile-saved" : "snapshot-loaded")
+            if profileSaved {
+                snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","name":"Alex"}]"#.utf8))
+            }
+            if holdSnapshots {
+                holdSnapshots = false
+                snapshotStarted?.fulfill()
+                await withCheckedContinuation { snapshotWaiters.append($0) }
+            }
+            return (200, try JSONEncoder().encode(snapshot))
         }
         return (200, Data("{}".utf8))
     }

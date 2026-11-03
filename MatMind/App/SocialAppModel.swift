@@ -36,8 +36,9 @@ import SwiftData
         userID = await backend.identity()
         if let userID { restoreCache(userID); await refresh() }
     }
-    func refresh() async {
+    func refresh(force: Bool = false) async {
         guard userID != nil else { return }
+        if force { refreshRequest?.task.cancel(); refreshRequest = nil }
         let generation = epoch
         let request: (id: UUID, task: Task<SocialSnapshot, Error>)
         if let refreshRequest {
@@ -120,7 +121,8 @@ import SwiftData
         do {
             let result = try await backend.command(operation,payload:payload,key:key)
             guard generation == epoch else { return nil }
-            await refresh()
+            // A read begun before this write may contain the previous profile.
+            await refresh(force: true)
             message = "Saved."
             return result
         } catch { if generation == epoch { self.error = error.localizedDescription }; return nil }
