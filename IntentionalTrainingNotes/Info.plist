@@ -5,11 +5,11 @@
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Mat Monkeys uses the microphone so you can speak your reflections instead of typing.</string>
+	<string>Mat Monkey uses the microphone so you can speak your reflections instead of typing.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Mat Monkeys lets you attach photos from your library to your goals and tasks.</string>
+	<string>Mat Monkey lets you attach photos from your library to your goals and tasks.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Mat Monkeys transcribes your spoken reflections into text so you can review and edit them.</string>
+	<string>Mat Monkey transcribes your spoken reflections into text so you can review and edit them.</string>
 	<key>GoogleClientID</key>
 	<string>523055768394-20kj4rgm70vmohh0bebegvu13hdqmv1a.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
@@ -34,7 +34,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mat Monkeys</string>
+	<string>Mat Monkey</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -42,7 +42,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Mat Monkeys</string>
+	<string>Mat Monkey</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>

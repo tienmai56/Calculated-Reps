@@ -115,7 +115,11 @@ struct Session: Identifiable, Hashable {
 }
 
 struct AppNotification: Identifiable, Hashable {
-    enum Kind: String { case invite, joined, comment, published, like, friend, mention }
+    enum Kind: String {
+        case invite, joined, comment, published, like, friend, mention
+        /// Someone shared a goal with you; `session` holds the shared goal's id.
+        case goalShare = "goal_share"
+    }
 
     let id: String
     var kind: Kind
@@ -132,6 +136,11 @@ enum AppTab: String, CaseIterable {
     case activity, training, goals, profile
 }
 
+/// The two lists in Goals: your own, and the ones training partners shared with you.
+enum GoalsSection: String {
+    case mine, shared
+}
+
 /// Pushed screens. The tab bar only shows on the tab roots.
 enum Route: Hashable {
     case post(id: String, menu: Bool = false, focus: Bool = false)
@@ -142,6 +151,8 @@ enum Route: Hashable {
     /// Friends now open from Profile instead of a tab.
     case friends
     case goal(id: String)
+    /// A goal someone shared with you (an invitation, or one you accepted).
+    case sharedGoal(id: String)
     case qr(scan: Bool = false)
     case notifications
 }
@@ -287,6 +298,43 @@ extension MatGoal {
         links = try c.decodeIfPresent([String].self, forKey: .links) ?? []
         photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
         parts = try c.decodeIfPresent([GoalPart].self, forKey: .parts) ?? []
+    }
+}
+
+/// A goal a training partner shared with you. It's read-only and follows the
+/// owner's saved edits. `pending` until you accept or decline it; declined goals
+/// leave the list. Photos are displayable sources (sample asset names or local files).
+struct SharedGoal: Identifiable, Hashable {
+    enum Status: String { case pending, accepted }
+
+    /// The shared copy's id (the same on every device).
+    let id: String
+    /// Who shared it (a person id).
+    var owner: String
+    var title: String
+    var notes: String = ""
+    var links: [String] = []
+    var photos: [String] = []
+    var parts: [GoalPart] = []
+    var status: Status = .pending
+    /// When it was shared with you, when known.
+    var sharedAt: Date? = nil
+
+    /// The same content as a goal, for the read-only views and card previews.
+    var content: MatGoal {
+        MatGoal(id: id, title: title, notes: notes, links: links, photos: photos, parts: parts)
+    }
+
+    /// "3 parts · 1 video · 4 photos · 2 links": what's inside, for invitations.
+    var contentsSummary: String {
+        let videos = parts.filter { !$0.link.isEmpty }.count
+        let photoCount = photos.count + parts.reduce(0) { $0 + $1.photos.count }
+        var bits: [String] = []
+        if !parts.isEmpty { bits.append(parts.count == 1 ? "1 part" : "\(parts.count) parts") }
+        if videos > 0 { bits.append(videos == 1 ? "1 video" : "\(videos) videos") }
+        if photoCount > 0 { bits.append(photoCount == 1 ? "1 photo" : "\(photoCount) photos") }
+        if !links.isEmpty { bits.append(links.count == 1 ? "1 link" : "\(links.count) links") }
+        return bits.joined(separator: " · ")
     }
 }
 

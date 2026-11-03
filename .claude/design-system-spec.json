@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "name": "Mat Monkeys Design System",
+  "name": "Mat Monkey Design System",
   "version": "1.2.0",
   "updated": "2026-11-02",
   "platform": {
@@ -10,9 +10,9 @@
     "theme": "light-first"
   },
   "brand": {
-    "productName": "Mat Monkeys",
+    "productName": "Mat Monkey",
     "wordmark": {
-      "text": "mat monkeys.",
+      "text": "mat monkey.",
       "font": "Bricolage Grotesque",
       "weight": 800,
       "letterSpacing": "-0.045em",

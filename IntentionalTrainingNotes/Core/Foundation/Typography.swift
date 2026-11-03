@@ -1,8 +1,8 @@
 import SwiftUI
 
-// MARK: - Mat Monkeys Typography
+// MARK: - Mat Monkey Typography
 //
-// Mat Monkeys uses two typefaces:
+// Mat Monkey uses two typefaces:
 //   • MAIN SECTION HEADERS — Fraunces (serif), via Font.matMonkeysSerif(size:) and
 //     Font.matMonkeysSerifItalic(size:). Reserved for the ScreenHeader titles only.
 //   • EVERYTHING ELSE — SF Pro. Titles/labels/buttons/chips use the rounded

@@ -1,4 +1,4 @@
-# DESIGN.md — Mat Monkeys Design System
+# DESIGN.md — Mat Monkey Design System
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
@@ -19,13 +19,13 @@
 ---
 
 ## 1. Product
-**Mat Monkeys** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
+**Mat Monkey** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
 One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Goals, Profile) and a center **Plan a session** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
-- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "mat monkeys." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. **Mat Monkeys** is the product name as of design-system v1.2.0. Existing bundle identifiers, callbacks and storage keys (including `matmind.hasCompletedOnboarding` and `matmind.reflection.reminder`) retain their original values so existing installs, links and sign-in continue working.
+- **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "mat monkey." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. **Mat Monkey** is the product name as of design-system v1.2.0. Existing bundle identifiers, callbacks and storage keys (including `matmind.hasCompletedOnboarding` and `matmind.reflection.reminder`) retain their original values so existing installs, links and sign-in continue working.
 - Fonts (Google Fonts, self-hosted in `assets/fonts/`): **Bricolage Grotesque** (display), **Archivo** (body), **JetBrains Mono** (codes/links only).
 - Icons: **Lucide v0.454.0** (ISC), copied from `lucide-static` into `assets/icons/` and embedded in `design-system/components/core/Icon.jsx`.
 - Photos: Unsplash (free license), 10 training photos in `assets/photos/`. Swap for real community photos when available.
@@ -269,7 +269,7 @@ A calm, front-facing gorilla head built from simple geometry: an ink head, a pap
 | `assets/brand/logo-mark-mono.svg` | Ink brow. On coral backgrounds and for one-color print. |
 | `assets/brand/app-icon.svg` | 1024² app icon: default mark on **sun #FFC93C**. Also the reversed logo on ink or photos (as a rounded tile). |
 | `assets/brand/app-icon-1024.png` | Opaque 1024² PNG render of the app icon, used by the iOS `AppIcon` set. Re-render it from the SVG if the SVG changes. |
-| `assets/brand/logo-lockup.svg` | Horizontal lockup: mark + "mat monkeys." wordmark. |
+| `assets/brand/logo-lockup.svg` | Horizontal lockup: mark + "mat monkey." wordmark. |
 
 - **Colors:** ink `#1D1B18`, paper-3 `#E9E0D1`, coral `#FF5C39` brow; app icon ground sun `#FFC93C`. Nothing else.
 - **Lockup:** mark left of the wordmark, mark height ≈ 1.7× the wordmark cap height, gap ≈ 0.3× mark height. The wordmark is always lowercase with a coral period (ink period on coral).
@@ -386,9 +386,19 @@ Tab bar: **Activity · Training · + (Plan a session) · Goals · Profile**. Fri
 - **Goals** lists what you're working on as white cards: name, a two-line notes preview, link/photo counts and when it's next on the mat ("On Sat with Sarah", never a score). **Add a goal** sits in the section header; its sheet has the name, notes and **References** (an **Add photo** tile and **Add a link**, each removable before saving; photos are saved when the goal is added). **Import** (in the empty state, a quiet link under the list) reads the file from Settings → Export local sessions (the .zip, or its training-v1.json): each active goal keeps its name; each task becomes a "- Task: notes" line, with its link and photos. Archived goals, sessions and reflections are left out, and importing twice adds nothing.
 - **Goal page** is edited in place: the name (a 28pt display field) and next session; **Details** as a multi-line field ("-" starts a sub-point); **References** (photos, with an **Add photo** tile that opens the photo library and touch-and-hold to remove; links shown by host in mono, opening in the browser; **Add a link**). Goal photos are re-encoded as JPEG without location metadata, capped at 2048 px and stored privately on the device; an ellipsis menu with **Plan a session for this** (attaches the goal to the session you create) and Delete goal; and the primary **Save goal**, enabled once the name or details change. Leaving with unsaved edits asks before discarding. Photos and links save as soon as they're added.
 - **Profile → Friends:** a card with friend avatars and the count (opens the friends list), or "Add your first training partner" (opens My code), followed by Weekly streaks and Activity.
-- Goals are personal (name, free-form notes, reference links and photos). They're stored on the device per account and attached only to sessions in your own schedule. No progress, completion counts or rankings.
+- Goals are personal (name, free-form notes, reference links and photos). They're stored on the device per account and attached only to sessions in your own schedule until you share one. No progress, completion counts or rankings.
 
-Native: `Features/Goals/GoalsScreen.swift`, `Features/Training/TrainingScreen.swift`, `MatGoal` in `App/Models.swift`.
+### Sharing goals
+
+Sharing works like a session invite. Goals has two segmented tabs under the title, **Mine** and **Shared**; Shared carries the coral count badge while invitations are waiting.
+
+- **Share** (the share icon on the goal page, also in its ellipsis menu) opens a sheet: "Share <goal>", a line saying exactly what goes along (notes, parts, videos, photos, links; read-only, saved edits come through), a row of training partners (56pt avatars with belt rings; a picked one gets a coral ring and check, ones who already have it read "Has it" or "Invited" and can't be picked again), **Copy a link to this goal**, a lock-icon note that the link needs a Mat Monkey account, and the primary **Share with Dani** / **Share with 2 partners**. Unsaved edits must be saved first.
+- **The shared goal page** (from the notification, a link or **Look**) opens with who sent it: tied avatars on the sender's friend-hue tint, "Sarah Lee shared a goal with you", belt · gym · when. Then the name (28pt), "Sarah's notes · read-only", Details, the parts (notes, video row, photos) and References. A pending invitation has a sticky footer: "Lands in Goals under Shared. Sarah's edits come through.", secondary **Decline** and primary **Add to my goals**. Accepting switches Goals to Shared with the toast "<goal> is in Shared"; declining reads "Declined. No hard feelings." An accepted goal's ellipsis menu has **Remove from Shared**.
+- **Goals › Shared** lists **Invites** (avatar, "Kenji shared Berimbolo entries", what's inside · when; ghost Decline, secondary Look, inverse Accept, matching session invites) and **Shared with you** (white cards with a "From Sarah" chip on the sender's hue, the notes preview and what's inside). With nothing shared, a sunken card reads "Nothing shared yet".
+- **Links** (`/goal/<token>`, valid 30 days) work for anyone with an account, friend or not. Opening one creates the same pending invitation; opening your own opens your goal. Without the app, the web fallback only says someone shared a goal and offers the App Store; it never shows the goal's content.
+- Shared copies follow the owner's saves. Deleting a goal stops sharing it for everyone; blocking hides it. There's still no feed, discovery, comments or chat on goals.
+
+Native: `Features/Goals/GoalsScreen.swift`, `Features/Goals/GoalSharing.swift`, `Features/Training/TrainingScreen.swift`, `MatGoal` and `SharedGoal` in `App/Models.swift`.
 
 ## 9. Guardrails
 **Always**
@@ -416,7 +426,7 @@ Native: `Features/Goals/GoalsScreen.swift`, `Features/Training/TrainingScreen.sw
 
 **Product constraints (MVP)**
 - Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
-- Join sessions only via invitation, direct addition, or a valid link (Mat Monkeys account required), never from the feed.
+- Join sessions only via invitation, direct addition, or a valid link (Mat Monkey account required), never from the feed.
 - Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
 - Friends connect instantly via QR, with no requests or approvals.
 

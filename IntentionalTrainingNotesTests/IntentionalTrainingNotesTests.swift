@@ -328,7 +328,7 @@ private final class TestAuthService: AuthServicing {
 @MainActor
 final class MatMindLiveUITests: XCTestCase {
     func testMatMonkeysBrandingIsBundledInTheInstalledApp() {
-        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Mat Monkeys")
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, "Mat Monkey")
         XCTAssertNotNil(UIImage(named: "SilverbackMark"))
         XCTAssertNotNil(UIImage(named: "SilverbackMono"))
     }
@@ -1462,4 +1462,101 @@ private final class PlaceSearchTestClient: PlaceSearchClient {
     func cancel() { cancelled = true }
     // Keep the callback to exercise responses that were already in flight at cancellation.
     func complete(_ result: Result<[PlaceSuggestion], Error>) { completion?(result) }
+}
+
+final class GoalSharingTests: XCTestCase {
+    @MainActor
+    func testPreviewSharingInvitesTrainingPartnersAndRemembersWhoHasIt() async {
+        let ui = AppModel(live: false)
+        let shared = await ui.shareGoal("g1", with: ["sarah", "me"])
+        XCTAssertTrue(shared)
+        XCTAssertEqual(ui.recipients(ofGoal: "g1"), ["sarah": "pending"], "You never invite yourself")
+        XCTAssertEqual(ui.toast?.message, "Shared with Sarah")
+        let nobody = await ui.shareGoal("g1", with: [])
+        XCTAssertFalse(nobody)
+        ui.deleteGoal("g1")
+        XCTAssertTrue(ui.recipients(ofGoal: "g1").isEmpty, "Deleting a goal stops sharing it")
+    }
+
+    @MainActor
+    func testAcceptingMovesAnInvitationToSharedAndDecliningRemovesIt() async {
+        let ui = AppModel(live: false)
+        XCTAssertEqual(ui.goalInvites.map(\.id), ["sg-berimbolo"])
+        XCTAssertEqual(ui.acceptedSharedGoals.map(\.id), ["sg-single-leg", "sg-closed-guard"], "Newest first")
+        XCTAssertTrue(ui.notifications.contains { $0.kind == .goalShare && $0.unread })
+
+        let accepted = await ui.respondToSharedGoal("sg-berimbolo", accept: true)
+        XCTAssertTrue(accepted)
+        XCTAssertTrue(ui.goalInvites.isEmpty)
+        XCTAssertEqual(ui.acceptedSharedGoals.first?.id, "sg-berimbolo")
+        XCTAssertFalse(ui.notifications.contains { $0.kind == .goalShare && $0.unread }, "Answering reads the alert")
+        XCTAssertEqual(ui.toast?.message, "Berimbolo entries is in Shared")
+
+        _ = await ui.respondToSharedGoal("sg-closed-guard", accept: false)
+        XCTAssertNil(ui.sharedGoal("sg-closed-guard"))
+        XCTAssertEqual(ui.toast?.message, "Removed from Shared")
+    }
+
+    func testSharedGoalSummarySaysWhatsInside() {
+        let goal = SharedGoal(id: "x", owner: "sarah", title: "Single leg", links: ["https://a.example", "https://b.example"],
+                              photos: ["a"], parts: [GoalPart(title: "Entry", photos: ["b", "c"]),
+                                                     GoalPart(title: "Pipe", link: "https://youtu.be/x")])
+        XCTAssertEqual(goal.contentsSummary, "2 parts · 1 video · 3 photos · 2 links")
+        XCTAssertEqual(SharedGoal(id: "y", owner: "sarah", title: "Empty").contentsSummary, "")
+        XCTAssertEqual(AppNotification.Kind(rawValue: "goal_share"), .goalShare)
+    }
+
+    func testSnapshotsCachedBeforeGoalSharingStillDecode() throws {
+        let old = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"{"server_time":null,"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]}"#.utf8))
+        XCTAssertNil(old.shared_goals)
+        XCTAssertNil(old.goal_shares)
+    }
+
+    @MainActor
+    func testLiveSyncSeparatesGoalsSharedWithYouFromYourOwn() throws {
+        let json = #"""
+        {"profiles":[{"id":"me-id","name":"Dani","belt":"purple","stripes":2,"gym":"Tidewater","username":"dani"},
+                     {"id":"sarah-id","name":"Sarah Lee","belt":"blue","stripes":3,"gym":"Tidewater","username":"sarah"}],
+         "friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "shared_goals":[
+           {"id":"cloud-1","owner":"sarah-id","client_id":"g9","title":"Single leg finish","notes":"Head on the hip",
+            "links":["https://example.com/a"],"photos":[],"media":["sarah-id/aa.jpg"],
+            "parts":[{"id":"p1","title":"Run the pipe","notes":"","link":"https://youtu.be/x","photos":["sarah-id/aa.jpg"]}]},
+           {"id":"cloud-2","owner":"me-id","client_id":"g1","title":"Knee cut","notes":"","links":[],"photos":[],"parts":[],"media":[]}],
+         "goal_shares":[
+           {"goal_id":"cloud-1","recipient":"me-id","status":"pending","via":"link","created_at":"2026-11-03T10:00:00Z"},
+           {"goal_id":"cloud-2","recipient":"sarah-id","status":"accepted","via":"friend","created_at":"2026-11-03T09:00:00Z"}]}
+        """#
+        let model = SocialAppModel(backend: BackendClient(configuration: nil, loadCredential: { nil }, saveCredential: { _ in }))
+        model.userID = "me-id"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(json.utf8))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+
+        XCTAssertEqual(ui.sharedGoals.map(\.id), ["cloud-1"], "Your own shared goal is not in Shared")
+        let shared = try XCTUnwrap(ui.sharedGoal("cloud-1"))
+        XCTAssertEqual(shared.owner, "sarah-id")
+        XCTAssertEqual(shared.status, .pending)
+        XCTAssertEqual(shared.parts.map(\.title), ["Run the pipe"])
+        XCTAssertEqual(shared.parts.first?.link, "https://youtu.be/x")
+        XCTAssertTrue(shared.parts.first?.photos.isEmpty ?? false, "Photos appear once downloaded")
+        XCTAssertEqual(ui.person("sarah-id").name, "Sarah Lee", "The sender is known even when not a friend")
+        XCTAssertEqual(ui.sharedGoalIDs, ["g1": "cloud-2"])
+        XCTAssertEqual(ui.recipients(ofGoal: "g1"), ["sarah-id": "accepted"])
+    }
+
+    @MainActor
+    func testGoalLinksAreAcceptedLikeOtherInvitations() {
+        let model = SocialAppModel(backend: BackendClient(configuration: nil, loadCredential: { nil }, saveCredential: { _ in }))
+        let token = String(repeating: "a", count: 64)
+        let link = URL(string: "matmind://goal/" + token)!
+        model.handle(link)
+        XCTAssertEqual(model.pendingLink, link)
+        model.pendingLink = nil
+        model.handle(URL(string: "matmind://elsewhere/" + token)!)
+        XCTAssertNil(model.pendingLink)
+        XCTAssertEqual(InvitationLinks.make(kind: "goal", token: token, host: "matmindbjj.lovable.app", httpsEnabled: true).absoluteString,
+                       "https://matmindbjj.lovable.app/goal/" + token)
+    }
 }

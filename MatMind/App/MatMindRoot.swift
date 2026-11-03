@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import CryptoKit
 
 /// The installed app renders the same screens as MatMindPrototype, backed by live services.
 struct MatMindRoot: View {
@@ -65,7 +66,7 @@ struct MatMindRoot: View {
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
-                if old.profiles != new.profiles { Task { await runtime?.loadPhotos() } }
+                if old.profiles != new.profiles || old.shared_goals != new.shared_goals { Task { await runtime?.loadPhotos() } }
                 if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil {
                     // Just signed in or finished profile setup: ask once for push, then keep the token current.
                     Task { await SocialPushCoordinator.register(in: model) }
@@ -117,6 +118,7 @@ struct MatMindRoot: View {
         switch kind {
         case "invite", "joined": ui.go(.session(id: id))
         case "friend": ui.go(.friend(id: id))
+        case "goal_share": ui.go(.sharedGoal(id: id))
         default: ui.go(.post(id: id))
         }
         SocialPushCoordinator.pending = nil
@@ -357,6 +359,11 @@ final class LiveMatMindRuntime: AppRuntime {
     private var mediaPhotos: [String: String] = [:]
     private var avatarUploadKey: UUID?
     private var avatarUploadPhoto: Data?
+    /// Photos of goals shared with you: object key → downloaded file.
+    private var goalPhotos: [String: String] = [:]
+    private var loadingGoalPhotos: Set<String> = []
+    /// Your own goal photos already in the goal-media bucket (named by content).
+    private var uploadedGoalPhotos: Set<String> = []
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -377,9 +384,11 @@ final class LiveMatMindRuntime: AppRuntime {
     func sync() {
         if photoOwner != model.userID {
             ui.resetSessionCreation()
-            for path in Array(photos.values) + Array(avatarPhotos.values) { try? FileManager.default.removeItem(atPath: path) }
+            for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
             avatarPhotos = [:]
+            goalPhotos = [:]
+            uploadedGoalPhotos = []
             photoOwner = model.userID
         }
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
@@ -426,6 +435,7 @@ final class LiveMatMindRuntime: AppRuntime {
                         focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
                         occurredAt: date)
         }
+        syncSharedGoals(userID)
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
                             who: localID(row.text("actor")), session: row.text("entity_id"), text: row.text("message"),
@@ -460,7 +470,58 @@ final class LiveMatMindRuntime: AppRuntime {
         for key in Array(avatarPhotos.keys) where !visibleKeys.contains(key) {
             if let path = avatarPhotos.removeValue(forKey: key) { try? FileManager.default.removeItem(atPath: path) }
         }
+        // Photos of goals shared with you. Your own goals show the files on this device.
+        let goalKeys = Set((model.snapshot.shared_goals ?? []).filter { $0.text("owner") != owner }.flatMap { $0.values["media"]?.strings ?? [] })
+        for key in goalKeys where goalPhotos[key] == nil {
+            let request = owner + ":" + key
+            guard loadingGoalPhotos.insert(request).inserted else { continue }
+            defer { loadingGoalPhotos.remove(request) }
+            do {
+                let data = try await imageLoader(key, "goal-media")
+                guard model.userID == owner else { return }
+                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-goal-\(UUID().uuidString).jpg")
+                try data.write(to: path, options: .atomic)
+                goalPhotos[key] = path.path
+            } catch { continue }
+        }
+        for key in Array(goalPhotos.keys) where !goalKeys.contains(key) {
+            if let path = goalPhotos.removeValue(forKey: key) { try? FileManager.default.removeItem(atPath: path) }
+        }
         sync()
+    }
+
+    /// Goals shared with you (pending or accepted), and who your own shared goals went to.
+    private func syncSharedGoals(_ userID: String) {
+        let goalRows = model.snapshot.shared_goals ?? []
+        let shareRows = model.snapshot.goal_shares ?? []
+        let mine = goalRows.filter { $0.text("owner") == userID }
+        ui.sharedGoalIDs = Dictionary(mine.map { ($0.text("client_id"), $0.id) }, uniquingKeysWith: { first, _ in first })
+        for row in mine { uploadedGoalPhotos.formUnion(row.values["media"]?.strings ?? []) }
+        let mineIDs = Set(mine.map(\.id))
+        var answers: [String: [String: String]] = [:]
+        for row in shareRows where mineIDs.contains(row.text("goal_id")) {
+            answers[row.text("goal_id"), default: [:]][localID(row.text("recipient"))] = row.text("status")
+        }
+        ui.goalRecipients = answers
+        ui.sharedGoals = goalRows.filter { $0.text("owner") != userID }.compactMap { row in
+            guard let share = shareRows.first(where: { $0.text("goal_id") == row.id && $0.text("recipient") == userID }),
+                  let status = SharedGoal.Status(rawValue: share.text("status")) else { return nil }
+            return SharedGoal(id: row.id, owner: localID(row.text("owner")), title: row.text("title"), notes: row.text("notes"),
+                              links: row.values["links"]?.strings ?? [],
+                              photos: (row.values["photos"]?.strings ?? []).compactMap { goalPhotos[$0] },
+                              parts: sharedParts(row.values["parts"], goal: row.id),
+                              status: status, sharedAt: share.date("created_at"))
+        }
+    }
+
+    private func sharedParts(_ value: ArchiveValue?, goal: String) -> [GoalPart] {
+        guard let value, case .array(let items) = value else { return [] }
+        return items.enumerated().compactMap { index, item in
+            guard case .object(let part) = item else { return nil }
+            return GoalPart(id: part["id"]?.string ?? "\(goal)-\(index)", title: part["title"]?.string ?? "",
+                            notes: part["notes"]?.string ?? "", link: part["link"]?.string ?? "",
+                            photos: (part["photos"]?.strings ?? []).compactMap { goalPhotos[$0] })
+        }
     }
     func authenticate() async {
         await model.authenticate("google"); sync()
@@ -556,12 +617,22 @@ final class LiveMatMindRuntime: AppRuntime {
         let parts = url.pathComponents.filter { $0 != "/" }
         let kind = url.scheme == "matmind" ? url.host : parts.first
         let token = parts.last ?? ""
-        guard model.userID != nil, token.count == 64, token.allSatisfy(\.isHexDigit), ["friend", "session"].contains(kind ?? "") else {
+        guard model.userID != nil, token.count == 64, token.allSatisfy(\.isHexDigit), ["friend", "session", "goal"].contains(kind ?? "") else {
             model.error = "Sign in and open a valid invitation link."; return nil
         }
-        guard let result = await model.perform(kind == "friend" ? "redeem_friend" : "join_link", ["token": token]) else { return nil }
+        let operation = kind == "friend" ? "redeem_friend" : kind == "goal" ? "redeem_goal_link" : "join_link"
+        guard let result = await model.perform(operation, ["token": token]) else { return nil }
         model.pendingLink = nil; sync()
         if kind == "session", let id = result["id"]?.string { ui.go(.session(id: id)); return nil }
+        if kind == "goal", let id = result["id"]?.string {
+            // Your own link opens your goal; anyone else's opens the invitation.
+            if result["own"] == .bool(true) {
+                if let local = ui.sharedGoalIDs.first(where: { $0.value == id })?.key { ui.go(.goal(id: local)) }
+            } else {
+                ui.go(.sharedGoal(id: id))
+            }
+            return nil
+        }
         return result["id"]?.string
     }
     func copySessionLink(_ sessionID: String) async {
@@ -585,6 +656,51 @@ final class LiveMatMindRuntime: AppRuntime {
                                                        "starts_at": ISO8601DateFormatter().string(from: startsAt), "timezone": row.text("timezone"),
                                                        "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: old.focus)])
         sync(); return result != nil
+    }
+    func publishGoal(_ goal: MatGoal) async -> String? {
+        guard let owner = model.userID else { model.error = "Sign in to share goals."; return nil }
+        do {
+            var photos: [String] = []
+            for photo in goal.photos { if let key = try await uploadGoalPhoto(photo, owner: owner) { photos.append(key) } }
+            var parts: [[String: Any]] = []
+            for part in goal.parts {
+                var keys: [String] = []
+                for photo in part.photos { if let key = try await uploadGoalPhoto(photo, owner: owner) { keys.append(key) } }
+                parts.append(["id": part.id, "title": part.title, "notes": part.notes, "link": part.link, "photos": keys])
+            }
+            // Not `model.perform`: saving a shared goal republishes in the background
+            // and must not be refused while another command is running.
+            let result = try await model.backend.command("publish_goal", payload: [
+                "client_id": goal.id, "title": goal.title, "notes": goal.notes,
+                "links": goal.links, "photos": photos, "parts": parts])
+            guard model.userID == owner, let id = result["id"]?.string else { return nil }
+            await model.refresh(force: true)
+            sync()
+            return id
+        } catch {
+            if model.userID == owner { model.error = "Couldn't share \(goal.title): \(error.localizedDescription)" }
+            return nil
+        }
+    }
+    /// Uploads one goal photo, named by its content, so re-saves and retries reuse it.
+    /// Files missing from this device (none in the installed app) are left out.
+    private func uploadGoalPhoto(_ photo: String, owner: String) async throws -> String? {
+        guard let data = try? Data(contentsOf: MatGoal.photoRoot.appendingPathComponent(photo)) else { return nil }
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        let key = "\(owner.lowercased())/\(digest).jpg"
+        if uploadedGoalPhotos.contains(key) { return key }
+        do { try await model.backend.upload(data, objectKey: key, bucket: "goal-media") }
+        catch {
+            // Already there from an earlier save or a lost response: same name, same photo.
+            guard let existing = try? await model.backend.image(key: key, bucket: "goal-media"), existing == data else { throw error }
+        }
+        uploadedGoalPhotos.insert(key)
+        return key
+    }
+    func copyGoalLink(_ sharedID: String) async -> Bool {
+        guard let result = await model.perform("goal_token", ["goal_id": sharedID]), let token = result["token"]?.string else { return false }
+        UIPasteboard.general.url = model.link(kind: "goal", token: token)
+        return true
     }
     func scannerView(found: @escaping (String) -> Void) -> AnyView { AnyView(LiveScannerView(found: found)) }
     func exportView() -> AnyView {

@@ -1,4 +1,4 @@
-# Mat Monkeys v2 — implementation and deployment
+# Mat Monkey v2 — implementation and deployment
 
 ## Implemented locally
 
@@ -18,7 +18,7 @@ Export uses a streaming ZIP32 writer and the native iOS share sheet. Each export
 
 - Supabase project URL: `https://cmiqavyrazypmulrfezj.supabase.co`.
 - Supplied publishable key is configured in the app's Info.plist. This key is intended to ship in clients; administrative keys must never be placed there.
-- App Store installation destination: [Mat Monkeys - Jiu-Jitsu Planner](https://apps.apple.com/app/id6767997652). Its URL and numeric ID are recorded as `AppStoreURL` and `AppStoreID` in Info.plist.
+- App Store installation destination: [Mat Monkey - Jiu-Jitsu Planner](https://apps.apple.com/app/id6767997652). Its URL and numeric ID are recorded as `AppStoreURL` and `AppStoreID` in Info.plist.
 - Existing production bundle ID is retained: `com.tienmai.intentionaltrainingnotes`.
 - Minimum deployment target is now iOS 17. Older devices need the previous app version; validate App Store rollout strategy before release.
 - Apple sign-in/APNs entitlements are provided. Select the correct development team and regenerate provisioning profiles with these capabilities enabled.
@@ -31,9 +31,9 @@ Hosted validation identified a device-token column/variable collision, fixed in 
 
 **Profile setup deployed (November 2, 2026):** `20261102190144_profile_setup.sql` adds private `account_settings.phone`, the private JPEG-only `avatars` bucket and its upload/read policies, and `avatar_key`/`phone` support in `save_profile`. The filename matches the version assigned by the hosted migration service. `delete-account` version 2 removes all pages of profile photos before deleting account data and the Auth identity. Hosted verification confirms owner-only phone access, the private bucket and its policies, authenticated command access, and blocked anonymous command execution; the deployed function source matches the reviewed file. Security advisory findings are unchanged from before deployment. `supabase/tests/profile.sql` runs in CI and `scripts/test-database.sh`; `node scripts/test-delete-account.mjs` checks authentication, paginated cleanup and safe retries.
 
-**Mat Monkeys notification branding deployed (November 2, 2026):** `notification-worker` version 2 changes the push alert title to **Mat Monkeys**. Hosted readback matches the repository source; worker-secret authentication and deployment configuration are unchanged. No database migration is required for the rename.
+**Mat Monkey notification branding deployed (November 2, 2026):** `notification-worker` version 2 changes the push alert title to **Mat Monkey**. Hosted readback matches the repository source; worker-secret authentication and deployment configuration are unchanged. No database migration is required for the rename.
 
-**Build 1.1 (4):** CI builds the Mat Monkeys production Release archive without Apple signing, verifies its version/build against the project settings, and publishes an unsigned `MatMonkeys-unsigned.xcarchive.zip` artifact for seven days. Apple signing and TestFlight upload are a separate distribution step. The profile setup screen appears for signed-in accounts without a profile; existing completed profiles stay intact.
+**Build 1.1 (4):** CI builds the Mat Monkey production Release archive without Apple signing, verifies its version/build against the project settings, and publishes an unsigned `MatMonkeys-unsigned.xcarchive.zip` artifact for seven days. Apple signing and TestFlight upload are a separate distribution step. The profile setup screen appears for signed-in accounts without a profile; existing completed profiles stay intact.
 
 **Push for every notification and comment reports (deployed November 3, 2026):** `202611030001_push_and_reports.sql` adds `like` (once per person per post) and `friend` (when someone connects with your code) notifications. Invites, RSVPs, comments and shared memories already notified. Every notification is queued for push. The migration also adds `reports.comment_id` and a `report_comment` command, and the app now offers **Report post** in post options and **Report comment** on a long press. `notification-worker` now leads each push with the actor's name ("Sarah liked your memory") and shows banners while the app is open. The app asks for notification permission once a signed-in profile exists. The migration and current worker are deployed. A once-per-minute worker schedule is active, and the account owner confirmed all five APNs/worker secret names are present and device delivery works. Reports are stored in `public.reports` for the team to review: check them at least daily (App Store guideline 1.2).
 
@@ -72,9 +72,11 @@ Schedule the notification worker (for example once per minute) with its `x-worke
 
 `delete-account` verifies the caller with Auth, removes owned cloud media, executes scoped social-data deletion and deletes the Auth identity. It never touches on-device archives. A failed partial cloud deletion is retryable; exercise this path against staging before production rollout.
 
+**Goal sharing (not deployed yet):** `20261104120000_goal_sharing.sql` adds `shared_goals` (the copy an owner publishes when they share a goal, updated on every save) and `goal_shares` (one row per recipient: pending, accepted or declined), a `goal` capability kind for links, the private JPEG-only `goal-media` bucket, and the commands `publish_goal`, `share_goal`, `goal_token`, `redeem_goal_link`, `respond_goal_share` and `unshare_goal`. Recipients who aren't friends can see the sender's profile. `snapshot()` returns both tables, `erase_social_account` removes them, and `delete-account` also clears the member's `goal-media` folder. Notifications use the new kind `goal_share`. `supabase/tests/goal_sharing.sql` covers upload ownership, friend-only direct shares, link invitations for non-friends, decline and re-share, blocking, unsharing and account deletion; CI runs it with the other SQL tests. Deploy the migration and `delete-account` before shipping the app build that shows Share. The website needs a `/goal/:token` route (see website-link-handoff) before HTTPS goal links are enabled.
+
 ## Friend and session links
 
-Development links use `matmind://friend/<token>` and `matmind://session/<token>`. Real QR images encode those actual links, and scanning redeems a server-issued expiring capability.
+Development links use `matmind://friend/<token>`, `matmind://session/<token>` and `matmind://goal/<token>`. Real QR images encode those actual links, and scanning redeems a server-issued expiring capability.
 
 The selected invitation host is **https://matmindbjj.lovable.app/**. It is configured as `AppLinkHost`, and `applinks:matmindbjj.lovable.app` is in the app's Associated Domains entitlement.
 

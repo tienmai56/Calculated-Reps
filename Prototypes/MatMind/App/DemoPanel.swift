@@ -2,7 +2,7 @@
 import SwiftUI
 
 /// The web prototype's review panel, as a sheet. Open it by long-pressing the
-/// "mat monkeys." wordmark on the Activity tab.
+/// "mat monkey." wordmark on the Activity tab.
 struct DemoPanel: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.dismiss) private var dismiss

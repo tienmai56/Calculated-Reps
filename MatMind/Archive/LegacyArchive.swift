@@ -261,7 +261,7 @@ actor LegacyArchiveRepository {
                 try fm.copyItem(at: checked.directory.appendingPathComponent("backup/" + a.path), to: dest)
             }
             let readme = """
-            Mat Monkeys previous training data — export format 1
+            Mat Monkey previous training data — export format 1
 
             training-v1.json contains the seven record collections, original identifiers,
             relationship references and source date strings. Sessions are in the sessions
@@ -385,7 +385,7 @@ enum LegacyGoalImporter {
             files[jsonName] = data
         }
         guard let json = files[jsonName], let document = try? JSONDecoder().decode(ArchiveDocument.self, from: json) else {
-            throw ArchiveFailure.invalid("That file isn't a Mat Monkeys notebook export.")
+            throw ArchiveFailure.invalid("That file isn't a Mat Monkey notebook export.")
         }
         return try goals(from: document, files: files, photoRoot: photoRoot)
     }

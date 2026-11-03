@@ -495,4 +495,4 @@ struct HomeTrendGraph: View {
 
 // MARK: - Plan List
 
-// MARK: - Reusable Session Card (matches Mat Monkeys Home / Plan design)
+// MARK: - Reusable Session Card (matches Mat Monkey Home / Plan design)

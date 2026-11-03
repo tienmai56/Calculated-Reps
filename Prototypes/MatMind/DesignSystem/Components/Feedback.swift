@@ -114,7 +114,8 @@ private struct MMSheetHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// Bottom sheet: sized to its content, scrolling when it exceeds the available height.
+/// Content-sized bottom sheet. Long forms scroll within the system's maximum
+/// detent instead of forcing their title and actions outside the visible sheet.
 private struct MMSheetModifier<SheetContent: View, Actions: View>: ViewModifier {
     @Binding var isPresented: Bool
     var title: String?
@@ -132,13 +133,13 @@ private struct MMSheetModifier<SheetContent: View, Actions: View>: ViewModifier 
                 } actions: {
                     actions()
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.top, 26)
                 .padding(.bottom, 20)
-                .fixedSize(horizontal: false, vertical: true)
                 .background {
-                    // Measure the full body, not the viewport. iOS caps the detent
-                    // to the screen; the rest must remain reachable by scrolling.
+                    // Measure the full content, not the capped scroll viewport,
+                    // so compact sheets keep their natural height.
                     GeometryReader { g in Color.clear.preference(key: MMSheetHeightKey.self, value: g.size.height) }
                 }
             }
@@ -147,7 +148,6 @@ private struct MMSheetModifier<SheetContent: View, Actions: View>: ViewModifier 
             .onPreferenceChange(MMSheetHeightKey.self) { value in
                 if value > 0 { height = value }
             }
-            .frame(maxHeight: .infinity, alignment: .top)
             .presentationDetents([.height(height)])
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(MMRadius.xl)
