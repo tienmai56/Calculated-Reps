@@ -143,7 +143,8 @@ struct MMMeta: View {
 
 // MARK: - Athletic tape label
 
-private struct MMTapeShape: Shape {
+/// The ragged-edge athletic tape outline (tape labels, goal tapes).
+struct MMTapeShape: Shape {
     func path(in r: CGRect) -> Path {
         var p = Path()
         let pts: [(CGFloat, CGFloat)] = [(0.02, 0), (0.98, 0.04), (1, 0.5), (0.97, 1), (0.03, 0.96), (0, 0.5)]

@@ -356,6 +356,7 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 - Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses Complete & share instead.
 - No upcoming sessions/invitations: “Make it a mat date.” Plan a training session; Already trained? Log it is secondary.
 - No personal past sessions: offer Log a past session.
+- No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
 - An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
 
 Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.

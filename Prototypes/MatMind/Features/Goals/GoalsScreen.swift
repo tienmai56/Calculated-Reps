@@ -10,6 +10,8 @@ struct GoalsScreen: View {
     @State private var editingGoal: MatGoal?
     /// Picking an old-notebook export to bring goals over from.
     @State private var importingGoals = false
+    /// Where the export file comes from, shown before the file picker.
+    @State private var showImportHelp = false
 
     var body: some View {
         let goals = mm.goals
@@ -18,42 +20,26 @@ struct GoalsScreen: View {
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
             })
         } content: {
-            MMEyebrow(title: "Working on", topPadding: 8, trailing: {
-                if !goals.isEmpty {
-                    GoalTextAction(title: "Add a goal", icon: "plus") { editingGoal = .new() }
-                }
-            })
             if goals.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("What are you chasing?").mmFont(.display, 18, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
-                    Text("Single legs, RNC finishes, that one sweep. Add it here and bring it to your next session.")
-                        .mmFont(.body, 14, lineHeight: 1.45).foregroundStyle(MMColor.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 8) {
-                        MMButton("Add a goal", variant: .secondary, size: .sm, iconLeft: "plus") { editingGoal = .new() }
-                        if mm.canImportGoals {
-                            MMButton("Import", variant: .ghost, size: .sm, iconLeft: "upload") { importingGoals = true }
-                        }
-                    }
-                    .padding(.top, 4)
-                    if mm.canImportGoals {
-                        Text("Used the old notebook? Export it from Profile → Settings → Export local sessions, save it to Files, then import it here.")
-                            .mmFont(.body, 12, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                MMEmptyState(artwork: .goals, title: "What are you\nchasing?",
+                             message: "Name it. Bring it to the mat.",
+                             actionTitle: "Add a goal", actionIcon: "plus",
+                             secondaryTitle: mm.canImportGoals ? "Import from old notebook" : nil,
+                             secondaryIcon: "upload",
+                             secondaryAction: mm.canImportGoals ? { showImportHelp = true } : nil) {
+                    editingGoal = .new()
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .mmCardSurface(radius: 22)
-                .padding(.horizontal, 16)
             } else {
+                MMEyebrow(title: "Working on", topPadding: 8, trailing: {
+                    GoalTextAction(title: "Add a goal", icon: "plus") { editingGoal = .new() }
+                })
                 VStack(spacing: 10) {
                     ForEach(goals) { g in
                         WorkingOnGoalCard(goal: g) { mm.go(.goal(id: g.id)) }
                     }
                     if mm.canImportGoals {
                         GoalTextAction(title: "Import goals from your old notebook", icon: "upload", color: MMColor.textTertiary) {
-                            importingGoals = true
+                            showImportHelp = true
                         }
                         .padding(.top, 4)
                     }
@@ -67,6 +53,18 @@ struct GoalsScreen: View {
         }
         .fileImporter(isPresented: $importingGoals, allowedContentTypes: [.zip, .json]) { result in
             importGoals(result)
+        }
+        .confirmationDialog("Bring goals from your old notebook", isPresented: $showImportHelp, titleVisibility: .visible) {
+            Button("Choose the export file") {
+                // Let the dialog finish closing before the file picker opens.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.3))
+                    importingGoals = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Export it first from Profile → Settings → Export local sessions, and save it to Files.")
         }
     }
 
