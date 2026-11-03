@@ -280,7 +280,7 @@ final class AppModel {
                                 "Violence or threats", "Hate speech", "Something else"]
 
     /// Reports a post, or one of its comments when `commentID` is set. Reports go to the
-    /// Mat Monkeys team only; the person reported isn't told.
+    /// Mat Monkey team only; the person reported isn't told.
     @discardableResult
     func report(postID: String, commentID: String? = nil, reason: String) async -> Bool {
         if isLive {

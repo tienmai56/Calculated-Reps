@@ -15,7 +15,7 @@ The iOS project now declares this host and its Associated Domains entitlement. `
 3. Add actual website routes `/friend/:token`, `/session/:token` and `/goal/:token` (shared goals). `public/invite.html` supplies a self-contained fallback view to adapt to the site's router, or to serve through internal rewrites that preserve the original invitation path. Merely copying `invite.html` into public assets does not create those routes. Keep the existing homepage intact.
 4. Publish the Lovable site and verify its deployed responses. If this hosting setup cannot serve the extensionless JSON file with the required response, use a controlled host that can.
 
-The fallback provides an explicit Open in Mat Monkeys button and the supplied App Store listing. It never exposes session content, redeems a token, collects analytics or uploads legacy data. Users who install must return to their original invitation; this is not deferred deep linking across installation.
+The fallback provides an explicit Open in Mat Monkey button and the supplied App Store listing. It never exposes session content, redeems a token, collects analytics or uploads legacy data. Users who install must return to their original invitation; this is not deferred deep linking across installation.
 
 ## Verify before enabling HTTPS invitation generation
 

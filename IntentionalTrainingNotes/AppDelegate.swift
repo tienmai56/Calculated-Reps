@@ -45,7 +45,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
         completionHandler()
     }
 
-    /// Show Mat Monkeys pushes as banners while the app is open too, and refresh the feed behind them.
+    /// Show Mat Monkey pushes as banners while the app is open too, and refresh the feed behind them.
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         Task { @MainActor in NotificationCenter.default.post(name: Notification.Name("MatMindPushReceived"), object: nil) }
         completionHandler([.banner, .list, .sound])

@@ -606,7 +606,7 @@ private struct PostOptionsModifier: ViewModifier {
 
 /// Reasons for a report, one tap each. Shared by post options and comments.
 private struct ReportReasonList: View {
-    static let note = "Only the Mat Monkeys team sees reports. They won't know it was you."
+    static let note = "Only the Mat Monkey team sees reports. They won't know it was you."
     let pick: (String) -> Void
 
     var body: some View {

@@ -1,4 +1,4 @@
-# DESIGN.md — Mat Monkeys Design System
+# DESIGN.md — Mat Monkey Design System
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
@@ -19,13 +19,13 @@
 ---
 
 ## 1. Product
-**Mat Monkeys** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
+**Mat Monkey** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
 One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Friends, Profile) and a center **Plan a session** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
-- **Logo:** use the supplied Silverback artwork in `assets/brand/` and the lowercase "mat monkeys." wordmark in Bricolage Grotesque 800 with a coral period. Current logo rules are in the root `DESIGN.md` §5.1.
+- **Logo:** use the supplied Silverback artwork in `assets/brand/` and the lowercase "mat monkey." wordmark in Bricolage Grotesque 800 with a coral period. Current logo rules are in the root `DESIGN.md` §5.1.
 - Fonts (Google Fonts, self-hosted in `assets/fonts/`): **Bricolage Grotesque** (display), **Archivo** (body), **JetBrains Mono** (codes/links only).
 - Icons: **Lucide v0.454.0** (ISC), copied from `lucide-static` into `assets/icons/` and embedded in `design-system/components/core/Icon.jsx`.
 - Photos: Unsplash (free license), 10 training photos in `assets/photos/`. Swap for real community photos when available.
@@ -342,7 +342,7 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 
 **Product constraints (MVP)**
 - Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
-- Join sessions only via invitation, direct addition, or a valid link (Mat Monkeys account required), never from the feed.
+- Join sessions only via invitation, direct addition, or a valid link (Mat Monkey account required), never from the feed.
 - Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
 - Friends connect instantly via QR, with no requests or approvals.
 

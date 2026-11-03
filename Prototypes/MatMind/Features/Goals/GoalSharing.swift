@@ -217,7 +217,7 @@ struct GoalShareSheet: View {
                         .disabled(working)
                         HStack(alignment: .top, spacing: 6) {
                             MMIcon("lock", size: 14, color: MMColor.textTertiary).padding(.top, 1)
-                            Text("Anyone with the link can ask to add it. They need a Mat Monkeys account to see what's inside.")
+                            Text("Anyone with the link can ask to add it. They need a Mat Monkey account to see what's inside.")
                                 .mmFont(.body, 12, lineHeight: 1.3).foregroundStyle(MMColor.textTertiary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }

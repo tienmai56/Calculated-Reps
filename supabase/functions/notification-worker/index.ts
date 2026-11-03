@@ -33,7 +33,7 @@ Deno.serve(async (request: Request) => {
         const body = actor?.name ? `${actor.name} ${note.message}` : note.message;
         for (const device of devices) {
           const host = device.environment==='production'?'api.push.apple.com':'api.sandbox.push.apple.com';
-          const result = await fetch(`https://${host}/3/device/${device.token}`,{method:'POST',headers:{authorization:`bearer ${jwt}`,'apns-topic':Deno.env.get('APNS_TOPIC')!,'apns-push-type':'alert','apns-collapse-id':job.id},body:JSON.stringify({aps:{alert:{title:'Mat Monkeys',body},sound:'default','thread-id':note.kind},kind:note.kind,entity_id:note.entity_id,actor:note.actor})});
+          const result = await fetch(`https://${host}/3/device/${device.token}`,{method:'POST',headers:{authorization:`bearer ${jwt}`,'apns-topic':Deno.env.get('APNS_TOPIC')!,'apns-push-type':'alert','apns-collapse-id':job.id},body:JSON.stringify({aps:{alert:{title:'Mat Monkey',body},sound:'default','thread-id':note.kind},kind:note.kind,entity_id:note.entity_id,actor:note.actor})});
           if (result.status===410) await api(`device_tokens?token=eq.${device.token}`,'DELETE');
           else if (!result.ok) throw new Error(`APNs returned ${result.status}`);
         }

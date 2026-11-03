@@ -68,7 +68,8 @@ create policy goal_media_upload on storage.objects for insert to authenticated w
 create policy goal_media_read on storage.objects for select to authenticated using(bucket_id='goal-media'
  and (split_part(name,'/',1)=auth.uid()::text or exists(select 1 from public.shared_goals g where objects.name=any(g.media) and public.can_goal(g.id))));
 
--- command(): the previous version (20261103170658) plus the goal-sharing operations.
+-- command(): the current version (20261103170658 with the persistent friend codes of
+-- 20261103220314) plus the goal-sharing operations.
 create or replace function public.command(operation text,payload jsonb,idempotency_key uuid) returns jsonb language plpgsql security definer set search_path='' as $$
 
 #variable_conflict use_variable
@@ -110,12 +111,29 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  perform public.emit_notification(person,actor,'invite',s.id,'invited you to '||s.title,s.id::text||person::text||'invite');
  end loop;
  result:=jsonb_build_object('id',s.id);
- elsif operation in ('friend_token','session_token') then
- entity:=nullif(payload->>'session_id','')::uuid;
- if operation='session_token' and not exists(select 1 from public.sessions where id=entity and organizer=actor and status='planned') then raise exception 'Organizer required'; end if;
- update public.capabilities set revoked=true where owner=actor and kind=case when operation='friend_token' then 'friend' else 'session' end and session_id is not distinct from entity;
+ elsif operation='friend_token' then
+ -- Commands are serialized per actor above, including across devices.
+ -- Recover the caller's existing code only if its capability is still active.
+ select r.result->>'token' into token
+ from public.command_receipts r
+ join public.capabilities issued_capability on issued_capability.token_hash=extensions.digest(r.result->>'token','sha256')
+ where r.actor=actor and r.operation='friend_token'
+ and issued_capability.owner=actor and issued_capability.kind='friend'
+ and issued_capability.session_id is null and not issued_capability.revoked
+ order by r.created_at desc,r.key limit 1;
+ if token is null then
  token:=encode(extensions.gen_random_bytes(32),'hex');
- insert into public.capabilities(owner,kind,session_id,token_hash,expires_at) values(actor,case when operation='friend_token' then 'friend' else 'session' end,entity,extensions.digest(token,'sha256'),now()+interval '1 day');
+ insert into public.capabilities(owner,kind,token_hash,expires_at)
+ values(actor,'friend',extensions.digest(token,'sha256'),'infinity'::timestamptz);
+ end if;
+ result:=jsonb_build_object('token',token);
+ elsif operation='session_token' then
+ entity:=nullif(payload->>'session_id','')::uuid;
+ if not exists(select 1 from public.sessions where id=entity and organizer=actor and status='planned') then raise exception 'Organizer required'; end if;
+ update public.capabilities set revoked=true where owner=actor and kind='session' and session_id=entity;
+ token:=encode(extensions.gen_random_bytes(32),'hex');
+ insert into public.capabilities(owner,kind,session_id,token_hash,expires_at)
+ values(actor,'session',entity,extensions.digest(token,'sha256'),now()+interval '1 day');
  result:=jsonb_build_object('token',token);
  elsif operation in ('redeem_friend','join_link') then
  select * into cap from public.capabilities where token_hash=extensions.digest(payload->>'token','sha256') and not revoked and expires_at>now();

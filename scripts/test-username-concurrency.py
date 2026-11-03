@@ -9,7 +9,7 @@ parser.add_argument('--container', help='Use psql inside this local Docker test 
 args = parser.parse_args()
 psql = ['psql', '-h', 'localhost', '-U', 'postgres', '-Atq', '-v', 'ON_ERROR_STOP=1']
 if args.container:
-    psql = ['docker', 'exec', '-i', args.container, 'psql', '-U', 'postgres', '-Atq', '-v', 'ON_ERROR_STOP=1']
+    psql = ['docker', 'exec', '-i', args.container, 'psql', '-U', 'postgres', '-d', 'matmind_test', '-Atq', '-v', 'ON_ERROR_STOP=1']
 
 
 def query(sql):

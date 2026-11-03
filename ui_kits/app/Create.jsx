@@ -60,7 +60,7 @@ function CreateScreen({ past: pastInit, friend }) {
       <CTabs items={[{ id: 'friends', label: 'Friends only' }, { id: 'link', label: 'Anyone with link' }]} value={privacy} onChange={setPrivacy} />
       <div style={{ marginTop: 12, padding: 14, borderRadius: 18, background: 'var(--white)', boxShadow: 'inset 0 0 0 1.5px var(--border-default)' }}>
         {link ? <Row><CIcon name="link" size={18} color="var(--accent)" /><span style={{ flex: 1, font: '600 14px var(--font-mono)', color: 'var(--ink-900)' }}>matmonkeys.app/s/{link}</span><CBtn size="sm" variant="soft" iconLeft="copy" onClick={() => mm.toast('Invite link copied', 'success')}>Copy</CBtn></Row>
-          : <Row><span style={{ flex: 1 }}><Txt s={14} c="var(--text-secondary)">{privacy === 'link' ? 'Anyone with a Mat Monkeys account can join from the link.' : 'Only your friends can join from the link.'}</Txt></span><CBtn size="sm" variant="secondary" iconLeft="link" onClick={() => setLink('k3x9q')}>Get link</CBtn></Row>}
+          : <Row><span style={{ flex: 1 }}><Txt s={14} c="var(--text-secondary)">{privacy === 'link' ? 'Anyone with a Mat Monkey account can join from the link.' : 'Only your friends can join from the link.'}</Txt></span><CBtn size="sm" variant="secondary" iconLeft="link" onClick={() => setLink('k3x9q')}>Get link</CBtn></Row>}
       </div>
     </Field>}
     <div style={{ height: 24 }}></div>
