@@ -32,6 +32,10 @@ The review panel includes “First session,” “Plan made · no shared photo y
 
 For a browser visual companion, run `python3 Prototypes/EmptyPreview/serve.py` from the repository root. It serves only the preview's explicit assets on loopback port 4175. Use the state selector outside the phone frame to compare a fresh account, a planned session without a post, and existing history with no upcoming plans. This companion is independent of native state; Google, QR scanning, and backend services are not connected.
 
+## Phone number & contacts suggestions (proposed)
+
+A static browser companion for the proposed flow: required, verified phone number at sign-up; a contacts primer with the peeking-Silverback animation; friend suggestions from contacts on Activity, request sent, the recipient's accept card and the accepted "tied in" moment; and the add-your-number sheet for existing accounts. Run `python3 Prototypes/ContactsPreview/serve.py` from the repository root and open loopback port 4177; main buttons jump between screens. It is design-only: nothing is wired into the SwiftUI prototype, the live app or the backend, and DESIGN.md marks the flow as a proposal pending sign-off.
+
 ## Session focus outline
 
 Plan a session keeps its original date carousel, time pills, gym chips, notes, friend grid, and privacy controls. **Add a focus**, beside Add a note, expands the optional **What are we working on?** section and focuses a blank item. Use **Add a detail** on any item to nest another item beneath it. Details can have their own children. Titles are editable in place; the outline is not a checklist or a performance tracker.
