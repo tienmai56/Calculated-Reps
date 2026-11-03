@@ -87,7 +87,7 @@ struct CompleteScreen: View {
                 HStack {
                     Text("Who trained").mmFont(.display, 16).foregroundStyle(MMColor.ink900)
                     Spacer()
-                    MMMeta("\(people.count) people")
+                    MMMeta(people.count == 1 ? "1 person" : "\(people.count) people")
                 }
                 .padding(.horizontal, 2)
                 .padding(.top, 22)
