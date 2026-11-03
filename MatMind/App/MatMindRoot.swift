@@ -83,6 +83,9 @@ struct MatMindRoot: View {
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushToken"))) { _ in
                 Task { await SocialPushCoordinator.uploadToken(in: model) }
             }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushFailed"))) { note in
+                SocialPushCoordinator.registrationFailed(note.userInfo?["message"] as? String ?? "Apple push registration failed.", in: model)
+            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushReceived"))) { _ in
                 Task { await model.refresh(); await runtime?.loadPhotos() }
             }
@@ -528,7 +531,7 @@ final class LiveMatMindRuntime: AppRuntime {
     func signOut() async { await model.logout(); sync() }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
-        if operation == "enable_notifications" { await SocialPushCoordinator.register(in: model); return model.error == nil }
+        if operation == "enable_notifications" { await SocialPushCoordinator.register(in: model, userInitiated: true); return model.error == nil }
         if operation == "delete_account" { await model.deleteAccount(); sync(); return model.userID == nil }
         if operation == "load_more_feed" { await model.loadMoreFeed(); await loadPhotos(); return true }
         if operation == "hydrate_post", let id = payload["post_id"] as? String { await model.hydratePost(id); await loadPhotos(); return true }
