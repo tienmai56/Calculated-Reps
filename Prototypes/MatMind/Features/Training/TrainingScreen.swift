@@ -261,7 +261,7 @@ struct SessionDetailScreen: View {
                     .padding(.bottom, 10)
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { i, row in
-                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && row.id != "me", divider: i < rows.count - 1)
+                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && !completed && row.id != "me", divider: i < rows.count - 1)
                     }
                 }
                 .padding(.horizontal, 14)
