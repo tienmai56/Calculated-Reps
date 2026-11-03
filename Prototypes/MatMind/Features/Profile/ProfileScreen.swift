@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Tab 4: me, my belt and friends, then three sections: Progress (stats, streak, goals),
 /// Activity (past sessions) and Gallery (photos from every session).
@@ -13,6 +14,8 @@ struct ProfileScreen: View {
     @State private var belt = BeltRank.purple.rawValue
     @State private var stripes = "2"
     @State private var section: ProfileSection = .progress
+    @State private var pickedPhoto: PhotosPickerItem?
+    @State private var savingPhoto = false
 
     var body: some View {
         let me = mm.me
@@ -55,6 +58,7 @@ struct ProfileScreen: View {
         }
         .mmSheet(isPresented: $showSettings, title: "Account") {
             VStack(alignment: .leading, spacing: 16) {
+                photoRow
                 MMTextField(label: "Name", text: $name)
                 if mm.isLive { MMTextField(label: "Home gym", text: $gym) }
                 VStack(alignment: .leading, spacing: 8) {
@@ -96,11 +100,60 @@ struct ProfileScreen: View {
                 }
             }
         }
+        .onChange(of: pickedPhoto) { _, item in
+            guard let item else { return }
+            savingPhoto = true
+            Task {
+                defer { savingPhoto = false; pickedPhoto = nil }
+                guard let data = try? await item.loadTransferable(type: Data.self) else {
+                    mm.showToast("That photo couldn't be read")
+                    return
+                }
+                await mm.updatePhoto(data)
+            }
+        }
         .onChange(of: showSettings) { _, open in
             guard !open, mm.isSignedIn else { return }
             if mm.isLive { mm.me.gym = gym }
             mm.updateMe(name: name.isEmpty ? mm.me.name : name, email: email,
                         belt: BeltRank(rawValue: belt) ?? mm.me.belt, stripes: Int(stripes) ?? mm.me.stripes)
+        }
+    }
+
+    /// Account sheet: tap the avatar (or the link beside it) to pick a new profile photo.
+    private var photoRow: some View {
+        let me = mm.me
+        return HStack(spacing: 16) {
+            PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+                MMAvatar(name: me.name.isEmpty ? name : me.name, photo: me.photo, size: 72)
+                    .overlay {
+                        if savingPhoto {
+                            Circle().fill(MMColor.ink900.opacity(0.35))
+                            ProgressView().tint(MMColor.white)
+                        }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        MMIcon("camera", size: 14, color: MMColor.ink900)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(MMColor.white))
+                            .mmShadowCard()
+                    }
+            }
+            .buttonStyle(MMPressStyle())
+            .disabled(savingPhoto)
+            .accessibilityLabel(me.photo == nil ? "Add a profile photo" : "Change profile photo")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Profile photo").mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+                    Text(savingPhoto ? "Saving…" : me.photo == nil ? "Add a photo" : "Change photo")
+                        .mmFont(.body, 14, .semibold)
+                        .foregroundStyle(MMColor.textLink)
+                        .frame(minHeight: MMLayout.tapTarget)
+                }
+                .disabled(savingPhoto)
+                .accessibilityHidden(true)
+            }
+            Spacer(minLength: 0)
         }
     }
 
