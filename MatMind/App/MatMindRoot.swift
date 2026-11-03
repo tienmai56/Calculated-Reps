@@ -61,13 +61,16 @@ struct MatMindRoot: View {
                 services.sync()
                 await services.loadPhotos()
                 openNotification()
+                if model.me != nil { await SocialPushCoordinator.register(in: model) }
                 if model.me != nil, let pending = model.pendingLink { await redeemLink(pending) }
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
                 if old.profiles != new.profiles { Task { await runtime?.loadPhotos() } }
-                if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil, let pending = model.pendingLink {
-                    Task { await redeemLink(pending) }
+                if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil {
+                    // Just signed in or finished profile setup: ask once for push, then keep the token current.
+                    Task { await SocialPushCoordinator.register(in: model) }
+                    if let pending = model.pendingLink { Task { await redeemLink(pending) } }
                 }
             }
             .onChange(of: model.userID) { _, _ in runtime?.sync() }
@@ -78,7 +81,10 @@ struct MatMindRoot: View {
                 Task { await model.refresh(); runtime?.sync(); openNotification() }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushToken"))) { _ in
-                Task { await SocialPushCoordinator.register(in: model) }
+                Task { await SocialPushCoordinator.uploadToken(in: model) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushReceived"))) { _ in
+                Task { await model.refresh(); await runtime?.loadPhotos() }
             }
             .onOpenURL { url in
                 model.handle(url)
@@ -109,7 +115,11 @@ struct MatMindRoot: View {
         guard model.userID != nil, let info = SocialPushCoordinator.pending,
               let id = info["entity_id"] as? String else { return }
         let kind = info["kind"] as? String
-        ui.go(kind == "invite" || kind == "joined" ? .session(id: id) : .post(id: id))
+        switch kind {
+        case "invite", "joined": ui.go(.session(id: id))
+        case "friend": ui.go(.friend(id: id))
+        default: ui.go(.post(id: id))
+        }
         SocialPushCoordinator.pending = nil
     }
 }
@@ -488,7 +498,7 @@ final class LiveMatMindRuntime: AppRuntime {
                         date: dateText(date, "EEE, MMM d"), ago: RelativeDateTimeFormatter().localizedString(for: row.date("published_at") ?? date, relativeTo: Date()),
                         photo: photos[row.text("media_id")], participants: model.snapshot.tags.filter { $0.text("post_id") == row.id && $0.flag("visible") }.map { localID($0.text("user_id")) },
                         caption: row.text("caption"), likes: model.snapshot.likes.filter { $0.text("post_id") == row.id }.map { localID($0.text("user_id")) }, extraLikes: 0,
-                        comments: model.snapshot.comments.filter { $0.text("post_id") == row.id }.map { Comment(who: localID($0.text("author")), text: $0.text("body")) },
+                        comments: model.snapshot.comments.filter { $0.text("post_id") == row.id }.map { Comment(who: localID($0.text("author")), text: $0.text("body"), cloudID: $0.id) },
                         focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
                         occurredAt: date)
         }

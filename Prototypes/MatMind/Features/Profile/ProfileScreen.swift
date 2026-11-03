@@ -862,6 +862,8 @@ private struct NotificationRow: View {
         case .joined: ("user-check", MMColor.mint500)
         case .comment: ("message-circle", MMColor.sky500)
         case .published: ("images", MMColor.plum500)
+        case .like: ("heart", MMColor.coral500)
+        case .friend: ("user-plus", MMColor.sun600)
         }
     }
 
@@ -913,8 +915,11 @@ private struct NotificationRow: View {
         .background(note.unread ? MMColor.coral500.opacity(0.06) : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture {
-            if mm.isLive, let entity = note.session {
-                mm.go(note.kind == .invite || note.kind == .joined ? .session(id: entity) : .post(id: entity))
+            guard mm.isLive else { return }
+            switch note.kind {
+            case .friend: mm.go(.friend(id: note.who))
+            case .invite, .joined: if let entity = note.session { mm.go(.session(id: entity)) }
+            case .comment, .published, .like: if let entity = note.session { mm.go(.post(id: entity)) }
             }
         }
     }

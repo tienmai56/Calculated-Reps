@@ -139,6 +139,7 @@ import SwiftData
             } catch { self.error = "Could not clear the local social cache: \(error.localizedDescription)" }
         }
         if let token = SocialPushCoordinator.token { _ = try? await backend.command("unregister_device", payload:["token":token]) }
+        SocialPushCoordinator.forget()
         await backend.signOut()
     }
     func deleteAccount() async {
