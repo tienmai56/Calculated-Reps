@@ -374,15 +374,13 @@ struct PostDetailScreen: View {
 
     private func content(_ post: Post) -> some View {
         let isOrganizer = post.organizer == "me"
-        let isIn = post.participants.contains("me")
         let organizer = mm.person(post.organizer)
         return MMScreen {
             MMHeader(title: post.title, leading: {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }
             }, trailing: {
-                if isOrganizer || isIn {
-                    MMIconButton("ellipsis", label: "Options") { showMenu = true }
-                }
+                // Always available: anyone who can see a post can report it.
+                MMIconButton("ellipsis", label: "Options") { showMenu = true }
             })
         } content: {
             VStack(alignment: .leading, spacing: 0) {
@@ -633,6 +631,18 @@ private struct CommentRow: View {
             .background {
                 let shape = UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
                 shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
+            }
+            Spacer(minLength: 0)
+            if reportable {
+                Menu {
+                    Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                } label: {
+                    MMIcon("ellipsis", size: 18, color: MMColor.ink500)
+                        .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Comment options")
+                .padding(.trailing, -10)
             }
         }
         .opacity(comment.fresh && !shown ? 0 : 1)
