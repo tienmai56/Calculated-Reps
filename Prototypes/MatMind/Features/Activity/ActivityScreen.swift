@@ -287,7 +287,7 @@ struct PostCard: View {
     private var inlineComments: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(post.comments) { comment in
-                CommentRow(comment: comment)
+                CommentRow(comment: comment, postID: post.id)
             }
             if post.comments.isEmpty {
                 Text("No comments yet. Be the first.")
@@ -430,7 +430,7 @@ struct PostDetailScreen: View {
                     .padding(.leading, -6)
                     VStack(alignment: .leading, spacing: 14) {
                         ForEach(post.comments) { c in
-                            CommentRow(comment: c)
+                            CommentRow(comment: c, postID: post.id)
                         }
                         if mm.isLive && !post.comments.isEmpty {
                             MMButton("Load older comments", variant: .ghost, size: .sm) {
@@ -476,7 +476,7 @@ private struct PostOptionsModifier: ViewModifier {
     let postID: String
     @Binding var isPresented: Bool
 
-    private enum Panel { case options, edit, delete }
+    private enum Panel { case options, edit, delete, report }
     @State private var panel: Panel = .options
     @State private var caption = ""
     @State private var saving = false
@@ -487,7 +487,12 @@ private struct PostOptionsModifier: ViewModifier {
                         description: description) {
             if let post = mm.post(postID) {
                 VStack(spacing: 8) {
-                    if post.organizer == "me" {
+                    if panel == .report {
+                        ReportReasonList { reason in
+                            isPresented = false
+                            Task { await mm.report(postID: postID, reason: reason) }
+                        }
+                    } else if post.organizer == "me" {
                         switch panel {
                         case .options:
                             MMButton("Edit caption", variant: .secondary, iconLeft: "pencil", fullWidth: true) {
@@ -510,14 +515,18 @@ private struct PostOptionsModifier: ViewModifier {
                                 isPresented = false
                                 mm.deletePost(postID)
                             }
+                        case .report:
+                            EmptyView()
                         }
                     } else if post.participants.contains("me") {
                         MMButton("Remove me from this post", variant: .danger, iconLeft: "user-minus", fullWidth: true) {
                             isPresented = false
                             mm.removeMe(from: postID)
                         }
+                        reportButton
                     } else {
                         Text("You weren't in this session.").mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
+                        reportButton
                     }
                 }
             }
@@ -527,11 +536,16 @@ private struct PostOptionsModifier: ViewModifier {
         }
     }
 
+    private var reportButton: some View {
+        MMButton("Report post", variant: .ghost, iconLeft: "triangle-alert", fullWidth: true) { panel = .report }
+    }
+
     private var title: String {
         switch panel {
         case .options: mm.post(postID)?.organizer == "me" ? "Your post" : "Post options"
         case .edit: "Edit caption"
         case .delete: "Delete this post?"
+        case .report: "Report this post?"
         }
     }
 
@@ -546,6 +560,8 @@ private struct PostOptionsModifier: ViewModifier {
             return nil
         case .delete:
             return "It disappears from all \(post.participants.count) profiles and your friends' feeds."
+        case .report:
+            return ReportReasonList.note
         }
     }
 
@@ -565,10 +581,31 @@ private struct PostOptionsModifier: ViewModifier {
     }
 }
 
+/// Reasons for a report, one tap each. Shared by post options and comments.
+private struct ReportReasonList: View {
+    static let note = "Only the Mat Monkeys team sees reports. They won't know it was you."
+    let pick: (String) -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(AppModel.reportReasons, id: \.self) { reason in
+                MMButton(reason, variant: .secondary, fullWidth: true) { pick(reason) }
+            }
+        }
+    }
+}
+
 private struct CommentRow: View {
     @Environment(AppModel.self) private var mm
     let comment: Comment
+    var postID: String?
     @State private var shown = false
+    @State private var reporting = false
+
+    /// Someone else's comment that can be reported (live comments need their cloud ID).
+    private var reportable: Bool {
+        comment.who != "me" && postID != nil && (!mm.isLive || comment.cloudID != nil)
+    }
 
     var body: some View {
         let p = mm.person(comment.who)
@@ -590,6 +627,19 @@ private struct CommentRow: View {
         .offset(y: comment.fresh && !shown ? 10 : 0)
         .onAppear {
             withAnimation(MMMotion.easeOut(0.35)) { shown = true }
+        }
+        .contextMenu {
+            if reportable { Button("Report comment", role: .destructive) { reporting = true } }
+        }
+        .accessibilityActions {
+            if reportable { Button("Report comment") { reporting = true } }
+        }
+        .mmSheet(isPresented: $reporting, title: "Report this comment?", description: ReportReasonList.note) {
+            ReportReasonList { reason in
+                reporting = false
+                guard let postID else { return }
+                Task { await mm.report(postID: postID, commentID: comment.cloudID, reason: reason) }
+            }
         }
     }
 }
