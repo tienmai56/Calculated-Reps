@@ -3,6 +3,23 @@ import UIKit
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
+    func testMentionTypingAndInsertionAfterEmoji() {
+        XCTAssertEqual(UsernameMention.query(in: "Great rolls 😀 @Hi"), "hi")
+        XCTAssertEqual(UsernameMention.inserting("hippo", in: "Great rolls 😀 @Hi"), "Great rolls 😀 @hippo ")
+        XCTAssertEqual(UsernameMention.query(in: "(@"), "")
+        XCTAssertNil(UsernameMention.query(in: "email@hippo"))
+        XCTAssertNil(UsernameMention.query(in: "@@hippo"))
+        XCTAssertNil(UsernameMention.query(in: "@hippo "))
+        XCTAssertNil(UsernameMention.query(in: "@" + String(repeating: "a", count: 41)))
+    }
+
+    func testMentionGrammarMatchesOnlyWholeUsernames() {
+        let text = "😀 (@HiPpO), @training_partner! a@hippo.com @ab @" + String(repeating: "a", count: 41)
+        let handles = UsernameMention.ranges(in: text).compactMap { Range($0, in: text).map { String(text[$0]) } }
+        XCTAssertEqual(handles, ["@HiPpO", "@training_partner"])
+        XCTAssertEqual(AppNotification.Kind(rawValue: "mention"), .mention)
+    }
+
     func testLegacyLocalSessionRemainsAvailableWithoutCloudSignIn() {
         let oldFlag = UserDefaults.standard.object(forKey: AppSessionStore.onboardingCompletedKey)
         defer { UserDefaults.standard.set(oldFlag, forKey: AppSessionStore.onboardingCompletedKey) }

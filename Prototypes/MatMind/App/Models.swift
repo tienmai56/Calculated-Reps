@@ -9,6 +9,7 @@ struct Person: Identifiable, Hashable {
     var hue: FriendHue
     var photo: String?
     var email: String?
+    var username: String = ""
 
     var firstName: String { name.split(separator: " ").first.map(String.init) ?? name }
     var avatar: MMAvatarPerson { MMAvatarPerson(name: name, photo: photo) }
@@ -114,7 +115,7 @@ struct Session: Identifiable, Hashable {
 }
 
 struct AppNotification: Identifiable, Hashable {
-    enum Kind: String { case invite, joined, comment, published, like, friend }
+    enum Kind: String { case invite, joined, comment, published, like, friend, mention }
 
     let id: String
     var kind: Kind
@@ -255,5 +256,29 @@ struct MatGoal: Identifiable, Hashable, Codable {
             .map { $0.hasPrefix("-") ? String($0.dropFirst()).trimmingCharacters(in: .whitespaces) : $0 }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
+    }
+}
+
+/// Shared grammar with emit_mentions in Postgres. Ranges use UTF-16 because
+/// NSRegularExpression and text replacement must also work after emoji.
+enum UsernameMention {
+    static func pendingRange(in text: String) -> NSRange? {
+        let regex = try! NSRegularExpression(pattern: #"(?<![a-z0-9_@.+-])@[a-z0-9_]{0,40}$"#, options: [.caseInsensitive])
+        return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))?.range
+    }
+
+    static func query(in text: String) -> String? {
+        guard let range = pendingRange(in: text), let swiftRange = Range(range, in: text) else { return nil }
+        return String(text[swiftRange].dropFirst()).lowercased()
+    }
+
+    static func inserting(_ username: String, in text: String) -> String {
+        guard let range = pendingRange(in: text), let swiftRange = Range(range, in: text) else { return text }
+        return text.replacingCharacters(in: swiftRange, with: "@" + username + " ")
+    }
+
+    static func ranges(in text: String) -> [NSRange] {
+        let regex = try! NSRegularExpression(pattern: #"(?<![a-z0-9_@.+-])@([a-z0-9_]{3,40})(?![a-z0-9_@])"#, options: [.caseInsensitive])
+        return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).map(\.range)
     }
 }

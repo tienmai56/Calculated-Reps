@@ -7,6 +7,8 @@ struct ProfileScreen: View {
     @Environment(AppModel.self) private var mm
     @State private var showSettings = false
     @State private var name = ""
+    @State private var username = ""
+    @State private var savingUsername = false
     @State private var gym = ""
     @State private var showExport = false
     @State private var deleteAccount = false
@@ -34,6 +36,9 @@ struct ProfileScreen: View {
                     MMAvatar(name: me.name, photo: me.photo, size: 80, belt: me.belt)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(me.name).mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                        if !me.username.isEmpty {
+                            Text("@" + me.username).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                        }
                         if !me.gym.isEmpty {
                             Text(me.gym).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                         }
@@ -60,6 +65,24 @@ struct ProfileScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 photoRow
                 MMTextField(label: "Name", text: $name)
+                if mm.isLive {
+                    MMTextField(label: "Username", placeholder: "hippo", text: $username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Text("Use 3–40 letters, numbers or underscores. Friends can tag you with @username.")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    MMButton("Save username", variant: .secondary) {
+                        savingUsername = true
+                        Task {
+                            defer { savingUsername = false }
+                            if await mm.runtime?.perform("set_username", ["username": username]) == true {
+                                username = mm.me.username
+                                mm.showToast("Username saved")
+                            }
+                        }
+                    }
+                    .disabled(savingUsername || username == mm.me.username)
+                }
                 if mm.isLive { MMTextField(label: "Home gym", text: $gym) }
                 VStack(alignment: .leading, spacing: 8) {
                     MMTextField(label: "Email", text: $email, iconLeft: "mail").disabled(mm.isLive)
@@ -195,6 +218,7 @@ struct ProfileScreen: View {
     private func openSettings() {
         gym = mm.me.gym
         name = mm.me.name
+        username = mm.me.username
         email = mm.me.email ?? ""
         belt = mm.me.belt.rawValue
         stripes = String(mm.me.stripes)
@@ -860,7 +884,7 @@ private struct NotificationRow: View {
         switch note.kind {
         case .invite: ("calendar", MMColor.accent)
         case .joined: ("user-check", MMColor.mint500)
-        case .comment: ("message-circle", MMColor.sky500)
+        case .comment, .mention: ("message-circle", MMColor.sky500)
         case .published: ("images", MMColor.plum500)
         case .like: ("heart", MMColor.coral500)
         case .friend: ("user-plus", MMColor.sun600)
@@ -919,7 +943,7 @@ private struct NotificationRow: View {
             switch note.kind {
             case .friend: mm.go(.friend(id: note.who))
             case .invite, .joined: if let entity = note.session { mm.go(.session(id: entity)) }
-            case .comment, .published, .like: if let entity = note.session { mm.go(.post(id: entity)) }
+            case .comment, .published, .like, .mention: if let entity = note.session { mm.go(.post(id: entity)) }
             }
         }
     }

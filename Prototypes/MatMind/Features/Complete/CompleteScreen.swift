@@ -61,8 +61,9 @@ struct CompleteScreen: View {
                         .padding(.bottom, MMSpace.s5)
                     TrainingFocusOutline(items: s.focusItems)
                 }
-                MMTextField(placeholder: "What happened on the mat?", text: $caption, multiline: true, rows: 2)
+                MMTextField(placeholder: "What happened on the mat? @tag a partner", text: $caption, multiline: true, rows: 2)
                     .padding(.top, 16)
+                MentionSuggestions(text: $caption, people: mm.mentionCandidates(including: people))
                 HStack {
                     Text("Who trained").mmFont(.display, 16).foregroundStyle(MMColor.ink900)
                     Spacer()

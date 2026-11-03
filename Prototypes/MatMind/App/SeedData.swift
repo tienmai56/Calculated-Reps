@@ -4,16 +4,16 @@ import Foundation
 /// Sample data from `ui_kits/app/data.js`. Photos: Unsplash (assets/photos).
 enum SeedData {
     static let me = Person(id: "me", name: "Dani Alves", belt: .purple, stripes: 2, gym: "Tidewater BJJ",
-                           hue: .coral, photo: "portrait-gi", email: "dani.alves@gmail.com")
+                           hue: .coral, photo: "portrait-gi", email: "dani.alves@gmail.com", username: "dani")
 
     static let people: [String: Person] = [
-        "sarah": Person(id: "sarah", name: "Sarah Lee", belt: .blue, stripes: 3, gym: "Tidewater BJJ", hue: .sky),
-        "alex": Person(id: "alex", name: "Alex Moreno", belt: .white, stripes: 3, gym: "Tidewater BJJ", hue: .mint),
-        "priya": Person(id: "priya", name: "Priya Nair", belt: .blue, stripes: 1, gym: "Tidewater BJJ", hue: .sun),
-        "kenji": Person(id: "kenji", name: "Kenji Ito", belt: .purple, stripes: 0, gym: "Tidewater BJJ", hue: .plum),
-        "jamie": Person(id: "jamie", name: "Jamie Cole", belt: .brown, stripes: 1, gym: "North Shore Grappling", hue: .plum),
-        "marco": Person(id: "marco", name: "Marco Silva", belt: .black, stripes: 2, gym: "Harbor Jiu-Jitsu", hue: .coral),
-        "lena": Person(id: "lena", name: "Lena Park", belt: .white, stripes: 1, gym: "Tidewater BJJ", hue: .mint),
+        "sarah": Person(id: "sarah", name: "Sarah Lee", belt: .blue, stripes: 3, gym: "Tidewater BJJ", hue: .sky, username: "sarah"),
+        "alex": Person(id: "alex", name: "Alex Moreno", belt: .white, stripes: 3, gym: "Tidewater BJJ", hue: .mint, username: "alex"),
+        "priya": Person(id: "priya", name: "Priya Nair", belt: .blue, stripes: 1, gym: "Tidewater BJJ", hue: .sun, username: "priya"),
+        "kenji": Person(id: "kenji", name: "Kenji Ito", belt: .purple, stripes: 0, gym: "Tidewater BJJ", hue: .plum, username: "kenji"),
+        "jamie": Person(id: "jamie", name: "Jamie Cole", belt: .brown, stripes: 1, gym: "North Shore Grappling", hue: .plum, username: "jamie"),
+        "marco": Person(id: "marco", name: "Marco Silva", belt: .black, stripes: 2, gym: "Harbor Jiu-Jitsu", hue: .coral, username: "marco"),
+        "lena": Person(id: "lena", name: "Lena Park", belt: .white, stripes: 1, gym: "Tidewater BJJ", hue: .mint, username: "lena"),
     ]
 
     private static let T = true, F = false
