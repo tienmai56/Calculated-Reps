@@ -374,15 +374,13 @@ struct PostDetailScreen: View {
 
     private func content(_ post: Post) -> some View {
         let isOrganizer = post.organizer == "me"
-        let isIn = post.participants.contains("me")
         let organizer = mm.person(post.organizer)
         return MMScreen {
             MMHeader(title: post.title, leading: {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }
             }, trailing: {
-                if isOrganizer || isIn {
-                    MMIconButton("ellipsis", label: "Options") { showMenu = true }
-                }
+                // Always available: anyone who can see a post can report it.
+                MMIconButton("ellipsis", label: "Options") { showMenu = true }
             })
         } content: {
             VStack(alignment: .leading, spacing: 0) {
