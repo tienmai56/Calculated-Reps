@@ -21,7 +21,7 @@ struct DemoPanel: View {
         ]),
         Journey(key: "B", title: "Share a training memory", start: .training, steps: [
             "\"How was Halloween open mat?\" → Complete & share", "Take photo → pick one",
-            "Toggle Training completed → Publish", "See it in Activity; friends like & comment",
+            "Publish to Activity", "See it in Activity; friends like & comment",
         ]),
         Journey(key: "C", title: "Keep a friendship streak", start: .friends, steps: [
             "Friends → tap You + Sarah", "Invite Sarah to train → send",
