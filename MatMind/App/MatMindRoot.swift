@@ -148,9 +148,17 @@ private struct LiveProfileSetup: View {
 
     var body: some View {
         MMScreen {
-            HStack { MMWordmark(size: 24); Spacer() }
-                .padding(.horizontal, MMLayout.gutter)
-                .frame(height: MMLayout.headerHeight)
+            HStack {
+                MMWordmark(size: 24)
+                Spacer()
+                MMButton("Sign out", variant: .ghost) {
+                    Task { await app.logout() }
+                }
+                .disabled(saving || app.busy)
+                .accessibilityIdentifier("profile-setup-sign-out")
+            }
+            .padding(.horizontal, MMLayout.gutter)
+            .frame(height: MMLayout.headerHeight)
         } content: {
             VStack(alignment: .leading, spacing: 20) {
                 Text("First, who's rolling?").mmFont(.display, 30).foregroundStyle(MMColor.textPrimary)

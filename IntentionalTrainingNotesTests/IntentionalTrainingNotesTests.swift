@@ -491,3 +491,225 @@ final class GoogleCloudSignInTests: XCTestCase {
         }
     }
 }
+
+final class BackendSessionTests: XCTestCase {
+    private let photo = Data([0xff, 0xd8, 0xff, 0xd9])
+    private let expiryError = Data(#"{"statusCode":"400","error":"Unauthorized","message":"\"exp\" claim timestamp check failed"}"#.utf8)
+
+    func testOldKeychainSessionRefreshesBeforeSendingPhoto() async throws {
+        // Existing installations stored no expires_at; the JWT exp still works.
+        let payload = Data(#"{"exp":1}"#.utf8).base64EncodedString()
+            .replacingOccurrences(of: "=", with: "")
+        let old = CloudCredential(access_token: "header.\(payload).signature", refresh_token: "old-refresh", user: CloudUser(id: "owner"))
+        let fixture = BackendHTTPFixture(failureStatus: 400, failureBody: expiryError)
+        let (client, store) = try makeClient(credential: old, fixture: fixture)
+
+        try await client.upload(photo, objectKey: "owner/avatar.jpg", bucket: "avatars")
+
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(requests.first?.url?.path, "/auth/v1/token")
+        XCTAssertEqual(requests.last?.value(forHTTPHeaderField: "Authorization"), "Bearer fresh-token")
+        let saved = try JSONDecoder().decode(CloudCredential.self, from: XCTUnwrap(store.read()))
+        XCTAssertEqual(saved.refresh_token, "rotated-refresh")
+        XCTAssertEqual(saved.access_token, "fresh-token")
+    }
+
+    func testLegacyStorageExpiryRefreshesAndRetriesIdenticalPhoto() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 400, failureBody: expiryError)
+        let (client, _) = try makeClient(fixture: fixture)
+
+        try await client.upload(photo, objectKey: "owner/avatar.jpg", bucket: "avatars")
+
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 3)
+        XCTAssertEqual(requests[0].url, requests[2].url)
+        XCTAssertEqual(requests[0].httpBody, photo)
+        XCTAssertEqual(requests[2].httpBody, photo)
+        XCTAssertEqual(requests[2].httpMethod, "POST")
+        XCTAssertEqual(requests[2].value(forHTTPHeaderField: "Content-Type"), "image/jpeg")
+        XCTAssertEqual(requests[2].value(forHTTPHeaderField: "Authorization"), "Bearer fresh-token")
+        XCTAssertNil(requests[1].value(forHTTPHeaderField: "Authorization"))
+        let refreshBody = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests[1].httpBody)) as? [String: String])
+        XCTAssertEqual(refreshBody["refresh_token"], "old-refresh")
+    }
+
+    func testConcurrentStorageFailuresShareOneRefresh() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 400, failureBody: expiryError)
+        let (client, _) = try makeClient(fixture: fixture)
+
+        async let first: Void = client.upload(photo, objectKey: "owner/one.jpg", bucket: "avatars")
+        async let second: Void = client.upload(photo, objectKey: "owner/two.jpg", bucket: "avatars")
+        _ = try await (first, second)
+
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.filter { $0.url?.path == "/auth/v1/token" }.count, 1)
+        XCTAssertEqual(requests.filter { $0.value(forHTTPHeaderField: "Authorization") == "Bearer fresh-token" }.count, 2)
+    }
+
+    func testUploadValidationAndPermissionErrorsDoNotRefresh() async throws {
+        for (status, body) in [(400, #"{"code":"InvalidMimeType","message":"Invalid MIME type"}"#),
+                               (403, #"{"code":"AccessDenied","message":"new row violates row-level security policy"}"#)] {
+            let fixture = BackendHTTPFixture(failureStatus: status, failureBody: Data(body.utf8))
+            let (client, _) = try makeClient(fixture: fixture)
+            do {
+                try await client.upload(photo, objectKey: "owner/avatar.jpg", bucket: "avatars")
+                XCTFail("Upload should fail")
+            } catch { XCTAssertTrue(error is CloudError) }
+            let requests = await fixture.requests
+            XCTAssertEqual(requests.count, 1)
+        }
+    }
+
+    func testStorageJWTCodeRetriesOnlyOnce() async throws {
+        for (status, field) in [(400, "error"), (403, "code")] {
+            let body = try JSONSerialization.data(withJSONObject: [field: "InvalidJWT", "message": "Invalid token"])
+            let fixture = BackendHTTPFixture(failureStatus: status, failureBody: body, rejectFreshToken: true)
+            let (client, _) = try makeClient(fixture: fixture)
+            do {
+                try await client.upload(photo, objectKey: "owner/avatar.jpg", bucket: "avatars")
+                XCTFail("Repeated token rejection should fail")
+            } catch { XCTAssertEqual(error.localizedDescription, "Invalid token") }
+            let requests = await fixture.requests
+            XCTAssertEqual(requests.count, 3)
+        }
+    }
+
+    func testFailedRefreshDoesNotSendPhotoOrOverwriteSavedSession() async throws {
+        let expired = CloudCredential(access_token: "old-token", refresh_token: "old-refresh", user: CloudUser(id: "owner"), expires_at: 1)
+        let fixture = BackendHTTPFixture(failureStatus: 400, failureBody: expiryError, refreshStatus: 400)
+        let (client, store) = try makeClient(credential: expired, fixture: fixture)
+        do {
+            try await client.upload(photo, objectKey: "owner/avatar.jpg", bucket: "avatars")
+            XCTFail("Failed refresh should stop upload")
+        } catch { XCTAssertEqual(error.localizedDescription, "Refresh token rejected") }
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.url?.path, "/auth/v1/token")
+        let saved = try JSONDecoder().decode(CloudCredential.self, from: XCTUnwrap(store.read()))
+        XCTAssertEqual(saved, expired)
+    }
+
+    func testRPCUnauthorizedRetryPreservesIdempotencyKeyAndPayload() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 401, failureBody: Data(#"{"message":"JWT expired"}"#.utf8))
+        let (client, _) = try makeClient(fixture: fixture)
+        let key = UUID()
+        _ = try await client.command("save_profile", payload: ["name": "Alex"], key: key)
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 3)
+        let original = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests[0].httpBody)) as? NSDictionary)
+        let retried = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests[2].httpBody)) as? NSDictionary)
+        XCTAssertEqual(original, retried)
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests[2].httpBody)) as? [String: Any])
+        XCTAssertEqual(body["idempotency_key"] as? String, key.uuidString)
+        XCTAssertEqual((body["payload"] as? [String: String])?["name"], "Alex")
+    }
+
+    func testExpiryMarginAndMissingExpiry() {
+        let now = Date(timeIntervalSince1970: 100)
+        var credential = CloudCredential(access_token: "opaque", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        XCTAssertFalse(credential.needsRefresh(at: now))
+        credential.expires_at = 160
+        XCTAssertTrue(credential.needsRefresh(at: now))
+        credential.expires_at = 161
+        XCTAssertFalse(credential.needsRefresh(at: now))
+    }
+
+    private func makeClient(credential: CloudCredential = CloudCredential(access_token: "old-token", refresh_token: "old-refresh", user: CloudUser(id: "owner")), fixture: BackendHTTPFixture) throws -> (BackendClient, BackendCredentialStore) {
+        let host = UUID().uuidString.lowercased() + ".example.com"
+        BackendURLProtocol.register(host: host, fixture: fixture)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [BackendURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        addTeardownBlock {
+            session.invalidateAndCancel()
+            BackendURLProtocol.unregister(host: host)
+        }
+        let store = BackendCredentialStore(try JSONEncoder().encode(credential))
+        let backend = BackendClient(configuration: BackendConfiguration(url: URL(string: "https://" + host)!, key: "test-publishable-key"),
+                                    session: session, loadCredential: store.read, saveCredential: store.write)
+        return (backend, store)
+    }
+}
+
+private final class BackendCredentialStore {
+    private let lock = NSLock()
+    private var data: Data
+    init(_ data: Data) { self.data = data }
+    func read() -> Data? { lock.lock(); defer { lock.unlock() }; return data }
+    func write(_ data: Data) { lock.lock(); defer { lock.unlock() }; self.data = data }
+}
+
+private actor BackendHTTPFixture {
+    private(set) var requests: [URLRequest] = []
+    let failureStatus: Int
+    let failureBody: Data
+    let rejectFreshToken: Bool
+    let refreshStatus: Int
+
+    init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200) {
+        self.failureStatus = failureStatus
+        self.failureBody = failureBody
+        self.rejectFreshToken = rejectFreshToken
+        self.refreshStatus = refreshStatus
+    }
+
+    func respond(to original: URLRequest) async throws -> (Int, Data) {
+        var request = original
+        // URLSession may move a POST body into a stream for URLProtocol.
+        if request.httpBody == nil, let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var bytes = Data()
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                bytes.append(contentsOf: buffer.prefix(count))
+            }
+            request.httpBody = bytes
+        }
+        requests.append(request)
+        if request.url?.path == "/auth/v1/token" {
+            // Keep refresh in flight while another upload receives its rejection.
+            try await Task.sleep(nanoseconds: 50_000_000)
+            if refreshStatus != 200 { return (refreshStatus, Data(#"{"message":"Refresh token rejected"}"#.utf8)) }
+            let refreshed = CloudCredential(access_token: "fresh-token", refresh_token: "rotated-refresh", user: CloudUser(id: "owner"), expires_at: Date().timeIntervalSince1970 + 3600)
+            return (200, try JSONEncoder().encode(refreshed))
+        }
+        if request.value(forHTTPHeaderField: "Authorization") != "Bearer fresh-token" || rejectFreshToken {
+            return (failureStatus, failureBody)
+        }
+        return (200, Data("{}".utf8))
+    }
+}
+
+private final class BackendURLProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private static var fixtures: [String: BackendHTTPFixture] = [:]
+    private var task: Task<Void, Never>?
+
+    static func register(host: String, fixture: BackendHTTPFixture) {
+        lock.lock(); defer { lock.unlock() }; fixtures[host] = fixture
+    }
+    static func unregister(host: String) {
+        lock.lock(); defer { lock.unlock() }; fixtures[host] = nil
+    }
+    private static func fixture(for request: URLRequest) -> BackendHTTPFixture? {
+        lock.lock(); defer { lock.unlock() }; return fixtures[request.url?.host ?? ""]
+    }
+    override class func canInit(with request: URLRequest) -> Bool { fixture(for: request) != nil }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard let fixture = Self.fixture(for: request), let url = request.url else { return }
+        task = Task {
+            do {
+                let (status, data) = try await fixture.respond(to: request)
+                let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: data)
+                client?.urlProtocolDidFinishLoading(self)
+            } catch { client?.urlProtocol(self, didFailWithError: error) }
+        }
+    }
+    override func stopLoading() { task?.cancel() }
+}
