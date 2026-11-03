@@ -1,10 +1,34 @@
 import SwiftUI
 
+// MARK: - Label
+
+/// Field label: display 14 bold. Required fields carry a danger-red asterisk.
+struct MMFieldLabel: View {
+    let text: String
+    var required = false
+
+    init(_ text: String, required: Bool = false) {
+        self.text = text
+        self.required = required
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Text(text).foregroundStyle(MMColor.textPrimary)
+            if required { Text("*").foregroundStyle(MMColor.danger500).accessibilityHidden(true) }
+        }
+        .mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(required ? "\(text), required" : text)
+    }
+}
+
 // MARK: - Input
 
 /// Min height 50, radius 14, 1.5pt border; focus = coral border + 4pt accent-tint ring.
 struct MMTextField: View {
     var label: String?
+    var required = false
     var placeholder: String = ""
     @Binding var text: String
     var hint: String?
@@ -19,6 +43,7 @@ struct MMTextField: View {
 
     init(
         label: String? = nil,
+        required: Bool = false,
         placeholder: String = "",
         text: Binding<String>,
         hint: String? = nil,
@@ -30,6 +55,7 @@ struct MMTextField: View {
         onSubmit: (() -> Void)? = nil
     ) {
         self.label = label
+        self.required = required
         self.placeholder = placeholder
         self._text = text
         self.hint = hint
@@ -43,9 +69,7 @@ struct MMTextField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let label {
-                Text(label).mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
-            }
+            if let label { MMFieldLabel(label, required: required) }
             HStack(alignment: multiline ? .top : .center, spacing: 10) {
                 if let iconLeft {
                     MMIcon(iconLeft, size: 18, color: MMColor.textTertiary).padding(.top, multiline ? 2 : 0)
