@@ -109,6 +109,7 @@
 		A03E700ED47B80AA1D8EA3E9 /* TrainingScreen.swift */ = {isa = PBXBuildFile; fileRef = 116FCC03EA7C541189A361ED; };
 		6F0A1C2D3E4F5A6B7C8D9E01 /* GoalsScreen.swift */ = {isa = PBXBuildFile; fileRef = 6F0A1C2D3E4F5A6B7C8D9E02; };
 		9BD7C9D1D6E4215CC06CA25C /* WelcomeScreen.swift */ = {isa = PBXBuildFile; fileRef = 422A1AEEAD6C015FED0939DF; };
+		A176CE812B8A4A2F9063C001 /* PlaceSearch.swift */ = {isa = PBXBuildFile; fileRef = A176CE812B8A4A2F9063C002; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -228,6 +229,7 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 		116FCC03EA7C541189A361ED /* TrainingScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Training/TrainingScreen.swift"; sourceTree = SOURCE_ROOT; };
 		6F0A1C2D3E4F5A6B7C8D9E02 /* GoalsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Goals/GoalsScreen.swift"; sourceTree = SOURCE_ROOT; };
 		422A1AEEAD6C015FED0939DF /* WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift"; sourceTree = SOURCE_ROOT; };
+		A176CE812B8A4A2F9063C002 /* PlaceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -524,6 +526,7 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 			sourceTree = "<group>";
 		};
 623B40E977DD64F13398B39C = {isa = PBXGroup; name = "Mat Monkeys v2"; sourceTree = "<group>"; children = (
+A176CE812B8A4A2F9063C002,
 3BED19C66D014F69CB85DAF1,
 5E713E7D58AE12AB67911BEC,
 AED48F3A8238BCA6049583B0,
@@ -774,6 +777,7 @@ F6FF680700DD860D2958E0FD,
 				DB6A424926194000D4A45D5C /* LegacyArchive.swift */,
 				F42F550B16CA533650285E08 /* Shell.swift */,
 				EC53186AAA9BBC18A2A88272 /* Forms.swift */,
+				A176CE812B8A4A2F9063C001 /* PlaceSearch.swift */,
 				AEFAE8BCBA6A8DAFB2EBD3C0 /* Navigation.swift */,
 				5F161CE40162C3983A3F930F /* Core.swift */,
 				188A90D1373B89AE1DDF619E /* Display.swift */,

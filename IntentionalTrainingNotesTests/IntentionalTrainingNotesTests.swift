@@ -1194,3 +1194,80 @@ private final class BackendURLProtocol: URLProtocol {
     }
     override func stopLoading() { responseTask?.cancel() }
 }
+
+@MainActor
+final class PlaceSearchTests: XCTestCase {
+    func testShortQueriesDoNotSearchAndClearingCancelsPendingResults() {
+        var clients: [PlaceSearchTestClient] = []
+        let search = PlaceSearch { let client = PlaceSearchTestClient(); clients.append(client); return client }
+        search.updateQuery(" R ")
+        XCTAssertTrue(clients.isEmpty)
+        XCTAssertEqual(search.state, .idle)
+        search.updateQuery("  Ralph Gracie  ")
+        XCTAssertEqual(clients.first?.queries, ["Ralph Gracie"])
+        XCTAssertEqual(search.state, .searching)
+        search.updateQuery("Ralph Gracie ")
+        XCTAssertEqual(clients.count, 1, "Whitespace changes do not send another lookup")
+        search.updateQuery("")
+        XCTAssertTrue(clients[0].cancelled)
+        clients[0].complete(.success([PlaceSuggestion(title: "Late gym", subtitle: "Old address")]))
+        XCTAssertEqual(search.state, .idle)
+        XCTAssertTrue(search.suggestions.isEmpty, "A dismissed dropdown cannot reopen from a late result")
+    }
+
+    func testNewQueryRejectsOlderSuccessAndFailureCallbacks() {
+        var clients: [PlaceSearchTestClient] = []
+        let search = PlaceSearch { let client = PlaceSearchTestClient(); clients.append(client); return client }
+        search.updateQuery("Ralph")
+        search.updateQuery("Gracie")
+        XCTAssertTrue(clients[0].cancelled)
+        let current = PlaceSuggestion(title: "Gracie Academy", subtitle: "123 Main Street")
+        clients[1].complete(.success([current]))
+        clients[0].complete(.success([PlaceSuggestion(title: "Other gym", subtitle: "Old address")]))
+        clients[0].complete(.failure(URLError(.cancelled)))
+        XCTAssertEqual(search.suggestions, [current])
+        XCTAssertEqual(search.state, .ready)
+    }
+
+    func testAddressesDistinguishSameNameVenuesAndResultsAreLimited() {
+        let client = PlaceSearchTestClient()
+        let search = PlaceSearch { client }
+        search.updateQuery("Academy")
+        let first = PlaceSuggestion(title: "Academy", subtitle: "First Street")
+        let second = PlaceSuggestion(title: "Academy", subtitle: "Second Street")
+        let extra = (1...8).map { PlaceSuggestion(title: "Gym \($0)", subtitle: "Street \($0)") }
+        client.complete(.success([first, first, second, PlaceSuggestion(title: "", subtitle: "")] + extra))
+        XCTAssertEqual(Array(search.suggestions.prefix(2)), [first, second])
+        XCTAssertEqual(search.suggestions.count, 5)
+        XCTAssertEqual(Set(search.suggestions).count, 5)
+    }
+
+    func testFailedAndEmptySearchesKeepManualVenueEntryAvailable() {
+        var clients: [PlaceSearchTestClient] = []
+        let search = PlaceSearch { let client = PlaceSearchTestClient(); clients.append(client); return client }
+        search.updateQuery("Private training space")
+        clients[0].complete(.failure(URLError(.notConnectedToInternet)))
+        XCTAssertEqual(search.query, "Private training space")
+        XCTAssertEqual(search.state, .unavailable)
+        XCTAssertTrue(search.suggestions.isEmpty)
+        search.updateQuery("Different venue")
+        clients[1].complete(.success([]))
+        XCTAssertEqual(search.query, "Different venue")
+        XCTAssertEqual(search.state, .ready)
+        XCTAssertTrue(search.suggestions.isEmpty)
+    }
+}
+
+@MainActor
+private final class PlaceSearchTestClient: PlaceSearchClient {
+    var queries: [String] = []
+    var cancelled = false
+    private var completion: ((Result<[PlaceSuggestion], Error>) -> Void)?
+    func search(_ query: String, completion: @escaping (Result<[PlaceSuggestion], Error>) -> Void) {
+        queries.append(query)
+        self.completion = completion
+    }
+    func cancel() { cancelled = true }
+    // Keep the callback to exercise responses that were already in flight at cancellation.
+    func complete(_ result: Result<[PlaceSuggestion], Error>) { completion?(result) }
+}
