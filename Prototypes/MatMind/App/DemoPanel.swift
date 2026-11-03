@@ -1,3 +1,4 @@
+#if DEBUG || MAT_MIND_PROTOTYPE
 import SwiftUI
 
 /// The web prototype's review panel, as a sheet. Open it by long-pressing the
@@ -158,3 +159,5 @@ struct DemoPanel: View {
         .padding(.bottom, 6)
     }
 }
+
+#endif

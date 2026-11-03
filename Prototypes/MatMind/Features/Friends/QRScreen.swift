@@ -25,7 +25,7 @@ struct QRScreen: View {
                 if tab == "code" { liveCode = await runtime.friendCode() }
                 return
             }
-            guard tab == "scan", found == nil else { return }
+            guard !mm.isLive, tab == "scan", found == nil else { return }
             try? await Task.sleep(for: .seconds(2.2))
             guard !Task.isCancelled, tab == "scan" else { return }
             withAnimation(MMMotion.easeOut(0.25)) { found = "lena" }
@@ -176,7 +176,7 @@ struct QRScreen: View {
         .background {
             if let runtime = mm.runtime {
                 runtime.scannerView { value in connect(value) }
-            } else {
+            } else if !mm.isLive {
                 Image("team-lineup").resizable().scaledToFill()
                     .brightness(-0.3)
                     .saturation(0.8)

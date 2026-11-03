@@ -253,5 +253,5 @@ private struct TapePile: View {
 }
 
 #Preview("Welcome") {
-    WelcomeScreen().environment(AppModel())
+    WelcomeScreen().environment(AppModel(live: false))
 }

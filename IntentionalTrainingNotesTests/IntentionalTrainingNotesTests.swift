@@ -314,7 +314,8 @@ final class MatMindLiveUITests: XCTestCase {
 #endif
 
     func testInstalledUIStartsWithoutSamplePeopleSessionsOrPosts() {
-        let ui = AppModel(live: true)
+        let ui = AppModel()
+        XCTAssertTrue(ui.isLive, "A model must require an explicit opt-in to load preview data")
         XCTAssertFalse(ui.isSignedIn)
         XCTAssertTrue(ui.people.isEmpty)
         XCTAssertTrue(ui.friends.isEmpty)
@@ -322,9 +323,31 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.upcoming.isEmpty)
         XCTAssertNil(ui.toComplete)
         XCTAssertTrue(ui.cameraRoll.isEmpty)
+        XCTAssertTrue(ui.gyms.isEmpty)
+        XCTAssertTrue(ui.notifications.isEmpty)
+        XCTAssertTrue(ui.me.name.isEmpty)
+        XCTAssertNil(ui.me.photo)
         ui.run(.active)
         ui.reset()
         XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
+    }
+
+    func testLivePhotoRenderingRejectsBundledSampleImages() throws {
+#if DEBUG
+        XCTAssertNotNil(MMPhoto.image(source: "floor-drill", allowsSamplePhotos: true))
+#endif
+        for name in ["floor-drill", "roll-gi", "portrait-gi", "team-lineup"] {
+            XCTAssertNil(MMPhoto.image(source: name, allowsSamplePhotos: false))
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let data = try XCTUnwrap(UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }.jpegData(compressionQuality: 0.8))
+        try data.write(to: url)
+        XCTAssertNotNil(MMPhoto.image(source: url.path, allowsSamplePhotos: false))
+        XCTAssertNil(MMPhoto.image(source: url.path + ".missing", allowsSamplePhotos: false))
     }
 
     func testLiveSnapshotMapsCurrentUserAndPreservesTagVisibility() throws {
@@ -358,6 +381,16 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(ui.isSignedIn)
         XCTAssertTrue(ui.posts.isEmpty)
         XCTAssertTrue(ui.people.isEmpty)
+        model.userID = "new-owner"
+        model.snapshot = SocialSnapshot()
+        runtime.sync()
+        XCTAssertTrue(ui.isSignedIn)
+        XCTAssertTrue(ui.me.name.isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertTrue(ui.friends.isEmpty)
+        XCTAssertNil(ui.toComplete)
+        XCTAssertTrue(ui.cameraRoll.isEmpty)
     }
 
     func testFocusOutlineRoundTripsWithoutLosingPlainNotes() {

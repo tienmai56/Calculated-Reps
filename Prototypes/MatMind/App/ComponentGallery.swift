@@ -1,3 +1,4 @@
+#if DEBUG || MAT_MIND_PROTOTYPE
 import SwiftUI
 
 /// Every design-system component and token group on one scrolling page,
@@ -160,3 +161,5 @@ struct ComponentGallery: View {
         }
     }
 }
+
+#endif
