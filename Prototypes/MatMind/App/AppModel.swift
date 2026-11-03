@@ -130,14 +130,35 @@ final class AppModel {
         plannedSessions.first { sessionGoals[$0.id] == goalID }
     }
 
-    /// Invitations and accepted plans only; declined sessions do not fill the schedule.
+    /// Invitations and accepted plans, soonest first; declined sessions do not fill the schedule.
     var plannedSessions: [Session] {
         upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
+            .sorted {
+                let first = startDate(of: $0), second = startDate(of: $1)
+                return first == second ? $0.id < $1.id : first < second
+            }
     }
 
     var unreadCount: Int { notifications.filter(\.unread).count }
 
     /// The Profile tab (home of Friends) shows a dot while any live streak still needs this week's session.
+    /// Offer known partners only. The server independently checks visibility for
+    /// every recipient, including blocks and changes made since this snapshot.
+    func mentionCandidates(for post: Post? = nil, including attendees: [String] = []) -> [Person] {
+        var ids = Set(attendees)
+        if let post {
+            ids.formUnion(post.participants)
+            ids.insert(post.organizer)
+            if post.participants.contains("me") || post.organizer == "me" {
+                ids.formUnion(friends.map(\.id))
+            }
+        } else {
+            ids.formUnion(friends.map(\.id))
+        }
+        return ids.filter { $0 != "me" }.compactMap { people[$0] }
+            .filter { !$0.username.isEmpty }.sorted { $0.username < $1.username }
+    }
+
     var friendsNeedAttention: Bool { friends.contains { $0.streak > 0 && $0.thisWeek == .pending } }
 
     // MARK: Navigation

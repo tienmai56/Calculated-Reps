@@ -217,7 +217,7 @@ struct PostCard: View {
                         .padding(.top, MMSpace.s1)
                 }
                 if !post.caption.isEmpty {
-                    Text(post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
+                    MentionText(text: post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -299,9 +299,10 @@ struct PostCard: View {
                     .mmFont(.body, 14)
                     .foregroundStyle(MMColor.textTertiary)
             }
+            MentionSuggestions(text: $commentText, people: mm.mentionCandidates(for: post))
             HStack(spacing: 8) {
                 MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 34)
-                MMTextField(placeholder: "Say something nice…", text: $commentText) {
+                MMTextField(placeholder: "Say something nice… @tag a partner", text: $commentText) {
                     sendComment()
                 }
                 MMIconButton("send", variant: .accent, label: "Send comment") {
@@ -394,7 +395,7 @@ struct PostDetailScreen: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("\(post.date) · organized by \(isOrganizer ? "you" : organizer.name)")
                         .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
-                    Text(post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
+                    MentionText(text: post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
                     if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
@@ -454,10 +455,14 @@ struct PostDetailScreen: View {
             }
             .padding(.horizontal, 12)
         } footer: {
-            HStack(spacing: 8) {
-                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 36)
-                MMTextField(placeholder: "Say something nice…", text: $text, autoFocus: focusComment) { send(post) }
-                MMIconButton("send", variant: .accent, label: "Send") { send(post) }
+            VStack(alignment: .leading, spacing: 8) {
+                MentionSuggestions(text: $text, people: mm.mentionCandidates(for: post))
+                HStack(spacing: 8) {
+                    MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 36)
+                    MMTextField(placeholder: "Say something nice… @tag a partner", text: $text, autoFocus: focusComment) { send(post) }
+                    MMIconButton("send", variant: .accent, label: "Send") { send(post) }
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
         }
         .modifier(PostOptionsModifier(postID: post.id, isPresented: $showMenu))
@@ -508,7 +513,9 @@ private struct PostOptionsModifier: ViewModifier {
                                 panel = .delete
                             }
                         case .edit:
-                            MMTextField(placeholder: "Caption", text: $caption, multiline: true, rows: 3)
+                            MMTextField(placeholder: "Caption · @tag a partner", text: $caption, multiline: true, rows: 3)
+                                .disabled(saving)
+                            MentionSuggestions(text: $caption, people: mm.mentionCandidates(for: post))
                                 .disabled(saving)
                             MMButton("Save", fullWidth: true) { saveCaption() }
                                 .disabled(saving)
@@ -618,7 +625,7 @@ private struct CommentRow: View {
             MMAvatar(name: p.name, photo: p.photo, size: 34)
             VStack(alignment: .leading, spacing: 2) {
                 Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
-                Text(comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
+                MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 13)
@@ -649,3 +656,69 @@ private struct CommentRow: View {
     }
 }
 
+/// Inline suggestions keep the composer in place and use the existing partner
+/// avatars, typography and tap-target tokens.
+struct MentionSuggestions: View {
+    @Binding var text: String
+    var people: [Person]
+
+    var body: some View {
+        if let query = UsernameMention.query(in: text) {
+            let matches = people.filter {
+                query.isEmpty || $0.username.lowercased().hasPrefix(query) || $0.name.lowercased().contains(query)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                if matches.isEmpty {
+                    Text("No matching partners. Check their username.")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                }
+                ForEach(Array(matches.prefix(5))) { person in
+                    Button {
+                        text = UsernameMention.inserting(person.username, in: text)
+                    } label: {
+                        HStack(spacing: 8) {
+                            MMAvatar(name: person.name, photo: person.photo, size: 28)
+                            Text(person.name).mmFont(.body, 13, .semibold).foregroundStyle(MMColor.textPrimary)
+                            Text("@" + person.username).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: MMLayout.tapTarget)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Mention \(person.name), @\(person.username)")
+                }
+            }
+            .accessibilityElement(children: .contain)
+        }
+    }
+}
+
+/// Highlight known handles without interpreting arbitrary user text as Markdown.
+struct MentionText: View {
+    @Environment(AppModel.self) private var mm
+    let text: String
+
+    private var styled: AttributedString {
+        var result = AttributedString(text)
+        let people = Array(mm.people.values) + [mm.me]
+        for match in UsernameMention.ranges(in: text) {
+            guard let range = Range(match, in: text),
+                  let person = people.first(where: { $0.username.lowercased() == text[range].dropFirst().lowercased() }),
+                  let attributedRange = Range(range, in: result) else { continue }
+            result[attributedRange].foregroundColor = MMColor.textAccent
+            result[attributedRange].link = URL(string: "matmonkeys-mention://profile/" + person.id)
+        }
+        return result
+    }
+
+    var body: some View {
+        Text(styled)
+            .environment(\.openURL, OpenURLAction { url in
+                guard url.scheme == "matmonkeys-mention", let id = url.pathComponents.last else { return .systemAction }
+                if id == "me" { mm.setTab(.profile) } else { mm.go(.friend(id: id)) }
+                return .handled
+            })
+    }
+}

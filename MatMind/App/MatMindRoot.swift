@@ -372,7 +372,7 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     private func person(_ row: SocialRow) -> Person {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
-               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")])
+               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")], username: row.text("username"))
     }
     func sync() {
         if photoOwner != model.userID {

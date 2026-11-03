@@ -3,6 +3,23 @@ import UIKit
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
+    func testMentionTypingAndInsertionAfterEmoji() {
+        XCTAssertEqual(UsernameMention.query(in: "Great rolls 😀 @Hi"), "hi")
+        XCTAssertEqual(UsernameMention.inserting("hippo", in: "Great rolls 😀 @Hi"), "Great rolls 😀 @hippo ")
+        XCTAssertEqual(UsernameMention.query(in: "(@"), "")
+        XCTAssertNil(UsernameMention.query(in: "email@hippo"))
+        XCTAssertNil(UsernameMention.query(in: "@@hippo"))
+        XCTAssertNil(UsernameMention.query(in: "@hippo "))
+        XCTAssertNil(UsernameMention.query(in: "@" + String(repeating: "a", count: 41)))
+    }
+
+    func testMentionGrammarMatchesOnlyWholeUsernames() {
+        let text = "😀 (@HiPpO), @training_partner! a@hippo.com @ab @" + String(repeating: "a", count: 41)
+        let handles = UsernameMention.ranges(in: text).compactMap { Range($0, in: text).map { String(text[$0]) } }
+        XCTAssertEqual(handles, ["@HiPpO", "@training_partner"])
+        XCTAssertEqual(AppNotification.Kind(rawValue: "mention"), .mention)
+    }
+
     func testLegacyLocalSessionRemainsAvailableWithoutCloudSignIn() {
         let oldFlag = UserDefaults.standard.object(forKey: AppSessionStore.onboardingCompletedKey)
         defer { UserDefaults.standard.set(oldFlag, forKey: AppSessionStore.onboardingCompletedKey) }
@@ -360,6 +377,43 @@ final class MatMindLiveUITests: XCTestCase {
         ui.planSession(forGoal: "g3")
         ui.back()
         XCTAssertNil(ui.pendingPlanGoal)
+    }
+
+    func testTrainingScheduleAndGoalNextSessionUseStartTimeRatherThanSnapshotOrder() {
+        let ui = AppModel(live: true)
+        func session(_ id: String, _ start: String, status: RSVP = .going) -> Session {
+            // Labels deliberately match: ordering must use the full date, including time and year.
+            Session(id: id, title: id, day: "Thu", date: 31, month: "Dec", time: "6:00 PM", gym: "Home gym",
+                    organizer: "me", people: [Attendee(id: "me", status: status)],
+                    startsAt: ISO8601DateFormatter().date(from: start)!)
+        }
+        ui.upcoming = [
+            session("next-year", "2031-01-01T18:00:00Z"),
+            session("evening", "2030-12-31T18:00:00Z"),
+            session("morning-b", "2030-12-31T10:00:00Z", status: .invited),
+            session("morning-a", "2030-12-31T10:00:00Z"),
+            session("declined", "2030-12-30T10:00:00Z", status: .declined),
+            session("awaiting-photo", "2030-12-29T10:00:00Z"),
+        ]
+        ui.toComplete = ui.upcoming.last
+        ui.sessionGoals = ["next-year": "goal", "evening": "goal", "morning-a": "goal"]
+
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ["morning-a", "morning-b", "evening", "next-year"])
+        XCTAssertEqual(ui.plannedSessions.filter { $0.status(of: "me") == .going }.map(\.id), ["morning-a", "evening", "next-year"])
+        XCTAssertEqual(ui.nextSession(forGoal: "goal")?.id, "morning-a")
+        ui.upcoming.reverse()
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ["morning-a", "morning-b", "evening", "next-year"], "A refresh with a different row order must not reorder equal-time sessions")
+    }
+
+    func testEditingASessionsDateMovesItToItsChronologicalPosition() async throws {
+        let ui = AppModel(live: false)
+        // Preview tickets have labels only until they are edited.
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ["s2", "s3", "s1"])
+        let first = try XCTUnwrap(ui.plannedSessions.first)
+        let earlier = ui.startDate(of: first).addingTimeInterval(-3600)
+        let edited = await ui.editSession("s1", title: "Earlier rolls", startsAt: earlier, gym: "Home gym", note: "")
+        XCTAssertTrue(edited)
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ["s1", "s2", "s3"])
     }
 
     func testGoalPhotosAreSavedPrivatelyAndRemovable() throws {
