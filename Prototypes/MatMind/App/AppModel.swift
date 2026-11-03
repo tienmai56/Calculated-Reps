@@ -8,6 +8,9 @@ protocol AppRuntime: AnyObject {
     func authenticate() async
     func signOut() async
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
+    /// Asks for push permission and registers this device. Returns nil on success, or the
+    /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
+    func enableNotifications() async -> String?
     func create(_ draft: SessionDraft, key: UUID) async -> String?
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
     /// Uploads a square JPEG (from `AppModel.avatarJPEG`) and makes it the signed-in member's profile photo.

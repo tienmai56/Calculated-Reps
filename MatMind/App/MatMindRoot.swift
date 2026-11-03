@@ -531,7 +531,7 @@ final class LiveMatMindRuntime: AppRuntime {
     func signOut() async { await model.logout(); sync() }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
-        if operation == "enable_notifications" { await SocialPushCoordinator.register(in: model, userInitiated: true); return model.error == nil }
+        if operation == "enable_notifications" { return await enableNotifications() == nil }
         if operation == "delete_account" { await model.deleteAccount(); sync(); return model.userID == nil }
         if operation == "load_more_feed" { await model.loadMoreFeed(); await loadPhotos(); return true }
         if operation == "hydrate_post", let id = payload["post_id"] as? String { await model.hydratePost(id); await loadPhotos(); return true }
@@ -544,6 +544,13 @@ final class LiveMatMindRuntime: AppRuntime {
         let result = await model.perform(operation, body)
         sync()
         return result != nil
+    }
+    func enableNotifications() async -> String? {
+        model.error = nil
+        await SocialPushCoordinator.register(in: model, userInitiated: true)
+        // Hand the failure to the caller instead of the root alert, which can't show over the Account sheet.
+        defer { model.error = nil }
+        return model.error
     }
     func create(_ draft: SessionDraft, key: UUID) async -> String? {
         guard let date = draft.startsAt, !draft.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

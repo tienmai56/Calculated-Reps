@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UserNotifications
 
 /// Tab 4: me, my belt and friends, then three sections: Progress (stats, streak, goals),
 /// Activity (past sessions) and Gallery (photos from every session).
@@ -18,6 +19,11 @@ struct ProfileScreen: View {
     @State private var section: ProfileSection = .progress
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var savingPhoto = false
+    @State private var pushStatus: UNAuthorizationStatus?
+    @State private var pushNote: (text: String, ok: Bool)?
+    @State private var enablingPush = false
+    @Environment(\.scenePhase) private var phase
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         let me = mm.me
@@ -99,9 +105,7 @@ struct ProfileScreen: View {
                 if mm.isLive {
                     Text("Export").mmFont(.display, 18)
                     MMButton("Export local sessions", variant: .secondary, iconLeft: "download") { showExport = true }
-                    MMButton("Enable notifications", variant: .ghost, iconLeft: "bell") {
-                        Task { _ = await mm.runtime?.perform("enable_notifications", [:]) }
-                    }
+                    notificationsRow
                     MMButton("Delete account", variant: .ghost, iconLeft: "trash-2") { deleteAccount = true }
                 }
                 MMButton("Sign out", variant: .ghost, iconLeft: "log-out") {
@@ -141,6 +145,58 @@ struct ProfileScreen: View {
             mm.updateMe(name: name.isEmpty ? mm.me.name : name, email: email,
                         belt: BeltRank(rawValue: belt) ?? mm.me.belt, stripes: Int(stripes) ?? mm.me.stripes)
         }
+    }
+
+    /// Account sheet: push permission. Results show here because the app's alert and toasts
+    /// sit under this sheet, and iOS never re-asks once someone has declined.
+    private var notificationsRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if pushStatus == .denied {
+                MMButton("Turn on in Settings", variant: .ghost, iconLeft: "bell") {
+                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+                }
+                Text("Notifications are off for Mat Monkey, so you could miss an invite to train.")
+                    .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            } else {
+                MMButton(enablingPush ? "Enabling…" : "Enable notifications", variant: .ghost, iconLeft: "bell") {
+                    Task { await enablePush() }
+                }
+                .disabled(enablingPush)
+            }
+            if let pushNote {
+                HStack(spacing: 6) {
+                    MMIcon(pushNote.ok ? "circle-check" : "circle-alert", size: 14,
+                           color: pushNote.ok ? MMColor.mint700 : MMColor.coral700)
+                    Text(pushNote.text).mmFont(.body, 13)
+                        .foregroundStyle(pushNote.ok ? MMColor.mint700 : MMColor.coral700)
+                }
+            }
+        }
+        .task { pushNote = nil; await refreshPushStatus() }
+        .onChange(of: phase) { _, phase in
+            // Back from iOS Settings: register right away if they switched notifications on.
+            guard phase == .active else { return }
+            Task {
+                let wasDenied = pushStatus == .denied
+                await refreshPushStatus()
+                if wasDenied, pushStatus != .denied, pushStatus != .notDetermined { await enablePush() }
+            }
+        }
+    }
+
+    private func refreshPushStatus() async {
+        pushStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    private func enablePush() async {
+        guard !enablingPush, let runtime = mm.runtime else { return }
+        enablingPush = true
+        defer { enablingPush = false }
+        let failure = await runtime.enableNotifications()
+        await refreshPushStatus()
+        if pushStatus == .denied { pushNote = nil }
+        else if let failure { pushNote = (failure, false) }
+        else { pushNote = ("Notifications are on. We'll ping you when friends invite you to train.", true) }
     }
 
     /// Account sheet: tap the avatar (or the link beside it) to pick a new profile photo.
