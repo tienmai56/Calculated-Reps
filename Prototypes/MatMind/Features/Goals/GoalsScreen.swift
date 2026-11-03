@@ -98,12 +98,17 @@ struct GoalsScreen: View {
 
 // MARK: - Goal detail
 
-/// One goal: its details (main points with sub-points), references, and a way to plan a session for it.
+/// One goal, edited in place: its name and details, plus references. Save goal keeps
+/// the changes; photos and links save as soon as they're added.
 struct GoalDetailScreen: View {
     @Environment(AppModel.self) private var mm
     let id: String
 
-    @State private var editing: MatGoal?
+    @State private var draftTitle = ""
+    @State private var draftNotes = ""
+    /// The goal the drafts were filled from, so returning to the page keeps unsaved edits.
+    @State private var loadedID: String?
+    @State private var confirmDiscard = false
     @State private var confirmDelete = false
     @State private var addingLink = false
     @State private var linkDraft = ""
@@ -117,13 +122,20 @@ struct GoalDetailScreen: View {
         }
     }
 
+    private func hasChanges(_ goal: MatGoal) -> Bool {
+        draftTitle.trimmingCharacters(in: .whitespacesAndNewlines) != goal.title
+            || draftNotes.trimmingCharacters(in: .whitespacesAndNewlines) != goal.notes
+    }
+
     private func detail(_ goal: MatGoal) -> some View {
         MMScreen {
             MMHeader(title: "Goal", leading: {
-                MMIconButton("chevron-left", label: "Back") { mm.back() }
+                MMIconButton("chevron-left", label: "Back") {
+                    if hasChanges(goal) { confirmDiscard = true } else { mm.back() }
+                }
             }, trailing: {
                 Menu {
-                    Button { editing = goal } label: { Label("Edit goal", image: "pencil") }
+                    Button { mm.planSession(forGoal: goal.id) } label: { Label("Plan a session for this", image: "calendar-plus") }
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete goal", image: "trash-2") }
                 } label: {
                     MMIcon("ellipsis", size: 22, color: MMColor.ink900)
@@ -134,17 +146,19 @@ struct GoalDetailScreen: View {
             })
         } content: {
             VStack(alignment: .leading, spacing: 6) {
-                if !goal.position.isEmpty { MMBadge(goal.position) }
-                Text(goal.title).mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                TextField("Name your goal", text: $draftTitle, axis: .vertical)
+                    .mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05)
+                    .foregroundStyle(MMColor.ink900)
+                    .tint(MMColor.accent)
+                    .accessibilityLabel("Goal name")
                 Text(plan(goal)).mmFont(.body, 13, .medium).foregroundStyle(MMColor.textTertiary)
             }
             .padding(.horizontal, 20)
             .padding(.top, 2)
 
-            MMEyebrow(title: "Details", topPadding: 20, trailing: {
-                GoalTextAction(title: goal.notes.isEmpty ? "Add" : "Edit") { editing = goal }
-            })
-            GoalNotesView(notes: goal.notes)
+            MMEyebrow("Details", topPadding: 20)
+            MMTextField(placeholder: "Cues, details, what coach said. Start a line with - for a sub-point.",
+                        text: $draftNotes, multiline: true, rows: 5)
                 .padding(.horizontal, 16)
 
             MMEyebrow(title: "References", topPadding: 20, trailing: {
@@ -153,12 +167,23 @@ struct GoalDetailScreen: View {
             references(goal)
             Color.clear.frame(height: 16)
         } footer: {
-            MMButton("Plan a session for this", size: .lg, iconLeft: "calendar-plus", fullWidth: true) {
-                mm.planSession(forGoal: goal.id)
+            MMButton("Save goal", size: .lg, fullWidth: true) {
+                var updated = goal
+                updated.title = draftTitle
+                updated.notes = draftNotes
+                if mm.saveGoal(updated) { mm.back() }
             }
+            .disabled(!hasChanges(goal) || draftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .sheet(item: $editing) { g in
-            MatGoalEditorSheet(draft: g, isNew: false)
+        .onAppear {
+            guard loadedID != goal.id else { return }
+            loadedID = goal.id
+            draftTitle = goal.title
+            draftNotes = goal.notes
+        }
+        .confirmationDialog("Discard your changes?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+            Button("Discard changes", role: .destructive) { mm.back() }
+            Button("Keep editing", role: .cancel) {}
         }
         .confirmationDialog("Delete \(goal.title)?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete goal", role: .destructive) {
@@ -272,41 +297,6 @@ struct GoalDetailScreen: View {
     }
 }
 
-/// Goal notes as an outline: plain lines are main points, "-" lines sit underneath.
-private struct GoalNotesView: View {
-    let notes: String
-
-    var body: some View {
-        let lines = notes.split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        VStack(alignment: .leading, spacing: 8) {
-            if lines.isEmpty {
-                Text("No details yet. Add the cues you want to remember on the mat.")
-                    .mmFont(.body, 14, lineHeight: 1.45).foregroundStyle(MMColor.textTertiary)
-            }
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                if line.hasPrefix("-") {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Capsule().fill(MMColor.ink300).frame(width: 8, height: 2).alignmentGuide(.firstTextBaseline) { d in d[.bottom] + 5 }
-                        Text(String(line.dropFirst()).trimmingCharacters(in: .whitespaces))
-                            .mmFont(.body, 14, lineHeight: 1.4).foregroundStyle(MMColor.textSecondary)
-                    }
-                    .padding(.leading, 18)
-                } else {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Circle().fill(MMColor.ink900).frame(width: 8, height: 8).alignmentGuide(.firstTextBaseline) { d in d[.bottom] + 1 }
-                        Text(line).mmFont(.body, 15, .semibold, lineHeight: 1.35).foregroundStyle(MMColor.textPrimary)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .mmCardSurface(radius: 22)
-    }
-}
-
 /// Quiet coral text action used in section headers.
 private struct GoalTextAction: View {
     let title: String
@@ -329,7 +319,7 @@ private struct GoalTextAction: View {
     }
 }
 
-/// One thing you're working on: position, name, a peek at the notes, and when it's next on the mat.
+/// One thing you're working on: name, a peek at the notes, and when it's next on the mat.
 struct WorkingOnGoalCard: View {
     @Environment(AppModel.self) private var mm
     let goal: MatGoal
@@ -339,7 +329,6 @@ struct WorkingOnGoalCard: View {
         Button(action: onTap) {
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 8) {
-                    if !goal.position.isEmpty { MMBadge(goal.position) }
                     Text(goal.title).mmFont(.display, 18, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
                         .multilineTextAlignment(.leading)
                     if !goal.notesPreview.isEmpty {
@@ -405,20 +394,6 @@ struct MatGoalEditorSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     MMTextField(label: "What are you working on?", placeholder: "Single leg from standing",
                                 text: $draft.title, autoFocus: isNew)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Where on the mat").mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2)
-                            .foregroundStyle(MMColor.textPrimary)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(MatGoal.positions, id: \.self) { position in
-                                    MMTag(position, selected: draft.position == position, size: .sm, action: {
-                                        draft.position = draft.position == position ? "" : position
-                                    })
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
                     MMTextField(label: "Notes", placeholder: "Cues, details, what coach said. Start a line with - for a bullet.",
                                 text: $draft.notes, multiline: true, rows: 6)
                     if !isNew {

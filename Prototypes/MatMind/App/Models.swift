@@ -174,7 +174,8 @@ struct PublishResult {
 struct MatGoal: Identifiable, Hashable, Codable {
     var id: String
     var title: String
-    /// Where it happens on the mat ("Standup", "Back"). Optional.
+    /// Where it happens on the mat. No longer shown or edited; kept so goals saved
+    /// by earlier builds still decode.
     var position: String = ""
     /// Free-form notes; a line starting with "-" reads as a bullet.
     var notes: String = ""
@@ -188,8 +189,6 @@ struct MatGoal: Identifiable, Hashable, Codable {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("MatMonkeysGoalPhotos", isDirectory: true)
     }
-
-    static let positions = ["Standup", "Guard", "Passing", "Back", "Mount", "Side control", "Escapes", "Leg locks"]
 
     static func new() -> MatGoal {
         MatGoal(id: "g\(Int(Date().timeIntervalSince1970 * 1000))", title: "")
