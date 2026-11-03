@@ -21,7 +21,7 @@
 ## 1. Product
 **Mat Monkeys** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
-One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Friends, Profile) and a center **Plan a session** button.
+One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Goals, Profile) and a center **Plan a session** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
@@ -300,7 +300,7 @@ React primitives live in `design-system/components/<group>/`. Each has `Name.jsx
 | **Belt** | sizes: xs 8, sm 12, md 16, lg 24 · stripes: 0–4 · bar: black; red for black/coral/red belts |
 | **StreakBelt** | segment: 1 calendar week (Mon–Sun) · states: done / missed / pending-hatched · hues: friendHues |
 | **Tabs** | variants: segmented / underline |
-| **TabBar** | height: 86 · items: Activity / Training / Friends / Profile · centerAction: Plan a session (coral, 56×46 pill) |
+| **TabBar** | height: 86 · items: Activity / Training / Goals / Profile · centerAction: Plan a session (coral, 56×46 pill) |
 | **Dialog** | variants: sheet / modal · sheetRadius: xl top · overlay: surface-overlay |
 | **Toast** | shape: ink pill · variants: default / success / danger / streak / friend · autoDismissMs: 2600 |
 | **Tooltip** | surface: ink-900 · radius: 10 |
@@ -312,12 +312,12 @@ Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candida
 ## 7. Iconography
 - **Set:** Lucide (outline, round caps and joins). 2px stroke by default, 2.25 in buttons, 2.5 for the active tab. CDN-available, ISC license. **This is a substitution; no brand icon set was provided.**
 - **Delivery:** about 75 glyphs copied into `assets/icons/*.svg` and embedded in `design-system/components/core/Icon.jsx` (`<Icon name="qr-code" />`). To add more, copy from `https://unpkg.com/lucide-static@0.454.0/icons/<name>.svg` into both.
-- **Key glyphs:** house (Activity), calendar (Training), users (Friends), user (Profile), plus (create), flame (streak, filled when alive), qr-code / scan-line (add friend), handshake (connected), calendar-plus (invite to train), camera / image-plus (photo), map-pin (gym), link (invite link), lock / globe (privacy).
+- **Key glyphs:** house (Activity), calendar (Training), notebook-pen (Goals), user (Profile), users (Friends), plus (create), flame (streak, filled when alive), qr-code / scan-line (add friend), handshake (connected), calendar-plus (invite to train), camera / image-plus (photo), map-pin (gym), link (invite link), lock / globe (privacy).
 - **Color:** inherit currentColor. Active like = coral, filled. Flame = flame orange, filled when the streak is alive and grey outline when not.
 - **No emoji, no unicode icons** (only "·" as a meta separator). No PNG icons.
 
 ## 8. Screens & journeys
-Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invites, past, plan) · **Friends** (weekly streaks, QR) · **Profile**. The center tab button is **Plan a session**.
+Tabs: **Activity** (feed of completed sessions) · **Training** (invites and upcoming) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a session**.
 
 | # | Screen | Prototype file |
 |---|---|---|
@@ -334,7 +334,7 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invit
 Journeys:
 - **A — Plan together:** Training → Plan a session → gym/date/time → invite → friends join → session shows participants.
 - **B — Share a memory:** completed session → take or upload a photo → publish → post on every participant's profile and friends' feeds → likes/comments. A photo enables publishing; no completion toggle is required.
-- **C — Keep a streak:** Friends → active streak → friend profile → invite → complete together → streak +1.
+- **C — Keep a streak:** Profile → Friends → active streak → friend profile → invite → complete together → streak +1.
 
 Streak rule: a week counts when two friends both participate in ≥1 **completed** session together within the same Mon–Sun calendar week; consecutive weeks extend the streak.
 
@@ -356,9 +356,22 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 - Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses Complete & share instead.
 - No upcoming sessions/invitations: “Make it a mat date.” Plan a training session; Already trained? Log it is secondary.
 - No personal past sessions: offer Log a past session.
+- No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
 - An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
 
 Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
+
+### Tabs, Goals and Training
+
+Tab bar: **Activity · Training · + (Plan a session) · Goals · Profile**. Friends is no longer a tab: it opens from Profile, and the streak reminder dot sits on the Profile tab. Every tab header carries the round paper-2 **My code** (QR) button at the top right; pushed screens keep their own back and action buttons.
+
+- **Training** shows Invites (Decline / Join) and Coming up as a list of tickets. Past sessions live in Profile → Activity (with **Log a past session**). Under each ticket: the attached goal as a paper-2 chip with the notebook-pen icon (opens the goal) plus **Change**, or a quiet coral **Pick a goal**. Tickets you host carry an ellipsis menu: **Edit session** (name, date and time, gym, note; people and focus plan stay) and **Delete session** (confirmed; it comes off everyone's schedule).
+- **Goals** lists what you're working on as white cards: name, a two-line notes preview, link/photo counts and when it's next on the mat ("On Sat with Sarah", never a score). **Add a goal** sits in the section header; its sheet has the name, notes and **References** (an **Add photo** tile and **Add a link**, each removable before saving; photos are saved when the goal is added). **Import** (in the empty state, a quiet link under the list) reads the file from Settings → Export local sessions (the .zip, or its training-v1.json): each active goal keeps its name; each task becomes a "- Task: notes" line, with its link and photos. Archived goals, sessions and reflections are left out, and importing twice adds nothing.
+- **Goal page** is edited in place: the name (a 28pt display field) and next session; **Details** as a multi-line field ("-" starts a sub-point); **References** (photos, with an **Add photo** tile that opens the photo library and touch-and-hold to remove; links shown by host in mono, opening in the browser; **Add a link**). Goal photos are re-encoded as JPEG without location metadata, capped at 2048 px and stored privately on the device; an ellipsis menu with **Plan a session for this** (attaches the goal to the session you create) and Delete goal; and the primary **Save goal**, enabled once the name or details change. Leaving with unsaved edits asks before discarding. Photos and links save as soon as they're added.
+- **Profile → Friends:** a card with friend avatars and the count (opens the friends list), or "Add your first training partner" (opens My code), followed by Weekly streaks and Activity.
+- Goals are personal (name, free-form notes, reference links and photos). They're stored on the device per account and attached only to sessions in your own schedule. No progress, completion counts or rankings.
+
+Native: `Features/Goals/GoalsScreen.swift`, `Features/Training/TrainingScreen.swift`, `MatGoal` in `App/Models.swift`.
 
 ## 9. Guardrails
 **Always**

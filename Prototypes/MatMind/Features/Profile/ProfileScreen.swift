@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Tab 4: me, my belt, live streaks, and the sessions I'm in.
+/// Tab 4: me, my belt, my friends and streaks, and the sessions I'm in.
 struct ProfileScreen: View {
     @Environment(AppModel.self) private var mm
     @State private var showSettings = false
@@ -17,8 +17,9 @@ struct ProfileScreen: View {
         let mine = mm.posts.filter { $0.participants.contains("me") }
         let active = mm.friends.filter { $0.streak > 0 }.sorted { $0.streak > $1.streak }
         MMScreen(tabPadding: true) {
-            HStack {
+            HStack(spacing: 8) {
                 Spacer()
+                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
                 MMIconButton("settings", variant: .filled, label: "Settings") { openSettings() }
             }
             .padding(.horizontal, 10)
@@ -29,17 +30,35 @@ struct ProfileScreen: View {
                 Text(me.name).mmFont(.display, 30, tracking: -0.035, lineHeight: 1.05).foregroundStyle(MMColor.ink900).padding(.top, 14)
                 Text(me.gym).mmFont(.body, 14).foregroundStyle(MMColor.textTertiary).padding(.top, 4)
                 MMBelt(rank: me.belt, stripes: me.stripes, size: .sm, width: 190, showLabel: true).padding(.top, 14)
-                HStack(spacing: 10) {
-                    MMButton("\(mm.friends.count) friends", variant: .secondary, size: .sm, iconLeft: "users") { mm.setTab(.friends) }
-                    MMButton("My code", variant: .secondary, size: .sm, iconLeft: "qr-code") { mm.go(.qr()) }
-                }
-                .padding(.top, 18)
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.top, 4)
 
-            MMEyebrow("Weekly streaks")
+            MMEyebrow("Friends")
+            Button { mm.friends.isEmpty ? mm.go(.qr()) : mm.go(.friends) } label: {
+                HStack(spacing: 12) {
+                    if mm.friends.isEmpty {
+                        MMIcon("user-plus", size: 22, color: MMColor.ink700)
+                            .frame(width: 40, height: 40)
+                            .background(Circle().fill(MMColor.paper2))
+                        Text("Add your first training partner").mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                    } else {
+                        MMAvatarStack(people: mm.friends.map { mm.person($0.id).avatar }, size: 34, max: 4, ring: .white)
+                        Text(mm.friends.count == 1 ? "1 friend" : "\(mm.friends.count) friends")
+                            .mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                    }
+                    Spacer(minLength: 4)
+                    MMIcon("chevron-right", size: 18, color: MMColor.ink400)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .mmCardSurface(radius: 22)
+            }
+            .buttonStyle(MMPressStyle())
+            .padding(.horizontal, 16)
+
+            if !active.isEmpty { MMEyebrow("Weekly streaks") }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(active) { f in
@@ -75,6 +94,12 @@ struct ProfileScreen: View {
                 }
             }
             .padding(.horizontal, 16)
+            // Past sessions live here now that Training only shows what's coming up.
+            MMButton("Log a past session", variant: .secondary, size: .sm, iconLeft: "history", fullWidth: true) {
+                mm.go(.create(past: true))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, mine.isEmpty ? 0 : 12)
         }
         .mmSheet(isPresented: $showSettings, title: "Account") {
             VStack(alignment: .leading, spacing: 16) {

@@ -14,6 +14,7 @@ protocol AppRuntime: AnyObject {
     func connect(_ value: String) async -> String?
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool
     func scannerView(found: @escaping (String) -> Void) -> AnyView
     func exportView() -> AnyView
 }
@@ -50,6 +51,7 @@ final class AppModel {
         gyms = []; cameraRoll = []
         people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
+        goals = []; sessionGoals = [:]; goalAccount = nil
     }
 
     private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
@@ -68,6 +70,18 @@ final class AppModel {
     var drafts: [Session] = []
     var gyms: [String] = []
     var cameraRoll: [String] = []
+    /// What you're working on. Personal and local to this device.
+    var goals: [MatGoal] = []
+    /// Session id → goal id for sessions you've attached a goal to.
+    var sessionGoals: [String: String] = [:]
+    /// A goal waiting to be attached to the session being planned from its page.
+    var pendingPlanGoal: String?
+    /// The signed-in account whose goals are loaded (installed app only).
+    @ObservationIgnored private var goalAccount: String?
+    /// Reads an old-notebook export into goals. Supplied by the installed app, which
+    /// owns the archive format; the shared preview has no importer.
+    @ObservationIgnored var readGoalExport: (@Sendable (URL) throws -> [MatGoal])?
+    var canImportGoals: Bool { readGoalExport != nil }
 
     // MARK: Navigation & feedback
     var tab: AppTab = .activity
@@ -100,6 +114,16 @@ final class AppModel {
 
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
 
+    func goal(_ id: String) -> MatGoal? { goals.first { $0.id == id } }
+
+    /// The goal you attached to a session, if it still exists.
+    func goal(forSession sessionID: String) -> MatGoal? { sessionGoals[sessionID].flatMap { goal($0) } }
+
+    /// The soonest planned session this goal is attached to.
+    func nextSession(forGoal goalID: String) -> Session? {
+        plannedSessions.first { sessionGoals[$0.id] == goalID }
+    }
+
     /// Invitations and accepted plans only; declined sessions do not fill the schedule.
     var plannedSessions: [Session] {
         upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
@@ -107,7 +131,7 @@ final class AppModel {
 
     var unreadCount: Int { notifications.filter(\.unread).count }
 
-    /// The Friends tab shows a dot while any live streak still needs this week's session.
+    /// The Profile tab (home of Friends) shows a dot while any live streak still needs this week's session.
     var friendsNeedAttention: Bool { friends.contains { $0.streak > 0 && $0.thisWeek == .pending } }
 
     // MARK: Navigation
@@ -128,7 +152,11 @@ final class AppModel {
 
     func go(_ route: Route) { path.append(route) }
 
-    func back() { if !path.isEmpty { path.removeLast() } }
+    func back() {
+        guard !path.isEmpty else { return }
+        if case .create = path.last { pendingPlanGoal = nil }
+        path.removeLast()
+    }
 
     func replace(_ route: Route) {
         if !path.isEmpty { path.removeLast() }
@@ -136,6 +164,7 @@ final class AppModel {
     }
 
     func setTab(_ newTab: AppTab) {
+        pendingPlanGoal = nil
         path = []
         tab = newTab
     }
@@ -236,8 +265,15 @@ final class AppModel {
     }
 
     func createSession(_ d: SessionDraft) {
+        let goalToAttach = d.past ? nil : pendingPlanGoal
+        pendingPlanGoal = nil
         if let runtime {
-            Task { if let id = await runtime.create(d) { replace(d.past ? .complete(id: id) : .session(id: id)) } }
+            Task {
+                if let id = await runtime.create(d) {
+                    if let goalToAttach { setGoal(goalToAttach, forSession: id) }
+                    replace(d.past ? .complete(id: id) : .session(id: id))
+                }
+            }
             return
         }
         guard !isLive else { return }
@@ -257,6 +293,7 @@ final class AppModel {
             return
         }
         upcoming.append(session)
+        if let goalToAttach { setGoal(goalToAttach, forSession: id) }
         replace(.session(id: id))
         showToast(d.invited.isEmpty ? "Session created" : "Invites sent to \(d.invited.count)", .success)
         // The first two invitees accept live, so the plan-together journey feels real.
@@ -352,6 +389,226 @@ final class AppModel {
         me.stripes = stripes
     }
 
+    // MARK: Hosting
+
+    /// Host only: change a planned session's name, time, gym or note. People and focus plan stay.
+    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let gym = gym.trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, !gym.isEmpty, findSession(id)?.organizer == "me" else { return false }
+        if let runtime {
+            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note) else { return false }
+            showToast("Session updated", .success)
+            return true
+        }
+        guard !isLive else { return false }
+        updateSession(id) { s in
+            s.title = title
+            s.gym = gym
+            s.note = note.isEmpty ? nil : note
+            s.startsAt = startsAt
+            s.day = Self.sessionText(startsAt, "EEE")
+            s.date = Int(Self.sessionText(startsAt, "d")) ?? s.date
+            s.month = Self.sessionText(startsAt, "MMM")
+            s.time = Self.sessionText(startsAt, "h:mm a")
+        }
+        showToast("Session updated", .success)
+        return true
+    }
+
+    /// Host only: calls a planned session off. It leaves everyone's schedule.
+    func deleteSession(_ id: String) {
+        guard findSession(id)?.organizer == "me" else { return }
+        if isLive {
+            send("cancel_session", ["session_id": id], success: {
+                self.forgetGoal(forSession: id)
+                self.showToast("Session deleted")
+            })
+            return
+        }
+        upcoming.removeAll { $0.id == id }
+        forgetGoal(forSession: id)
+        showToast("Session deleted")
+    }
+
+    /// Where an edit starts: the exact start when known, else the ticket's day and time this year.
+    func startDate(of session: Session) -> Date {
+        if let startsAt = session.startsAt { return startsAt }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy MMM d h:mm a"
+        let year = Calendar.current.component(.year, from: Date())
+        return formatter.date(from: "\(year) \(session.month) \(session.date) \(session.time)") ?? Date()
+    }
+
+    private static func sessionText(_ date: Date, _ format: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = format
+        return formatter.string(from: date)
+    }
+
+    private func forgetGoal(forSession id: String) {
+        guard sessionGoals[id] != nil else { return }
+        sessionGoals[id] = nil
+        persistGoals()
+    }
+
+    // MARK: Goals
+
+    /// Adds a new goal (newest first) or updates an existing one. Returns false for a blank name.
+    @discardableResult
+    func saveGoal(_ goal: MatGoal) -> Bool {
+        var goal = goal
+        goal.title = goal.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        goal.notes = goal.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !goal.title.isEmpty else { return false }
+        if let i = goals.firstIndex(where: { $0.id == goal.id }) {
+            goals[i] = goal
+            showToast("Goal updated", .success)
+        } else {
+            goals.insert(goal, at: 0)
+            showToast("Added to what you're working on", .success)
+        }
+        persistGoals()
+        return true
+    }
+
+    func deleteGoal(_ id: String) {
+        goal(id)?.photos.forEach(Self.deleteGoalPhotoFile)
+        goals.removeAll { $0.id == id }
+        sessionGoals = sessionGoals.filter { $0.value != id }
+        persistGoals()
+        showToast("Goal removed")
+    }
+
+    /// Attaches a goal to one of your sessions, or clears it with `nil`.
+    func setGoal(_ goalID: String?, forSession sessionID: String) {
+        if let goalID, goal(goalID) != nil {
+            sessionGoals[sessionID] = goalID
+        } else {
+            sessionGoals[sessionID] = nil
+        }
+        persistGoals()
+    }
+
+    /// Adds goals brought over from an old-notebook export, newest import first.
+    /// Goals already imported (same id) are skipped. Returns how many were added.
+    @discardableResult
+    func importGoals(_ imported: [MatGoal]) -> Int {
+        let fresh = imported.filter { goal($0.id) == nil }
+        goals.insert(contentsOf: fresh, at: 0)
+        persistGoals()
+        return fresh.count
+    }
+
+    /// "Plan a session for this": opens the plan form; the new session gets this goal.
+    func planSession(forGoal id: String) {
+        guard goal(id) != nil else { return }
+        go(.create())
+        pendingPlanGoal = id
+    }
+
+    /// Adds a reference link to a goal. Bare domains get https://. Returns false if it isn't a web link.
+    @discardableResult
+    func addLink(_ raw: String, toGoal id: String) -> Bool {
+        guard let text = Self.normalizedLink(raw), let i = goals.firstIndex(where: { $0.id == id }) else {
+            showToast("That doesn't look like a link")
+            return false
+        }
+        if !goals[i].links.contains(text) { goals[i].links.append(text) }
+        persistGoals()
+        showToast("Link added", .success)
+        return true
+    }
+
+    /// A web link with https:// added to bare domains, or nil when it isn't one.
+    static func normalizedLink(_ raw: String) -> String? {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty, !text.contains("://") { text = "https://" + text }
+        guard !text.contains(where: \.isWhitespace), let url = URL(string: text),
+              let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), url.host?.isEmpty == false else { return nil }
+        return text
+    }
+
+    /// Saves a reference photo for a goal, privately on this device. The image is
+    /// re-encoded as JPEG (no location or camera metadata) and capped at 2048 px.
+    @discardableResult
+    func addPhoto(_ data: Data, toGoal id: String, announce: Bool = true) -> Bool {
+        guard let i = goals.firstIndex(where: { $0.id == id }) else { return false }
+        guard let image = UIImage(data: data), let jpeg = Self.goalPhotoJPEG(image) else {
+            showToast("That photo couldn't be read")
+            return false
+        }
+        let folder = id.replacingOccurrences(of: "/", with: "-")
+        let relative = "\(folder)/\(UUID().uuidString.lowercased()).jpg"
+        let url = MatGoal.photoRoot.appendingPathComponent(relative)
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try jpeg.write(to: url, options: [.atomic, .completeFileProtection])
+        } catch {
+            showToast("That photo couldn't be saved")
+            return false
+        }
+        goals[i].photos.append(relative)
+        persistGoals()
+        if announce { showToast("Photo added", .success) }
+        return true
+    }
+
+    func removePhoto(_ photo: String, fromGoal id: String) {
+        guard let i = goals.firstIndex(where: { $0.id == id }), goals[i].photos.contains(photo) else { return }
+        goals[i].photos.removeAll { $0 == photo }
+        Self.deleteGoalPhotoFile(photo)
+        persistGoals()
+        showToast("Photo removed")
+    }
+
+    /// Deletes a goal photo saved under `MatGoal.photoRoot` (sample asset names are left alone).
+    private static func deleteGoalPhotoFile(_ photo: String) {
+        let url = MatGoal.photoRoot.appendingPathComponent(photo).standardizedFileURL
+        guard url.path.hasPrefix(MatGoal.photoRoot.standardizedFileURL.path + "/"),
+              FileManager.default.fileExists(atPath: url.path) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private static func goalPhotoJPEG(_ image: UIImage) -> Data? {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > 0 else { return nil }
+        let scale = min(1, 2048 / longest)
+        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format)
+            .image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+            .jpegData(compressionQuality: 0.85)
+    }
+
+    private struct StoredGoals: Codable {
+        var goals: [MatGoal]
+        var sessionGoals: [String: String]
+    }
+
+    private static func goalsKey(_ account: String) -> String { "matmonkeys.goals.\(account)" }
+
+    /// Installed app: loads the signed-in account's goals from this device.
+    func loadGoals(account: String) {
+        guard isLive, goalAccount != account else { return }
+        goalAccount = account
+        let stored = UserDefaults.standard.data(forKey: Self.goalsKey(account))
+            .flatMap { try? JSONDecoder().decode(StoredGoals.self, from: $0) }
+        goals = stored?.goals ?? []
+        sessionGoals = stored?.sessionGoals ?? [:]
+    }
+
+    private func persistGoals() {
+        guard isLive, let goalAccount else { return }
+        if let data = try? JSONEncoder().encode(StoredGoals(goals: goals, sessionGoals: sessionGoals)) {
+            UserDefaults.standard.set(data, forKey: Self.goalsKey(goalAccount))
+        }
+    }
+
     // MARK: Demo
 
     func reset() {
@@ -368,6 +625,8 @@ final class AppModel {
         notifications = SeedData.notifications
         gyms = SeedData.gyms
         cameraRoll = SeedData.cameraRoll
+        goals = SeedData.goals
+        sessionGoals = SeedData.sessionGoals
 #endif
         drafts = []
         path = []
@@ -391,13 +650,13 @@ final class AppModel {
         case .welcome: break
         case .activity: setTab(.activity)
         case .training: setTab(.training)
-        case .friends: setTab(.friends)
+        case .friends: setTab(.profile); go(.friends)
         case .profile: setTab(.profile)
         case .create: setTab(.training); go(.create())
         case .focusPlan: setTab(.training); go(.create(focus: TrainingFocusTree.example))
         case .complete: setTab(.training); go(.complete(id: "c1"))
-        case .qr: setTab(.friends); go(.qr())
-        case .scan: setTab(.friends); go(.qr(scan: true))
+        case .qr: setTab(.profile); go(.qr())
+        case .scan: setTab(.profile); go(.qr(scan: true))
         case .notifications: setTab(.activity); go(.notifications)
         case .post: setTab(.activity); go(.post(id: "p1"))
         case .empty:
@@ -417,8 +676,8 @@ final class AppModel {
             toComplete = nil
             setTab(.activity)
         case .invite: setTab(.training); go(.session(id: "s2"))
-        case .broken: setTab(.friends); go(.friend(id: "jamie"))
-        case .active: setTab(.friends); go(.friend(id: "sarah"))
+        case .broken: setTab(.profile); go(.friends); go(.friend(id: "jamie"))
+        case .active: setTab(.profile); go(.friends); go(.friend(id: "sarah"))
         }
     }
 }

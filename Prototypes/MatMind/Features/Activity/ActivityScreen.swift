@@ -14,6 +14,7 @@ struct ActivityScreen: View {
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
                 }
+                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
             }
             .padding(.leading, 20)
             .padding(.trailing, 10)

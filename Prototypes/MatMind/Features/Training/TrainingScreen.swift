@@ -1,104 +1,239 @@
 import SwiftUI
 
-/// Tab 2: upcoming sessions, invites, and past sessions.
+/// Tab 2: invites and what's coming up. Goals have their own tab; past sessions
+/// live in Profile → Activity.
 struct TrainingScreen: View {
     @Environment(AppModel.self) private var mm
-    @State private var tab = "Upcoming"
+    /// The goal being created from a ticket's picker.
+    @State private var editingGoal: MatGoal?
+    /// The session whose goal is being picked.
+    @State private var pickingFor: String?
+    /// A session waiting for the goal that's being created from its picker.
+    @State private var attachNewGoalTo: String?
+    /// The hosted session being edited, or waiting for delete confirmation.
+    @State private var editingSession: Session?
+    @State private var deletingSession: Session?
 
     var body: some View {
         let list = mm.plannedSessions
         let invites = list.filter { $0.status(of: "me") == .invited }
-        let rest = list.filter { $0.status(of: "me") != .invited && $0.status(of: "me") != .declined }
-        let showsPinnedPlan = tab == "Upcoming" && !list.isEmpty
-        GeometryReader { viewport in
-            MMScreen(tabPadding: !showsPinnedPlan) {
-                VStack(spacing: 0) {
-                    MMHeader(title: "Training", large: true, trailing: {
-                        if !list.isEmpty {
-                            MMIconButton("calendar-plus", variant: .filled, label: "Plan a session") { mm.go(.create()) }
-                        }
-                    })
-                    MMTabs(["Upcoming", "Past"], selection: $tab)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 6)
+        let rest = list.filter { $0.status(of: "me") != .invited }
+        MMScreen(tabPadding: true) {
+            MMHeader(title: "Training", large: true, trailing: {
+                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+            })
+        } content: {
+            if list.isEmpty {
+                EmptyTraining()
+            }
+            if !invites.isEmpty {
+                MMEyebrow("Invites", topPadding: 8)
+                VStack(spacing: 16) {
+                    ForEach(invites) { s in sessionCard(s) }
                 }
-            } content: {
-                if tab == "Past" {
-                    pastList
-                } else {
-                    if !invites.isEmpty {
-                        MMEyebrow("Invites")
-                        VStack(spacing: 12) {
-                            ForEach(invites) { s in
-                                VStack(spacing: 8) {
-                                    SessionTicket(session: s) { mm.go(.session(id: s.id)) }
-                                    HStack(spacing: 8) {
-                                        MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(s.id, .declined) }
-                                        MMButton("Join", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                    if !rest.isEmpty {
-                        MMEyebrow("Coming up")
-                        VStack(spacing: 12) {
-                            ForEach(rest) { s in
-                                SessionTicket(session: s) { mm.go(.session(id: s.id)) }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                    if list.isEmpty {
-                        EmptyTraining()
-                    }
+                .padding(.horizontal, 16)
+            }
+            if !rest.isEmpty {
+                MMEyebrow("Coming up", topPadding: invites.isEmpty ? 8 : MMLayout.sectionGap)
+                VStack(spacing: 16) {
+                    ForEach(rest) { s in sessionCard(s) }
                 }
-            } footer: {
-                if showsPinnedPlan {
-                    MMButton("Plan a training session", size: .lg, iconLeft: "plus", fullWidth: true) { mm.go(.create()) }
-                        // The tab bar overlays the screen and includes the home-indicator inset.
-                        .padding(.bottom, max(0, MMLayout.tabBarHeight - viewport.safeAreaInsets.bottom))
+                .padding(.horizontal, 16)
+            }
+        }
+        .animation(MMMotion.easeOut(), value: list.map(\.id))
+        .sheet(item: $editingGoal, onDismiss: { attachNewGoalTo = nil }) { goal in
+            MatGoalEditorSheet(draft: goal, isNew: mm.goal(goal.id) == nil) { saved in
+                if let sessionID = attachNewGoalTo { mm.setGoal(saved.id, forSession: sessionID) }
+            }
+        }
+        .mmSheet(isPresented: Binding(get: { pickingFor != nil }, set: { if !$0 { pickingFor = nil } }),
+                 title: "Pick a goal", description: "What do you want reps on this time?") {
+            goalPicker
+        }
+        .sheet(item: $editingSession) { s in
+            MatSessionEditorSheet(session: s, startsAt: mm.startDate(of: s))
+        }
+        .confirmationDialog("Delete \(deletingSession?.title ?? "this session")?",
+                            isPresented: Binding(get: { deletingSession != nil }, set: { if !$0 { deletingSession = nil } }),
+                            titleVisibility: .visible, presenting: deletingSession) { s in
+            Button("Delete session", role: .destructive) { mm.deleteSession(s.id) }
+            Button("Keep it", role: .cancel) {}
+        } message: { s in
+            Text(s.people.count > 1 ? "It comes off everyone's schedule." : "It comes off your schedule.")
+        }
+    }
+
+    private func sessionCard(_ s: Session) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SessionTicket(session: s, reservesMenuSpace: s.organizer == "me") { mm.go(.session(id: s.id)) }
+                .overlay(alignment: .topTrailing) {
+                    if s.organizer == "me" { sessionMenu(s) }
+                }
+            goalRow(s)
+            if s.status(of: "me") == .invited {
+                HStack(spacing: 8) {
+                    MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(s.id, .declined) }
+                    MMButton("Join", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
                 }
             }
-            .animation(MMMotion.easeOut(), value: list.map(\.id))
+        }
+    }
+
+    /// Host-only options on a ticket.
+    private func sessionMenu(_ s: Session) -> some View {
+        Menu {
+            Button { editingSession = s } label: { Label("Edit session", image: "pencil") }
+            Button(role: .destructive) { deletingSession = s } label: { Label("Delete session", image: "trash-2") }
+        } label: {
+            MMIcon("ellipsis", size: 20, color: MMColor.ink700)
+                .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Options for \(s.title)")
+        .padding(.top, 2)
+        .padding(.trailing, 2)
+    }
+
+    /// The goal attached to a session (opens the goal), or a quiet way to pick one.
+    @ViewBuilder
+    private func goalRow(_ s: Session) -> some View {
+        if let goal = mm.goal(forSession: s.id) {
+            HStack(spacing: 4) {
+                Button { mm.go(.goal(id: goal.id)) } label: {
+                    HStack(spacing: 6) {
+                        MMIcon("notebook-pen", size: 14, color: MMColor.ink700)
+                        Text(goal.title).mmFont(.body, 13, .semibold, lineHeight: 1).foregroundStyle(MMColor.ink900)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .background(Capsule().fill(MMColor.paper2))
+                    .frame(minHeight: MMLayout.tapTarget)
+                }
+                .buttonStyle(MMPressStyle(scale: 0.96))
+                .accessibilityLabel("Working on \(goal.title)")
+                Button { pickingFor = s.id } label: {
+                    Text("Change").mmFont(.body, 13, .bold, lineHeight: 1).foregroundStyle(MMColor.coral700)
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: MMLayout.tapTarget)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Change goal for \(s.title)")
+            }
+        } else {
+            Button { pickingFor = s.id } label: {
+                HStack(spacing: 4) {
+                    MMIcon("plus", size: 14, weight: .bold)
+                    Text("Pick a goal").mmFont(.body, 13, .bold, lineHeight: 1)
+                }
+                .foregroundStyle(MMColor.coral700)
+                .padding(.horizontal, 4)
+                .frame(minHeight: MMLayout.tapTarget)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(MMPressStyle(scale: 0.96))
         }
     }
 
     @ViewBuilder
-    private var pastList: some View {
-        if mm.posts.filter({ $0.participants.contains("me") }).isEmpty {
-            MMEmptyState(artwork: .memory, title: "Your mat memories\nstart here.",
-                         message: "Already got some rounds in?\nLog the session and share a photo.",
-                         actionTitle: "Log a past session", actionIcon: "history") {
-                mm.go(.create(past: true))
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Missed a session? Log it after the fact and it still counts for your streaks.")
-                    .mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
-                    .padding(.horizontal, 4)
-                MMButton("Log a past session", variant: .secondary, iconLeft: "history", fullWidth: true) { mm.go(.create(past: true)) }
-                ForEach(mm.posts.filter { $0.participants.contains("me") }) { p in
-                    Button { mm.go(.post(id: p.id)) } label: {
-                        HStack(spacing: 12) {
-                            MMPhotoTile(photo: p.photo, height: 56, radius: 14).frame(width: 56)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(p.title).mmFont(.display, 15).foregroundStyle(MMColor.ink900)
-                                Text("\(p.date) · \(p.participants.count) people").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            MMBadge("Shared", variant: .success)
+    private var goalPicker: some View {
+        if let sessionID = pickingFor {
+            let current = mm.sessionGoals[sessionID]
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(mm.goals) { g in
+                    MMTag(g.title, icon: current == g.id ? "check" : nil, selected: current == g.id, action: {
+                        mm.setGoal(current == g.id ? nil : g.id, forSession: sessionID)
+                        pickingFor = nil
+                    })
+                }
+                HStack(spacing: 8) {
+                    MMButton("New goal", variant: .secondary, size: .sm, iconLeft: "plus") {
+                        pickingFor = nil
+                        attachNewGoalTo = sessionID
+                        // Let the picker finish dismissing before the editor presents.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(0.35))
+                            editingGoal = .new()
                         }
-                        .padding(10)
-                        .mmCardSurface(radius: 20)
                     }
-                    .buttonStyle(MMPressStyle())
+                    if current != nil {
+                        MMButton("No goal this time", variant: .ghost, size: .sm) {
+                            mm.setGoal(nil, forSession: sessionID)
+                            pickingFor = nil
+                        }
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+}
+
+/// Host-only edit: name, when, gym and note. People and the focus plan stay as they are.
+private struct MatSessionEditorSheet: View {
+    @Environment(AppModel.self) private var mm
+    @Environment(\.dismiss) private var dismiss
+    let session: Session
+    @State private var title: String
+    @State private var startsAt: Date
+    @State private var gym: String
+    @State private var note: String
+    @State private var saving = false
+
+    init(session: Session, startsAt: Date) {
+        self.session = session
+        _title = State(initialValue: session.title)
+        _startsAt = State(initialValue: startsAt)
+        _gym = State(initialValue: session.gym)
+        _note = State(initialValue: session.note ?? "")
+    }
+
+    private var canSave: Bool {
+        !saving && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        ScrollView {
+            MMDialogBody(title: "Edit session", description: "Everyone in it sees the change.", onClose: { dismiss() }) {
+                VStack(alignment: .leading, spacing: 18) {
+                    MMTextField(label: "Session name", placeholder: "Saturday open mat", text: $title)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("When").mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
+                        DatePicker("When", selection: $startsAt, displayedComponents: [.date, .hourAndMinute])
+                            .labelsHidden()
+                            .tint(MMColor.accent)
+                    }
+                    MMTextField(label: "Gym", placeholder: "Where you're rolling", text: $gym, iconLeft: "map-pin")
+                    MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
+                }
+                .padding(.top, MMSpace.s4)
+            } actions: {
+                EmptyView()
+            }
+            .padding(MMSpace.s7)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            MMButton("Save changes", fullWidth: true) {
+                saving = true
+                Task {
+                    let saved = await mm.editSession(session.id, title: title, startsAt: startsAt, gym: gym, note: note)
+                    saving = false
+                    if saved { dismiss() }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
+            .disabled(!canSave)
+            .padding(MMSpace.s6)
+            .background(MMColor.bgApp)
         }
+        .background(MMColor.bgApp)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(MMRadius.xl)
+        .presentationBackground(MMColor.bgApp)
     }
 }
 

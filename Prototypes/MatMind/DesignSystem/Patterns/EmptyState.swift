@@ -2,7 +2,7 @@ import SwiftUI
 
 /// An invitation on the paper canvas, never a placeholder post or a loading skeleton.
 struct MMEmptyState: View {
-    enum Artwork { case memory, plan }
+    enum Artwork { case memory, plan, goals }
 
     var artwork: Artwork
     var title: String
@@ -90,6 +90,54 @@ struct MMEmptyState: View {
                 Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: 69, y: 8)
             }
             .rotationEffect(.degrees(5))
+        case .goals:
+            GoalTapesArtwork()
+        }
+    }
+}
+
+/// Three strips of athletic tape, each a goal, that drop onto the mat one after
+/// another with a bounce and then sway gently. Still when Reduce Motion is on.
+private struct GoalTapesArtwork: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var landed = false
+    @State private var sway = false
+
+    private struct Strip {
+        var text: String
+        var rotation: Double
+        var x: CGFloat
+        var y: CGFloat
+    }
+
+    private let strips = [
+        Strip(text: "Single leg", rotation: -6, x: -34, y: -54),
+        Strip(text: "RNC finish", rotation: 4, x: 30, y: 0),
+        Strip(text: "Knee cut", rotation: -3, x: -16, y: 54),
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(Array(strips.enumerated()), id: \.offset) { i, strip in
+                let drift: CGFloat = sway ? (i.isMultiple(of: 2) ? -4 : 4) : 0
+                Text(strip.text)
+                    .mmFont(.display, 20, tracking: -0.02, lineHeight: 1)
+                    .foregroundStyle(MMColor.ink900)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 18)
+                    .background(MMColor.tape)
+                    .clipShape(MMTapeShape())
+                    .shadow(color: MMColor.ink900.opacity(0.2), radius: 3, x: 0, y: 2)
+                    .rotationEffect(.degrees(landed ? strip.rotation + (sway ? 1.5 : 0) * (i.isMultiple(of: 2) ? 1 : -1) : strip.rotation * 3))
+                    .offset(x: strip.x, y: landed ? strip.y + drift : strip.y - 150)
+                    .opacity(landed ? 1 : 0)
+                    .animation(reduceMotion ? nil : MMMotion.bounce(MMMotion.slow).delay(Double(i) * 0.14), value: landed)
+            }
+        }
+        .onAppear {
+            landed = true
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true).delay(1)) { sway = true }
         }
     }
 }

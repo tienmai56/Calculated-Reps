@@ -93,6 +93,8 @@ struct Session: Identifiable, Hashable {
     var people: [Attendee]
     var note: String?
     var focusItems: [TrainingFocus] = []
+    /// The exact start, when known (live sessions). Preview sessions only have day/month/time text.
+    var startsAt: Date? = nil
 
     func status(of id: String) -> RSVP? { people.first { $0.id == id }?.status }
 
@@ -122,7 +124,7 @@ struct AppNotification: Identifiable, Hashable {
 }
 
 enum AppTab: String, CaseIterable {
-    case activity, training, friends, profile
+    case activity, training, goals, profile
 }
 
 /// Pushed screens. The tab bar only shows on the tab roots.
@@ -132,6 +134,9 @@ enum Route: Hashable {
     case create(past: Bool = false, friend: String? = nil, focus: [TrainingFocus] = [])
     case complete(id: String)
     case friend(id: String)
+    /// Friends now open from Profile instead of a tab.
+    case friends
+    case goal(id: String)
     case qr(scan: Bool = false)
     case notifications
 }
@@ -161,4 +166,46 @@ struct StreakTick: Identifiable {
 struct PublishResult {
     var post: Post
     var streaks: [StreakTick]
+}
+
+/// Something you're working on for your own game, e.g. "Single leg from standing".
+/// Goals are personal: they live on this device and are attached to sessions
+/// only in your own schedule. There is no scoring or completion tracking.
+struct MatGoal: Identifiable, Hashable, Codable {
+    var id: String
+    var title: String
+    /// Where it happens on the mat. No longer shown or edited; kept so goals saved
+    /// by earlier builds still decode.
+    var position: String = ""
+    /// Free-form notes; a line starting with "-" reads as a bullet.
+    var notes: String = ""
+    /// Reference links (instructionals, videos).
+    var links: [String] = []
+    /// Reference photos: asset names in the preview, or paths relative to `photoRoot`.
+    var photos: [String] = []
+
+    /// Private folder for goal photos (relative paths survive app updates moving the container).
+    static var photoRoot: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MatMonkeysGoalPhotos", isDirectory: true)
+    }
+
+    static func new() -> MatGoal {
+        MatGoal(id: "g\(Int(Date().timeIntervalSince1970 * 1000))", title: "")
+    }
+
+    /// A stored photo reference as something `MMPhoto` can show: imported files live under `photoRoot`.
+    static func photoSource(_ photo: String) -> String {
+        let file = photoRoot.appendingPathComponent(photo)
+        return FileManager.default.fileExists(atPath: file.path) ? file.path : photo
+    }
+
+    /// Notes collapsed to one line for card previews.
+    var notesPreview: String {
+        notes.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .map { $0.hasPrefix("-") ? String($0.dropFirst()).trimmingCharacters(in: .whitespaces) : $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
 }

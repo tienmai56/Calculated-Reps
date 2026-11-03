@@ -332,6 +332,114 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
     }
 
+    func testPlanningFromAGoalAttachesItToTheNewSession() {
+        let ui = AppModel(live: false)
+        ui.setTab(.goals)
+        ui.go(.goal(id: "g2"))
+        ui.planSession(forGoal: "g2")
+        XCTAssertEqual(ui.path.last, .create())
+        let draft = SessionDraft(title: "Back takes", day: "Wed", date: 11, month: "Nov", time: "6:00 PM", gym: "Tidewater BJJ",
+                                 note: "", invited: [], privacy: .friends, past: false)
+        ui.createSession(draft)
+        let created = ui.upcoming.last
+        XCTAssertEqual(created?.title, "Back takes")
+        XCTAssertEqual(created.flatMap { ui.goal(forSession: $0.id)?.id }, "g2")
+        XCTAssertNil(ui.pendingPlanGoal)
+
+        // Backing out of the plan form forgets the goal.
+        ui.planSession(forGoal: "g3")
+        ui.back()
+        XCTAssertNil(ui.pendingPlanGoal)
+    }
+
+    func testGoalPhotosAreSavedPrivatelyAndRemovable() throws {
+        let ui = AppModel(live: false)
+        let big = UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 1500)).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 3000, height: 1500))
+        }
+        let data = try XCTUnwrap(big.pngData())
+        XCTAssertTrue(ui.addPhoto(data, toGoal: "g4"))
+        let photo = try XCTUnwrap(ui.goal("g4")?.photos.last)
+        let file = MatGoal.photoRoot.appendingPathComponent(photo)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: file.path))
+        XCTAssertEqual(MatGoal.photoSource(photo), file.path)
+        let saved = try XCTUnwrap(UIImage(contentsOfFile: file.path))
+        XCTAssertLessThanOrEqual(max(saved.size.width, saved.size.height), 2048, "Large photos are scaled down")
+        XCTAssertFalse(ui.addPhoto(Data("not an image".utf8), toGoal: "g4"))
+
+        ui.removePhoto(photo, fromGoal: "g4")
+        XCTAssertFalse(ui.goal("g4")?.photos.contains(photo) ?? true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path), "Removing a photo deletes its file")
+    }
+
+    func testReferenceLinksAreNormalizedAndValidated() {
+        let ui = AppModel(live: false)
+        XCTAssertTrue(ui.addLink("  youtube.com/watch?v=abc ", toGoal: "g4"))
+        XCTAssertEqual(ui.goal("g4")?.links, ["https://youtube.com/watch?v=abc"])
+        XCTAssertTrue(ui.addLink("https://youtube.com/watch?v=abc", toGoal: "g4"))
+        XCTAssertEqual(ui.goal("g4")?.links.count, 1, "The same link is kept once")
+        XCTAssertFalse(ui.addLink("not a link", toGoal: "g4"))
+        XCTAssertFalse(ui.addLink("ftp://files.example.com", toGoal: "g4"))
+    }
+
+    func testHostCanEditAndDeleteOnlyTheirOwnSessions() async {
+        let ui = AppModel(live: false)
+        let start = ISO8601DateFormatter().date(from: "2026-11-08T18:30:00Z")!
+
+        let edited = await ui.editSession("s1", title: "  Sunday open mat ", startsAt: start, gym: "Harbor Jiu-Jitsu", note: "")
+        XCTAssertTrue(edited)
+        let session = ui.findSession("s1")
+        XCTAssertEqual(session?.title, "Sunday open mat")
+        XCTAssertEqual(session?.gym, "Harbor Jiu-Jitsu")
+        XCTAssertEqual(session?.startsAt, start)
+        XCTAssertNil(session?.note)
+        XCTAssertEqual(ui.startDate(of: session!), start)
+
+        let blank = await ui.editSession("s1", title: "  ", startsAt: start, gym: "Harbor Jiu-Jitsu", note: "")
+        XCTAssertFalse(blank, "A session needs a name")
+        let notMine = await ui.editSession("s2", title: "Mine now", startsAt: start, gym: "Anywhere", note: "")
+        XCTAssertFalse(notMine, "Only the host can edit")
+
+        XCTAssertNotNil(ui.goal(forSession: "s1"))
+        ui.deleteSession("s1")
+        XCTAssertNil(ui.findSession("s1"))
+        XCTAssertNil(ui.goal(forSession: "s1"), "A deleted session drops its goal")
+        ui.deleteSession("s2")
+        XCTAssertNotNil(ui.findSession("s2"), "Only the host can delete")
+    }
+
+    func testGoalsAttachToSessionsAndPersistPerAccountInTheInstalledApp() {
+        let ui = AppModel(live: true)
+        XCTAssertTrue(ui.goals.isEmpty, "The installed app never shows sample goals")
+        let account = "goal-test-\(UUID().uuidString)"
+        defer { UserDefaults.standard.removeObject(forKey: "matmonkeys.goals.\(account)") }
+        ui.loadGoals(account: account)
+
+        var goal = MatGoal.new()
+        goal.title = "  Single leg from standing  "
+        goal.notes = "Head inside\n- Run the pipe"
+        XCTAssertTrue(ui.saveGoal(goal))
+        XCTAssertEqual(ui.goals.first?.title, "Single leg from standing")
+        XCTAssertEqual(ui.goals.first?.notesPreview, "Head inside Run the pipe")
+        XCTAssertFalse(ui.saveGoal(MatGoal(id: "blank", title: "   ")), "A goal needs a name")
+        ui.setGoal(goal.id, forSession: "session-1")
+        XCTAssertEqual(ui.goal(forSession: "session-1")?.id, goal.id)
+
+        let reopened = AppModel(live: true)
+        reopened.loadGoals(account: account)
+        XCTAssertEqual(reopened.goals.map(\.id), [goal.id])
+        XCTAssertEqual(reopened.sessionGoals["session-1"], goal.id)
+
+        let otherAccount = AppModel(live: true)
+        otherAccount.loadGoals(account: account + "-other")
+        XCTAssertTrue(otherAccount.goals.isEmpty, "Goals are kept per account")
+
+        reopened.deleteGoal(goal.id)
+        XCTAssertTrue(reopened.goals.isEmpty)
+        XCTAssertNil(reopened.goal(forSession: "session-1"))
+    }
+
     func testLivePhotoRenderingRejectsBundledSampleImages() throws {
 #if DEBUG
         XCTAssertNotNil(MMPhoto.image(source: "floor-drill", allowsSamplePhotos: true))

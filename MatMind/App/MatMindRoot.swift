@@ -50,6 +50,7 @@ struct MatMindRoot: View {
                 let services = LiveMatMindRuntime(model: model, ui: ui)
                 runtime = services
                 ui.runtime = services
+                ui.readGoalExport = { url in try LegacyGoalImporter.read(url).goals }
 #if DEBUG
                 ui.previewAction = {
                     model.error = nil
@@ -459,8 +460,9 @@ final class LiveMatMindRuntime: AppRuntime {
             avatarPhotos = [:]
             photoOwner = model.userID
         }
-        guard model.userID != nil else { ui.clearLiveData(); ui.isSignedIn = false; return }
+        guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.isSignedIn = true
+        ui.loadGoals(account: userID)
         ui.me = model.me.map(person) ?? Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         ui.people = Dictionary(uniqueKeysWithValues: model.snapshot.profiles.filter { $0.id != model.userID }.map { (localID($0.id), person($0)) })
         ui.gyms = Array(Set(model.snapshot.profiles.map { $0.text("gym") }.filter { !$0.isEmpty })).sorted()
@@ -485,7 +487,7 @@ final class LiveMatMindRuntime: AppRuntime {
                            month: dateText(date, "MMM"), time: dateText(date, "h:mm a"), gym: row.text("venue"), organizer: localID(row.text("organizer")),
                            privacy: Privacy(rawValue: row.text("join_mode")) ?? .friends,
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
-                           note: content.note.isEmpty ? nil : content.note, focusItems: content.focus)
+                           note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
         ui.toComplete = ui.upcoming.first { session in
             session.organizer == "me" && (model.session(session.id)?.date("starts_at") ?? .distantFuture) <= Date()
@@ -629,6 +631,15 @@ final class LiveMatMindRuntime: AppRuntime {
         let result = await model.perform("edit_session", ["session_id": sessionID, "version": row.number("version"), "title": row.text("title"),
                                                        "starts_at": row.text("starts_at"), "timezone": row.text("timezone"), "venue": row.text("venue"),
                                                        "note": SessionNoteCodec.encode(note: old.note, focus: items)])
+        sync(); return result != nil
+    }
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+        guard let row = model.session(sessionID) else { return false }
+        // Keep the focus plan that shares the note field.
+        let old = SessionNoteCodec.decode(row.text("note"))
+        let result = await model.perform("edit_session", ["session_id": sessionID, "version": row.number("version"), "title": title,
+                                                       "starts_at": ISO8601DateFormatter().string(from: startsAt), "timezone": row.text("timezone"),
+                                                       "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: old.focus)])
         sync(); return result != nil
     }
     func scannerView(found: @escaping (String) -> Void) -> AnyView { AnyView(LiveScannerView(found: found)) }
