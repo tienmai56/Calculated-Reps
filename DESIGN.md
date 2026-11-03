@@ -346,7 +346,7 @@ Session planning keeps its existing form layout and controls. A compact **Add a 
 
 Details are one level deep: each focus card has a single Add a detail at its foot, and each detail row has its own remove button (no nested details). Keep stable IDs and sibling order. Deeper items saved by earlier builds still render indented, labeled by level, and can be removed. Suggestions only populate content when selected; never pre-fill a real user's plan. Named items are required when present; no content at all is allowed.
 
-Removing a branch requires confirmation and removes all descendants; cancel preserves the branch. The organizer can edit the session's outline. Store it with the session and copy it to the completed post so publication does not discard the plan. Read-only outlines retain the same hierarchy. No technique scoring, rankings, completion counters, or free-form posts are added.
+Removing a branch requires confirmation and removes all descendants; cancel preserves the branch. The organizer can edit the session's outline. Store it with the session and copy it to the completed post so publication does not discard the plan. Read-only outlines retain the same hierarchy. **Posts show focus names only, never details:** in the Activity feed, one horizontally scrolling row of small non-interactive tags directly under the post title, led by a notebook icon on a sunken circle (the caption clamps to two lines); on post detail, the same tags wrapping under "What we worked on". No technique scoring, rankings, completion counters, or free-form posts are added.
 
 Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Browser companion: `Prototypes/FocusPreview/`.
 

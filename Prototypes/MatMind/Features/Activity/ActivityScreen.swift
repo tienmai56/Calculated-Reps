@@ -212,8 +212,13 @@ struct PostCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(post.title).mmFont(.display, 21, tracking: -0.025, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
+                if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
+                    TrainingFocusNames(items: post.focusItems)
+                        .padding(.top, MMSpace.s1)
+                }
                 if !post.caption.isEmpty {
                     MentionText(text: post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
+                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -393,9 +398,9 @@ struct PostDetailScreen: View {
                     MentionText(text: post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
-                    if !post.focusItems.isEmpty {
+                    if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
                         Text("What we worked on").mmFont(.display, 16).padding(.top, MMSpace.s8)
-                        TrainingFocusOutline(items: post.focusItems).padding(.top, MMSpace.s5)
+                        TrainingFocusNames(items: post.focusItems, wraps: true).padding(.top, MMSpace.s5)
                     }
                     Text("On the mat").mmFont(.display, 16).padding(.top, 18)
                     ScrollView(.horizontal, showsIndicators: false) {

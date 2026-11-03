@@ -267,3 +267,41 @@ struct TrainingFocusOutline: View {
         .mmCardSurface()
     }
 }
+
+/// Focus names only, for posts. A session's details stay with the people who
+/// planned it, so the feed and post detail never show them.
+struct TrainingFocusNames: View {
+    var items: [TrainingFocus]
+    /// Wrap onto several lines (post detail) instead of one scrolling row (feed card).
+    var wraps = false
+
+    private var titles: [String] {
+        TrainingFocusTree.normalized(items).map(\.title).filter { !$0.isEmpty }
+    }
+
+    var body: some View {
+        Group {
+            if wraps {
+                MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) { tags }
+            } else {
+                HStack(spacing: MMSpace.s4) {
+                    MMIcon("notebook-pen", size: 16, color: MMColor.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(MMColor.surfaceSunken))
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: MMSpace.s4) { tags }
+                            .padding(.vertical, MMSpace.s1)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("What we worked on: \(titles.joined(separator: ", "))")
+    }
+
+    private var tags: some View {
+        ForEach(Array(titles.enumerated()), id: \.offset) { _, title in
+            MMTag(title, size: .sm)
+        }
+    }
+}

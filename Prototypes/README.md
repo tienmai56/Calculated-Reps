@@ -40,7 +40,7 @@ Blank items must be named or removed before saving; a completely empty outline i
 
 When you have goals, they show as tags at the top of the section. Tapping one adds a focus named after the goal. Its details start blank, and a collapsed **Goal notes** toggle shows the goal's notes for reference without copying them into the session. Tap the tag again to remove that focus. Without goals, the section starts with a blank card and a hint that goals will show up there.
 
-The organizer can edit the outline on session details using the pencil beside **What we're working on**. Closing the editor discards unsaved edits. The outline is carried into the completion flow and kept in the published post under **What we worked on**.
+The organizer can edit the outline on session details using the pencil beside **What we're working on**. Closing the editor discards unsaved edits. The outline is carried into the completion flow and kept with the published post. Posts show only the focus names: as one scrolling row of tags under the title in the Activity feed (the caption is cut to two lines there), and as wrapping tags under **What we worked on** on post detail. Details are never shown on posts.
 
 For a populated example, long-press the Mat Monkeys wordmark → States → **Plan a session · nested focus details** (a focus with details). Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
 
