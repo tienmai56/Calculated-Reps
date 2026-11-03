@@ -2,7 +2,7 @@
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
-> Version 1.2.0 · Last updated 2026-11-02
+> Version 1.2.0 · Last updated 2026-11-03
 
 ## Contents
 1. Product
@@ -333,10 +333,24 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (invites and upc
 
 Journeys:
 - **A — Plan together:** Training → Plan a session → gym/date/time → invite → friends join → session shows participants.
-- **B — Share a memory:** completed session → take or upload a photo → publish → post on every participant's profile and friends' feeds → likes/comments. A photo enables publishing; no completion toggle is required.
+- **B — Share a memory:** completed session → take or upload a photo and/or write a note → publish → post on every participant's profile and friends' feeds → likes/comments. A photo **or** a note enables publishing (see Share the session); no completion toggle is required.
 - **C — Keep a streak:** Profile → Friends → active streak → friend profile → invite → complete together → streak +1.
 
 Streak rule: a week counts when two friends both participate in ≥1 **completed** session together within the same Mon–Sun calendar week; consecutive weeks extend the streak.
+
+### Share the session
+
+**Rule: a photo or a note, at least one.** Photos are optional, but a post is never blank. Publish to Activity unlocks once there is a photo, a note, or both. The session focus ("What we worked on") is copied from the plan and never counts on its own. A note that is only whitespace or only `@tags` counts as empty (trim before checking).
+
+- **Say the rule up front.** One hint line sits centered above Publish (13px Archivo with a 16px Lucide icon). Neither field is labeled required or optional.
+- **Nothing yet:** Publish is disabled (paper-3 fill, ink-500 text, no shade edge). Hint: info icon, ink-700, “Add a photo, a few words, or both to share.”
+- **Publish tapped while empty:** no banner, toast or dialog. The hint turns coral-700 with a circle-alert icon, “Add a photo or a few words first”, and the note field takes focus (`--ring-focus`, keyboard up), since typing is the fastest fix. Announce the hint to VoiceOver.
+- **Photo, no note:** the photo fills the slot with Retake and Remove. The note placeholder becomes “Add a few words? @tag a partner”. Hint: circle-check, mint-700, “Photo's in. Words are a bonus.”
+- **Note, no photo:** the photo slot stays as the hatched prompt, but Take photo turns white so Publish is the only coral button. Hint: “Words are in. A photo's a bonus.”
+- **Both:** hint “Photo and words. The crew's going to love it.”
+- Removing the photo or clearing the note re-evaluates the rule immediately; the hint and button change with `--ease-out` at `--dur-fast`.
+
+**A post without a photo** in Activity is the same white card (radius 28) with the pair header, the note as plain body-l text (17px Archivo, ink-900, coral mentions), the focus as a neutral paper-2 chip, then Like and Comment. No colored block, quote mark or placeholder image: the card is simply shorter.
 
 ### Session focus outline
 
