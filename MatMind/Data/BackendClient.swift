@@ -60,6 +60,8 @@ struct SocialSnapshot: Codable, Equatable {
     var participants: [SocialRow] = [], posts: [SocialRow] = [], tags: [SocialRow] = []
     var likes: [SocialRow] = [], comments: [SocialRow] = [], credits: [SocialRow] = []
     var media: [SocialRow] = [], notifications: [SocialRow] = []
+    /// Optional so caches saved before goal sharing still decode.
+    var shared_goals: [SocialRow]? = nil, goal_shares: [SocialRow]? = nil
 }
 
 @Model final class CachedSocialState {

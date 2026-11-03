@@ -72,9 +72,11 @@ Schedule the notification worker (for example once per minute) with its `x-worke
 
 `delete-account` verifies the caller with Auth, removes owned cloud media, executes scoped social-data deletion and deletes the Auth identity. It never touches on-device archives. A failed partial cloud deletion is retryable; exercise this path against staging before production rollout.
 
+**Goal sharing (not deployed yet):** `20261104120000_goal_sharing.sql` adds `shared_goals` (the copy an owner publishes when they share a goal, updated on every save) and `goal_shares` (one row per recipient: pending, accepted or declined), a `goal` capability kind for links, the private JPEG-only `goal-media` bucket, and the commands `publish_goal`, `share_goal`, `goal_token`, `redeem_goal_link`, `respond_goal_share` and `unshare_goal`. Recipients who aren't friends can see the sender's profile. `snapshot()` returns both tables, `erase_social_account` removes them, and `delete-account` also clears the member's `goal-media` folder. Notifications use the new kind `goal_share`. `supabase/tests/goal_sharing.sql` covers upload ownership, friend-only direct shares, link invitations for non-friends, decline and re-share, blocking, unsharing and account deletion; CI runs it with the other SQL tests. Deploy the migration and `delete-account` before shipping the app build that shows Share. The website needs a `/goal/:token` route (see website-link-handoff) before HTTPS goal links are enabled.
+
 ## Friend and session links
 
-Development links use `matmind://friend/<token>` and `matmind://session/<token>`. Real QR images encode those actual links, and scanning redeems a server-issued expiring capability.
+Development links use `matmind://friend/<token>`, `matmind://session/<token>` and `matmind://goal/<token>`. Real QR images encode those actual links, and scanning redeems a server-issued expiring capability.
 
 The selected invitation host is **https://matmindbjj.lovable.app/**. It is configured as `AppLinkHost`, and `applinks:matmindbjj.lovable.app` is in the app's Associated Domains entitlement.
 

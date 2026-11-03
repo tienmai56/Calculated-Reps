@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Tab 3: what you're working on. Each goal has its details and references,
-/// and can be brought to a session.
+/// and can be brought to a session. Shared holds goals training partners shared with you.
 struct GoalsScreen: View {
     @Environment(AppModel.self) private var mm
     /// The goal being added.
@@ -20,7 +20,16 @@ struct GoalsScreen: View {
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
             })
         } content: {
-            if goals.isEmpty {
+            let invites = mm.goalInvites.count
+            MMTabs(items: [MMTabItem(GoalsSection.mine.rawValue, "Mine"),
+                           MMTabItem(GoalsSection.shared.rawValue, "Shared", count: invites > 0 ? invites : nil)],
+                   selection: Binding(get: { mm.goalsSection.rawValue },
+                                      set: { mm.goalsSection = GoalsSection(rawValue: $0) ?? .mine }))
+                .padding(.horizontal, 16)
+                .padding(.top, 2)
+            if mm.goalsSection == .shared {
+                SharedGoalsSection()
+            } else if goals.isEmpty {
                 MMEmptyState(artwork: .goals, title: "What are you\nchasing?",
                              message: "Name it. Bring it to the mat.",
                              actionTitle: "Add a goal", actionIcon: "plus",
@@ -48,6 +57,7 @@ struct GoalsScreen: View {
             }
         }
         .animation(MMMotion.easeOut(), value: goals.map(\.id))
+        .animation(MMMotion.easeOut(), value: mm.sharedGoals.map(\.id))
         .sheet(item: $editingGoal) { goal in
             MatGoalEditorSheet(draft: goal, isNew: mm.goal(goal.id) == nil)
         }
@@ -114,6 +124,7 @@ struct GoalDetailScreen: View {
     @State private var loadedID: String?
     @State private var confirmDiscard = false
     @State private var confirmDelete = false
+    @State private var sharing = false
     @State private var addingLink = false
     @State private var linkDraft = ""
     @State private var pickedPhoto: PhotosPickerItem?
@@ -139,8 +150,13 @@ struct GoalDetailScreen: View {
                     if hasChanges(goal) { confirmDiscard = true } else { mm.back() }
                 }
             }, trailing: {
+                MMIconButton("share-2", label: "Share goal") {
+                    // Recipients get the saved goal, so unsaved edits come first.
+                    if hasChanges(goal) { mm.showToast("Save your changes first, then share") } else { sharing = true }
+                }
                 Menu {
                     Button { mm.planSession(forGoal: goal.id) } label: { Label("Plan a session for this", image: "calendar-plus") }
+                    Button { if hasChanges(goal) { mm.showToast("Save your changes first, then share") } else { sharing = true } } label: { Label("Share goal", image: "share-2") }
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete goal", image: "trash-2") }
                 } label: {
                     MMIcon("ellipsis", size: 22, color: MMColor.ink900)
@@ -207,7 +223,12 @@ struct GoalDetailScreen: View {
             }
             Button("Keep it", role: .cancel) {}
         } message: {
-            Text("Its details and references go with it.")
+            Text(mm.recipients(ofGoal: goal.id).isEmpty
+                 ? "Its details and references go with it."
+                 : "Its details and references go with it. Anyone you shared it with loses it too.")
+        }
+        .sheet(isPresented: $sharing) {
+            GoalShareSheet(goalID: goal.id)
         }
         .onChange(of: pickedPhoto) { _, item in
             guard let item else { return }

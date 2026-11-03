@@ -17,6 +17,11 @@ protocol AppRuntime: AnyObject {
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
     func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool
+    /// Creates or updates the shared copy of one of your goals (photos included) and
+    /// returns its id. Recipients see whatever was published last.
+    func publishGoal(_ goal: MatGoal) async -> String?
+    /// Copies a link to a shared goal. Anyone with an account who opens it gets an invitation.
+    func copyGoalLink(_ sharedID: String) async -> Bool
     func scannerView(found: @escaping (String) -> Void) -> AnyView
     func exportView() -> AnyView
 }
@@ -58,6 +63,7 @@ final class AppModel {
         people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
+        sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
     }
 
     private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
@@ -82,6 +88,14 @@ final class AppModel {
     var sessionGoals: [String: String] = [:]
     /// A goal waiting to be attached to the session being planned from its page.
     var pendingPlanGoal: String?
+    /// Goals training partners shared with you: invitations and the ones you accepted.
+    var sharedGoals: [SharedGoal] = []
+    /// Your goal's id → the id of its shared copy, for goals you've shared.
+    var sharedGoalIDs: [String: String] = [:]
+    /// Shared copy id → who it's shared with and how they answered (person id → pending / accepted / declined).
+    var goalRecipients: [String: [String: String]] = [:]
+    /// Publishes of each goal, run one after another so the latest save always lands last.
+    @ObservationIgnored private var goalPublishes: [String: Task<String?, Never>] = [:]
     /// The signed-in account whose goals are loaded (installed app only).
     @ObservationIgnored private var goalAccount: String?
     /// Reads an old-notebook export into goals. Supplied by the installed app, which
@@ -91,6 +105,8 @@ final class AppModel {
 
     // MARK: Navigation & feedback
     var tab: AppTab = .activity
+    /// Which list Goals shows. Accepting a shared goal switches it to Shared.
+    var goalsSection: GoalsSection = .mine
     var path: [Route] = []
     var toast: MMToastData?
     /// Post to highlight in the feed right after publishing.
@@ -121,6 +137,23 @@ final class AppModel {
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
 
     func goal(_ id: String) -> MatGoal? { goals.first { $0.id == id } }
+
+    func sharedGoal(_ id: String) -> SharedGoal? { sharedGoals.first { $0.id == id } }
+
+    /// Shared goals waiting for your answer, newest first.
+    var goalInvites: [SharedGoal] {
+        sharedGoals.filter { $0.status == .pending }.sorted { ($0.sharedAt ?? .distantPast) > ($1.sharedAt ?? .distantPast) }
+    }
+
+    /// Shared goals you accepted, newest first.
+    var acceptedSharedGoals: [SharedGoal] {
+        sharedGoals.filter { $0.status == .accepted }.sorted { ($0.sharedAt ?? .distantPast) > ($1.sharedAt ?? .distantPast) }
+    }
+
+    /// Who one of your goals is shared with (person id → pending / accepted / declined).
+    func recipients(ofGoal goalID: String) -> [String: String] {
+        sharedGoalIDs[goalID].flatMap { goalRecipients[$0] } ?? [:]
+    }
 
     /// The goal you attached to a session, if it still exists.
     func goal(forSession sessionID: String) -> MatGoal? { sessionGoals[sessionID].flatMap { goal($0) } }
@@ -598,6 +631,7 @@ final class AppModel {
             showToast("Added to what you're working on", .success)
         }
         persistGoals()
+        goalChanged(goal.id)
         return true
     }
 
@@ -630,6 +664,15 @@ final class AppModel {
     }
 
     func deleteGoal(_ id: String) {
+        // People it was shared with lose it too.
+        let publishing = goalPublishes.removeValue(forKey: id)
+        if let shared = sharedGoalIDs.removeValue(forKey: id) {
+            goalRecipients[shared] = nil
+            if isLive, let runtime {
+                // A save still being published would bring the shared copy back: unshare after it.
+                Task { _ = await publishing?.value; _ = await runtime.perform("unshare_goal", ["goal_id": shared]) }
+            }
+        }
         goal(id)?.allPhotos.forEach(Self.deleteGoalPhotoFile)
         goals.removeAll { $0.id == id }
         sessionGoals = sessionGoals.filter { $0.value != id }
@@ -673,6 +716,7 @@ final class AppModel {
         }
         if !goals[i].links.contains(text) { goals[i].links.append(text) }
         persistGoals()
+        goalChanged(id)
         showToast("Link added", .success)
         return true
     }
@@ -694,6 +738,7 @@ final class AppModel {
         guard let relative = storeGoalPhoto(data, goalID: id) else { return false }
         goals[i].photos.append(relative)
         persistGoals()
+        goalChanged(id)
         if announce { showToast("Photo added", .success) }
         return true
     }
@@ -703,7 +748,92 @@ final class AppModel {
         goals[i].photos.removeAll { $0 == photo }
         Self.deleteGoalPhotoFile(photo)
         persistGoals()
+        goalChanged(id)
         showToast("Photo removed")
+    }
+
+    // MARK: Sharing goals
+
+    /// A saved goal that's already shared: send the new version so recipients see it.
+    private func goalChanged(_ id: String) {
+        guard sharedGoalIDs[id] != nil else { return }
+        _ = publishLatest(id)
+    }
+
+    /// Publishes the goal as it is when the publish runs, after any earlier one finishes.
+    private func publishLatest(_ goalID: String) -> Task<String?, Never>? {
+        guard let runtime else { return nil }
+        let previous = goalPublishes[goalID]
+        let task = Task { @MainActor [weak self] () -> String? in
+            _ = await previous?.value
+            guard !Task.isCancelled, let self, let goal = self.goal(goalID) else { return nil }
+            let shared = await runtime.publishGoal(goal)
+            if let shared, self.goal(goalID) != nil { self.sharedGoalIDs[goalID] = shared }
+            return shared
+        }
+        goalPublishes[goalID] = task
+        return task
+    }
+
+    /// Shares one of your goals with training partners. Everything in it goes along:
+    /// notes, parts, videos, photos and links. They get an invitation to accept or decline.
+    @discardableResult
+    func shareGoal(_ goalID: String, with people: [String]) async -> Bool {
+        let people = people.filter { $0 != "me" }
+        guard goal(goalID) != nil, !people.isEmpty else { return false }
+        if let runtime {
+            guard let shared = await publishLatest(goalID)?.value,
+                  await runtime.perform("share_goal", ["goal_id": shared, "recipients": people]) else { return false }
+        } else {
+            guard !isLive else { return false }
+            sharedGoalIDs[goalID] = goalID
+            var answers = goalRecipients[goalID] ?? [:]
+            for person in people where answers[person] != "accepted" { answers[person] = "pending" }
+            goalRecipients[goalID] = answers
+        }
+        showToast(people.count == 1 ? "Shared with \(person(people[0]).firstName)" : "Shared with \(people.count) training partners", .success)
+        return true
+    }
+
+    /// Copies a link to one of your goals for people who aren't training partners yet.
+    @discardableResult
+    func copyGoalLink(_ goalID: String) async -> Bool {
+        guard goal(goalID) != nil else { return false }
+        if let runtime {
+            guard let shared = await publishLatest(goalID)?.value, await runtime.copyGoalLink(shared) else { return false }
+        } else {
+            guard !isLive else { return false }
+            sharedGoalIDs[goalID] = goalID
+        }
+        showToast("Goal link copied", .success)
+        return true
+    }
+
+    /// Accepts a shared goal (it moves to Shared) or declines it. Declining one you
+    /// already accepted removes it from Shared; the owner can share it again.
+    @discardableResult
+    func respondToSharedGoal(_ id: String, accept: Bool) async -> Bool {
+        guard let shared = sharedGoal(id) else { return false }
+        let wasAccepted = shared.status == .accepted
+        if let runtime {
+            guard await runtime.perform("respond_goal_share", ["goal_id": id, "accept": accept]) else { return false }
+        } else {
+            guard !isLive else { return false }
+            if accept, let i = sharedGoals.firstIndex(where: { $0.id == id }) {
+                sharedGoals[i].status = .accepted
+            } else if !accept {
+                sharedGoals.removeAll { $0.id == id }
+            }
+            for i in notifications.indices where notifications[i].kind == .goalShare && notifications[i].session == id {
+                notifications[i].unread = false
+            }
+        }
+        if accept {
+            showToast("\(shared.title) is in Shared", .success)
+        } else {
+            showToast(wasAccepted ? "Removed from Shared" : "Declined. No hard feelings.")
+        }
+        return true
     }
 
     /// Writes a goal photo privately on this device (JPEG, no metadata, at most 2048 px)
@@ -789,6 +919,9 @@ final class AppModel {
         cameraRoll = SeedData.cameraRoll
         goals = SeedData.goals
         sessionGoals = SeedData.sessionGoals
+        sharedGoals = SeedData.sharedGoals
+        sharedGoalIDs = [:]
+        goalRecipients = [:]
 #endif
         drafts = []
         path = []
