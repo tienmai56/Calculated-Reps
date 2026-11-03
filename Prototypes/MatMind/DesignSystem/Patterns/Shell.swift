@@ -297,7 +297,10 @@ struct MMPhoto: View {
     @Environment(\.allowsSamplePhotos) private var allowsSamplePhotos
 
     static func image(source: String, allowsSamplePhotos: Bool) -> UIImage? {
-        if source.hasPrefix("/") { return UIImage(contentsOfFile: source) }
+        if source.hasPrefix("/") {
+            guard let data = try? Data(contentsOf: URL(fileURLWithPath: source), options: .mappedIfSafe) else { return nil }
+            return UIImage(data: data)
+        }
         return allowsSamplePhotos ? UIImage(named: source) : nil
     }
 
