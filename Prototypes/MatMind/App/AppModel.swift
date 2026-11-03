@@ -225,6 +225,28 @@ final class AppModel {
         updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true)) }
     }
 
+    /// Reasons offered when reporting a post or comment (sent as the report's text).
+    static let reportReasons = ["Spam or scam", "Harassment or bullying", "Nudity or sexual content",
+                                "Violence or threats", "Hate speech", "Something else"]
+
+    /// Reports a post, or one of its comments when `commentID` is set. Reports go to the
+    /// Mat Monkeys team only; the person reported isn't told.
+    @discardableResult
+    func report(postID: String, commentID: String? = nil, reason: String) async -> Bool {
+        if isLive {
+            guard let runtime else { return false }
+            let ok: Bool
+            if let commentID {
+                ok = await runtime.perform("report_comment", ["comment_id": commentID, "reason": reason])
+            } else {
+                ok = await runtime.perform("report_post", ["post_id": postID, "reason": reason])
+            }
+            guard ok else { return false }
+        }
+        showToast("Thanks for telling us. We'll take a look.", .success)
+        return true
+    }
+
     func editCaption(_ id: String, _ caption: String) {
         if isLive { send("edit_post", ["post_id": id, "caption": caption]); return }
         updatePost(id) { $0.caption = caption }

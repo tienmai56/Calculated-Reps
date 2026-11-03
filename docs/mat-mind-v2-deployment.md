@@ -35,6 +35,8 @@ Hosted validation identified a device-token column/variable collision, fixed in 
 
 **Build 1.1 (4):** CI builds the Mat Monkeys production Release archive without Apple signing, verifies its version/build against the project settings, and publishes an unsigned `MatMonkeys-unsigned.xcarchive.zip` artifact for seven days. Apple signing and TestFlight upload are a separate distribution step. The profile setup screen appears for signed-in accounts without a profile; existing completed profiles stay intact.
 
+**Push for every notification and comment reports (not yet deployed):** `202611030001_push_and_reports.sql` adds `like` (once per person per post) and `friend` (when someone connects with your code) notifications. Invites, RSVPs, comments and shared memories already notified. Every notification is queued for push. The migration also adds `reports.comment_id` and a `report_comment` command, and the app now offers **Report post** in post options and **Report comment** on a long press. `notification-worker` now leads each push with the actor's name ("Sarah liked your memory") and shows banners while the app is open. The app asks for notification permission once a signed-in profile exists. Deploy the migration and the worker, then set the APNs secrets and schedule the worker as described below; until then notifications stay in-app only. Reports are stored in `public.reports` for the team to review: check them at least daily (App Store guideline 1.2).
+
 To link another checkout or deploy subsequent migrations:
 
 ```sh

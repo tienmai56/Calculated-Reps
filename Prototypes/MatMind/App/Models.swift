@@ -41,6 +41,8 @@ struct Comment: Identifiable, Hashable {
     var who: String
     var text: String
     var fresh = false
+    /// The cloud comment's ID (live only), used for reporting.
+    var cloudID: String?
 }
 
 struct Post: Identifiable, Hashable {
@@ -112,7 +114,7 @@ struct Session: Identifiable, Hashable {
 }
 
 struct AppNotification: Identifiable, Hashable {
-    enum Kind: String { case invite, joined, comment, published }
+    enum Kind: String { case invite, joined, comment, published, like, friend }
 
     let id: String
     var kind: Kind
