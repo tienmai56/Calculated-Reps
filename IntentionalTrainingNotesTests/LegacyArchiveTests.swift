@@ -147,19 +147,6 @@ final class LegacyArchiveTests: XCTestCase {
         try JSONEncoder().encode(doc).write(to:archive.directory.appendingPathComponent("archive.json"))
         do {_=try await repo.export(archive,temporaryRoot:root);XCTFail("Tampered archive exported")}catch{}
     }
-}
-
-final class InvitationLinkTests: XCTestCase {
-    func testWebsiteReadinessControlsHTTPSGeneration() {
-        let token = String(repeating: "a", count: 64)
-        for kind in ["friend", "session"] {
-            let development = InvitationLinks.make(kind: kind, token: token, host: "matmindbjj.lovable.app", httpsEnabled: false)
-            XCTAssertEqual(development.absoluteString, "matmind://" + kind + "/" + token)
-            let published = InvitationLinks.make(kind: kind, token: token, host: "matmindbjj.lovable.app", httpsEnabled: true)
-            XCTAssertEqual(published.absoluteString, "https://matmindbjj.lovable.app/" + kind + "/" + token)
-        }
-        XCTAssertEqual(InvitationLinks.make(kind: "friend", token: token, host: nil, httpsEnabled: true).scheme, "matmind")
-    }
 
     func testExportedNotebookImportsActiveGoalsWithTaskDetailsAndPhotos() async throws {
         let date = ISO8601DateFormatter().date(from: "2026-03-08T10:15:00Z")!
@@ -204,5 +191,18 @@ final class InvitationLinkTests: XCTestCase {
         let file = root.appendingPathComponent("random.json")
         try Data(#"{"hello":"world"}"#.utf8).write(to: file)
         XCTAssertThrowsError(try LegacyGoalImporter.read(file, photoRoot: root))
+    }
+}
+
+final class InvitationLinkTests: XCTestCase {
+    func testWebsiteReadinessControlsHTTPSGeneration() {
+        let token = String(repeating: "a", count: 64)
+        for kind in ["friend", "session"] {
+            let development = InvitationLinks.make(kind: kind, token: token, host: "matmindbjj.lovable.app", httpsEnabled: false)
+            XCTAssertEqual(development.absoluteString, "matmind://" + kind + "/" + token)
+            let published = InvitationLinks.make(kind: kind, token: token, host: "matmindbjj.lovable.app", httpsEnabled: true)
+            XCTAssertEqual(published.absoluteString, "https://matmindbjj.lovable.app/" + kind + "/" + token)
+        }
+        XCTAssertEqual(InvitationLinks.make(kind: "friend", token: token, host: nil, httpsEnabled: true).scheme, "matmind")
     }
 }
