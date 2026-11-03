@@ -632,6 +632,18 @@ private struct CommentRow: View {
                 let shape = UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
                 shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
             }
+            Spacer(minLength: 0)
+            if reportable {
+                Menu {
+                    Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                } label: {
+                    MMIcon("ellipsis", size: 18, color: MMColor.ink500)
+                        .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Comment options")
+                .padding(.trailing, -10)
+            }
         }
         .opacity(comment.fresh && !shown ? 0 : 1)
         .offset(y: comment.fresh && !shown ? 10 : 0)
