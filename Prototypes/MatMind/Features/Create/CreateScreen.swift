@@ -42,6 +42,10 @@ struct CreateScreen: View {
     }
 
     private var isPast: Bool { mode == "past" }
+    /// Named goals, offered as one-tap focuses.
+    private var pickableGoals: [MatGoal] {
+        mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
     private var days: [Day] {
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = calendar; formatter.timeZone = calendar.timeZone
@@ -145,11 +149,13 @@ struct CreateScreen: View {
                 }
 
                 field("What are we working on?", hint: "Optional") {
-                    Text("Big idea first. Details underneath.")
-                        .mmFont(.body, 13)
-                        .foregroundStyle(MMColor.textTertiary)
-                        .padding(.bottom, MMSpace.s5)
-                    TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false)
+                    if !pickableGoals.isEmpty {
+                        Text("Pick from your goals, or add your own.")
+                            .mmFont(.body, 13)
+                            .foregroundStyle(MMColor.textTertiary)
+                            .padding(.bottom, MMSpace.s5)
+                    }
+                    TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false, goals: pickableGoals)
                 }
 
                 field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {

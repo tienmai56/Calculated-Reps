@@ -38,6 +38,8 @@ Plan a session keeps its original date carousel, time pills, gym chips, notes, f
 
 Blank items must be named or removed before saving; a completely empty outline is valid. Removing a parent asks for confirmation and removes its descendants. Cancel keeps the whole branch. Indentation is capped visually on small screens; deeper levels are labeled explicitly and retain their actual hierarchy.
 
+When you have goals, they show as tags at the top of the section. Tapping one adds a focus named after the goal. Its details start blank, and a collapsed **Goal notes** toggle shows the goal's notes for reference without copying them into the session. Tap the tag again to remove that focus. Without goals, the section starts with a blank card and a hint that goals will show up there.
+
 The organizer can edit the outline on session details using the pencil beside **What we're working on**. Closing the editor discards unsaved edits. The outline is carried into the completion flow and kept in the published post under **What we worked on**.
 
 For a populated example, long-press the Mat Monkeys wordmark → States → **Plan a session · nested focus details**. Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
