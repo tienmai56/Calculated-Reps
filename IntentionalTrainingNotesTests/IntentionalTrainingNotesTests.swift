@@ -417,6 +417,7 @@ final class MatMindLiveUITests: XCTestCase {
         reopened.deleteGoal(goal.id)
         XCTAssertTrue(reopened.goals.isEmpty)
         XCTAssertNil(reopened.goal(forSession: "session-1"))
+    }
 
     func testLivePhotoRenderingRejectsBundledSampleImages() throws {
 #if DEBUG
