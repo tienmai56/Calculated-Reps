@@ -513,10 +513,7 @@ final class AppModel {
     /// Adds a reference link to a goal. Bare domains get https://. Returns false if it isn't a web link.
     @discardableResult
     func addLink(_ raw: String, toGoal id: String) -> Bool {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !text.isEmpty, !text.contains("://") { text = "https://" + text }
-        guard !text.contains(where: \.isWhitespace), let url = URL(string: text), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
-              url.host?.isEmpty == false, let i = goals.firstIndex(where: { $0.id == id }) else {
+        guard let text = Self.normalizedLink(raw), let i = goals.firstIndex(where: { $0.id == id }) else {
             showToast("That doesn't look like a link")
             return false
         }
@@ -526,10 +523,19 @@ final class AppModel {
         return true
     }
 
+    /// A web link with https:// added to bare domains, or nil when it isn't one.
+    static func normalizedLink(_ raw: String) -> String? {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty, !text.contains("://") { text = "https://" + text }
+        guard !text.contains(where: \.isWhitespace), let url = URL(string: text),
+              let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), url.host?.isEmpty == false else { return nil }
+        return text
+    }
+
     /// Saves a reference photo for a goal, privately on this device. The image is
     /// re-encoded as JPEG (no location or camera metadata) and capped at 2048 px.
     @discardableResult
-    func addPhoto(_ data: Data, toGoal id: String) -> Bool {
+    func addPhoto(_ data: Data, toGoal id: String, announce: Bool = true) -> Bool {
         guard let i = goals.firstIndex(where: { $0.id == id }) else { return false }
         guard let image = UIImage(data: data), let jpeg = Self.goalPhotoJPEG(image) else {
             showToast("That photo couldn't be read")
@@ -547,7 +553,7 @@ final class AppModel {
         }
         goals[i].photos.append(relative)
         persistGoals()
-        showToast("Photo added", .success)
+        if announce { showToast("Photo added", .success) }
         return true
     }
 

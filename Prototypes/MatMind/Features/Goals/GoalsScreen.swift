@@ -381,6 +381,17 @@ struct MatGoalEditorSheet: View {
     var onSaved: (MatGoal) -> Void = { _ in }
 
     @State private var confirmDelete = false
+    /// Photos picked before the goal exists; saved once it's added.
+    @State private var pendingPhotos: [PendingPhoto] = []
+    @State private var pickedPhoto: PhotosPickerItem?
+    @State private var addingLink = false
+    @State private var linkDraft = ""
+
+    private struct PendingPhoto: Identifiable {
+        let id = UUID()
+        let data: Data
+        let preview: UIImage
+    }
 
     private var canSave: Bool { !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
@@ -394,6 +405,7 @@ struct MatGoalEditorSheet: View {
                                 text: $draft.title, autoFocus: isNew)
                     MMTextField(label: "Notes", placeholder: "Cues, details, what coach said. Start a line with - for a bullet.",
                                 text: $draft.notes, multiline: true, rows: 6)
+                    if isNew { references }
                     if !isNew {
                         MMButton("Delete goal", variant: .ghost, iconLeft: "trash-2") { confirmDelete = true }
                             .padding(.leading, -10)
@@ -409,6 +421,7 @@ struct MatGoalEditorSheet: View {
         .safeAreaInset(edge: .bottom) {
             MMButton(isNew ? "Add goal" : "Save goal", fullWidth: true) {
                 if mm.saveGoal(draft) {
+                    for photo in pendingPhotos { mm.addPhoto(photo.data, toGoal: draft.id, announce: false) }
                     onSaved(draft)
                     dismiss()
                 }
@@ -428,6 +441,99 @@ struct MatGoalEditorSheet: View {
                 dismiss()
             }
         }
+        .onChange(of: pickedPhoto) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self), let preview = UIImage(data: data) {
+                    pendingPhotos.append(PendingPhoto(data: data, preview: preview))
+                } else {
+                    mm.showToast("That photo couldn't be read")
+                }
+                pickedPhoto = nil
+            }
+        }
+        .alert("Add a link", isPresented: $addingLink) {
+            TextField("youtube.com/…", text: $linkDraft)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("Add") {
+                if let link = AppModel.normalizedLink(linkDraft) {
+                    if !draft.links.contains(link) { draft.links.append(link) }
+                } else {
+                    mm.showToast("That doesn't look like a link")
+                }
+                linkDraft = ""
+            }
+            Button("Cancel", role: .cancel) { linkDraft = "" }
+        } message: {
+            Text("An instructional, a video, anything you want to rewatch.")
+        }
+    }
+
+    /// Photos and links to come back to, added before the goal is saved.
+    private var references: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("References").mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
+                Spacer()
+                GoalTextAction(title: "Add a link", icon: "plus") { addingLink = true }
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(pendingPhotos) { photo in
+                        Image(uiImage: photo.preview)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 76, height: 76)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(alignment: .topTrailing) {
+                                Button { pendingPhotos.removeAll { $0.id == photo.id } } label: {
+                                    MMIcon("x", size: 12, weight: .bold, color: MMColor.ink900)
+                                        .frame(width: 24, height: 24)
+                                        .background(Circle().fill(Color.white.opacity(0.88)))
+                                        .frame(width: 44, height: 44)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .offset(x: 10, y: -10)
+                                .accessibilityLabel("Remove photo")
+                            }
+                    }
+                    PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+                        VStack(spacing: 6) {
+                            MMIcon("image-plus", size: 20, color: MMColor.ink700)
+                            Text("Add photo").mmFont(.body, 12, .semibold, lineHeight: 1.2).foregroundStyle(MMColor.textSecondary)
+                        }
+                        .frame(width: 76, height: 76)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(MMColor.paper2))
+                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    .buttonStyle(MMPressStyle(scale: 0.96))
+                    .accessibilityLabel("Add a reference photo")
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 2)
+            }
+            .padding(.vertical, -12)
+            ForEach(draft.links, id: \.self) { link in
+                HStack(spacing: 10) {
+                    MMIcon("link", size: 16, color: MMColor.textTertiary)
+                    Text(URL(string: link)?.host ?? link).mmFont(.mono, 13).foregroundStyle(MMColor.textPrimary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button { draft.links.removeAll { $0 == link } } label: {
+                        MMIcon("x", size: 14, weight: .bold, color: MMColor.ink700)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove link")
+                }
+                .padding(.leading, 14)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.white))
+            }
+        }
     }
 }
-
