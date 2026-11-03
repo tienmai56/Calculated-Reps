@@ -126,10 +126,8 @@ struct CreateScreen: View {
                         MMTextField(label: "Gym or venue", text: $gym)
                             .padding(.bottom, 12)
                     }
-                    MMFlowLayout(spacing: 8, lineSpacing: 8) {
-                        ForEach(mm.gyms, id: \.self) { g in
-                            MMTag(g, icon: g == mm.me.gym ? "house" : "map-pin", selected: gym == g, size: .sm) { gym = g }
-                        }
+                    if !mm.me.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        MMTag(mm.me.gym, icon: "house", selected: gym == mm.me.gym, size: .sm) { gym = mm.me.gym }
                     }
                     MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
                         if !showNote {
@@ -218,7 +216,7 @@ struct CreateScreen: View {
 
     private var timeOptions: [String] {
         var seen = Set<String>()
-        return ([time] + Self.times).filter { seen.insert($0).inserted }
+        return (Self.times + [time]).filter { seen.insert($0).inserted }
     }
 
     private var submittedFocusItems: [TrainingFocus] {
