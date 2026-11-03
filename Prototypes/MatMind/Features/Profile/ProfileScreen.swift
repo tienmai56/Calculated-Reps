@@ -132,8 +132,16 @@ struct ProfileScreen: View {
                     .padding(.leading, -10)
             }
             .sheet(isPresented: $showExport) { mm.runtime?.exportView() }
-            .confirmationDialog("Delete your cloud account and shared training data? This cannot be undone.", isPresented: $deleteAccount, titleVisibility: .visible) {
-                Button("Delete account", role: .destructive) { Task { _ = await mm.runtime?.perform("delete_account", [:]) } }
+            .mmSheet(isPresented: $deleteAccount,
+                     title: "Delete account?",
+                     description: "Your cloud account and shared training data will be deleted. This cannot be undone.") {
+                VStack(spacing: 12) {
+                    MMButton("Delete account", variant: .danger, iconLeft: "trash-2", fullWidth: true) {
+                        deleteAccount = false
+                        Task { _ = await mm.runtime?.perform("delete_account", [:]) }
+                    }
+                    MMButton("Cancel", variant: .secondary, fullWidth: true) { deleteAccount = false }
+                }
             }
         }
         .onChange(of: showSettings) { _, open in
