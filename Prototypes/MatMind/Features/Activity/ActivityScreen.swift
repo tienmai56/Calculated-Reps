@@ -27,7 +27,7 @@ struct ActivityScreen: View {
                     .padding(.vertical, 12)
             }
             if mm.posts.isEmpty {
-                if mm.toComplete == nil { EmptyActivity() }
+                EmptyActivity()
             } else {
                 StreakNudges()
                 ForEach(mm.posts) { post in
@@ -87,7 +87,11 @@ private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
+        if mm.toComplete != nil {
+            // The "How was …?" card above holds Complete & share, so no second primary here.
+            MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
+                         message: "Share the post-roll photo above.\nIt lands here for your crew.")
+        } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
             MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
                          message: "Train together, then share the post-roll photo.",
                          actionTitle: session.status(of: "me") == .invited ? "View invitation" : "View your plan",
