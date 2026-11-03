@@ -83,8 +83,14 @@ enum SeedData {
 
     static let goals: [MatGoal] = [
         MatGoal(id: "g1", title: "Single leg from standing", position: "Standup",
-                notes: "Collar tie, snap down, step in when they post.\n- Head inside, ear on the hip\n- Run the pipe if they sprawl",
-                links: ["https://www.youtube.com/watch?v=single-leg-finishes"], photos: ["coach-help"]),
+                parts: [
+                    GoalPart(id: "g1-grip", title: "Grip on the near leg",
+                             notes: "- Cup behind the knee, not the ankle\n- Pull the leg tight to my chest",
+                             link: "https://www.youtube.com/watch?v=single-leg-finishes&t=102",
+                             photos: ["coach-help", "floor-drill"]),
+                    GoalPart(id: "g1-head", title: "Head position", notes: "Head inside, ear on the hip"),
+                    GoalPart(id: "g1-sprawl", title: "Defending the sprawl", notes: "Run the pipe if they sprawl"),
+                ]),
         MatGoal(id: "g2", title: "RNC from back mount", position: "Back",
                 notes: "Win the hand fight first. Hide the choking hand behind their head.",
                 links: ["https://www.youtube.com/watch?v=rnc-details"]),

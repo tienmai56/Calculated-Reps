@@ -232,6 +232,14 @@ struct MatGoal: Identifiable, Hashable, Codable {
     var links: [String] = []
     /// Reference photos: asset names in the preview, or paths relative to `photoRoot`.
     var photos: [String] = []
+    /// The goal broken down into parts (grip, head position, …). Not steps: there is
+    /// no order to follow and nothing to tick off. Each part has its own notes,
+    /// one video link and any number of photos.
+    var parts: [GoalPart] = []
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, position, notes, links, photos, parts
+    }
 
     /// Private folder for goal photos (relative paths survive app updates moving the container).
     static var photoRoot: URL {
@@ -256,6 +264,113 @@ struct MatGoal: Identifiable, Hashable, Codable {
             .map { $0.hasPrefix("-") ? String($0.dropFirst()).trimmingCharacters(in: .whitespaces) : $0 }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
+    }
+
+    /// One line for goal cards: the notes, or else the names of the parts.
+    var cardPreview: String {
+        if !notesPreview.isEmpty { return notesPreview }
+        return parts.map(\.title).filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    /// Every photo file the goal owns, its own and its parts'.
+    var allPhotos: [String] { photos + parts.flatMap(\.photos) }
+}
+
+extension MatGoal {
+    /// Goals saved before a field existed still decode: anything missing gets its default.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        position = try c.decodeIfPresent(String.self, forKey: .position) ?? ""
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        links = try c.decodeIfPresent([String].self, forKey: .links) ?? []
+        photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
+        parts = try c.decodeIfPresent([GoalPart].self, forKey: .parts) ?? []
+    }
+}
+
+/// One part of a goal, e.g. "Grip on the near leg" under "Single leg from standing".
+struct GoalPart: Identifiable, Hashable, Codable {
+    var id: String
+    var title: String = ""
+    /// Free-form notes.
+    var notes: String = ""
+    /// One reference video (usually YouTube). Empty when there isn't one.
+    var link: String = ""
+    /// Paths relative to `MatGoal.photoRoot` (asset names in the preview).
+    var photos: [String] = []
+
+    init(id: String = GoalPart.newID(), title: String = "", notes: String = "", link: String = "", photos: [String] = []) {
+        self.id = id
+        self.title = title
+        self.notes = notes
+        self.link = link
+        self.photos = photos
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? GoalPart.newID()
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        link = try c.decodeIfPresent(String.self, forKey: .link) ?? ""
+        photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
+    }
+
+    static func newID() -> String { "p" + UUID().uuidString.lowercased() }
+
+    /// Nothing typed or added at all; such parts are dropped on save.
+    var isBlank: Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && link.isEmpty && photos.isEmpty
+    }
+
+    /// "2 notes · 1 video · 3 photos" for a closed part card.
+    static func summary(notes: String, hasLink: Bool, photoCount: Int) -> String {
+        var bits: [String] = []
+        let lines = notes.split(whereSeparator: \.isNewline)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
+        if lines > 0 { bits.append(lines == 1 ? "1 note" : "\(lines) notes") }
+        if hasLink { bits.append("1 video") }
+        if photoCount > 0 { bits.append(photoCount == 1 ? "1 photo" : "\(photoCount) photos") }
+        return bits.isEmpty ? "Nothing added yet" : bits.joined(separator: " · ")
+    }
+
+    /// "YouTube video", or the site's name for other links.
+    static func linkTitle(_ link: String) -> String {
+        guard let host = URL(string: link)?.host?.lowercased() else { return link }
+        if host.hasSuffix("youtube.com") || host == "youtu.be" { return "YouTube video" }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+
+    /// The start time in a video link (`t=102`, `t=1m42s`, `start=102`) as "1:42", or nil.
+    static func linkStart(_ link: String) -> String? {
+        guard let items = URLComponents(string: link)?.queryItems,
+              let raw = items.first(where: { $0.name == "t" || $0.name == "start" })?.value?.lowercased(),
+              !raw.isEmpty else { return nil }
+        var seconds = 0
+        if let plain = Int(raw.hasSuffix("s") ? String(raw.dropLast()) : raw) {
+            seconds = plain
+        } else {
+            var number = ""
+            for ch in raw {
+                if ch.isNumber { number.append(ch); continue }
+                guard let n = Int(number) else { return nil }
+                switch ch {
+                case "h": seconds += n * 3600
+                case "m": seconds += n * 60
+                case "s": seconds += n
+                default: return nil
+                }
+                number = ""
+            }
+            guard number.isEmpty else { return nil }
+        }
+        guard seconds > 0 else { return nil }
+        let h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 }
 

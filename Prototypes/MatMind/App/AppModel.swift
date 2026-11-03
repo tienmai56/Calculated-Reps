@@ -601,8 +601,36 @@ final class AppModel {
         return true
     }
 
+    /// Saves a goal together with its parts as edited on screen. New photos are written
+    /// privately to disk, photos taken out of a part lose their file, and parts with
+    /// nothing in them are dropped. Returns false for a blank goal name.
+    @discardableResult
+    func saveGoal(_ goal: MatGoal, parts drafts: [GoalPartDraft]) -> Bool {
+        var goal = goal
+        guard !goal.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        var parts: [GoalPart] = []
+        for draft in drafts {
+            var part = GoalPart(id: draft.id,
+                                title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                notes: draft.notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                                link: Self.normalizedLink(draft.link) ?? "")
+            for photo in draft.photos {
+                if let stored = photo.stored {
+                    part.photos.append(stored)
+                } else if let data = photo.data, let saved = storeGoalPhoto(data, goalID: goal.id) {
+                    part.photos.append(saved)
+                }
+            }
+            if !part.isBlank { parts.append(part) }
+        }
+        let kept = Set(parts.flatMap(\.photos))
+        self.goal(goal.id)?.parts.flatMap(\.photos).filter { !kept.contains($0) }.forEach(Self.deleteGoalPhotoFile)
+        goal.parts = parts
+        return saveGoal(goal)
+    }
+
     func deleteGoal(_ id: String) {
-        goal(id)?.photos.forEach(Self.deleteGoalPhotoFile)
+        goal(id)?.allPhotos.forEach(Self.deleteGoalPhotoFile)
         goals.removeAll { $0.id == id }
         sessionGoals = sessionGoals.filter { $0.value != id }
         persistGoals()
@@ -663,20 +691,7 @@ final class AppModel {
     @discardableResult
     func addPhoto(_ data: Data, toGoal id: String, announce: Bool = true) -> Bool {
         guard let i = goals.firstIndex(where: { $0.id == id }) else { return false }
-        guard let image = UIImage(data: data), let jpeg = Self.goalPhotoJPEG(image) else {
-            showToast("That photo couldn't be read")
-            return false
-        }
-        let folder = id.replacingOccurrences(of: "/", with: "-")
-        let relative = "\(folder)/\(UUID().uuidString.lowercased()).jpg"
-        let url = MatGoal.photoRoot.appendingPathComponent(relative)
-        do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try jpeg.write(to: url, options: [.atomic, .completeFileProtection])
-        } catch {
-            showToast("That photo couldn't be saved")
-            return false
-        }
+        guard let relative = storeGoalPhoto(data, goalID: id) else { return false }
         goals[i].photos.append(relative)
         persistGoals()
         if announce { showToast("Photo added", .success) }
@@ -691,6 +706,26 @@ final class AppModel {
         showToast("Photo removed")
     }
 
+    /// Writes a goal photo privately on this device (JPEG, no metadata, at most 2048 px)
+    /// and returns its path relative to `MatGoal.photoRoot`, or nil with a toast.
+    private func storeGoalPhoto(_ data: Data, goalID id: String) -> String? {
+        guard let image = UIImage(data: data), let jpeg = Self.goalPhotoJPEG(image) else {
+            showToast("That photo couldn't be read")
+            return nil
+        }
+        let folder = id.replacingOccurrences(of: "/", with: "-")
+        let relative = "\(folder)/\(UUID().uuidString.lowercased()).jpg"
+        let url = MatGoal.photoRoot.appendingPathComponent(relative)
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try jpeg.write(to: url, options: [.atomic, .completeFileProtection])
+        } catch {
+            showToast("That photo couldn't be saved")
+            return nil
+        }
+        return relative
+    }
+
     /// Deletes a goal photo saved under `MatGoal.photoRoot` (sample asset names are left alone).
     private static func deleteGoalPhotoFile(_ photo: String) {
         let url = MatGoal.photoRoot.appendingPathComponent(photo).standardizedFileURL
@@ -699,7 +734,7 @@ final class AppModel {
         try? FileManager.default.removeItem(at: url)
     }
 
-    private static func goalPhotoJPEG(_ image: UIImage) -> Data? {
+    static func goalPhotoJPEG(_ image: UIImage) -> Data? {
         let longest = max(image.size.width, image.size.height)
         guard longest > 0 else { return nil }
         let scale = min(1, 2048 / longest)
