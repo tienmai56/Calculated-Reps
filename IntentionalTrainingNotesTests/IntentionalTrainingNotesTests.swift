@@ -26,6 +26,16 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertNil(session.notebookStore?.profile?.belt)
     }
 
+    func testAvatarJPEGIsSquareAndCapped() throws {
+        let wide = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 900)).image { context in
+            UIColor.red.setFill(); context.fill(CGRect(x: 0, y: 0, width: 1600, height: 900))
+        }
+        let data = try XCTUnwrap(AppModel.avatarJPEG(wide))
+        let out = try XCTUnwrap(UIImage(data: data))
+        XCTAssertEqual(out.size.width * out.scale, 640)
+        XCTAssertEqual(out.size.height * out.scale, 640)
+    }
+
     func testProfileValidationRulesMirrorRequiredFieldsWithoutBelt() {
         let profile = UserProfile(
             accountId: "a_1",

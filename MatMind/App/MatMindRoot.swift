@@ -345,26 +345,13 @@ private struct LiveProfileSetup: View {
         guard let item else { return }
         defer { if photoRequest == request { loadingPhoto = false } }
         guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data),
-              let jpeg = Self.avatarJPEG(image) else {
+              let jpeg = AppModel.avatarJPEG(image) else {
             if photoRequest == request { app.error = "Couldn't read that photo. Try another one." }
             return
         }
         guard photoRequest == request else { return }
         photo = jpeg
         photoKey = UUID()
-    }
-
-    /// Center-crops to a square, caps at 640px, and re-renders to strip EXIF (including location).
-    private static func avatarJPEG(_ image: UIImage) -> Data? {
-        let side = min(image.size.width, image.size.height)
-        guard side > 0 else { return nil }
-        let target = min(640, side)
-        let scale = target / side
-        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let format = UIGraphicsImageRendererFormat(); format.scale = 1
-        return UIGraphicsImageRenderer(size: CGSize(width: target, height: target), format: format).image { _ in
-            image.draw(in: CGRect(x: (target - drawn.width) / 2, y: (target - drawn.height) / 2, width: drawn.width, height: drawn.height))
-        }.jpegData(compressionQuality: 0.82)
     }
 
     private func save() async {
@@ -436,6 +423,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var mediaKeys: [String: UUID] = [:]
     private var publishRequests: [String: String] = [:]
     private var mediaPhotos: [String: String] = [:]
+    private var avatarUploadKey: UUID?
+    private var avatarUploadPhoto: Data?
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -598,6 +587,25 @@ final class LiveMatMindRuntime: AppRuntime {
             }
             return PublishResult(post: post, streaks: ticks)
         } catch { model.error = error.localizedDescription; return nil }
+    }
+    func saveAvatar(_ jpeg: Data) async -> Bool {
+        guard let userID = model.userID, let row = model.me else { model.error = "Sign in to change your photo."; return false }
+        if avatarUploadPhoto != jpeg { avatarUploadKey = UUID(); avatarUploadPhoto = jpeg }
+        let key = "\(userID.lowercased())/\((avatarUploadKey ?? UUID()).uuidString.lowercased()).jpg"
+        do { try await model.backend.upload(jpeg, objectKey: key, bucket: "avatars") }
+        catch {
+            // A retry after a dropped response finds the earlier upload already stored.
+            guard let existing = try? await model.backend.image(key: key, bucket: "avatars"), existing == jpeg else {
+                model.error = "Couldn't upload your photo: \(error.localizedDescription)"
+                return false
+            }
+        }
+        let payload: [String: Any] = ["name": row.text("name"), "belt": row.text("belt"), "stripes": row.number("stripes"),
+                                      "gym": row.text("gym"), "timezone": TimeZone.current.identifier, "avatar_key": key]
+        guard await model.perform("save_profile", payload) != nil else { sync(); return false }
+        avatarUploadKey = nil; avatarUploadPhoto = nil
+        await loadPhotos()
+        return true
     }
     func friendCode() async -> String? {
         guard let result = await model.perform("friend_token", [:]), let token = result["token"]?.string else { return nil }

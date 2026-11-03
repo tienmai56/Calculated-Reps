@@ -10,6 +10,8 @@ protocol AppRuntime: AnyObject {
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
     func create(_ draft: SessionDraft) async -> String?
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
+    /// Uploads a square JPEG (from `AppModel.avatarJPEG`) and makes it the signed-in member's profile photo.
+    func saveAvatar(_ jpeg: Data) async -> Bool
     func friendCode() async -> String?
     func connect(_ value: String) async -> String?
     func copySessionLink(_ sessionID: String) async
@@ -388,6 +390,42 @@ final class AppModel {
         me.email = email
         me.belt = belt
         me.stripes = stripes
+    }
+
+    /// Sets the profile photo from picked image data. Live: uploaded to the cloud; preview: kept on this device.
+    @discardableResult
+    func updatePhoto(_ data: Data) async -> Bool {
+        guard let image = UIImage(data: data), let jpeg = Self.avatarJPEG(image) else {
+            showToast("That photo couldn't be read")
+            return false
+        }
+        if isLive {
+            guard let runtime, await runtime.saveAvatar(jpeg) else { return false }
+            showToast("Profile photo updated", .success)
+            return true
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-preview-avatar-\(UUID().uuidString).jpg")
+        do { try jpeg.write(to: url, options: .atomic) } catch {
+            showToast("That photo couldn't be saved")
+            return false
+        }
+        if let old = me.photo, old.hasPrefix(FileManager.default.temporaryDirectory.path) { try? FileManager.default.removeItem(atPath: old) }
+        me.photo = url.path
+        showToast("Profile photo updated", .success)
+        return true
+    }
+
+    /// Center-crops to a square, caps at 640px, and re-renders to strip EXIF (including location).
+    nonisolated static func avatarJPEG(_ image: UIImage) -> Data? {
+        let side = min(image.size.width, image.size.height)
+        guard side > 0 else { return nil }
+        let target = min(640, side)
+        let scale = target / side
+        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: target, height: target), format: format).image { _ in
+            image.draw(in: CGRect(x: (target - drawn.width) / 2, y: (target - drawn.height) / 2, width: drawn.width, height: drawn.height))
+        }.jpegData(compressionQuality: 0.82)
     }
 
     // MARK: Hosting
