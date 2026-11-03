@@ -27,7 +27,7 @@ struct ActivityScreen: View {
                     .padding(.vertical, 12)
             }
             if mm.posts.isEmpty {
-                if mm.toComplete == nil { EmptyActivity() }
+                EmptyActivity()
             } else {
                 StreakNudges()
                 ForEach(mm.posts) { post in
@@ -56,6 +56,15 @@ private struct ReadyToShare: View {
     @Environment(AppModel.self) private var mm
     let session: Session
 
+    /// Solo sessions share with the crew; never "the 1 of you".
+    private var shareLine: String {
+        switch session.people.count {
+        case ...1: "Add a photo and share it with your crew."
+        case 2: "Add a photo and share it with the two of you."
+        case let n: "Add a photo and share it with the \(n) of you."
+        }
+    }
+
     var body: some View {
         let shortTitle = session.title.lowercased().replacingOccurrences(of: "no-gi ", with: "")
         HStack(spacing: 14) {
@@ -67,7 +76,7 @@ private struct ReadyToShare: View {
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
                 Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
-                Text("Add a photo and share it with the \(session.people.count) of you.")
+                Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
                     .padding(.top, 4)
                 MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
@@ -87,7 +96,11 @@ private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
+        if mm.toComplete != nil {
+            // The "How was …?" card above holds Complete & share, so no second primary here.
+            MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
+                         message: "Share the post-roll photo above.\nIt lands here for your crew.")
+        } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
             MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
                          message: "Train together, then share the post-roll photo.",
                          actionTitle: session.status(of: "me") == .invited ? "View invitation" : "View your plan",

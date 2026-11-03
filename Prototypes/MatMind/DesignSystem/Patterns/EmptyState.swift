@@ -7,12 +7,13 @@ struct MMEmptyState: View {
     var artwork: Artwork
     var title: String
     var message: String
-    var actionTitle: String
-    var actionIcon: String
+    /// Nil when another card on the screen already holds the primary action.
+    var actionTitle: String? = nil
+    var actionIcon: String? = nil
     var secondaryTitle: String? = nil
     var secondaryIcon: String? = nil
     var secondaryAction: (() -> Void)? = nil
-    var action: () -> Void
+    var action: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,8 +30,10 @@ struct MMEmptyState: View {
                 .foregroundStyle(MMColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, MMSpace.s5)
-            MMButton(actionTitle, size: .lg, iconLeft: actionIcon, fullWidth: true, action: action)
-                .padding(.top, MMSpace.s8)
+            if let actionTitle, let action {
+                MMButton(actionTitle, size: .lg, iconLeft: actionIcon, fullWidth: true, action: action)
+                    .padding(.top, MMSpace.s8)
+            }
             if let secondaryTitle, let secondaryAction {
                 MMButton(secondaryTitle, variant: .ghost, iconLeft: secondaryIcon, action: secondaryAction)
                     .padding(.top, MMSpace.s4)
