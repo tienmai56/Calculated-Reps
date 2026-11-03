@@ -34,6 +34,8 @@ jobs:
               assert info[key] == settings[setting], f'{key}: archived {info[key]!r}, expected {settings[setting]!r}'
           print(f"Verified archive version {info['CFBundleShortVersionString']} ({info['CFBundleVersion']})")
           PY
+      - name: Verify Release excludes sample photos
+        run: python3 scripts/check-release-assets.py "$RUNNER_TEMP/MatMonkeys.xcarchive/Products/Applications/IntentionalTrainingNotes.app"
       - name: Package the unsigned archive
         run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/MatMonkeys.xcarchive" "$RUNNER_TEMP/MatMonkeys-unsigned.xcarchive.zip"
       - uses: actions/upload-artifact@v4

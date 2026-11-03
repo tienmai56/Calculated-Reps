@@ -30,9 +30,12 @@ struct MMAppShell: View {
             }
         }
         .animation(MMMotion.bounce(MMMotion.slow), value: mm.toast)
+#if DEBUG || MAT_MIND_PROTOTYPE
         .sheet(isPresented: $mm.showDemoPanel) {
-            DemoPanel()
+            if !mm.isLive { DemoPanel() }
         }
+#endif
+        .environment(\.allowsSamplePhotos, !mm.isLive)
     }
 
     @ViewBuilder

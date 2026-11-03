@@ -314,7 +314,8 @@ final class MatMindLiveUITests: XCTestCase {
 #endif
 
     func testInstalledUIStartsWithoutSamplePeopleSessionsOrPosts() {
-        let ui = AppModel(live: true)
+        let ui = AppModel()
+        XCTAssertTrue(ui.isLive, "A model must require an explicit opt-in to load preview data")
         XCTAssertFalse(ui.isSignedIn)
         XCTAssertTrue(ui.people.isEmpty)
         XCTAssertTrue(ui.friends.isEmpty)
@@ -322,9 +323,31 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.upcoming.isEmpty)
         XCTAssertNil(ui.toComplete)
         XCTAssertTrue(ui.cameraRoll.isEmpty)
+        XCTAssertTrue(ui.gyms.isEmpty)
+        XCTAssertTrue(ui.notifications.isEmpty)
+        XCTAssertTrue(ui.me.name.isEmpty)
+        XCTAssertNil(ui.me.photo)
         ui.run(.active)
         ui.reset()
         XCTAssertTrue(ui.people.isEmpty, "Prototype tools must never inject seed data into the installed app")
+    }
+
+    func testLivePhotoRenderingRejectsBundledSampleImages() throws {
+#if DEBUG
+        XCTAssertNotNil(MMPhoto.image(source: "floor-drill", allowsSamplePhotos: true))
+#endif
+        for name in ["floor-drill", "roll-gi", "portrait-gi", "team-lineup"] {
+            XCTAssertNil(MMPhoto.image(source: name, allowsSamplePhotos: false))
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let data = try XCTUnwrap(UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }.jpegData(compressionQuality: 0.8))
+        try data.write(to: url)
+        XCTAssertNotNil(MMPhoto.image(source: url.path, allowsSamplePhotos: false))
+        XCTAssertNil(MMPhoto.image(source: url.path + ".missing", allowsSamplePhotos: false))
     }
 
     func testLiveSnapshotMapsCurrentUserAndPreservesTagVisibility() throws {
@@ -358,6 +381,16 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(ui.isSignedIn)
         XCTAssertTrue(ui.posts.isEmpty)
         XCTAssertTrue(ui.people.isEmpty)
+        model.userID = "new-owner"
+        model.snapshot = SocialSnapshot()
+        runtime.sync()
+        XCTAssertTrue(ui.isSignedIn)
+        XCTAssertTrue(ui.me.name.isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertTrue(ui.friends.isEmpty)
+        XCTAssertNil(ui.toComplete)
+        XCTAssertTrue(ui.cameraRoll.isEmpty)
     }
 
     func testFocusOutlineRoundTripsWithoutLosingPlainNotes() {
@@ -615,6 +648,95 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertFalse(credential.needsRefresh(at: now))
     }
 
+    @MainActor
+    func testCancelledBackgroundRefreshDoesNotShowAlertOrClearSession() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotError: .cancelled)
+        let (client, _) = try makeClient(fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        model.snapshot = SocialSnapshot(server_time: "previous-snapshot")
+
+        await model.refresh()
+        await model.refresh()
+
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.userID, "owner")
+        XCTAssertEqual(model.snapshot.server_time, "previous-snapshot")
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 2, "Cancellation must release the refresh so a later attempt can run")
+    }
+
+    @MainActor
+    func testBackgroundRefreshStillReportsNetworkAndServerFailures() async throws {
+        // A server message containing "cancelled" is a real failure, not an
+        // NSURLErrorCancelled. Do not filter errors by their display text.
+        for code: URLError.Code? in [.timedOut, nil] {
+            let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(#"{"message":"cancelled"}"#.utf8), snapshotError: code)
+            let (client, _) = try makeClient(fixture: fixture)
+            let model = SocialAppModel(backend: client)
+            model.userID = "owner"
+
+            await model.refresh()
+
+            XCTAssertEqual(model.error, code.map { URLError($0).localizedDescription } ?? "cancelled")
+            XCTAssertEqual(model.userID, "owner")
+        }
+    }
+
+    @MainActor
+    func testCancelledViewTaskStillLoadsProfileThroughSharedRefresh() async throws {
+        let started = expectation(description: "Snapshot request started")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let originalView = Task { await model.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+
+        originalView.cancel()
+        let joined = expectation(description: "Replacement view requested refresh")
+        let nextView = Task { joined.fulfill(); await model.refresh() }
+        await fulfillment(of: [joined], timeout: 5)
+        await fixture.releaseSnapshots()
+        await originalView.value
+        await nextView.value
+
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.userID, "owner")
+        XCTAssertEqual(model.snapshot.server_time, "snapshot-loaded")
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 1, "Overlapping view and foreground refreshes should share a request")
+    }
+
+    @MainActor
+    func testSavingProfileReplacesAnOlderRefresh() async throws {
+        let started = expectation(description: "Pre-save snapshot started")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let previousRefresh = Task { await model.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+
+        let finished = expectation(description: "Save fetched the new profile without waiting for the old snapshot")
+        let save = Task {
+            let result = await model.perform("save_profile", ["name": "Alex"])
+            finished.fulfill()
+            return result
+        }
+        await fulfillment(of: [finished], timeout: 5)
+        await fixture.releaseSnapshots()
+        let result = await save.value
+        await previousRefresh.value
+
+        XCTAssertNotNil(result)
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.me?.text("name"), "Alex")
+        XCTAssertEqual(model.snapshot.server_time, "profile-saved")
+    }
+
     private func makeClient(credential: CloudCredential = CloudCredential(access_token: "old-token", refresh_token: "old-refresh", user: CloudUser(id: "owner")), fixture: BackendHTTPFixture) throws -> (BackendClient, BackendCredentialStore) {
         let host = UUID().uuidString.lowercased() + ".example.com"
         BackendURLProtocol.register(host: host, fixture: fixture)
@@ -646,12 +768,28 @@ private actor BackendHTTPFixture {
     let failureBody: Data
     let rejectFreshToken: Bool
     let refreshStatus: Int
+    let snapshotError: URLError.Code?
+    let snapshotStarted: XCTestExpectation?
+    private var holdSnapshots: Bool
+    private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
+    private var profileSaved = false
 
-    init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200) {
+    init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200,
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
         self.refreshStatus = refreshStatus
+        self.snapshotError = snapshotError
+        self.snapshotStarted = snapshotStarted
+        self.holdSnapshots = holdSnapshots
+    }
+
+    func releaseSnapshots() {
+        holdSnapshots = false
+        let waiters = snapshotWaiters
+        snapshotWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     func respond(to original: URLRequest) async throws -> (Int, Data) {
@@ -669,6 +807,7 @@ private actor BackendHTTPFixture {
             request.httpBody = bytes
         }
         requests.append(request)
+        if request.url?.path == "/rest/v1/rpc/snapshot", let snapshotError { throw URLError(snapshotError) }
         if request.url?.path == "/auth/v1/token" {
             // Keep refresh in flight while another upload receives its rejection.
             try await Task.sleep(nanoseconds: 50_000_000)
@@ -678,6 +817,22 @@ private actor BackendHTTPFixture {
         }
         if request.value(forHTTPHeaderField: "Authorization") != "Bearer fresh-token" || rejectFreshToken {
             return (failureStatus, failureBody)
+        }
+        if request.url?.path == "/rest/v1/rpc/command",
+           let body = request.httpBody,
+           let command = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+           command["operation"] as? String == "save_profile" { profileSaved = true }
+        if request.url?.path == "/rest/v1/rpc/snapshot" {
+            var snapshot = SocialSnapshot(server_time: profileSaved ? "profile-saved" : "snapshot-loaded")
+            if profileSaved {
+                snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","name":"Alex"}]"#.utf8))
+            }
+            if holdSnapshots {
+                holdSnapshots = false
+                snapshotStarted?.fulfill()
+                await withCheckedContinuation { snapshotWaiters.append($0) }
+            }
+            return (200, try JSONEncoder().encode(snapshot))
         }
         return (200, Data("{}".utf8))
     }

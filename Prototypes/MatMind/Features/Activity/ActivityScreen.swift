@@ -9,7 +9,7 @@ struct ActivityScreen: View {
             HStack {
                 MMWordmark(size: 32)
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
-                    .accessibilityHint("Long press for prototype tools")
+                    .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
                 Spacer()
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
@@ -58,8 +58,9 @@ private struct ReadyToShare: View {
     var body: some View {
         let shortTitle = session.title.lowercased().replacingOccurrences(of: "no-gi ", with: "")
         HStack(spacing: 14) {
-            Image("floor-drill").resizable().scaledToFill()
+            MMIcon("camera", size: 28, color: MMColor.ink500)
                 .frame(width: 64, height: 64)
+                .background(MMColor.paper2)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
