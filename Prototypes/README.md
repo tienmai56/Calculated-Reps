@@ -78,3 +78,11 @@ The installed app injects `LiveMatMindRuntime` into an empty `AppModel(live: tru
 Previous device-local notebook data appears only under **Settings → Export → Export local sessions**, available from the welcome screen's Settings or Profile's Account sheet. That route exports the existing verified JSON/attachment ZIP; it does not import legacy records into social sessions, show an archive tab, or add an archive browser to the new UI.
 
 Validation: CI builds `MatMindPrototype` and builds/tests `IntentionalTrainingNotes`. Locally check Google sign-in/profile creation, empty states, planning and RSVP with two accounts, QR redemption, publishing a photo, and exporting legacy sessions from Settings. Camera QR scanning requires a supported physical device.
+
+## Goal parts
+
+**Add a goal** asks what you're working on, then **Break it down** splits it into parts (e.g. "Grip on the near leg", "Head position"). Parts are components of the goal, not steps: there are no numbers, no order to follow and nothing to tick off. Each part has its own name, free-form notes, one YouTube (or other) link and photos.
+
+One part card is open at a time; the others show a summary such as "2 notes · 1 video · 3 photos". Touch and hold a closed card to move it up or down or remove it. **Add photos** opens the photo library in multi-select (up to 20 per part, kept in the order picked). Tapping a thumbnail opens the photos full screen: swipe or use the filmstrip, and **Remove photo** takes it out with a few seconds to undo. Links with a timestamp (`t=102`, `t=1m42s`) show where the clip starts.
+
+Nothing is written until **Add goal** / **Save goal**: picked photos are then saved privately on the device (JPEG, no metadata, at most 2048 px), photos taken out lose their files, and parts with nothing in them are dropped. Goals saved by earlier builds still open; their own notes and references stay editable.

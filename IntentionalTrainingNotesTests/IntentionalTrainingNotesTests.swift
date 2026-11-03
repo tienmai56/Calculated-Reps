@@ -393,6 +393,74 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(ui.addLink("ftp://files.example.com", toGoal: "g4"))
     }
 
+    func testGoalsSavedBeforePartsStillDecode() throws {
+        let json = #"{"id":"old","title":"Single leg","position":"","notes":"Head inside","links":[],"photos":[]}"#
+        let goal = try JSONDecoder().decode(MatGoal.self, from: Data(json.utf8))
+        XCTAssertEqual(goal.title, "Single leg")
+        XCTAssertEqual(goal.notes, "Head inside")
+        XCTAssertTrue(goal.parts.isEmpty)
+
+        var withParts = goal
+        withParts.parts = [GoalPart(id: "p1", title: "Grip", notes: "Behind the knee", link: "https://youtu.be/abc", photos: ["x.jpg"])]
+        let roundTrip = try JSONDecoder().decode(MatGoal.self, from: JSONEncoder().encode(withParts))
+        XCTAssertEqual(roundTrip, withParts)
+    }
+
+    func testGoalPartSummaryAndVideoStartTimes() {
+        XCTAssertEqual(GoalPart.summary(notes: "- Cup the knee\n\n- Pull it tight", hasLink: true, photoCount: 2), "2 notes · 1 video · 2 photos")
+        XCTAssertEqual(GoalPart.summary(notes: "", hasLink: false, photoCount: 1), "1 photo")
+        XCTAssertEqual(GoalPart.summary(notes: "  ", hasLink: false, photoCount: 0), "Nothing added yet")
+
+        XCTAssertEqual(GoalPart.linkStart("https://youtu.be/abc?t=102"), "1:42")
+        XCTAssertEqual(GoalPart.linkStart("https://www.youtube.com/watch?v=abc&t=1m42s"), "1:42")
+        XCTAssertEqual(GoalPart.linkStart("https://www.youtube.com/embed/abc?start=3725"), "1:02:05")
+        XCTAssertNil(GoalPart.linkStart("https://www.youtube.com/watch?v=abc"))
+        XCTAssertNil(GoalPart.linkStart("https://youtu.be/abc?t=soon"))
+        XCTAssertEqual(GoalPart.linkTitle("https://youtu.be/abc"), "YouTube video")
+        XCTAssertEqual(GoalPart.linkTitle("https://www.bjjfanatics.com/x"), "bjjfanatics.com")
+    }
+
+    func testGoalPartsSavePhotosAndDropEmptyParts() throws {
+        let ui = AppModel(live: false)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40)).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 40))
+        }
+        let data = try XCTUnwrap(image.pngData())
+
+        var goal = MatGoal.new()
+        goal.title = "Single leg from standing"
+        var grip = GoalPartDraft(id: "grip")
+        grip.title = "  Grip on the near leg "
+        grip.link = "youtu.be/abc?t=102"
+        grip.photos = [GoalPhotoDraft(data: data, preview: image), GoalPhotoDraft(data: data, preview: image)]
+        var notesOnly = GoalPartDraft(id: "head")
+        notesOnly.notes = "Head inside"
+        let blank = GoalPartDraft(id: "blank")
+        XCTAssertTrue(ui.saveGoal(goal, parts: [grip, notesOnly, blank]))
+
+        let saved = try XCTUnwrap(ui.goal(goal.id))
+        XCTAssertEqual(saved.parts.map(\.id), ["grip", "head"], "Parts with nothing in them are dropped")
+        XCTAssertEqual(saved.parts[0].title, "Grip on the near leg")
+        XCTAssertEqual(saved.parts[0].link, "https://youtu.be/abc?t=102")
+        XCTAssertEqual(saved.parts[0].photos.count, 2)
+        let files = saved.parts[0].photos.map { MatGoal.photoRoot.appendingPathComponent($0) }
+        XCTAssertTrue(files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+
+        // Remove one photo and the whole second part.
+        var edited = GoalPartDraft(saved.parts[0])
+        edited.photos.removeLast()
+        XCTAssertTrue(ui.saveGoal(saved, parts: [edited]))
+        XCTAssertEqual(ui.goal(goal.id)?.parts.count, 1)
+        XCTAssertEqual(ui.goal(goal.id)?.parts.first?.photos.count, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: files[0].path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: files[1].path), "A removed photo loses its file")
+
+        XCTAssertFalse(ui.saveGoal(MatGoal(id: "blank-goal", title: " "), parts: [grip]), "A goal still needs a name")
+        ui.deleteGoal(goal.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: files[0].path), "Deleting a goal deletes its part photos")
+    }
+
     func testHostCanEditAndDeleteOnlyTheirOwnSessions() async {
         let ui = AppModel(live: false)
         let start = ISO8601DateFormatter().date(from: "2026-11-08T18:30:00Z")!

@@ -557,8 +557,8 @@ private struct ProfileProgressSection: View {
                     .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.25)
                     .foregroundStyle(MMColor.textPrimary)
                     .multilineTextAlignment(.leading)
-                if !goal.notesPreview.isEmpty {
-                    Text(goal.notesPreview)
+                if !goal.cardPreview.isEmpty {
+                    Text(goal.cardPreview)
                         .mmFont(.body, 13, lineHeight: 1.4)
                         .foregroundStyle(MMColor.textSecondary)
                         .lineLimit(2)
