@@ -359,3 +359,77 @@ extension NotebookMigration {
         return ArchiveDocument(sourceSchemaVersion: version, records: records)
     }
 }
+
+/// Turns a "Previous training data" export back into goals for Training → Working on.
+/// Only goals and their tasks come across (name, notes, link, photos). Archived goals,
+/// sessions, reflections and everything else stay in the export.
+enum LegacyGoalImporter {
+    static let jsonName = "training-v1.json"
+    static let maxFileBytes = 300 * 1024 * 1024
+
+    struct Imported {
+        var goals: [MatGoal]
+        var archivedSkipped: Int
+    }
+
+    /// Accepts the exported .zip, or its training-v1.json if the Files app unzipped it
+    /// (photos only come across from the .zip).
+    static func read(_ url: URL, photoRoot: URL = MatGoal.photoRoot) throws -> Imported {
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        guard size <= maxFileBytes else { throw ArchiveFailure.invalid("That file is too big to be a notebook export.") }
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
+        var files: [String: Data] = [:]
+        if data.starts(with: [0x50, 0x4b]) {
+            files = try ArchiveZIP.readStored(data) { $0 == jsonName || $0.hasPrefix("attachments/task-images/") }
+        } else {
+            files[jsonName] = data
+        }
+        guard let json = files[jsonName], let document = try? JSONDecoder().decode(ArchiveDocument.self, from: json) else {
+            throw ArchiveFailure.invalid("That file isn't a Mat Monkeys notebook export.")
+        }
+        return try goals(from: document, files: files, photoRoot: photoRoot)
+    }
+
+    /// Goal name → title. Each task → a "- Name: notes" line; task links → links;
+    /// task photos are copied under `photoRoot`. Ids are stable, so importing twice adds nothing.
+    static func goals(from document: ArchiveDocument, files: [String: Data], photoRoot: URL) throws -> Imported {
+        let tasks = document.records["tasks"] ?? []
+        var goals: [MatGoal] = []
+        var archived = 0
+        for record in document.records["goals"] ?? [] {
+            let name = (record.fields["name"]?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard LegacyArchiveRepository.safeComponent(record.id), !name.isEmpty else { continue }
+            if case .bool(true) = record.fields["isArchived"] {
+                archived += 1
+                continue
+            }
+            let goalID = "legacy-\(record.id)"
+            var lines: [String] = []
+            var links: [String] = []
+            var photos: [String] = []
+            for task in tasks where task.fields["goalId"]?.string == record.id {
+                let taskName = (task.fields["name"]?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let notes = (task.fields["notes"]?.string ?? "")
+                    .split(whereSeparator: \.isNewline)
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+                let line = [taskName, notes].filter { !$0.isEmpty }.joined(separator: ": ")
+                if !line.isEmpty { lines.append("- " + line) }
+                let link = (task.fields["link"]?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !link.isEmpty, !links.contains(link) { links.append(link) }
+                for file in task.fields["imageFileNames"]?.strings ?? [] {
+                    guard LegacyArchiveRepository.safeComponent(task.id), LegacyArchiveRepository.safeComponent(file),
+                          let bytes = files["attachments/task-images/\(task.id)/\(file)"] else { continue }
+                    let relative = "\(goalID)/\(task.id)-\(file)"
+                    let destination = photoRoot.appendingPathComponent(relative)
+                    try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try bytes.write(to: destination, options: [.atomic, .completeFileProtection])
+                    photos.append(relative)
+                }
+            }
+            goals.append(MatGoal(id: goalID, title: name, notes: lines.joined(separator: "\n"), links: links, photos: photos))
+        }
+        return Imported(goals: goals, archivedSkipped: archived)
+    }
+}

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Tab 2: what's coming up and what you're working on.
 /// Past sessions live in Profile → Activity, so they are not repeated here.
@@ -12,6 +13,8 @@ struct TrainingScreen: View {
     @State private var pickingFor: String?
     /// A session waiting for the goal that's being created from its picker.
     @State private var attachNewGoalTo: String?
+    /// Picking an old-notebook export to bring goals over from.
+    @State private var importingGoals = false
 
     private let cardWidth: CGFloat = 300
     private let goalPreviewCount = 3
@@ -67,6 +70,34 @@ struct TrainingScreen: View {
         .mmSheet(isPresented: Binding(get: { pickingFor != nil }, set: { if !$0 { pickingFor = nil } }),
                  title: "Pick a goal", description: "What do you want reps on this time?") {
             goalPicker
+        }
+        .fileImporter(isPresented: $importingGoals, allowedContentTypes: [.zip, .json]) { result in
+            importGoals(result)
+        }
+    }
+
+    /// Brings goals over from the file made by Settings → Export local sessions.
+    private func importGoals(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else { return }
+        Task {
+            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<LegacyGoalImporter.Imported, Error> in
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                return Result { try LegacyGoalImporter.read(url) }
+            }.value
+            switch outcome {
+            case .success(let imported):
+                let added = mm.importGoals(imported.goals)
+                if imported.goals.isEmpty {
+                    mm.showToast("No goals in that notebook")
+                } else if added == 0 {
+                    mm.showToast("Those goals are already here")
+                } else {
+                    mm.showToast(added == 1 ? "Brought over 1 goal" : "Brought over \(added) goals", .success)
+                }
+            case .failure(let error):
+                mm.showToast((error as? LocalizedError)?.errorDescription ?? "That file couldn't be read.")
+            }
         }
     }
 
@@ -167,8 +198,14 @@ struct TrainingScreen: View {
                 Text("Single legs, RNC finishes, that one sweep. Add it here and bring it to your next session.")
                     .mmFont(.body, 14, lineHeight: 1.45).foregroundStyle(MMColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                MMButton("Add a goal", variant: .secondary, size: .sm, iconLeft: "plus") { editingGoal = .new() }
-                    .padding(.top, 4)
+                HStack(spacing: 8) {
+                    MMButton("Add a goal", variant: .secondary, size: .sm, iconLeft: "plus") { editingGoal = .new() }
+                    MMButton("Import", variant: .ghost, size: .sm, iconLeft: "upload") { importingGoals = true }
+                }
+                .padding(.top, 4)
+                Text("Used the old notebook? Export it from Profile → Settings → Export local sessions, save it to Files, then import it here.")
+                    .mmFont(.body, 12, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -184,6 +221,10 @@ struct TrainingScreen: View {
                         withAnimation(MMMotion.easeOut()) { showAllGoals.toggle() }
                     }
                 }
+                textAction("Import goals from your old notebook", icon: "upload", color: MMColor.textTertiary) {
+                    importingGoals = true
+                }
+                .padding(.top, 4)
             }
             .padding(.horizontal, 16)
         }

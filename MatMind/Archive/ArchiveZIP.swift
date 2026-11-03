@@ -9,6 +9,59 @@ enum ArchiveZIP {
         for byte in data { c ^= UInt32(byte); for _ in 0..<8 { c = (c >> 1) ^ (c & 1 == 1 ? 0xedb88320 : 0) } }
         return c ^ 0xffffffff
     }
+    /// Reads entries from a ZIP written by `write` (STORE method only), keeping
+    /// those whose names pass `include`. Anything re-compressed or damaged is refused.
+    static func readStored(_ data: Data, include: (String) -> Bool) throws -> [String: Data] {
+        let bytes = [UInt8](data)
+        let bad = ArchiveFailure.invalid("That file isn't a readable notebook export.")
+        func u16(_ i: Int) throws -> Int {
+            guard i >= 0, i + 2 <= bytes.count else { throw bad }
+            return Int(bytes[i]) | Int(bytes[i + 1]) << 8
+        }
+        func u32(_ i: Int) throws -> Int {
+            guard i >= 0, i + 4 <= bytes.count else { throw bad }
+            return Int(bytes[i]) | Int(bytes[i + 1]) << 8 | Int(bytes[i + 2]) << 16 | Int(bytes[i + 3]) << 24
+        }
+        // End of central directory: the last signature within the comment window.
+        guard bytes.count >= 22 else { throw bad }
+        var eocd = -1
+        var i = bytes.count - 22
+        let floor = max(0, bytes.count - 22 - 65535)
+        while i >= floor {
+            if try u32(i) == 0x06054b50 { eocd = i; break }
+            i -= 1
+        }
+        guard eocd >= 0 else { throw bad }
+        let count = try u16(eocd + 10)
+        var p = try u32(eocd + 16)
+        var out: [String: Data] = [:]
+        for _ in 0..<count {
+            guard try u32(p) == 0x02014b50 else { throw bad }
+            let method = try u16(p + 10)
+            let checksum = UInt32(try u32(p + 16))
+            let compressed = try u32(p + 20)
+            let size = try u32(p + 24)
+            let nameLength = try u16(p + 28)
+            let extraLength = try u16(p + 30)
+            let commentLength = try u16(p + 32)
+            let local = try u32(p + 42)
+            guard p + 46 + nameLength <= bytes.count else { throw bad }
+            let name = String(decoding: bytes[(p + 46)..<(p + 46 + nameLength)], as: UTF8.self)
+            p += 46 + nameLength + extraLength + commentLength
+            guard include(name) else { continue }
+            guard method == 0, compressed == size else {
+                throw ArchiveFailure.invalid("This export was re-compressed. Export it again from Settings and pick the new file.")
+            }
+            guard try u32(local) == 0x04034b50 else { throw bad }
+            let start = try local + 30 + u16(local + 26) + u16(local + 28)
+            guard start >= 0, start + size <= bytes.count else { throw bad }
+            let body = Data(bytes[start..<(start + size)])
+            guard crc(body) == checksum else { throw bad }
+            out[name] = body
+        }
+        return out
+    }
+
     static func write(directory: URL, destination: URL) throws {
         let fm = FileManager.default
         let root = directory.resolvingSymlinksInPath().standardizedFileURL

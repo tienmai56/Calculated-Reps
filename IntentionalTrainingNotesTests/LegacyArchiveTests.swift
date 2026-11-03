@@ -160,4 +160,49 @@ final class InvitationLinkTests: XCTestCase {
         }
         XCTAssertEqual(InvitationLinks.make(kind: "friend", token: token, host: nil, httpsEnabled: true).scheme, "matmind")
     }
+
+    func testExportedNotebookImportsActiveGoalsWithTaskDetailsAndPhotos() async throws {
+        let date = ISO8601DateFormatter().date(from: "2026-03-08T10:15:00Z")!
+        let active = TrainingGoal(id: "g1", accountId: "local", name: "Single leg", createdAt: date, updatedAt: date)
+        let archived = TrainingGoal(id: "g2", accountId: "local", name: "Old guard", isArchived: true, createdAt: date, updatedAt: date)
+        let task = TrainingTask(id: "t1", goalId: "g1", name: "Level change", notes: "Head inside\nEar on hip",
+                                link: "https://example.com/single-leg", imageFileNames: ["grip.jpg"], createdAt: date, updatedAt: date)
+        let session = PlannedSession(id: "s1", goalId: "g1", date: date, taskIds: ["t1"], createdAt: date, updatedAt: date)
+        let book = TrainingNotebook(accountId: "local", goals: [active, archived], tasks: [task], sessions: [session])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        let src = try source(encoder.encode(book))
+        let images = src.appendingPathComponent("task-images/t1")
+        try FileManager.default.createDirectory(at: images, withIntermediateDirectories: true)
+        try Data([9, 8, 7]).write(to: images.appendingPathComponent("grip.jpg"))
+
+        // The same file a person saves from Settings → Export local sessions.
+        let repo = repository()
+        let archive = try await repo.migrate(account: "local")!
+        let zip = try await repo.export(archive, temporaryRoot: root.appendingPathComponent("exports"))
+        let photos = root.appendingPathComponent("goal-photos")
+        let imported = try LegacyGoalImporter.read(zip, photoRoot: photos)
+
+        XCTAssertEqual(imported.archivedSkipped, 1)
+        XCTAssertEqual(imported.goals.count, 1, "Archived goals and sessions are not imported")
+        let goal = try XCTUnwrap(imported.goals.first)
+        XCTAssertEqual(goal.id, "legacy-g1")
+        XCTAssertEqual(goal.title, "Single leg")
+        XCTAssertEqual(goal.notes, "- Level change: Head inside Ear on hip")
+        XCTAssertEqual(goal.links, ["https://example.com/single-leg"])
+        XCTAssertEqual(goal.photos, ["legacy-g1/t1-grip.jpg"])
+        XCTAssertEqual(try Data(contentsOf: photos.appendingPathComponent("legacy-g1/t1-grip.jpg")), Data([9, 8, 7]))
+
+        let counts = await MainActor.run { () -> (Int, Int) in
+            let model = AppModel()
+            return (model.importGoals(imported.goals), model.importGoals(imported.goals))
+        }
+        XCTAssertEqual(counts.0, 1)
+        XCTAssertEqual(counts.1, 0, "Importing the same export twice adds nothing")
+    }
+
+    func testGoalImportRefusesFilesThatAreNotNotebookExports() throws {
+        let file = root.appendingPathComponent("random.json")
+        try Data(#"{"hello":"world"}"#.utf8).write(to: file)
+        XCTAssertThrowsError(try LegacyGoalImporter.read(file, photoRoot: root))
+    }
 }

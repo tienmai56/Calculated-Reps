@@ -175,8 +175,14 @@ struct MatGoal: Identifiable, Hashable, Codable {
     var notes: String = ""
     /// Reference links (instructionals, videos).
     var links: [String] = []
-    /// Reference photos (asset names or private local file paths).
+    /// Reference photos: asset names in the preview, or paths relative to `photoRoot`.
     var photos: [String] = []
+
+    /// Private folder for goal photos (relative paths survive app updates moving the container).
+    static var photoRoot: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MatMonkeysGoalPhotos", isDirectory: true)
+    }
 
     static let positions = ["Standup", "Guard", "Passing", "Back", "Mount", "Side control", "Escapes", "Leg locks"]
 

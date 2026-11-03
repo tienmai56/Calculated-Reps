@@ -403,6 +403,16 @@ final class AppModel {
         persistGoals()
     }
 
+    /// Adds goals brought over from an old-notebook export, newest import first.
+    /// Goals already imported (same id) are skipped. Returns how many were added.
+    @discardableResult
+    func importGoals(_ imported: [MatGoal]) -> Int {
+        let fresh = imported.filter { goal($0.id) == nil }
+        goals.insert(contentsOf: fresh, at: 0)
+        persistGoals()
+        return fresh.count
+    }
+
     private struct StoredGoals: Codable {
         var goals: [MatGoal]
         var sessionGoals: [String: String]
