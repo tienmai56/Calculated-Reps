@@ -352,6 +352,27 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertNil(ui.pendingPlanGoal)
     }
 
+    func testGoalPhotosAreSavedPrivatelyAndRemovable() throws {
+        let ui = AppModel(live: false)
+        let big = UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 1500)).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 3000, height: 1500))
+        }
+        let data = try XCTUnwrap(big.pngData())
+        XCTAssertTrue(ui.addPhoto(data, toGoal: "g4"))
+        let photo = try XCTUnwrap(ui.goal("g4")?.photos.last)
+        let file = MatGoal.photoRoot.appendingPathComponent(photo)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: file.path))
+        XCTAssertEqual(MatGoal.photoSource(photo), file.path)
+        let saved = try XCTUnwrap(UIImage(contentsOfFile: file.path))
+        XCTAssertLessThanOrEqual(max(saved.size.width, saved.size.height), 2048, "Large photos are scaled down")
+        XCTAssertFalse(ui.addPhoto(Data("not an image".utf8), toGoal: "g4"))
+
+        ui.removePhoto(photo, fromGoal: "g4")
+        XCTAssertFalse(ui.goal("g4")?.photos.contains(photo) ?? true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path), "Removing a photo deletes its file")
+    }
+
     func testReferenceLinksAreNormalizedAndValidated() {
         let ui = AppModel(live: false)
         XCTAssertTrue(ui.addLink("  youtube.com/watch?v=abc ", toGoal: "g4"))

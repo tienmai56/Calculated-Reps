@@ -476,6 +476,7 @@ final class AppModel {
     }
 
     func deleteGoal(_ id: String) {
+        goal(id)?.photos.forEach(Self.deleteGoalPhotoFile)
         goals.removeAll { $0.id == id }
         sessionGoals = sessionGoals.filter { $0.value != id }
         persistGoals()
@@ -523,6 +524,59 @@ final class AppModel {
         persistGoals()
         showToast("Link added", .success)
         return true
+    }
+
+    /// Saves a reference photo for a goal, privately on this device. The image is
+    /// re-encoded as JPEG (no location or camera metadata) and capped at 2048 px.
+    @discardableResult
+    func addPhoto(_ data: Data, toGoal id: String) -> Bool {
+        guard let i = goals.firstIndex(where: { $0.id == id }) else { return false }
+        guard let image = UIImage(data: data), let jpeg = Self.goalPhotoJPEG(image) else {
+            showToast("That photo couldn't be read")
+            return false
+        }
+        let folder = id.replacingOccurrences(of: "/", with: "-")
+        let relative = "\(folder)/\(UUID().uuidString.lowercased()).jpg"
+        let url = MatGoal.photoRoot.appendingPathComponent(relative)
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try jpeg.write(to: url, options: [.atomic, .completeFileProtection])
+        } catch {
+            showToast("That photo couldn't be saved")
+            return false
+        }
+        goals[i].photos.append(relative)
+        persistGoals()
+        showToast("Photo added", .success)
+        return true
+    }
+
+    func removePhoto(_ photo: String, fromGoal id: String) {
+        guard let i = goals.firstIndex(where: { $0.id == id }), goals[i].photos.contains(photo) else { return }
+        goals[i].photos.removeAll { $0 == photo }
+        Self.deleteGoalPhotoFile(photo)
+        persistGoals()
+        showToast("Photo removed")
+    }
+
+    /// Deletes a goal photo saved under `MatGoal.photoRoot` (sample asset names are left alone).
+    private static func deleteGoalPhotoFile(_ photo: String) {
+        let url = MatGoal.photoRoot.appendingPathComponent(photo).standardizedFileURL
+        guard url.path.hasPrefix(MatGoal.photoRoot.standardizedFileURL.path + "/"),
+              FileManager.default.fileExists(atPath: url.path) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private static func goalPhotoJPEG(_ image: UIImage) -> Data? {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > 0 else { return nil }
+        let scale = min(1, 2048 / longest)
+        let size = CGSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format)
+            .image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+            .jpegData(compressionQuality: 0.85)
     }
 
     private struct StoredGoals: Codable {

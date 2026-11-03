@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -106,6 +107,7 @@ struct GoalDetailScreen: View {
     @State private var confirmDelete = false
     @State private var addingLink = false
     @State private var linkDraft = ""
+    @State private var pickedPhoto: PhotosPickerItem?
 
     var body: some View {
         if let goal = mm.goal(id) {
@@ -167,6 +169,17 @@ struct GoalDetailScreen: View {
         } message: {
             Text("Its details and references go with it.")
         }
+        .onChange(of: pickedPhoto) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    mm.addPhoto(data, toGoal: goal.id)
+                } else {
+                    mm.showToast("That photo couldn't be read")
+                }
+                pickedPhoto = nil
+            }
+        }
         .alert("Add a link", isPresented: $addingLink) {
             TextField("youtube.com/…", text: $linkDraft)
                 .keyboardType(.URL)
@@ -184,34 +197,48 @@ struct GoalDetailScreen: View {
 
     @ViewBuilder
     private func references(_ goal: MatGoal) -> some View {
-        if goal.links.isEmpty && goal.photos.isEmpty {
-            Text("Save the instructionals and photos you keep coming back to.")
-                .mmFont(.body, 14, lineHeight: 1.45).foregroundStyle(MMColor.textTertiary)
-                .padding(.horizontal, 20)
-        } else {
-            VStack(alignment: .leading, spacing: 12) {
-                if !goal.photos.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(goal.photos, id: \.self) { photo in
-                                MMPhotoTile(photo: MatGoal.photoSource(photo), height: 88, radius: 18)
-                                    .frame(width: 88)
-                                    .accessibilityLabel("Reference photo")
+        VStack(alignment: .leading, spacing: 12) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(goal.photos, id: \.self) { photo in
+                        MMPhotoTile(photo: MatGoal.photoSource(photo), height: 88, radius: 18)
+                            .frame(width: 88)
+                            .contextMenu {
+                                Button(role: .destructive) { mm.removePhoto(photo, fromGoal: goal.id) } label: {
+                                    Label("Remove photo", image: "trash-2")
+                                }
                             }
+                            .accessibilityLabel("Reference photo")
+                            .accessibilityHint("Touch and hold to remove")
+                    }
+                    PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
+                        VStack(spacing: 6) {
+                            MMIcon("image-plus", size: 22, color: MMColor.ink700)
+                            Text("Add photo").mmFont(.body, 12, .semibold, lineHeight: 1.2).foregroundStyle(MMColor.textSecondary)
                         }
-                        .padding(.horizontal, 16)
+                        .frame(width: 88, height: 88)
+                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(MMColor.paper2))
+                        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(MMPressStyle(scale: 0.96))
+                    .accessibilityLabel("Add a reference photo")
+                }
+                .padding(.horizontal, 16)
+            }
+            if goal.links.isEmpty && goal.photos.isEmpty {
+                Text("Save the instructionals and photos you keep coming back to.")
+                    .mmFont(.body, 14, lineHeight: 1.45).foregroundStyle(MMColor.textTertiary)
+                    .padding(.horizontal, 20)
+            }
+            if !goal.links.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(goal.links.enumerated()), id: \.element) { i, link in
+                        linkRow(link, divider: i < goal.links.count - 1)
                     }
                 }
-                if !goal.links.isEmpty {
-                    VStack(spacing: 0) {
-                        ForEach(Array(goal.links.enumerated()), id: \.element) { i, link in
-                            linkRow(link, divider: i < goal.links.count - 1)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .mmCardSurface(radius: 22)
-                    .padding(.horizontal, 16)
-                }
+                .padding(.horizontal, 14)
+                .mmCardSurface(radius: 22)
+                .padding(.horizontal, 16)
             }
         }
     }
