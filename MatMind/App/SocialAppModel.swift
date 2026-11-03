@@ -106,6 +106,7 @@ import SwiftData
         } catch { if generation == epoch { self.error = error.localizedDescription }; return nil }
     }
     func logout() async {
+        error = nil; message = nil
         epoch = UUID(); let old = userID; userID = nil; SocialPushCoordinator.pending = nil; snapshot = SocialSnapshot(); pendingLink = nil
         if let cache, let old {
             let context = ModelContext(cache)
