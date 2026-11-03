@@ -57,6 +57,8 @@ struct Post: Identifiable, Hashable {
     var extraLikes: Int
     var comments: [Comment]
     var focusItems: [TrainingFocus] = []
+    /// When the session happened, when known (live posts). Preview posts only have `date` text.
+    var occurredAt: Date? = nil
 }
 
 enum RSVP: String {
