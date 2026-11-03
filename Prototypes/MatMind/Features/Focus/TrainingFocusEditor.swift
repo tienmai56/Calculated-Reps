@@ -35,6 +35,7 @@ struct TrainingFocusEditor: View {
                     ForEach(TrainingFocusTree.rows([root])) { row in
                         editorRow(row)
                     }
+                    cardActions(root)
                 }
                 .padding(MMSpace.s5)
                 .mmCardSurface()
@@ -78,7 +79,7 @@ struct TrainingFocusEditor: View {
                 removalID = nil
             }
         } message: {
-            Text("Its nested details will be removed too.")
+            Text("Its details will be removed too.")
         }
     }
 
@@ -95,30 +96,10 @@ struct TrainingFocusEditor: View {
                     .lineLimit(1...4)
                     .frame(minHeight: MMLayout.tapTarget)
                     .focused($focusedID, equals: row.id)
-                    .accessibilityLabel(row.depth == 0 ? "Training focus" : "Detail, level \(row.depth + 1)")
+                    .accessibilityLabel(row.depth == 0 ? "Training focus" : (row.depth == 1 ? "Detail" : "Detail, level \(row.depth + 1)"))
                     .accessibilityIdentifier("focus-title-\(row.id)")
                 if row.depth == 0, let goal = linkedGoal(row.id), !goal.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     goalNotes(goal, for: row.id)
-                }
-                HStack(spacing: MMSpace.s4) {
-                    Button { addChild(to: row.id) } label: {
-                        HStack(spacing: MMSpace.s2) {
-                            MMIcon("plus", size: 14)
-                            Text("Add a detail").mmFont(.body, 13, .semibold)
-                        }
-                        .foregroundStyle(MMColor.textLink)
-                        .frame(minHeight: MMLayout.tapTarget)
-                    }
-                    .buttonStyle(.plain)
-                    Spacer(minLength: 0)
-                    MMIconButton("trash-2", label: "Remove \(row.node.title.isEmpty ? "focus" : row.node.title)") {
-                        if row.node.children.isEmpty {
-                            remove(row.id)
-                        } else {
-                            removalID = row.id
-                            showRemoval = true
-                        }
-                    }
                 }
                 if row.depth >= 3 {
                     Text("Detail · level \(row.depth + 1)")
@@ -126,9 +107,43 @@ struct TrainingFocusEditor: View {
                         .foregroundStyle(MMColor.textTertiary)
                 }
             }
+            if row.depth > 0 {
+                MMIconButton("x", label: "Remove \(row.node.title.isEmpty ? "detail" : row.node.title)") {
+                    requestRemoval(row.node)
+                }
+            }
         }
         .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s6)
         .id(row.id)
+    }
+
+    /// One level of details: a single Add a detail per focus, plus the focus's remove button.
+    private func cardActions(_ root: TrainingFocus) -> some View {
+        HStack(spacing: MMSpace.s4) {
+            Button { addChild(to: root.id) } label: {
+                HStack(spacing: MMSpace.s2) {
+                    MMIcon("plus", size: 14)
+                    Text("Add a detail").mmFont(.body, 13, .semibold)
+                }
+                .foregroundStyle(MMColor.textLink)
+                .frame(minHeight: MMLayout.tapTarget)
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+            MMIconButton("trash-2", label: "Remove \(root.title.isEmpty ? "focus" : root.title)") {
+                requestRemoval(root)
+            }
+        }
+        .padding(.leading, 16 + MMSpace.s4)
+    }
+
+    private func requestRemoval(_ node: TrainingFocus) {
+        if node.children.isEmpty {
+            remove(node.id)
+        } else {
+            removalID = node.id
+            showRemoval = true
+        }
     }
 
     /// The goal's own notes, read-only and collapsed by default, so the session's
@@ -179,12 +194,7 @@ struct TrainingFocusEditor: View {
 
     private func toggleGoal(_ goal: MatGoal) {
         if let id = pickedFocusID(for: goal) {
-            if TrainingFocusTree.find(id, in: items)?.children.isEmpty ?? true {
-                remove(id)
-            } else {
-                removalID = id
-                showRemoval = true
-            }
+            if let node = TrainingFocusTree.find(id, in: items) { requestRemoval(node) }
             return
         }
         let item = TrainingFocus(title: goal.title)

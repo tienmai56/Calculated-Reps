@@ -73,7 +73,8 @@ enum TrainingFocusTree {
     /// Review-panel example only; the composer starts with a blank optional card.
     static var example: [TrainingFocus] {
         [TrainingFocus(title: "Guard passing", children: [
-            TrainingFocus(title: "Knee-cut entry", children: [TrainingFocus(title: "Win the underhook")]),
+            TrainingFocus(title: "Knee-cut entry"),
+            TrainingFocus(title: "Win the underhook"),
             TrainingFocus(title: "Settle into side control"),
         ]), TrainingFocus(title: "Back escapes")]
     }
