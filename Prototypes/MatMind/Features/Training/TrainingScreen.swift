@@ -4,12 +4,6 @@ import SwiftUI
 /// live in Profile → Activity.
 struct TrainingScreen: View {
     @Environment(AppModel.self) private var mm
-    /// The goal being created from a ticket's picker.
-    @State private var editingGoal: MatGoal?
-    /// The session whose goal is being picked.
-    @State private var pickingFor: String?
-    /// A session waiting for the goal that's being created from its picker.
-    @State private var attachNewGoalTo: String?
     /// The hosted session being edited, or waiting for delete confirmation.
     @State private var editingSession: Session?
     @State private var deletingSession: Session?
@@ -42,15 +36,6 @@ struct TrainingScreen: View {
             }
         }
         .animation(MMMotion.easeOut(), value: list.map(\.id))
-        .sheet(item: $editingGoal, onDismiss: { attachNewGoalTo = nil }) { goal in
-            MatGoalEditorSheet(draft: goal, isNew: mm.goal(goal.id) == nil) { saved in
-                if let sessionID = attachNewGoalTo { mm.setGoal(saved.id, forSession: sessionID) }
-            }
-        }
-        .mmSheet(isPresented: Binding(get: { pickingFor != nil }, set: { if !$0 { pickingFor = nil } }),
-                 title: "Pick a goal", description: "What do you want reps on this time?") {
-            goalPicker
-        }
         .sheet(item: $editingSession) { s in
             MatSessionEditorSheet(session: s, startsAt: mm.startDate(of: s))
         }
@@ -70,7 +55,6 @@ struct TrainingScreen: View {
                 .overlay(alignment: .topTrailing) {
                     if s.organizer == "me" { sessionMenu(s) }
                 }
-            goalRow(s)
             if s.status(of: "me") == .invited {
                 HStack(spacing: 8) {
                     MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(s.id, .declined) }
@@ -93,81 +77,6 @@ struct TrainingScreen: View {
         .accessibilityLabel("Options for \(s.title)")
         .padding(.top, 2)
         .padding(.trailing, 2)
-    }
-
-    /// The goal attached to a session (opens the goal), or a quiet way to pick one.
-    @ViewBuilder
-    private func goalRow(_ s: Session) -> some View {
-        if let goal = mm.goal(forSession: s.id) {
-            HStack(spacing: 4) {
-                Button { mm.go(.goal(id: goal.id)) } label: {
-                    HStack(spacing: 6) {
-                        MMIcon("notebook-pen", size: 14, color: MMColor.ink700)
-                        Text(goal.title).mmFont(.body, 13, .semibold, lineHeight: 1).foregroundStyle(MMColor.ink900)
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
-                    .background(Capsule().fill(MMColor.paper2))
-                    .frame(minHeight: MMLayout.tapTarget)
-                }
-                .buttonStyle(MMPressStyle(scale: 0.96))
-                .accessibilityLabel("Working on \(goal.title)")
-                Button { pickingFor = s.id } label: {
-                    Text("Change").mmFont(.body, 13, .bold, lineHeight: 1).foregroundStyle(MMColor.coral700)
-                        .padding(.horizontal, 8)
-                        .frame(minHeight: MMLayout.tapTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Change goal for \(s.title)")
-            }
-        } else {
-            Button { pickingFor = s.id } label: {
-                HStack(spacing: 4) {
-                    MMIcon("plus", size: 14, weight: .bold)
-                    Text("Pick a goal").mmFont(.body, 13, .bold, lineHeight: 1)
-                }
-                .foregroundStyle(MMColor.coral700)
-                .padding(.horizontal, 4)
-                .frame(minHeight: MMLayout.tapTarget)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(MMPressStyle(scale: 0.96))
-        }
-    }
-
-    @ViewBuilder
-    private var goalPicker: some View {
-        if let sessionID = pickingFor {
-            let current = mm.sessionGoals[sessionID]
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(mm.goals) { g in
-                    MMTag(g.title, icon: current == g.id ? "check" : nil, selected: current == g.id, action: {
-                        mm.setGoal(current == g.id ? nil : g.id, forSession: sessionID)
-                        pickingFor = nil
-                    })
-                }
-                HStack(spacing: 8) {
-                    MMButton("New goal", variant: .secondary, size: .sm, iconLeft: "plus") {
-                        pickingFor = nil
-                        attachNewGoalTo = sessionID
-                        // Let the picker finish dismissing before the editor presents.
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .seconds(0.35))
-                            editingGoal = .new()
-                        }
-                    }
-                    if current != nil {
-                        MMButton("No goal this time", variant: .ghost, size: .sm) {
-                            mm.setGoal(nil, forSession: sessionID)
-                            pickingFor = nil
-                        }
-                    }
-                }
-                .padding(.top, 4)
-            }
-        }
     }
 }
 
@@ -206,7 +115,7 @@ private struct MatSessionEditorSheet: View {
                             .labelsHidden()
                             .tint(MMColor.accent)
                     }
-                    MMTextField(label: "Gym", placeholder: "Where you're rolling", text: $gym, iconLeft: "map-pin")
+                    MMPlaceSearchField(label: "Gym", placeholder: "Search gyms or addresses", text: $gym)
                     MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
                 }
                 .padding(.top, MMSpace.s4)

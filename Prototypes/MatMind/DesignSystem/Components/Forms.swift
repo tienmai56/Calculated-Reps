@@ -38,6 +38,7 @@ struct MMTextField: View {
     var rows = 3
     var autoFocus = false
     var onSubmit: (() -> Void)?
+    var onFocusChange: ((Bool) -> Void)?
 
     @FocusState private var focused: Bool
 
@@ -52,6 +53,7 @@ struct MMTextField: View {
         multiline: Bool = false,
         rows: Int = 3,
         autoFocus: Bool = false,
+        onFocusChange: ((Bool) -> Void)? = nil,
         onSubmit: (() -> Void)? = nil
     ) {
         self.label = label
@@ -65,6 +67,7 @@ struct MMTextField: View {
         self.rows = rows
         self.autoFocus = autoFocus
         self.onSubmit = onSubmit
+        self.onFocusChange = onFocusChange
     }
 
     var body: some View {
@@ -109,6 +112,7 @@ struct MMTextField: View {
             try? await Task.sleep(for: .seconds(0.45))
             focused = true
         }
+        .onChange(of: focused) { _, active in onFocusChange?(active) }
     }
 
     @ViewBuilder
