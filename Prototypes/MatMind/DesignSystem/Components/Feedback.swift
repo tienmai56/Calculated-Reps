@@ -114,7 +114,8 @@ private struct MMSheetHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// Bottom sheet: white, 28pt top radius, ink 48% overlay, sized to its content.
+/// Content-sized bottom sheet. Long forms scroll within the system's maximum
+/// detent instead of forcing their title and actions outside the visible sheet.
 private struct MMSheetModifier<SheetContent: View, Actions: View>: ViewModifier {
     @Binding var isPresented: Bool
     var title: String?
@@ -126,22 +127,27 @@ private struct MMSheetModifier<SheetContent: View, Actions: View>: ViewModifier 
 
     func body(content: Content) -> some View {
         content.sheet(isPresented: $isPresented) {
-            MMDialogBody(title: title, description: description, onClose: { isPresented = false }) {
-                sheetContent()
-            } actions: {
-                actions()
+            ScrollView {
+                MMDialogBody(title: title, description: description, onClose: { isPresented = false }) {
+                    sheetContent()
+                } actions: {
+                    actions()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 26)
+                .padding(.bottom, 20)
+                .background {
+                    // Measure the full content, not the capped scroll viewport,
+                    // so compact sheets keep their natural height.
+                    GeometryReader { g in Color.clear.preference(key: MMSheetHeightKey.self, value: g.size.height) }
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 26)
-            .padding(.bottom, 20)
-            .fixedSize(horizontal: false, vertical: true)
-            .background {
-                GeometryReader { g in Color.clear.preference(key: MMSheetHeightKey.self, value: g.size.height) }
-            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
             .onPreferenceChange(MMSheetHeightKey.self) { value in
                 if value > 0 { height = value }
             }
-            .frame(maxHeight: .infinity, alignment: .top)
             .presentationDetents([.height(height)])
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(MMRadius.xl)
