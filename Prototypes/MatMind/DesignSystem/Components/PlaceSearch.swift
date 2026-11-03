@@ -98,10 +98,10 @@ struct MMPlaceSearchField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             MMTextField(label: label, required: required, placeholder: placeholder, text: $text, iconLeft: "map-pin",
-                        onSubmit: { finishEditing() }, onFocusChange: { focused in
+                        onFocusChange: { focused in
                 active = focused
                 if !focused { search.updateQuery("") }
-            })
+            }, onSubmit: { finishEditing() })
             .textInputAutocapitalization(.words)
             .autocorrectionDisabled()
             .onChange(of: text) { _, _ in search.updateQuery("") }

@@ -53,8 +53,8 @@ struct MMTextField: View {
         multiline: Bool = false,
         rows: Int = 3,
         autoFocus: Bool = false,
-        onSubmit: (() -> Void)? = nil,
-        onFocusChange: ((Bool) -> Void)? = nil
+        onFocusChange: ((Bool) -> Void)? = nil,
+        onSubmit: (() -> Void)? = nil
     ) {
         self.label = label
         self.required = required
