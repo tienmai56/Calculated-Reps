@@ -499,7 +499,8 @@ final class LiveMatMindRuntime: AppRuntime {
                         photo: photos[row.text("media_id")], participants: model.snapshot.tags.filter { $0.text("post_id") == row.id && $0.flag("visible") }.map { localID($0.text("user_id")) },
                         caption: row.text("caption"), likes: model.snapshot.likes.filter { $0.text("post_id") == row.id }.map { localID($0.text("user_id")) }, extraLikes: 0,
                         comments: model.snapshot.comments.filter { $0.text("post_id") == row.id }.map { Comment(who: localID($0.text("author")), text: $0.text("body")) },
-                        focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [])
+                        focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
+                        occurredAt: date)
         }
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
