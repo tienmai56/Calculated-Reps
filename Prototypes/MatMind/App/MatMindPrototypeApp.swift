@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct MatMindPrototypeApp: App {
-    @State private var model = AppModel()
+    @State private var model = AppModel(live: false)
 
     init() {
         _ = MMFont.registered

@@ -280,15 +280,33 @@ func mmNames(_ list: [String], max: Int = 2) -> String {
     return firsts.prefix(max).joined(separator: ", ") + " +\(firsts.count - max)"
 }
 
-/// Asset names are used in previews; live photos are downloaded to private local files.
+private struct AllowsSamplePhotosKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var allowsSamplePhotos: Bool {
+        get { self[AllowsSamplePhotosKey.self] }
+        set { self[AllowsSamplePhotosKey.self] = newValue }
+    }
+}
+
+/// Live photos must be private local files. Bundled photos require explicit preview mode.
 struct MMPhoto: View {
     let source: String
+    @Environment(\.allowsSamplePhotos) private var allowsSamplePhotos
+
+    static func image(source: String, allowsSamplePhotos: Bool) -> UIImage? {
+        if source.hasPrefix("/") { return UIImage(contentsOfFile: source) }
+        return allowsSamplePhotos ? UIImage(named: source) : nil
+    }
+
     var body: some View {
         Group {
-            if source.hasPrefix("/"), let image = UIImage(contentsOfFile: source) {
+            if let image = Self.image(source: source, allowsSamplePhotos: allowsSamplePhotos) {
                 Image(uiImage: image).resizable()
             } else {
-                Image(source).resizable()
+                Color.clear
             }
         }
     }

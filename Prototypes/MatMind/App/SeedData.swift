@@ -1,3 +1,4 @@
+#if DEBUG || MAT_MIND_PROTOTYPE
 import Foundation
 
 /// Sample data from `ui_kits/app/data.js`. Photos: Unsplash (assets/photos).
@@ -81,3 +82,5 @@ enum SeedData {
     static let gyms = ["Tidewater BJJ", "North Shore Grappling", "Harbor Jiu-Jitsu", "Eastside MMA"]
     static let cameraRoll = ["roll-gi-2", "team-lineup", "floor-drill", "grapple-match", "bw-sweep", "roll-gi"]
 }
+
+#endif
