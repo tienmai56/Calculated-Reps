@@ -72,6 +72,10 @@ final class AppModel {
     var sessionGoals = SeedData.sessionGoals
     /// The signed-in account whose goals are loaded (installed app only).
     @ObservationIgnored private var goalAccount: String?
+    /// Reads an old-notebook export into goals. Supplied by the installed app, which
+    /// owns the archive format; the shared preview has no importer.
+    @ObservationIgnored var readGoalExport: (@Sendable (URL) throws -> [MatGoal])?
+    var canImportGoals: Bool { readGoalExport != nil }
 
     // MARK: Navigation & feedback
     var tab: AppTab = .activity

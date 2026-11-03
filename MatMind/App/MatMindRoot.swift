@@ -49,6 +49,7 @@ struct MatMindRoot: View {
                 let services = LiveMatMindRuntime(model: model, ui: ui)
                 runtime = services
                 ui.runtime = services
+                ui.readGoalExport = { url in try LegacyGoalImporter.read(url).goals }
 #if DEBUG
                 ui.previewAction = {
                     model.error = nil

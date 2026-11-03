@@ -78,17 +78,17 @@ struct TrainingScreen: View {
 
     /// Brings goals over from the file made by Settings → Export local sessions.
     private func importGoals(_ result: Result<URL, Error>) {
-        guard case .success(let url) = result else { return }
+        guard case .success(let url) = result, let read = mm.readGoalExport else { return }
         Task {
-            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<LegacyGoalImporter.Imported, Error> in
+            let outcome = await Task.detached(priority: .userInitiated) { () -> Result<[MatGoal], Error> in
                 let scoped = url.startAccessingSecurityScopedResource()
                 defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                return Result { try LegacyGoalImporter.read(url) }
+                return Result { try read(url) }
             }.value
             switch outcome {
             case .success(let imported):
-                let added = mm.importGoals(imported.goals)
-                if imported.goals.isEmpty {
+                let added = mm.importGoals(imported)
+                if imported.isEmpty {
                     mm.showToast("No goals in that notebook")
                 } else if added == 0 {
                     mm.showToast("Those goals are already here")
@@ -154,10 +154,10 @@ struct TrainingScreen: View {
             let current = mm.sessionGoals[sessionID]
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(mm.goals) { g in
-                    MMTag(g.title, icon: current == g.id ? "check" : nil, selected: current == g.id) {
+                    MMTag(g.title, icon: current == g.id ? "check" : nil, selected: current == g.id, action: {
                         mm.setGoal(current == g.id ? nil : g.id, forSession: sessionID)
                         pickingFor = nil
-                    }
+                    })
                 }
                 HStack(spacing: 8) {
                     MMButton("New goal", variant: .secondary, size: .sm, iconLeft: "plus") {
@@ -200,12 +200,16 @@ struct TrainingScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     MMButton("Add a goal", variant: .secondary, size: .sm, iconLeft: "plus") { editingGoal = .new() }
-                    MMButton("Import", variant: .ghost, size: .sm, iconLeft: "upload") { importingGoals = true }
+                    if mm.canImportGoals {
+                        MMButton("Import", variant: .ghost, size: .sm, iconLeft: "upload") { importingGoals = true }
+                    }
                 }
                 .padding(.top, 4)
-                Text("Used the old notebook? Export it from Profile → Settings → Export local sessions, save it to Files, then import it here.")
-                    .mmFont(.body, 12, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if mm.canImportGoals {
+                    Text("Used the old notebook? Export it from Profile → Settings → Export local sessions, save it to Files, then import it here.")
+                        .mmFont(.body, 12, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -221,10 +225,12 @@ struct TrainingScreen: View {
                         withAnimation(MMMotion.easeOut()) { showAllGoals.toggle() }
                     }
                 }
-                textAction("Import goals from your old notebook", icon: "upload", color: MMColor.textTertiary) {
-                    importingGoals = true
+                if mm.canImportGoals {
+                    textAction("Import goals from your old notebook", icon: "upload", color: MMColor.textTertiary) {
+                        importingGoals = true
+                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 4)
             }
             .padding(.horizontal, 16)
         }
@@ -329,9 +335,9 @@ private struct MatGoalEditorSheet: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(MatGoal.positions, id: \.self) { position in
-                                    MMTag(position, selected: draft.position == position, size: .sm) {
+                                    MMTag(position, selected: draft.position == position, size: .sm, action: {
                                         draft.position = draft.position == position ? "" : position
-                                    }
+                                    })
                                 }
                             }
                             .padding(.vertical, 2)
