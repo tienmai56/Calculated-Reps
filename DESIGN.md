@@ -382,6 +382,7 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 - No personal past sessions: offer Log a past session.
 - No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
 - An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
+- Activity's ink session prompt follows the unshared session closest to now among sessions you host or have joined. Past sessions read “How was …?” and let the host Complete & share; upcoming sessions show the plan's date, time and gym with View session. Invitations and declined sessions do not displace it. The prompt updates as time passes; equal-distance ties prefer the past session.
 
 Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
 
