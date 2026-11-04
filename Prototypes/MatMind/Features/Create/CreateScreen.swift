@@ -125,17 +125,8 @@ struct CreateScreen: View {
                     .padding(.top, 10)
                 }
 
-                field("Where") {
-                    if mm.isLive {
-                        MMPlaceSearchField(label: "Gym or venue", text: $gym)
-                            .padding(.bottom, 12)
-                    }
-                    if !mm.me.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        MMTag(mm.me.gym, icon: "house", selected: gym == mm.me.gym, size: .sm) {
-                            gym = mm.me.gym
-                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        }
-                    }
+                field("Location") {
+                    MMPlaceSearchField(text: $gym)
                     MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
                         if !showNote {
                             MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {

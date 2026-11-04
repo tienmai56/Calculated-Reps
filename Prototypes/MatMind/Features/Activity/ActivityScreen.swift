@@ -5,12 +5,20 @@ struct ActivityScreen: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        MMScreen(tabPadding: true) {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            feed(at: context.date)
+        }
+    }
+
+    private func feed(at now: Date) -> some View {
+        let prompt = mm.activityPrompt(at: now)
+        return MMScreen(tabPadding: true) {
             HStack {
                 MMWordmark(size: 32)
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
                 Spacer()
+                MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
                 }
@@ -22,14 +30,13 @@ struct ActivityScreen: View {
             .padding(.bottom, 10)
             .frame(minHeight: MMLayout.headerHeight)
         } content: {
-            if let session = mm.toComplete {
-                ReadyToShare(session: session)
+            if let session = prompt {
+                ReadyToShare(session: session, now: now)
                     .padding(.vertical, 12)
             }
             if mm.posts.isEmpty {
-                EmptyActivity()
+                EmptyActivity(prompt: prompt, now: now)
             } else {
-                StreakNudges()
                 ForEach(mm.posts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
                 }
@@ -51,36 +58,53 @@ struct ActivityScreen: View {
     }
 }
 
-/// Ink prompt card: "How was … ?" → Complete & share.
+/// The nearest session: share a past roll, or open an upcoming plan.
 private struct ReadyToShare: View {
     @Environment(AppModel.self) private var mm
     let session: Session
+    let now: Date
+    @State private var confirmingSkip = false
+
+    private var hasStarted: Bool { mm.startDate(of: session) <= now }
+    private var canShare: Bool { hasStarted && session.organizer == "me" }
 
     /// Solo sessions share with the crew; never "the 1 of you".
     private var shareLine: String {
+        if !hasStarted { return "\(session.day) \(session.month) \(session.date) · \(session.time) · \(session.gym)" }
+        if !canShare { return "Your crew's post-roll memory starts here." }
         switch session.people.count {
-        case ...1: "Add a photo and share it with your crew."
-        case 2: "Add a photo and share it with the two of you."
-        case let n: "Add a photo and share it with the \(n) of you."
+        case ...1: return "Add a photo and share it with your crew."
+        case 2: return "Add a photo and share it with the two of you."
+        case let n: return "Add a photo and share it with the \(n) of you."
         }
     }
 
     var body: some View {
-        let shortTitle = session.title.lowercased().replacingOccurrences(of: "no-gi ", with: "")
         HStack(spacing: 14) {
-            MMIcon("camera", size: 28, color: MMColor.ink500)
+            MMIcon(hasStarted ? "camera" : "calendar", size: 28, color: MMColor.ink500)
                 .frame(width: 64, height: 64)
                 .background(MMColor.paper2)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
-                Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
+                Text(hasStarted ? "How was \(session.title)?" : "Coming up: \(session.title)")
+                    .mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
                 Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
                     .padding(.top, 4)
-                MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
-                    .padding(.top, 10)
+                HStack(spacing: 14) {
+                    MMButton(canShare ? "Complete & share" : "View session", size: .sm, iconLeft: canShare ? "camera" : "calendar") {
+                        mm.go(canShare ? .complete(id: session.id) : .session(id: session.id))
+                    }
+                    if canShare {
+                        Button("Didn't train") { confirmingSkip = true }
+                            .mmFont(.body, 13, .semibold, lineHeight: 1.2)
+                            .foregroundStyle(MMColor.ink200)
+                            .frame(minHeight: 36)
+                    }
+                }
+                .padding(.top, 10)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -88,18 +112,27 @@ private struct ReadyToShare: View {
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
         .padding(.horizontal, 16)
         .padding(.top, 4)
+        .confirmationDialog("Didn't train at \(session.title)?", isPresented: $confirmingSkip, titleVisibility: .visible) {
+            Button("Delete session", role: .destructive) { mm.deleteSession(session.id) }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text(session.people.count > 1 ? "It comes off everyone's schedule and won't be shared." : "It comes off your schedule and won't be shared.")
+        }
     }
 }
 
 /// No completed sessions yet. A plan stays a plan until the organizer publishes it.
 private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
+    let prompt: Session?
+    let now: Date
 
     var body: some View {
-        if mm.toComplete != nil {
-            // The "How was …?" card above holds Complete & share, so no second primary here.
-            MMEmptyState(artwork: .memory, title: "Proof you showed up.",
-                         message: "Share a post-roll photo\nand your crew sees it here.")
+        if let prompt {
+            // The session card above already holds the primary action.
+            let hasStarted = mm.startDate(of: prompt) <= now
+            MMEmptyState(artwork: .memory, title: hasStarted ? "Proof you showed up." : "Your first photo\nis on its way.",
+                         message: hasStarted ? "Share a post-roll photo\nand your crew sees it here." : "Train together, then share the post-roll photo.")
         } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
             MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
                          message: "Train together, then share the post-roll photo.",
@@ -115,47 +148,6 @@ private struct EmptyActivity: View {
                          secondaryIcon: mm.friends.isEmpty ? "qr-code" : "history",
                          secondaryAction: { mm.go(mm.friends.isEmpty ? .qr() : .create(past: true)) }) {
                 mm.go(.create())
-            }
-        }
-    }
-}
-
-/// Tinted cards for live streaks that still need this week's session.
-private struct StreakNudges: View {
-    @Environment(AppModel.self) private var mm
-
-    var body: some View {
-        let list = mm.friends.filter { $0.thisWeek == .pending && $0.streak > 0 }
-        if !list.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(list) { f in
-                        let p = mm.person(f.id)
-                        Button { mm.go(.friend(id: f.id)) } label: {
-                            HStack(spacing: 12) {
-                                MMPairAvatars(a: mm.me.avatar, b: p.avatar, size: 38, hue: p.hue, ring: p.hue.tint)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("\(f.streak) weeks with \(p.firstName)")
-                                        .mmFont(.display, 16, lineHeight: 1.15)
-                                        .foregroundStyle(p.hue.ink)
-                                    Text("Roll together by Sunday to make it \(f.streak + 1)")
-                                        .mmFont(.body, 13, .medium, lineHeight: 1.3)
-                                        .foregroundStyle(MMColor.ink700)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                MMIcon("flame", size: 22, filled: true, color: MMColor.flame500)
-                            }
-                            .multilineTextAlignment(.leading)
-                            .padding(14)
-                            .frame(width: 262)
-                            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(p.hue.tint))
-                        }
-                        .buttonStyle(MMPressStyle())
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 2)
-                .padding(.bottom, 16)
             }
         }
     }
@@ -178,7 +170,7 @@ struct PostCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Button {
-                    if post.organizer != "me" { mm.go(.friend(id: post.organizer)) }
+                    if post.organizer != "me" { mm.openPerson(post.organizer) }
                 } label: {
                     MMAvatar(name: org.name, photo: org.photo, size: 42, belt: org.belt, ring: MMColor.white)
                 }
@@ -189,7 +181,7 @@ struct PostCard: View {
                         .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
                     ])
                     .lineSpacing(1)
-                    Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 MMIconButton("ellipsis", size: 36, label: "Post options") { showMenu = true }
@@ -404,7 +396,7 @@ struct PostDetailScreen: View {
                         .padding(.bottom, 14)
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("\(post.date) · organized by \(isOrganizer ? "you" : organizer.name)")
+                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by \(isOrganizer ? "you" : organizer.name)")
                         .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
                     MentionText(text: post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
                         .fixedSize(horizontal: false, vertical: true)
@@ -624,10 +616,18 @@ private struct CommentRow: View {
     var postID: String?
     @State private var shown = false
     @State private var reporting = false
+    @State private var confirmingDelete = false
 
-    /// Someone else's comment that can be reported (live comments need their cloud ID).
-    private var reportable: Bool {
-        comment.who != "me" && postID != nil && (!mm.isLive || comment.cloudID != nil)
+    /// Live comments need their cloud ID before they can be reported or deleted.
+    private var actionable: Bool { postID != nil && (!mm.isLive || comment.cloudID != nil) }
+
+    /// Someone else's comment that can be reported.
+    private var reportable: Bool { actionable && comment.who != "me" }
+
+    /// Your own comment, or any comment on a post you organized.
+    private var deletable: Bool {
+        guard actionable, let postID else { return false }
+        return mm.canDelete(comment, on: postID)
     }
 
     var body: some View {
@@ -646,9 +646,14 @@ private struct CommentRow: View {
                 shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
             }
             Spacer(minLength: 0)
-            if reportable {
+            if reportable || deletable {
                 Menu {
-                    Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                    if deletable {
+                        Button(role: .destructive) { confirmingDelete = true } label: { Label("Delete comment", image: "trash-2") }
+                    }
+                    if reportable {
+                        Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                    }
                 } label: {
                     MMIcon("ellipsis", size: 18, color: MMColor.ink500)
                         .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
@@ -664,10 +669,23 @@ private struct CommentRow: View {
             withAnimation(MMMotion.easeOut(0.35)) { shown = true }
         }
         .contextMenu {
+            if deletable { Button("Delete comment", role: .destructive) { confirmingDelete = true } }
             if reportable { Button("Report comment", role: .destructive) { reporting = true } }
         }
         .accessibilityActions {
+            if deletable { Button("Delete comment") { confirmingDelete = true } }
             if reportable { Button("Report comment") { reporting = true } }
+        }
+        .mmSheet(isPresented: $confirmingDelete, title: "Delete this comment?",
+                 description: comment.who == "me" ? "It's gone for everyone on this post." : "It's your post, so you can clear it. \(mm.person(comment.who).name) won't be told.") {
+            VStack(spacing: 8) {
+                MMButton("Keep it", variant: .secondary, fullWidth: true) { confirmingDelete = false }
+                MMButton("Delete", variant: .danger, iconLeft: "trash-2", fullWidth: true) {
+                    confirmingDelete = false
+                    guard let postID else { return }
+                    withAnimation(MMMotion.easeOut(MMMotion.base)) { mm.deleteComment(comment, on: postID) }
+                }
+            }
         }
         .mmSheet(isPresented: $reporting, title: "Report this comment?", description: ReportReasonList.note) {
             ReportReasonList { reason in
@@ -740,7 +758,7 @@ struct MentionText: View {
         Text(styled)
             .environment(\.openURL, OpenURLAction { url in
                 guard url.scheme == "matmonkeys-mention", let id = url.pathComponents.last else { return .systemAction }
-                if id == "me" { mm.setTab(.profile) } else { mm.go(.friend(id: id)) }
+                mm.openPerson(id)
                 return .handled
             })
     }

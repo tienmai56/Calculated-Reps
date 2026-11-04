@@ -25,8 +25,8 @@ The first-session state uses the same paper canvas, photo-memory frame, ticket s
 - **Home, no shared posts or plans:** “Good memories start on the mat.” Plan a training session; add friends by QR when the friend list is empty, or log a past session when friends already exist.
 - **Home, a plan exists:** “Your first photo is on its way.” View the plan or invitation. No post is created until a session is completed and published.
 - **Home, a session awaits completion:** “Proof you showed up.” Complete & share (in the card above) is the next action.
-- **Training, no upcoming plans/invites:** “Summon your crew” Plan a training session, with “Already trained? Log it” as a secondary action. Existing activity and past sessions remain available.
-- **Past, no personal shared sessions:** Log a past session.
+- **Training → Upcoming, no upcoming plans/invites:** “Summon your crew” Plan a training session, with “Already trained? Log it” as a secondary action. Existing activity and past sessions remain available.
+- **Training → Past:** the same session tickets, newest first, including past sessions without a photo or shared post. Completed sessions stay here after publishing. The empty state offers **Log a past session**.
 
 The review panel includes “First session,” “Plan made · no shared photo yet,” and “Empty training schedule · keep activity history.” These presets update actual in-memory collections, so a newly created plan replaces the empty state without restoring seeded sessions. Declined sessions do not count as upcoming plans.
 
@@ -40,7 +40,7 @@ Blank items must be named or removed before saving; a completely empty outline i
 
 When you have goals, they show as tags at the top of the section. Tapping one adds a focus named after the goal. Its details start blank, and a collapsed **Goal notes** toggle shows the goal's notes for reference without copying them into the session. Tap the tag again to remove that focus. Without goals, the section starts with a blank card and a hint that goals will show up there.
 
-The organizer can edit the outline on session details using the pencil beside **What we're working on**. Closing the editor discards unsaved edits. The outline is carried into the completion flow and kept with the published post. Posts show only the focus names: as one scrolling row of tags under the title in the Activity feed (the caption is cut to two lines there), and as wrapping tags under **What we worked on** on post detail. Details are never shown on posts.
+The organizer can edit the outline on session details using the pencil beside **What we're working on**, or from a hosted ticket's **Edit session** sheet. That sheet also includes **Guest list**: check friends to invite and uncheck guests to remove them. The organizer stays on the list and retained guests keep their RSVP. Focus and guest changes save with the session details; closing discards unsaved edits. The outline is carried into the completion flow and kept with the published post. Posts show only the focus names: as one scrolling row of tags under the title in the Activity feed (the caption is cut to two lines there), and as wrapping tags under **What we worked on** on post detail. Details are never shown on posts.
 
 For a populated example, long-press the Mat Monkey wordmark → States → **Plan a session · nested focus details** (a focus with details). Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
 
@@ -86,3 +86,12 @@ Validation: CI builds `MatMindPrototype` and builds/tests `IntentionalTrainingNo
 One part card is open at a time; the others show a summary such as "2 notes · 1 video · 3 photos". Touch and hold a closed card to move it up or down or remove it. **Add photos** opens the photo library in multi-select (up to 20 per part, kept in the order picked). Tapping a thumbnail opens the photos full screen: swipe or use the filmstrip, and **Remove photo** takes it out with a few seconds to undo. Links with a timestamp (`t=102`, `t=1m42s`) show where the clip starts.
 
 Nothing is written until **Add goal** / **Save goal**: picked photos are then saved privately on the device (JPEG, no metadata, at most 2048 px), photos taken out lose their files, and parts with nothing in them are dropped. Goals saved by earlier builds still open; their own notes and references stay editable.
+
+## Rich session links
+
+In the live app, a host's Upcoming → Share session action creates an invitation
+URL before opening the native share sheet, so messaging apps receive a URL they
+can preview. Other participants retain the plain-text session summary; this does
+not expand invitation permissions. Copy link uses the same URL generator. HTTPS
+previews require the staged rollout in `website-link-handoff/README.md`; custom
+scheme sharing remains in use until `AppLinksEnabled` is enabled after verification.

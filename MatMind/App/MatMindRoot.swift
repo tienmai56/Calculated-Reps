@@ -356,6 +356,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var photos: [String: String] = [:]
     private var avatarPhotos: [String: String] = [:]
     private var loadingAvatars: Set<String> = []
+    /// Photos of people known only from a partner list (snapshot avatars are pruned to the snapshot).
+    private var listAvatars: [String: String] = [:]
     private var photoOwner: String?
     private let imageLoader: (String, String) async throws -> Data
     private var connecting = false
@@ -373,6 +375,8 @@ final class LiveMatMindRuntime: AppRuntime {
     /// Posts deleted on this device whose delete is still in flight: hidden right away so the
     /// card leaves without waiting for the command and the follow-up snapshot refresh.
     private var deletingPosts: Set<String> = []
+    /// Comments deleted on this device whose delete is still in flight, hidden the same way.
+    private var deletingComments: Set<String> = []
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -390,12 +394,13 @@ final class LiveMatMindRuntime: AppRuntime {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
                stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")], username: row.text("username"))
     }
-    func sync() {
+    func sync(now: Date = Date()) {
         if photoOwner != model.userID {
             ui.resetSessionCreation()
-            for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) { try? FileManager.default.removeItem(atPath: path) }
+            for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) + Array(listAvatars.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
             avatarPhotos = [:]
+            listAvatars = [:]
             goalPhotos = [:]
             uploadedGoalPhotos = []
             photoOwner = model.userID
@@ -420,7 +425,7 @@ final class LiveMatMindRuntime: AppRuntime {
             return Friendship(id: other, weeks: weeks, thisWeek: buckets.contains(formatter.string(from: week)) ? .done : .pending,
                               best: model.streak(row).best, together: credits.count, currentStreak: model.streak(row).current)
         }
-        ui.upcoming = model.snapshot.sessions.filter { $0.text("status") == "planned" }.map { row in
+        let sessions = model.snapshot.sessions.filter { ["planned", "completed"].contains($0.text("status")) }.map { row in
             let date = row.date("starts_at") ?? Date()
             let content = SessionNoteCodec.decode(row.text("note"))
             return Session(id: row.id, title: row.text("title"), day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
@@ -429,20 +434,29 @@ final class LiveMatMindRuntime: AppRuntime {
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
-        ui.toComplete = ui.upcoming.first { session in
-            session.organizer == "me" && (model.session(session.id)?.date("starts_at") ?? .distantFuture) <= Date()
-        }
+        ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" }
+        ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
         ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
             return Post(id: row.id, organizer: localID(row.text("author")), title: row.text("title"), gym: row.text("venue"),
                         date: dateText(date, "EEE, MMM d"), ago: RelativeDateTimeFormatter().localizedString(for: row.date("published_at") ?? date, relativeTo: Date()),
                         photo: photos[row.text("media_id")], participants: model.snapshot.tags.filter { $0.text("post_id") == row.id && $0.flag("visible") }.map { localID($0.text("user_id")) },
                         caption: row.text("caption"), likes: model.snapshot.likes.filter { $0.text("post_id") == row.id }.map { localID($0.text("user_id")) }, extraLikes: 0,
-                        comments: model.snapshot.comments.filter { $0.text("post_id") == row.id }.map { Comment(who: localID($0.text("author")), text: $0.text("body"), cloudID: $0.id) },
+                        comments: model.snapshot.comments.filter { $0.text("post_id") == row.id && !deletingComments.contains($0.id) }.map { Comment(who: localID($0.text("author")), text: $0.text("body"), cloudID: $0.id) },
                         focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
                         occurredAt: date)
         }
+        ui.toComplete = ui.upcoming.filter { session in
+            session.organizer == "me" && (session.startsAt ?? .distantFuture) <= now
+        }.sorted {
+            let first = $0.startsAt ?? .distantPast, second = $1.startsAt ?? .distantPast
+            return first == second ? $0.id < $1.id : first > second
+        }.first
         syncSharedGoals(userID)
+        ui.circle = (model.snapshot.circle ?? []).map { row in
+            CirclePerson(id: localID(row.text("id")), mutual: (row.values["mutual"]?.strings ?? []).map(localID))
+        }
+        ui.following = Set((model.snapshot.follows ?? []).map { localID($0.text("followee")) })
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
                             who: localID(row.text("actor")), session: row.text("entity_id"), text: row.text("message"),
@@ -548,12 +562,20 @@ final class LiveMatMindRuntime: AppRuntime {
             body["version"] = model.snapshot.posts.first { $0.id == id }?.number("version")
         }
         let deleting = operation == "delete_post" ? body["post_id"] as? String : nil
+        let deletingComment = operation == "delete_comment" ? body["comment_id"] as? String : nil
         if let deleting { deletingPosts.insert(deleting); sync() }
+        if let deletingComment { deletingComments.insert(deletingComment); sync() }
         // A delete is already applied on screen, so it doesn't lock the app while it runs.
-        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either.
-        let result = await model.perform(operation, body, blocking: deleting == nil && operation != "share_goal")
-        // On failure the post comes back and the error alert explains why.
+        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either,
+        // and Follow has already flipped its button.
+        let result = await model.perform(operation, body, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow"].contains(operation))
+        // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
+        if let deletingComment {
+            // Drop it locally too: merged post details and older pages don't remove rows on their own.
+            if result != nil { model.snapshot.comments.removeAll { $0.id == deletingComment } }
+            deletingComments.remove(deletingComment)
+        }
         sync()
         return result != nil
     }
@@ -568,9 +590,11 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let date = draft.startsAt, !draft.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             model.error = "Choose a date, time and gym."; return nil
         }
+        // A past session's partners are added below as attended, without an invitation
+        // to something that already happened.
         let result = await model.perform("create_session", ["title": draft.title, "starts_at": ISO8601DateFormatter().string(from: date), "timezone": draft.timezone,
                                                           "venue": draft.gym, "note": SessionNoteCodec.encode(note: draft.note, focus: draft.focusItems),
-                                                          "invited": draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue], key: key)
+                                                          "invited": draft.past ? [] : draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue], key: key)
         // Past sessions require the organizer to confirm attendance before publishing.
         if draft.past, let id = result?["id"]?.string {
             for person in draft.invited { _ = await model.perform("manage_participant", ["session_id": id, "user_id": cloudID(person), "remove": false]) }
@@ -654,9 +678,13 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         return result["id"]?.string
     }
+    func sessionInvitationURL(_ sessionID: String) async -> URL? {
+        guard let result = await model.perform("session_token", ["session_id": sessionID]), let token = result["token"]?.string else { return nil }
+        return model.link(kind: "session", token: token)
+    }
     func copySessionLink(_ sessionID: String) async {
-        guard let result = await model.perform("session_token", ["session_id": sessionID]), let token = result["token"]?.string else { return }
-        UIPasteboard.general.url = model.link(kind: "session", token: token)
+        guard let url = await sessionInvitationURL(sessionID) else { return }
+        UIPasteboard.general.url = url
         ui.showToast("Invite link copied", .success)
     }
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
@@ -667,13 +695,13 @@ final class LiveMatMindRuntime: AppRuntime {
                                                        "note": SessionNoteCodec.encode(note: old.note, focus: items)])
         sync(); return result != nil
     }
-    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool {
         guard let row = model.session(sessionID) else { return false }
-        // Keep the focus plan that shares the note field.
-        let old = SessionNoteCodec.decode(row.text("note"))
-        let result = await model.perform("edit_session", ["session_id": sessionID, "version": row.number("version"), "title": title,
+        let result = await model.perform("edit_session_details", ["session_id": sessionID, "version": row.number("version"), "title": title,
                                                        "starts_at": ISO8601DateFormatter().string(from: startsAt), "timezone": row.text("timezone"),
-                                                       "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: old.focus)])
+                                                       "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: focusItems),
+                                                       "added_guests": addedGuests, "removed_guests": removedGuests])
         sync(); return result != nil
     }
     func publishGoal(_ goal: MatGoal) async -> String? {
@@ -730,6 +758,21 @@ final class LiveMatMindRuntime: AppRuntime {
               let token = result["token"]?.string else { return false }
         UIPasteboard.general.url = model.link(kind: "goal", token: token)
         return true
+    }
+    func partners(of personID: String) async -> [Person]? {
+        // `try?` flattens the optional: nil for a failed request or a list you can't see.
+        guard let owner = model.userID, let rows = try? await model.backend.partners(of: cloudID(personID)),
+              model.userID == owner else { return nil }
+        for key in Set(rows.map { $0.text("avatar_key") }) where !key.isEmpty && avatarPhotos[key] == nil && listAvatars[key] == nil {
+            guard let data = try? await imageLoader(key, "avatars"), model.userID == owner else { continue }
+            let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-avatar-\(UUID().uuidString).jpg")
+            if (try? data.write(to: path, options: .atomic)) != nil { listAvatars[key] = path.path }
+        }
+        return rows.map { row in
+            var found = person(row)
+            if found.photo == nil { found.photo = listAvatars[row.text("avatar_key")] }
+            return found
+        }
     }
     func scannerView(found: @escaping (String) -> Void) -> AnyView { AnyView(LiveScannerView(found: found)) }
     func exportView() -> AnyView {

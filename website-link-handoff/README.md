@@ -16,7 +16,7 @@ inside the app. Friend and goal cards remain generic.
 
 The website reads the social project's deliberately public, read-only
 `invitation_preview(link_kind,token)` RPC, added by
-`supabase/migrations/20261104130001_invitation_previews.sql`. A full active bearer
+`supabase/migrations/20261104160002_invitation_previews.sql`. A full active bearer
 token authorizes only this summary; fetching the preview never redeems the link,
 joins a session, or accepts a goal. Existing table RLS is unchanged.
 

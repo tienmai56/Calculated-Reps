@@ -61,8 +61,24 @@ select public.command('report_post',jsonb_build_object('post_id',:'pid','reason'
 reset role;
 select pg_temp.assert_true((select count(*)=1 from public.reports where comment_id=:'cid' and post_id=:'pid' and reporter='00000000-0000-0000-0000-000000000031'),'comment report is stored with its post');
 select pg_temp.assert_true((select count(*)=2 from public.reports where post_id=:'pid'),'post reports still work');
-delete from public.comments where id=:'cid';
-select pg_temp.assert_true((select count(*)=1 from public.reports where post_id=:'pid'),'deleting a comment removes its reports');
+-- Comments can be deleted by their author or the post's organizer; reports keep the text.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000032',true);
+select public.command('add_comment',jsonb_build_object('post_id',:'pid','body','Oops, wrong post'),gen_random_uuid());
+select id as own_cid from public.comments where post_id=:'pid' and body='Oops, wrong post' \gset
+select public.command('delete_comment',jsonb_build_object('comment_id',:'own_cid'),gen_random_uuid());
+reset role;
+select pg_temp.assert_true(not exists(select 1 from public.comments where id=:'own_cid'),'authors can delete their own comment');
+insert into auth.users values('00000000-0000-0000-0000-000000000033');
+insert into public.profiles(id,name) values('00000000-0000-0000-0000-000000000033','Outsider');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000033',true);
+select pg_temp.assert_true(pg_temp.fails($q$select public.command('delete_comment',jsonb_build_object('comment_id',current_setting('test.comment')),gen_random_uuid())$q$),'people outside the post cannot delete its comments');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000031',true);
+select public.command('delete_comment',jsonb_build_object('comment_id',:'cid'),gen_random_uuid());
+reset role;
+select pg_temp.assert_true(not exists(select 1 from public.comments where id=:'cid'),'organizers can delete comments on their post');
+select pg_temp.assert_true((select count(*)=1 from public.reports where post_id=:'pid' and comment_id is null and comment_body='Great rolls'),'a deleted comment keeps its report and the reported text');
 -- Adding a friend to an upcoming session invites them with a push, like inviting at creation.
 create function pg_temp.invites(sid uuid) returns bigint language sql as $$ select count(*) from public.notifications n join public.notification_outbox o on o.id=n.id where n.entity_id=sid and n.kind='invite' and n.recipient='00000000-0000-0000-0000-000000000032' $$;
 create function pg_temp.rsvp(sid uuid) returns text language sql as $$ select rsvp from public.session_participants where session_id=sid and user_id='00000000-0000-0000-0000-000000000032' $$;
