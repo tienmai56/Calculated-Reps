@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Tab 2: upcoming and past training, using the same session tickets.
 struct TrainingScreen: View {
@@ -7,6 +8,8 @@ struct TrainingScreen: View {
     @State private var editingSession: Session?
     @State private var deletingSession: Session?
     @State private var section = "upcoming"
+    @State private var preparingShare = false
+    @State private var invitationShare: TrainingInvitationShare?
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -14,6 +17,9 @@ struct TrainingScreen: View {
         }
         .sheet(item: $editingSession) { s in
             MatSessionEditorSheet(session: s, startsAt: mm.startDate(of: s))
+        }
+        .sheet(item: $invitationShare) { share in
+            TrainingInvitationShareSheet(share: share)
         }
         .confirmationDialog("Delete \(deletingSession?.title ?? "this session")?",
                             isPresented: Binding(get: { deletingSession != nil }, set: { if !$0 { deletingSession = nil } }),
@@ -87,8 +93,24 @@ struct TrainingScreen: View {
     private func sessionMenu(_ s: Session) -> some View {
         Menu {
             if section == "upcoming" {
-                ShareLink(item: sessionShareText(s), subject: Text(s.title)) {
-                    Label("Share session", image: "share-2")
+                if mm.isLive && s.organizer == "me" {
+                    Button {
+                        guard !preparingShare else { return }
+                        preparingShare = true
+                        Task {
+                            defer { preparingShare = false }
+                            if let url = await mm.sessionInvitationURL(s.id) {
+                                invitationShare = TrainingInvitationShare(url: url, title: s.title)
+                            }
+                        }
+                    } label: {
+                        Label("Share session", image: "share-2")
+                    }
+                    .disabled(preparingShare)
+                } else {
+                    ShareLink(item: sessionShareText(s), subject: Text(s.title)) {
+                        Label("Share session", image: "share-2")
+                    }
                 }
             }
             if s.organizer == "me" && !mm.isCompleted(s) {
@@ -118,6 +140,23 @@ struct TrainingScreen: View {
         }
         return "\(s.title)\n\(when)\n\(s.gym)"
     }
+}
+
+private struct TrainingInvitationShare: Identifiable {
+    let url: URL
+    let title: String
+    var id: String { url.absoluteString }
+}
+
+/// Share the actual URL so receiving apps can fetch its Open Graph preview.
+private struct TrainingInvitationShareSheet: UIViewControllerRepresentable {
+    let share: TrainingInvitationShare
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [share.url], applicationActivities: nil)
+        controller.setValue(share.title, forKey: "subject")
+        return controller
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
 /// Host-only session draft. Closing discards changes, including focus and guests.

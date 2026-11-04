@@ -93,6 +93,9 @@ struct MatMindRoot: View {
                 model.handle(url)
                 guard model.pendingLink == url else { return }
             }
+            .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                if let url = activity.webpageURL { model.handle(url) }
+            }
             .onChange(of: model.pendingLink) { _, value in
                 if let value, model.me != nil { Task { await redeemLink(value) } }
             }
@@ -656,15 +659,14 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let url = URL(string: value) else { model.error = "Invalid invitation link."; return nil }
         model.handle(url)
         guard model.pendingLink == url else { model.error = "Invalid invitation link."; return nil }
-        let parts = url.pathComponents.filter { $0 != "/" }
-        let kind = url.scheme == "matmind" ? url.host : parts.first
-        let token = parts.last ?? ""
-        guard model.userID != nil, token.count == 64, token.allSatisfy(\.isHexDigit), ["friend", "session", "goal"].contains(kind ?? "") else {
+        guard model.userID != nil, let destination = InvitationLinks.parse(url, host: Bundle.main.object(forInfoDictionaryKey: "AppLinkHost") as? String) else {
             model.error = "Sign in and open a valid invitation link."; return nil
         }
+        let kind = destination.kind
         let operation = kind == "friend" ? "redeem_friend" : kind == "goal" ? "redeem_goal_link" : "join_link"
-        guard let result = await model.perform(operation, ["token": token]) else { return nil }
-        model.pendingLink = nil; sync()
+        guard let result = await model.perform(operation, ["token": destination.token]) else { return nil }
+        if model.pendingLink == url { model.pendingLink = nil }
+        sync()
         if kind == "session", let id = result["id"]?.string { ui.go(.session(id: id)); return nil }
         if kind == "goal", let id = result["id"]?.string {
             // Your own link opens your goal; anyone else's opens the invitation.
@@ -677,9 +679,13 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         return result["id"]?.string
     }
+    func sessionInvitationURL(_ sessionID: String) async -> URL? {
+        guard let result = await model.perform("session_token", ["session_id": sessionID]), let token = result["token"]?.string else { return nil }
+        return model.link(kind: "session", token: token)
+    }
     func copySessionLink(_ sessionID: String) async {
-        guard let result = await model.perform("session_token", ["session_id": sessionID]), let token = result["token"]?.string else { return }
-        UIPasteboard.general.url = model.link(kind: "session", token: token)
+        guard let url = await sessionInvitationURL(sessionID) else { return }
+        UIPasteboard.general.url = url
         ui.showToast("Invite link copied", .success)
     }
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {

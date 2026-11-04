@@ -19,6 +19,7 @@ protocol AppRuntime: AnyObject {
     func saveAvatar(_ jpeg: Data) async -> Bool
     func friendCode() async -> String?
     func connect(_ value: String) async -> String?
+    func sessionInvitationURL(_ sessionID: String) async -> URL?
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
     func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
@@ -372,6 +373,10 @@ final class AppModel {
     func copySessionLink(_ id: String) {
         if let runtime { Task { await runtime.copySessionLink(id) } }
         else { showToast("Invite link copied", .success) }
+    }
+
+    func sessionInvitationURL(_ id: String) async -> URL? {
+        await runtime?.sessionInvitationURL(id)
     }
 
     // MARK: Feedback

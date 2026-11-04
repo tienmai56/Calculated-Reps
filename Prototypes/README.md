@@ -87,3 +87,12 @@ Validation: CI builds `MatMindPrototype` and builds/tests `IntentionalTrainingNo
 One part card is open at a time; the others show a summary such as "2 notes · 1 video · 3 photos". Touch and hold a closed card to move it up or down or remove it. **Add photos** opens the photo library in multi-select (up to 20 per part, kept in the order picked). Tapping a thumbnail opens the photos full screen: swipe or use the filmstrip, and **Remove photo** takes it out with a few seconds to undo. Links with a timestamp (`t=102`, `t=1m42s`) show where the clip starts.
 
 Nothing is written until **Add goal** / **Save goal**: picked photos are then saved privately on the device (JPEG, no metadata, at most 2048 px), photos taken out lose their files, and parts with nothing in them are dropped. Goals saved by earlier builds still open; their own notes and references stay editable.
+
+## Rich session links
+
+In the live app, a host's Upcoming → Share session action creates an invitation
+URL before opening the native share sheet, so messaging apps receive a URL they
+can preview. Other participants retain the plain-text session summary; this does
+not expand invitation permissions. Copy link uses the same URL generator. HTTPS
+previews require the staged rollout in `website-link-handoff/README.md`; custom
+scheme sharing remains in use until `AppLinksEnabled` is enabled after verification.

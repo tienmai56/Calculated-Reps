@@ -392,7 +392,7 @@ Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Bro
 
 Tab bar: **Activity · Training · + (Plan a training) · Goals · Profile**. Friends is no longer a tab: it opens from Profile, and the streak reminder dot sits on the Profile tab. Every tab header carries the round paper-2 **My code** (QR) button at the top right; pushed screens keep their own back and action buttons.
 
-- **Training** has **Upcoming** and **Past** tabs using the same ticket cards, spacing and layout. Upcoming shows Invites (Decline / Join) and Coming up, soonest first. Past shows sessions whose start time has passed, newest first, including sessions without a photo or shared post and completed sessions. Declined and cancelled sessions stay out. Editing the date moves a session between tabs; publishing keeps it in Past. Every upcoming ticket carries an ellipsis menu with **Share session**, opening the native share sheet with its name, date and time (including your timezone), and gym. Session notes, focus details and attendee lists are left out; sharing these details does not create a join link. Uncompleted tickets you host also offer: **Edit session** (name, date and time, gym, note, **What we're working on**, and **Guest list**) and **Delete session** (confirmed; it comes off everyone's schedule). Focus and guest changes stay in the draft until **Save changes**. The organizer stays on the list; retained guests keep their RSVP and newly added friends receive invitations for upcoming sessions. Profile → Activity still shows shared posts.
+- **Training** has **Upcoming** and **Past** tabs using the same ticket cards, spacing and layout. Upcoming shows Invites (Decline / Join) and Coming up, soonest first. Past shows sessions whose start time has passed, newest first, including sessions without a photo or shared post and completed sessions. Declined and cancelled sessions stay out. Editing the date moves a session between tabs; publishing keeps it in Past. Every upcoming ticket carries an ellipsis menu with **Share session**. For a host in the live app, it creates an invitation URL and opens the native share sheet with that URL, enabling the rich preview described below. Other participants and the demo share the existing plain-text summary (name, date/time including timezone, and gym), without granting invitation permissions. Uncompleted tickets you host also offer: **Edit session** (name, date and time, gym, note, **What we're working on**, and **Guest list**) and **Delete session** (confirmed; it comes off everyone's schedule). Focus and guest changes stay in the draft until **Save changes**. The organizer stays on the list; retained guests keep their RSVP and newly added friends receive invitations for upcoming sessions. Profile → Activity still shows shared posts.
 - **Goals** lists what you're working on as white cards: name, a two-line notes preview, link/photo counts and when it's next on the mat ("On Sat with Sarah", never a score). **Add a goal** sits in the section header; its sheet has the name, notes and **References** (an **Add photo** tile and **Add a link**, each removable before saving; photos are saved when the goal is added). **Import** (in the empty state, a quiet link under the list) reads the file from Settings → Export local sessions (the .zip, or its training-v1.json): each active goal keeps its name; each task becomes a "- Task: notes" line, with its link and photos. Archived goals, sessions and reflections are left out, and importing twice adds nothing.
 - **Goal page** is edited in place: the name (a 28pt display field) and next session; **Details** as a multi-line field ("-" starts a sub-point); **References** (photos, with an **Add photo** tile that opens the photo library and touch-and-hold to remove; links shown by host in mono, opening in the browser; **Add a link**). Goal photos are re-encoded as JPEG without location metadata, capped at 2048 px and stored privately on the device; an ellipsis menu with **Plan a training for this** (attaches the goal to the session you create) and Delete goal; and the primary **Save goal**, enabled once the name or details change. Leaving with unsaved edits asks before discarding. Photos and links save as soon as they're added.
 - **Profile → Friends:** a card with friend avatars and the count (opens the friends list), or "Add your first training partner" (opens My code), followed by Weekly streaks and Activity.
@@ -409,6 +409,31 @@ Sharing works like a session invite. Goals has two segmented tabs under the titl
 - Shared copies follow the owner's saves. Deleting a goal stops sharing it for everyone; blocking hides it. There's still no feed, discovery, comments or chat on goals.
 
 Native: `Features/Goals/GoalsScreen.swift`, `Features/Goals/GoalSharing.swift`, `Features/Training/TrainingScreen.swift`, `MatGoal` and `SharedGoal` in `App/Models.swift`.
+
+### External shared-link previews
+
+Training-session links show a useful summary before opening the app: session title,
+date/time with timezone, gym, confirmed participant names (up to three plus a
+remaining count), and up to three top-level focus names. Full session notes and
+nested focus details remain inside the app. This session summary is intentionally
+visible to anyone receiving the bearer invitation link. Friend and goal links use
+generic branded previews; goal content remains private.
+
+Use the ticket motif: **paper-3** main canvas, **coral-500** date stub, ink text,
+white focus chips, and the supplied monochrome Silverback on coral. Headline in
+Bricolage Grotesque 800, body in Archivo, Lucide location and people icons. Design
+canvas 1200 × 630. Long titles fit two lines; full metadata and the browser summary
+retain the original title and details. No pretend buttons in the preview image.
+
+An HTTPS link supplies server-rendered Open Graph / Twitter metadata and a PNG
+image, and routes to the exact native invitation via Universal Links. The web
+fallback has **Open in Mat Monkey** and App Store actions. It does not redeem an
+invitation. After installation, return to the original link. Expired, revoked, and
+cancelled session links show an unavailable state. Social apps control preview
+layout and caching.
+
+Implementation: website repository `your-note-haven`, with the read-only
+`invitation_preview` RPC in this repository. Rollout: `website-link-handoff/README.md`.
 
 ### Search & people profiles
 
