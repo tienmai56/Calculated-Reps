@@ -277,7 +277,7 @@ A calm, front-facing gorilla head built from simple geometry: an ink head, a pap
 - **Minimum size:** mark 24px tall; lockup 120px wide; below that use the mark alone.
 - **Don't:** recolor the head, swap the brow to belt or friend hues, add outlines, shadows, gradients, or expressions, rotate it, place the ink head directly on ink (use the app-icon tile), or redraw it. Use the files.
 - **In code:** use the `Logo` component (`design-system/components/core/Logo.jsx`, variants `mark` / `mono` / `appIcon` / `lockup` / `lockupInverse`). It draws from tokens, so no asset paths are needed.
-- **In the app:** the mark appears on the splash screen, onboarding and empty states; the tab-screen headers keep the plain Bricolage title. One logo per screen at most.
+- **In the app:** the full lockup (mark + wordmark) appears on the splash screen and onboarding. Top-level tab-screen headers (Activity, Training, Goals, Friends, Profile) show the mark alone at 32pt, left of the plain Bricolage screen title; pushed screens with a back button show the title only. The mark also appears as a character in empty-state artwork. One logo (mark or lockup) per screen at most, not counting empty-state artwork.
 
 ## 6. Components
 React primitives live in `design-system/components/<group>/`. Each has `Name.jsx` (named export), `Name.d.ts` (props contract), and `Name.prompt.md` (usage). Styling comes only from the CSS variables, with no CSS-in-JS libraries and no npm dependencies besides React.

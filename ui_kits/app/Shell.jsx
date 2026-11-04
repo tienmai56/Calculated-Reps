@@ -1,5 +1,5 @@
 const DS = window.MatMonkeysDesignSystem_8b0f80;
-const { Avatar: SAv, Icon: SIcon } = DS;
+const { Avatar: SAv, Icon: SIcon, Logo: SLogo } = DS;
 const HUEV = { coral: ['var(--coral-500)', 'var(--coral-100)', 'var(--coral-700)'], sun: ['var(--sun-400)', 'var(--sun-100)', '#8A6200'], mint: ['var(--mint-500)', 'var(--mint-100)', 'var(--mint-700)'], sky: ['var(--sky-500)', 'var(--sky-100)', 'var(--sky-700)'], plum: ['var(--plum-500)', 'var(--plum-100)', 'var(--plum-700)'] };
 const hideScroll = { scrollbarWidth: 'none' };
 
@@ -32,6 +32,7 @@ function Screen({ header, children, footer, push, tabPad, bg, scrollRef }) {
 function Header({ title, large, left, right, sub }) {
   return <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: large ? '6px 10px 10px 20px' : '4px 10px 8px 10px', minHeight: 54, flexShrink: 0 }}>
     {left}
+    {large && left == null && <SLogo variant="mark" size={32} style={{ marginRight: 4, flexShrink: 0 }} />}
     <div style={{ flex: 1, minWidth: 0, textAlign: large || left == null ? 'left' : 'center', paddingRight: !large && left && !right ? 44 : 0 }}>
       <div style={{ font: large ? '800 32px/1 var(--font-display)' : '800 18px/1.2 var(--font-display)', letterSpacing: large ? '-.035em' : '-.015em', color: 'var(--ink-900)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
       {sub && <div style={{ font: '500 13px var(--font-body)', color: 'var(--text-tertiary)', marginTop: 3 }}>{sub}</div>}
