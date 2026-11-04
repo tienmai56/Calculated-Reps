@@ -278,7 +278,7 @@ struct TrainingFocusOutline: View {
 /// planned it, so the feed and post detail never show them.
 struct TrainingFocusNames: View {
     var items: [TrainingFocus]
-    /// Wrap onto several lines (post detail) instead of one scrolling row (feed card).
+    /// Show tags in post detail instead of the quiet text summary used in feed cards.
     var wraps = false
 
     private var titles: [String] {
@@ -287,18 +287,15 @@ struct TrainingFocusNames: View {
 
     var body: some View {
         Group {
-            if wraps {
+            if titles.isEmpty {
+                EmptyView()
+            } else if wraps {
                 MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) { tags }
             } else {
-                HStack(spacing: MMSpace.s4) {
-                    MMIcon("notebook-pen", size: 16, color: MMColor.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(MMColor.surfaceSunken))
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: MMSpace.s4) { tags }
-                            .padding(.vertical, MMSpace.s1)
-                    }
-                }
+                Text(titles.joined(separator: " · "))
+                    .mmText(.bodyS)
+                    .foregroundStyle(MMColor.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .ignore)

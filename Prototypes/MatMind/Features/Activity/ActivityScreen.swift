@@ -217,14 +217,14 @@ struct PostCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(post.title).mmFont(.display, 21, tracking: -0.025, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
-                if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
-                    TrainingFocusNames(items: post.focusItems)
-                        .padding(.top, MMSpace.s1)
-                }
                 if !post.caption.isEmpty {
                     MentionText(text: post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
+                    TrainingFocusNames(items: post.focusItems)
+                        .padding(.top, MMSpace.s1)
                 }
             }
             .padding(.horizontal, 4)
