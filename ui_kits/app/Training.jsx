@@ -44,7 +44,7 @@ function TrainingScreen() {
   const list = mm.s.emptyTraining ? [] : mm.s.upcoming;
   const invites = list.filter(s => s.people.me === 'invited');
   const rest = list.filter(s => s.people.me !== 'invited' && s.people.me !== 'declined');
-  return <Screen tabPad header={<><Header large title="Training" right={<TIB icon="calendar-plus" variant="filled" label="Plan a session" onClick={() => mm.go('create')} />} /><div style={{ padding: '0 16px 6px' }}><TTabs items={['Upcoming', 'Past']} value={tab} onChange={setTab} /></div></>}>
+  return <Screen tabPad header={<><Header large title="Training" right={<TIB icon="calendar-plus" variant="filled" label="Plan a training" onClick={() => mm.go('create')} />} /><div style={{ padding: '0 16px 6px' }}><TTabs items={['Upcoming', 'Past']} value={tab} onChange={setTab} /></div></>}>
     {tab === 'Past' ? <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Txt s={14} c="var(--text-tertiary)" style={{ padding: '0 4px' }}>Missed a session? Log it after the fact and it still counts for your streaks.</Txt>
         <TBtn variant="secondary" iconLeft="history" onClick={() => mm.go('create', { past: true })}>Log a past session</TBtn>

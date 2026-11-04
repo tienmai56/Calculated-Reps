@@ -34,7 +34,7 @@ For a browser visual companion, run `python3 Prototypes/EmptyPreview/serve.py` f
 
 ## Session focus outline
 
-Plan a session keeps its original date carousel, time pills, gym chips, notes, friend grid, and privacy controls. **Add a focus**, beside Add a note, expands the optional **What are we working on?** section and focuses a blank item. Each focus has one **Add a detail** at the bottom of its card, and details sit one level under the focus, each with its own remove button. Details don't nest further; deeper items saved by earlier builds still show and can be removed. Titles are editable in place; the outline is not a checklist or a performance tracker.
+Plan a training keeps its original date carousel, time pills, gym chips, notes, friend grid, and privacy controls. **Add a focus**, beside Add a note, expands the optional **What are we working on?** section and focuses a blank item. Each focus has one **Add a detail** at the bottom of its card, and details sit one level under the focus, each with its own remove button. Details don't nest further; deeper items saved by earlier builds still show and can be removed. Titles are editable in place; the outline is not a checklist or a performance tracker.
 
 Blank items must be named or removed before saving; a completely empty outline is valid. Removing a parent asks for confirmation and removes its descendants. Cancel keeps the whole branch. Indentation is capped visually on small screens; deeper levels are labeled explicitly and retain their actual hierarchy.
 
@@ -42,7 +42,7 @@ When you have goals, they show as tags at the top of the section. Tapping one ad
 
 The organizer can edit the outline on session details using the pencil beside **What we're working on**, or from a hosted ticket's **Edit session** sheet. That sheet also includes **Guest list**: check friends to invite and uncheck guests to remove them. The organizer stays on the list and retained guests keep their RSVP. Focus and guest changes save with the session details; closing discards unsaved edits. The outline is carried into the completion flow and kept with the published post. Posts show only the focus names: as one scrolling row of tags under the title in the Activity feed (the caption is cut to two lines there), and as wrapping tags under **What we worked on** on post detail. Details are never shown on posts.
 
-For a populated example, long-press the Silverback mark on Activity → States → **Plan a session · nested focus details** (a focus with details). Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
+For a populated example, long-press the Silverback mark on Activity → States → **Plan a training · nested focus details** (a focus with details). Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
 
 A standalone browser companion is in `Prototypes/FocusPreview/`. Run `python3 Prototypes/FocusPreview/serve.py` from the repository root; it serves only preview assets on loopback port 4176. The browser companion mirrors the native planning form, including the original date/time, gym, note, friend, and privacy controls. The Example and Blank buttons are review controls outside the phone. Browser state is independent of the native app. The browser's completion action uses a labeled sample photo; real authentication and backend services are not connected.
 

@@ -155,7 +155,7 @@ struct GoalDetailScreen: View {
                     if hasChanges(goal) { mm.showToast("Save your changes first, then share") } else { sharing = true }
                 }
                 Menu {
-                    Button { mm.planSession(forGoal: goal.id) } label: { Label("Plan a session for this", image: "calendar-plus") }
+                    Button { mm.planSession(forGoal: goal.id) } label: { Label("Plan a training for this", image: "calendar-plus") }
                     Button { if hasChanges(goal) { mm.showToast("Save your changes first, then share") } else { sharing = true } } label: { Label("Share goal", image: "share-2") }
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete goal", image: "trash-2") }
                 } label: {

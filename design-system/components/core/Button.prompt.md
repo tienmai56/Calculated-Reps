@@ -1,7 +1,7 @@
-Pill button — CTAs like "Plan a session", "Join", "Publish". One `primary` per screen.
+Pill button — CTAs like "Plan a training", "Join", "Publish". One `primary` per screen.
 
 ```jsx
-<Button iconLeft="plus">Plan a session</Button>
+<Button iconLeft="plus">Plan a training</Button>
 <Button variant="secondary" size="sm">Decline</Button>
 <Button variant="soft" iconLeft="link">Copy invite link</Button>
 ```

@@ -39,7 +39,7 @@ struct ComponentGallery: View {
                     Text("matmonkeys.app/s/k3x9q").mmFont(.mono, 14, .semibold).foregroundStyle(MMColor.textPrimary)
                 }
                 group("Button") {
-                    MMButton("Plan a session", iconLeft: "plus") {}
+                    MMButton("Plan a training", iconLeft: "plus") {}
                     HStack { MMButton("Secondary", variant: .secondary) {}; MMButton("Soft", variant: .soft) {} }
                     HStack { MMButton("Ghost", variant: .ghost) {}; MMButton("Inverse", variant: .inverse) {}; MMButton("Danger", variant: .danger) {} }
                     HStack { MMButton("Small", size: .sm) {}; MMButton("Large", size: .lg) {} }

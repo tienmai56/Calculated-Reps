@@ -104,12 +104,12 @@ struct MMTabBarItem: Identifiable {
     var badge = false
 }
 
-/// 86pt bar: white 90% over a blur, with the coral "Plan a session" pill in the middle.
+/// 86pt bar: white 90% over a blur, with the coral "Plan a training" pill in the middle.
 struct MMTabBar: View {
     var items: [MMTabBarItem]
     @Binding var selection: String
     var centerIcon = "plus"
-    var centerLabel = "Plan a session"
+    var centerLabel = "Plan a training"
     var centerAction: (() -> Void)?
 
     var body: some View {
