@@ -440,6 +440,10 @@ final class LiveMatMindRuntime: AppRuntime {
                         occurredAt: date)
         }
         syncSharedGoals(userID)
+        ui.circle = (model.snapshot.circle ?? []).map { row in
+            CirclePerson(id: localID(row.text("id")), mutual: (row.values["mutual"]?.strings ?? []).map(localID))
+        }
+        ui.following = Set((model.snapshot.follows ?? []).map { localID($0.text("followee")) })
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
                             who: localID(row.text("actor")), session: row.text("entity_id"), text: row.text("message"),
@@ -547,8 +551,9 @@ final class LiveMatMindRuntime: AppRuntime {
         let deleting = operation == "delete_post" ? body["post_id"] as? String : nil
         if let deleting { deletingPosts.insert(deleting); sync() }
         // A delete is already applied on screen, so it doesn't lock the app while it runs.
-        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either.
-        let result = await model.perform(operation, body, blocking: deleting == nil && operation != "share_goal")
+        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either,
+        // and Follow has already flipped its button.
+        let result = await model.perform(operation, body, blocking: deleting == nil && !["share_goal", "set_follow"].contains(operation))
         // On failure the post comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         sync()

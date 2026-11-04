@@ -2,7 +2,7 @@
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
-> Version 1.2.0 · Last updated 2026-11-03
+> Version 1.2.0 · Last updated 2026-11-04
 
 ## Contents
 1. Product
@@ -330,6 +330,8 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (invites and upc
 | 6 | Add friends via QR | `ui_kits/app/Friends.jsx` |
 | 7 | Profile (+ account sheet) | `ui_kits/app/Me.jsx` |
 | 8 | Notifications | `ui_kits/app/Me.jsx` |
+| 9 | Search & discover people | `Prototypes/MatMind/Features/Friends/FriendsScreen.swift` (`PeopleSearchScreen`) |
+| 10 | Someone else's profile | `Prototypes/MatMind/Features/Profile/ProfileScreen.swift` (`PersonProfileScreen`) |
 
 Journeys:
 - **A — Plan together:** Training → Plan a session → gym/date/time → invite → friends join → session shows participants.
@@ -400,6 +402,17 @@ Sharing works like a session invite. Goals has two segmented tabs under the titl
 
 Native: `Features/Goals/GoalsScreen.swift`, `Features/Goals/GoalSharing.swift`, `Features/Training/TrainingScreen.swift`, `MatGoal` and `SharedGoal` in `App/Models.swift`.
 
+### Search & people profiles
+
+**Your circle** is your training partners plus the people they train with (one shared partner is enough). Suggestions and search only ever come from it: there is no public directory, and someone two partners away can't be found. Circle members can see each other's name, belt, gym and photo.
+
+- **Entry:** a round paper-2 **Search** button (Lucide `search`) in the Activity header, before Notifications and My code. It pushes Search.
+- **Search** (Direction A, familiar and minimal): back button and a search field ("Search people by name") at the top. Before typing, **Suggested for you** · "People who train with your training partners": a plain list, most shared partners first. Each row is a 48pt avatar with belt ring, the name (display 16), an xs belt strip with belt · gym, and up to three 18pt mutual avatars with "4 mutual partners" (or "1 mutual partner · Kenji"). The row opens the profile; **Follow** sits on the right as a small inverse pill with `user-plus`, and turns into a secondary **Following** pill with `check` (tap again to unfollow). Training partners read "Your training partner" and have no Follow button. Typing matches the start of any word in a name or a username: partners first, then by shared partners, with the typed part in full weight. No match: "No one by that name in your circle".
+- **Someone else's profile** reuses the personal profile header (80pt avatar, 28pt name, @username · gym, belt strip), then "Trains with 4 of your partners" with a row of partner chips (avatar and first name on that friend's hue tint; each opens that partner), then a full-width primary **Follow Rafa**, or a secondary **Following** that opens an "Unfollow Rafa?" sheet ("You can follow again anytime"). Two underline tabs only: **Activity** (ticket stubs grouped by week, "with …" listing everyone but the profile's owner) and **Gallery** (3-column photo grid by month). No Progress and no Training partners tab. A closing line explains the scope: "You see the sessions Rafa trained in with you or your training partners."
+- **Following** is one-way, instant and needs no approval. It doesn't change what anyone can see: a post stays visible only to the people in it and their training partners. Blocking removes follows both ways. Tapping a training partner anywhere opens their streak profile; anyone else opens the public profile.
+
+Native: `PeopleSearchScreen`, `PersonProfileScreen`, `AppModel.circle` / `following`. Backend: `supabase/migrations/20261104150000_people_and_follows.sql` (`follows`, `in_circle`, `my_circle`, `set_follow`).
+
 ## 9. Guardrails
 **Always**
 - One primary button per screen.
@@ -412,7 +425,7 @@ Native: `Features/Goals/GoalsScreen.swift`, `Features/Goals/GoalSharing.swift`, 
 
 **Never**
 - Free-form posts.
-- Public discovery.
+- Public discovery. (Search & suggestions stay inside your circle: partners and the people they train with.)
 - Group chat / DMs.
 - Daily streaks.
 - Leaderboards.

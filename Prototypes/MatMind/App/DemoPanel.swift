@@ -35,6 +35,7 @@ struct DemoPanel: View {
         (.activity, "Activity feed"), (.training, "Upcoming training"), (.create, "Create session"),
         (.complete, "Complete & share"), (.friends, "Friends & streaks"), (.qr, "QR code"),
         (.profile, "Profile"), (.notifications, "Notifications"),
+        (.people, "Search people"), (.person, "Someone else's profile"),
     ]
 
     private let states: [(AppModel.Preset, String)] = [

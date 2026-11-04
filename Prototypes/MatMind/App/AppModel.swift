@@ -63,7 +63,7 @@ final class AppModel {
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
-        people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
+        people = [:]; friends = []; circle = []; following = []; posts = []; upcoming = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
@@ -78,6 +78,12 @@ final class AppModel {
     var me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
     var people: [String: Person] = [:]
     var friends: [Friendship] = []
+    /// People who train with your training partners, with the partners you share. Suggestions and
+    /// search come only from here and your partners: there is no public directory.
+    var circle: [CirclePerson] = []
+    /// Who you follow. No approval needed, and it never widens what you can see:
+    /// posts stay visible only when you or one of your partners trained in them.
+    var following: Set<String> = []
     var posts: [Post] = []
     var upcoming: [Session] = []
     var toComplete: Session?
@@ -138,6 +144,34 @@ final class AppModel {
     }
 
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
+
+    /// Your training partners who also train with this person, most connected first.
+    func mutualPartners(_ id: String) -> [String] { circle.first { $0.id == id }?.mutual ?? [] }
+
+    func isFollowing(_ id: String) -> Bool { following.contains(id) }
+
+    /// Suggested for you: everyone sharing at least one training partner with you, most shared partners first.
+    var suggestedPeople: [Person] {
+        circle.filter { !$0.mutual.isEmpty && people[$0.id] != nil && friendship($0.id) == nil }
+            .sorted { $0.mutual.count != $1.mutual.count ? $0.mutual.count > $1.mutual.count : person($0.id).name < person($1.id).name }
+            .map { person($0.id) }
+    }
+
+    /// Name search over your training partners and the people they train with.
+    /// Matches the start of any word in the name, or the username.
+    func searchPeople(_ query: String) -> [Person] {
+        var q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.hasPrefix("@") { q.removeFirst() }
+        guard !q.isEmpty else { return [] }
+        let ids = Set(friends.map(\.id)).union(circle.filter { !$0.mutual.isEmpty }.map(\.id))
+        func rank(_ p: Person) -> Int { friendship(p.id) != nil ? 1000 : mutualPartners(p.id).count }
+        return ids.compactMap { people[$0] }
+            .filter { p in
+                let name = p.name.lowercased()
+                return name.hasPrefix(q) || name.split(separator: " ").contains { $0.hasPrefix(q) } || p.username.lowercased().hasPrefix(q)
+            }
+            .sorted { rank($0) != rank($1) ? rank($0) > rank($1) : $0.name < $1.name }
+    }
 
     func goal(_ id: String) -> MatGoal? { goals.first { $0.id == id } }
 
@@ -214,6 +248,19 @@ final class AppModel {
     }
 
     func go(_ route: Route) { path.append(route) }
+
+    /// Opens someone's profile: yours is the Profile tab, a training partner's shows your streak together.
+    func openPerson(_ id: String) {
+        if id == "me" { setTab(.profile); return }
+        go(friendship(id) != nil ? .friend(id: id) : .person(id: id))
+    }
+
+    /// Follow or unfollow. The button flips right away; live, the next refresh confirms it.
+    func setFollowing(_ id: String, _ follow: Bool) {
+        guard id != "me" else { return }
+        if follow { following.insert(id) } else { following.remove(id) }
+        if isLive { send("set_follow", ["user_id": id, "follow": follow]) }
+    }
 
     func back() {
         guard !path.isEmpty else { return }
@@ -932,6 +979,8 @@ final class AppModel {
         me = SeedData.me
         people = SeedData.people
         friends = SeedData.friends
+        circle = SeedData.circle
+        following = SeedData.following
         posts = SeedData.posts
         upcoming = SeedData.upcoming
         toComplete = SeedData.toComplete
@@ -954,6 +1003,7 @@ final class AppModel {
     /// Deep links from the web prototype's review panel (`index.html#…`).
     enum Preset: String, CaseIterable, Identifiable {
         case welcome, activity, training, create, complete, friends, qr, profile, notifications
+        case people, person
         case empty, firstSession, awaitingPhoto, focusPlan, invite, active, broken, scan, post
         var id: String { rawValue }
     }
@@ -975,6 +1025,8 @@ final class AppModel {
         case .scan: setTab(.profile); go(.qr(scan: true))
         case .notifications: setTab(.activity); go(.notifications)
         case .post: setTab(.activity); go(.post(id: "p1"))
+        case .people: setTab(.activity); go(.people)
+        case .person: setTab(.activity); go(.people); go(.person(id: "rafa"))
         case .empty:
             upcoming = []
             toComplete = nil

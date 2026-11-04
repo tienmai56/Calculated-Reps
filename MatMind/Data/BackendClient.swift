@@ -62,6 +62,9 @@ struct SocialSnapshot: Codable, Equatable {
     var media: [SocialRow] = [], notifications: [SocialRow] = []
     /// Optional so caches saved before goal sharing still decode.
     var shared_goals: [SocialRow]? = nil, goal_shares: [SocialRow]? = nil
+    /// Optional so older caches still decode. `circle`: people who share a training partner
+    /// with you (`id`, `mutual` partner ids). `follows`: who you follow.
+    var circle: [SocialRow]? = nil, follows: [SocialRow]? = nil
 }
 
 @Model final class CachedSocialState {

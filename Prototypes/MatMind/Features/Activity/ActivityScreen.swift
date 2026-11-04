@@ -11,6 +11,7 @@ struct ActivityScreen: View {
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
                 Spacer()
+                MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
                 }
@@ -178,7 +179,7 @@ struct PostCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Button {
-                    if post.organizer != "me" { mm.go(.friend(id: post.organizer)) }
+                    if post.organizer != "me" { mm.openPerson(post.organizer) }
                 } label: {
                     MMAvatar(name: org.name, photo: org.photo, size: 42, belt: org.belt, ring: MMColor.white)
                 }
@@ -740,7 +741,7 @@ struct MentionText: View {
         Text(styled)
             .environment(\.openURL, OpenURLAction { url in
                 guard url.scheme == "matmonkeys-mention", let id = url.pathComponents.last else { return .systemAction }
-                if id == "me" { mm.setTab(.profile) } else { mm.go(.friend(id: id)) }
+                mm.openPerson(id)
                 return .handled
             })
     }

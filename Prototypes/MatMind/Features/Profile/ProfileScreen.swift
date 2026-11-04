@@ -309,10 +309,12 @@ enum ProfileSection: String, CaseIterable, Identifiable {
 /// Icon + label tabs across the full width, with a coral underline on the active one.
 private struct ProfileSectionTabs: View {
     @Binding var selection: ProfileSection
+    /// Someone else's profile leaves out Progress: it's private to its owner.
+    var sections: [ProfileSection] = ProfileSection.allCases
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(ProfileSection.allCases) { item in
+            ForEach(sections) { item in
                 let on = item == selection
                 Button {
                     withAnimation(MMMotion.easeOut(MMMotion.base)) { selection = item }
@@ -737,12 +739,15 @@ private struct ProfileSessionBars: View {
 private struct ProfileActivitySection: View {
     @Environment(AppModel.self) private var mm
     let history: ProfileHistory
+    /// Whose profile this is: the ticket's "with …" line lists everyone else.
+    var owner = "me"
+    var emptyText = "Your finished sessions land here, with notes and who you rolled with."
 
     var body: some View {
         let groups = history.activityGroups()
         VStack(alignment: .leading, spacing: 0) {
             if groups.isEmpty {
-                emptyNote("Your finished sessions land here, with notes and who you rolled with.")
+                emptyNote(emptyText)
             }
             ForEach(groups) { group in
                 MMEyebrow(title: group.title, topPadding: 18) {
@@ -750,7 +755,7 @@ private struct ProfileActivitySection: View {
                 }
                 VStack(spacing: 12) {
                     ForEach(group.items) { item in
-                        PastSessionTicket(item: item) { mm.go(.post(id: item.post.id)) }
+                        PastSessionTicket(item: item, owner: owner) { mm.go(.post(id: item.post.id)) }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -772,6 +777,7 @@ private struct ProfileDashedLine: Shape {
 private struct PastSessionTicket: View {
     @Environment(AppModel.self) private var mm
     let item: ProfileHistory.Item
+    var owner = "me"
     let onTap: () -> Void
 
     private let stubWidth: CGFloat = 76
@@ -787,9 +793,11 @@ private struct PastSessionTicket: View {
         let post = item.post
         let organizer = mm.person(post.organizer)
         let hue: FriendHue = post.organizer == "me" ? .coral : organizer.hue
-        let partnerIDs = post.participants.filter { $0 != "me" }
+        let partnerIDs = ([post.organizer] + post.participants).reduce(into: [String]()) { ids, id in
+            if id != owner && !ids.contains(id) { ids.append(id) }
+        }
         let partners = partnerIDs.map { mm.person($0).avatar }
-        let withLabel = partnerIDs.count == 1 ? "with \(mm.person(partnerIDs[0]).firstName)" : "\(partnerIDs.count) partners"
+        let withLabel = partnerIDs.count == 1 ? "with \(partnerIDs[0] == "me" ? "you" : mm.person(partnerIDs[0]).firstName)" : "\(partnerIDs.count) partners"
         Button(action: onTap) {
             HStack(spacing: 0) {
                 VStack(spacing: 2) {
@@ -862,6 +870,7 @@ private struct PastSessionTicket: View {
 private struct ProfileGallerySection: View {
     @Environment(AppModel.self) private var mm
     let history: ProfileHistory
+    var emptyText = "Photos from your sessions collect here. Add one when you finish a session."
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
 
@@ -869,7 +878,7 @@ private struct ProfileGallerySection: View {
         let groups = history.photoGroups()
         VStack(alignment: .leading, spacing: 0) {
             if groups.isEmpty {
-                emptyNote("Photos from your sessions collect here. Add one when you finish a session.")
+                emptyNote(emptyText)
             }
             ForEach(groups) { group in
                 MMEyebrow(title: group.title, topPadding: 18) {
@@ -1008,6 +1017,136 @@ private struct NotificationRow: View {
             case .comment, .published, .like, .mention: if let entity = note.session { mm.go(.post(id: entity)) }
             case .goalShare: break
             }
+        }
+    }
+}
+
+// MARK: - Someone else's profile
+
+/// Another practitioner's profile: the personal profile without Progress, which stays private.
+/// It shows only sessions you can already see: ones you or your training partners were in.
+struct PersonProfileScreen: View {
+    @Environment(AppModel.self) private var mm
+    let id: String
+    @State private var section: ProfileSection = .activity
+    @State private var confirmUnfollow = false
+    @State private var confirmBlock = false
+
+    var body: some View {
+        let p = mm.person(id)
+        let history = ProfileHistory(posts: mm.posts.filter { $0.organizer == id || $0.participants.contains(id) })
+        MMScreen {
+            HStack(spacing: 8) {
+                MMIconButton("chevron-left", label: "Back") { mm.back() }
+                Spacer()
+                if mm.isLive {
+                    Menu {
+                        Button("Block \(p.firstName)", role: .destructive) { confirmBlock = true }
+                    } label: {
+                        MMIcon("ellipsis", size: 20, weight: .bold, color: MMColor.textPrimary)
+                            .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                            .background(Circle().fill(MMColor.paper2))
+                    }
+                    .accessibilityLabel("More options")
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 2)
+        } content: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 16) {
+                    MMAvatar(name: p.name, photo: p.photo, size: 80, belt: p.belt)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(p.name).mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                        let handle = [p.username.isEmpty ? nil : "@" + p.username, p.gym.isEmpty ? nil : p.gym].compactMap { $0 }
+                        if !handle.isEmpty {
+                            Text(handle.joined(separator: " · ")).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                        }
+                        MMBelt(rank: p.belt, stripes: p.stripes, size: .sm, width: 120, showLabel: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                mutualRow
+                followButton(p)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+
+            ProfileSectionTabs(selection: $section, sections: [.activity, .gallery])
+                .padding(.top, 18)
+
+            switch section {
+            case .gallery:
+                ProfileGallerySection(history: history,
+                                      emptyText: "No photos yet from sessions with you or your training partners.")
+            default:
+                ProfileActivitySection(history: history, owner: id,
+                                       emptyText: "No sessions yet with you or your training partners.")
+            }
+
+            Text("You see the sessions \(p.firstName) trained in with you or your training partners.")
+                .mmFont(.body, 13, lineHeight: 1.45).foregroundStyle(MMColor.textTertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 32)
+                .padding(.top, 24)
+                .padding(.bottom, 16)
+        }
+        .mmSheet(isPresented: $confirmUnfollow, title: "Unfollow \(p.firstName)?",
+                 description: "You can follow again anytime.") {
+            VStack(spacing: 12) {
+                MMButton("Unfollow", variant: .danger, iconLeft: "user-minus", fullWidth: true) {
+                    confirmUnfollow = false
+                    mm.setFollowing(id, false)
+                }
+                MMButton("Keep following", variant: .secondary, fullWidth: true) { confirmUnfollow = false }
+            }
+        }
+        .confirmationDialog("Block \(p.firstName)?", isPresented: $confirmBlock, titleVisibility: .visible) {
+            Button("Block user", role: .destructive) {
+                Task { if await mm.runtime?.perform("block_user", ["user_id": id]) == true { mm.back() } }
+            }
+        }
+    }
+
+    /// The training partners you share. Each opens that partner's profile.
+    @ViewBuilder
+    private var mutualRow: some View {
+        let mutual = mm.mutualPartners(id)
+        if !mutual.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(mutual.count == 1 ? "Trains with 1 of your partners" : "Trains with \(mutual.count) of your partners")
+                    .mmFont(.body, 13, .semibold).foregroundStyle(MMColor.textSecondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(mutual, id: \.self) { partnerID in
+                            let partner = mm.person(partnerID)
+                            Button { mm.openPerson(partnerID) } label: {
+                                HStack(spacing: 8) {
+                                    MMAvatar(name: partner.name, photo: partner.photo, size: 30)
+                                    Text(partner.firstName).mmFont(.body, 14, .semibold).foregroundStyle(partner.hue.ink)
+                                }
+                                .padding(.leading, 7)
+                                .padding(.trailing, 14)
+                                .frame(minHeight: MMLayout.tapTarget)
+                                .background(Capsule().fill(partner.hue.tint))
+                            }
+                            .buttonStyle(MMPressStyle())
+                            .accessibilityLabel("\(partner.name), your training partner")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func followButton(_ p: Person) -> some View {
+        if mm.isFollowing(id) {
+            MMButton("Following", variant: .secondary, iconLeft: "user-check", fullWidth: true) { confirmUnfollow = true }
+                .accessibilityHint("Opens unfollow options")
+        } else {
+            MMButton("Follow \(p.firstName)", iconLeft: "user-plus", fullWidth: true) { mm.setFollowing(id, true) }
         }
     }
 }
