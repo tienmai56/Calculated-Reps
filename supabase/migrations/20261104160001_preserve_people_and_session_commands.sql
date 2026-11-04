@@ -1,9 +1,8 @@
--- Monkey avatars: each member can build a monkey (mood, fur color, haircut) that
--- appears after their name. Stored as 'mood.fur.haircut' text so it reaches the
--- client through the existing snapshot (profiles are returned whole); null means
--- the member hasn't built one yet. set_monkey is the only way to change it.
--- Everything else in command() matches 20261104130000_notify_added_participants.sql.
-alter table public.profiles add column monkey text check(monkey is null or monkey ~ '^(happy|grin|focused|tired|side|tapped)\.(ink-900|ink-700|ink-500|coral-700|sky-700|plum-700|mint-700)\.(clean|tuft|fringe|mohawk|topknot|curls)$');
+-- Preserve comment deletion/report snapshots and atomic session guest editing
+-- when adding people search/follows. The people migration copied an earlier
+-- command definition, which otherwise overwrites those operations from main.
+-- Created with migration new, then ordered after the existing planned migrations.
+-- Full command and snapshot definitions, with the same grants and visibility.
 
 create or replace function public.command(operation text,payload jsonb,idempotency_key uuid) returns jsonb language plpgsql security definer set search_path='' as $$
 
@@ -36,12 +35,6 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  update public.profiles set username=token where id=actor;
  exception when unique_violation then raise exception 'That username is already taken'; end;
  result:=jsonb_build_object('username',token);
- elsif operation='set_monkey' then
- -- The monkey shown after a member's name: mood.fur.haircut, or empty to remove it.
- token:=nullif(trim(coalesce(payload->>'monkey','')),'');
- if token is not null and token !~ '^(happy|grin|focused|tired|side|tapped)\.(ink-900|ink-700|ink-500|coral-700|sky-700|plum-700|mint-700)\.(clean|tuft|fringe|mohawk|topknot|curls)$' then raise exception 'Invalid monkey'; end if;
- update public.profiles set monkey=token where id=actor;
- result:=jsonb_build_object('monkey',coalesce(token,''));
  elsif operation='create_session' then
  zone:=payload->>'timezone'; if not exists(select 1 from pg_timezone_names where name=zone) then raise exception 'Invalid timezone'; end if;
  insert into public.sessions(organizer,title,starts_at,timezone,venue,note,join_mode) values(actor,trim(payload->>'title'),(payload->>'starts_at')::timestamptz,zone,trim(payload->>'venue'),coalesce(payload->>'note',''),coalesce(payload->>'join_mode','friends')) returning * into s;
@@ -94,7 +87,7 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  insert into public.session_participants values(s.id,actor,'going',false) on conflict(session_id,user_id) do update set rsvp='going';
  result:=jsonb_build_object('id',s.id);
  end if;
- elsif operation in ('set_rsvp','edit_session','manage_participant','cancel_session','complete_and_publish','correct_attendance','prepare_media') then
+ elsif operation in ('set_rsvp','edit_session','edit_session_details','manage_participant','cancel_session','complete_and_publish','correct_attendance','prepare_media') then
  select * into s from public.sessions where id=(payload->>'session_id')::uuid for update;
  if not found then raise exception 'Session unavailable'; end if;
  if operation='set_rsvp' then
@@ -111,10 +104,25 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  else
  if actor<>s.organizer then raise exception 'Organizer required'; end if;
  if operation<>'complete_and_publish' and s.status<>'planned' then raise exception 'Planned session required'; end if;
- if operation='edit_session' then
+ if operation in ('edit_session','edit_session_details') then
  if (payload->>'version')::int is distinct from s.version then raise exception 'Session changed. Refresh before editing'; end if;
  zone:=payload->>'timezone'; if not exists(select 1 from pg_timezone_names where name=zone) then raise exception 'Invalid timezone'; end if;
- update public.sessions set title=trim(payload->>'title'),starts_at=(payload->>'starts_at')::timestamptz,timezone=zone,venue=trim(payload->>'venue'),note=coalesce(payload->>'note',''),version=version+1 where id=s.id;
+ update public.sessions set title=trim(payload->>'title'),starts_at=(payload->>'starts_at')::timestamptz,timezone=zone,venue=trim(payload->>'venue'),note=coalesce(payload->>'note',''),version=version+1 where id=s.id returning * into s;
+ if operation='edit_session_details' then
+ if jsonb_typeof(payload->'added_guests') is distinct from 'array' or jsonb_typeof(payload->'removed_guests') is distinct from 'array' then raise exception 'Guest changes required'; end if;
+ for person in select value::uuid from jsonb_array_elements_text(payload->'removed_guests') loop
+ if person=actor then raise exception 'Organizer cannot be removed'; end if;
+ delete from public.session_participants where session_id=s.id and user_id=person;
+ end loop;
+ for person in select distinct value::uuid from jsonb_array_elements_text(payload->'added_guests') loop
+ if person=actor or not public.are_friends(actor,person) then raise exception 'Invite friends only'; end if;
+ -- Retained guests keep their RSVP, even if a second device added them meanwhile.
+ insert into public.session_participants values(s.id,person,case when s.starts_at>now() then 'invited' else 'going' end,false) on conflict(session_id,user_id) do nothing;
+ if found and s.starts_at>now() then
+ perform public.emit_notification(person,actor,'invite',s.id,'invited you to '||s.title,s.id::text||person::text||'invite'||idempotency_key::text);
+ end if;
+ end loop;
+ end if;
  elsif operation='manage_participant' then
  person:=(payload->>'user_id')::uuid;
  if person=actor then raise exception 'Organizer cannot be removed'; end if;
@@ -179,11 +187,18 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  perform public.emit_notification(p.author,actor,'comment',p.id,'commented on your memory',idempotency_key::text);
  end if;
  else insert into public.reports(reporter,post_id,reason) values(actor,p.id,payload->>'reason'); end if;
+ elsif operation='delete_comment' then
+ select * into c from public.comments where id=(payload->>'comment_id')::uuid for update;
+ if not found or not public.can_post(c.post_id) then raise exception 'Comment unavailable'; end if;
+ if c.author<>actor and not exists(select 1 from public.posts where id=c.post_id and author=actor) then raise exception 'Only the author or organizer can delete this comment'; end if;
+ delete from public.notifications where kind='mention' and dedupe_key like c.id::text||'%';
+ delete from public.comments where id=c.id;
+ result:=jsonb_build_object('id',c.id);
  elsif operation='report_comment' then
  select * into c from public.comments where id=(payload->>'comment_id')::uuid;
  if not found or not public.can_post(c.post_id) then raise exception 'Comment unavailable'; end if;
  if c.author=actor then raise exception 'You cannot report your own comment'; end if;
- insert into public.reports(reporter,post_id,comment_id,reason) values(actor,c.post_id,c.id,payload->>'reason');
+ insert into public.reports(reporter,post_id,comment_id,comment_body,reason) values(actor,c.post_id,c.id,c.body,payload->>'reason');
  elsif operation='publish_goal' then
  -- Creates or updates the owner's shared copy. Photos must already be the owner's uploads.
  if length(coalesce(payload->>'client_id',''))=0 then raise exception 'Invalid goal'; end if;
@@ -257,6 +272,18 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  target:=(payload->>'user_id')::uuid;
  insert into public.blocks values(actor,target) on conflict do nothing;
  update public.friendships set active=false where a=least(actor,target) and b=greatest(actor,target);
+ delete from public.follows where (follower=actor and followee=target) or (follower=target and followee=actor);
+ elsif operation='set_follow' then
+ -- One-way and instant, no approval. Only people in your circle (your training partners and
+ -- the people they train with), or on a partner list you can see (20261104160000_partner_lists.sql).
+ target:=(payload->>'user_id')::uuid;
+ if target is null or target=actor then raise exception 'Choose someone to follow'; end if;
+ if coalesce((payload->>'follow')::boolean,true) then
+ if not (public.are_friends(actor,target) or public.in_circle(actor,target) or public.listed_partner(actor,target)) then raise exception 'You can follow people who train with your training partners'; end if;
+ insert into public.follows(follower,followee) values(actor,target) on conflict do nothing;
+ else
+ delete from public.follows where follower=actor and followee=target;
+ end if;
  else raise exception 'Unknown command';
  end if;
  insert into public.command_receipts(actor,operation,key,request,result) values(actor,operation,idempotency_key,payload,result);
@@ -264,3 +291,25 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  end $$;
 revoke all on function public.command(text,jsonb,uuid) from public,anon;
 grant execute on function public.command(text,jsonb,uuid) to authenticated;
+
+create or replace function public.snapshot() returns jsonb language sql stable security invoker set search_path='' as $$
+ select jsonb_build_object(
+ 'server_time',now(),
+ 'profiles',coalesce((select jsonb_agg(t) from public.profiles t),'[]'::jsonb),
+ 'friendships',coalesce((select jsonb_agg(t) from public.friendships t where active),'[]'::jsonb),
+ 'sessions',coalesce((select jsonb_agg(t) from (select * from public.sessions where status<>'cancelled' order by starts_at desc limit 100) t),'[]'::jsonb),
+ 'participants',coalesce((select jsonb_agg(t) from public.session_participants t),'[]'::jsonb),
+ 'posts',coalesce((select jsonb_agg(t) from (select * from public.posts where deleted_at is null order by published_at desc,id desc limit 30) t),'[]'::jsonb),
+ 'tags',coalesce((select jsonb_agg(t) from public.post_participants t where visible),'[]'::jsonb),
+ 'likes',coalesce((select jsonb_agg(t) from public.post_likes t),'[]'::jsonb),
+ 'comments',coalesce((select jsonb_agg(t) from (select * from public.comments order by created_at desc limit 300) t),'[]'::jsonb),
+ 'credits',coalesce((select jsonb_agg(t) from public.friendship_session_credits t),'[]'::jsonb),
+ 'media',coalesce((select jsonb_agg(t) from public.media_assets t where state='ready'),'[]'::jsonb),
+ 'notifications',coalesce((select jsonb_agg(t) from (select * from public.notifications order by created_at desc limit 100) t),'[]'::jsonb),
+ 'shared_goals',coalesce((select jsonb_agg(t) from (select * from public.shared_goals where deleted_at is null order by updated_at desc limit 200) t),'[]'::jsonb),
+ 'goal_shares',coalesce((select jsonb_agg(t) from (select * from public.goal_shares order by created_at desc limit 1000) t),'[]'::jsonb),
+ 'circle',public.my_circle(),
+ 'follows',coalesce((select jsonb_agg(t) from public.follows t),'[]'::jsonb));
+$$;
+revoke all on function public.snapshot() from public,anon;
+grant execute on function public.snapshot() to authenticated;

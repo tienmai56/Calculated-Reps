@@ -5,9 +5,9 @@ struct TrainingFocusEditor: View {
     @Binding var items: [TrainingFocus]
     var allowsEmptyRoots = false
     var focusOnAppear = true
-    /// Your goals, offered as one-tap focuses while planning. A picked goal carries
-    /// over its name only; its notes stay on the goal, viewable from the card.
-    /// `nil` hides the picker (session details).
+    /// Your goals, offered as one-tap focuses while planning and when editing a
+    /// session's focus. A picked goal carries over its name only; its notes stay
+    /// on the goal, viewable from the card. `nil` hides the picker.
     var goals: [MatGoal]? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focusedID: UUID?
@@ -187,9 +187,15 @@ struct TrainingFocusEditor: View {
         return goals?.first { $0.id == goalID }
     }
 
-    /// The root focus picked from this goal, if it is still in the outline.
+    /// The root focus picked from this goal, if it is still in the outline. A saved
+    /// focus has no link yet, so one with the goal's name counts as picked too.
     private func pickedFocusID(for goal: MatGoal) -> UUID? {
-        items.first { goalLinks[$0.id] == goal.id }?.id
+        if let linked = items.first(where: { goalLinks[$0.id] == goal.id }) { return linked.id }
+        let name = goal.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return items.first { item in
+            goalLinks[item.id] == nil
+                && item.title.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(name) == .orderedSame
+        }?.id
     }
 
     private func toggleGoal(_ goal: MatGoal) {
@@ -272,7 +278,7 @@ struct TrainingFocusOutline: View {
 /// planned it, so the feed and post detail never show them.
 struct TrainingFocusNames: View {
     var items: [TrainingFocus]
-    /// Wrap onto several lines (post detail) instead of one scrolling row (feed card).
+    /// Show tags in post detail instead of the quiet text summary used in feed cards.
     var wraps = false
 
     private var titles: [String] {
@@ -281,22 +287,23 @@ struct TrainingFocusNames: View {
 
     var body: some View {
         Group {
-            if wraps {
+            if titles.isEmpty {
+                EmptyView()
+            } else if wraps {
                 MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) { tags }
             } else {
-                HStack(spacing: MMSpace.s4) {
-                    MMIcon("notebook-pen", size: 16, color: MMColor.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(MMColor.surfaceSunken))
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: MMSpace.s4) { tags }
-                            .padding(.vertical, MMSpace.s1)
-                    }
+                HStack(alignment: .top, spacing: MMSpace.s3) {
+                    MMIcon("notebook-pen", size: 16, color: MMColor.textTertiary)
+                        .padding(.top, MMSpace.s1)
+                    Text(titles.joined(separator: " · "))
+                        .mmText(.bodyS)
+                        .foregroundStyle(MMColor.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("What we worked on: \(titles.joined(separator: ", "))")
+        .accessibilityLabel("\(wraps ? "What we worked on" : "Goals worked on"): \(titles.joined(separator: ", "))")
     }
 
     private var tags: some View {

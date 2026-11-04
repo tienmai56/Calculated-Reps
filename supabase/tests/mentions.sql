@@ -82,4 +82,12 @@ select public.command('complete_and_publish',jsonb_build_object('session_id',:'s
 reset role;
 select pg_temp.assert_true((select count(*)=1 from public.notifications where entity_id=:'second_pid' and recipient='00000000-0000-0000-0000-000000000046'),'tagged attendees receive one mention instead of a second published alert');
 select pg_temp.assert_true((select kind='mention' from public.notifications where entity_id=:'second_pid' and recipient='00000000-0000-0000-0000-000000000046'),'attendee alert is a mention');
+-- Deleting a comment withdraws the mention alerts it sent.
+select id as mention_cid from public.comments where post_id=:'pid' and body like '😀%' \gset
+select pg_temp.assert_true((select count(*)>0 from public.notifications where dedupe_key like :'mention_cid'||'%'),'comment mentions are linked to the comment');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000042',true);
+select public.command('delete_comment',jsonb_build_object('comment_id',:'mention_cid'),gen_random_uuid());
+reset role;
+select pg_temp.assert_true((select count(*)=0 from public.notifications where dedupe_key like :'mention_cid'||'%'),'deleting a comment withdraws its mentions');
 rollback;

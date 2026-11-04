@@ -125,7 +125,7 @@ function Connected({ id, onDone }) {
     <div style={{ font: '800 30px/1.05 var(--font-display)', letterSpacing: '-.04em', marginTop: 28, color: 'var(--ink-900)', animation: 'mmFadeUp .4s .6s var(--ease-out) both' }}>You & {p.name.split(' ')[0]} are friends</div>
     <Txt s={15} c="var(--ink-800)" style={{ marginTop: 8, animation: 'mmFadeUp .4s .7s var(--ease-out) both' }}>Train together this week to start your first streak.</Txt>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', marginTop: 26, animation: 'mmFadeUp .4s .8s var(--ease-out) both' }}>
-      <FBtn size="lg" variant="inverse" fullWidth iconLeft="calendar-plus" onClick={() => { mm.back(); mm.go('create', { friend: id }); }}>Plan a session with {p.name.split(' ')[0]}</FBtn>
+      <FBtn size="lg" variant="inverse" fullWidth iconLeft="calendar-plus" onClick={() => { mm.back(); mm.go('create', { friend: id }); }}>Plan a training with {p.name.split(' ')[0]}</FBtn>
       <FBtn variant="ghost" fullWidth onClick={onDone}>Done</FBtn>
     </div>
   </div>;

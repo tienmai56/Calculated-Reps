@@ -16,7 +16,7 @@ enum ShareRule {
 }
 
 /// The composer: posts only come from completed sessions.
-/// Photo and/or note → who trained → publish.
+/// Saved session details → photo and/or note → who trained → publish.
 struct CompleteScreen: View {
     @Environment(AppModel.self) private var mm
     let id: String
@@ -52,11 +52,19 @@ struct CompleteScreen: View {
         let attendees = s.going
         let people = attendees.filter { !removed.contains($0) }
         return MMScreen {
-            MMHeader(title: "Share the session", sub: "\(s.title) · \(s.day) \(s.month) \(s.date)", leading: {
+            MMHeader(title: "Share the session", leading: {
                 MMIconButton("x", label: "Close") { mm.back() }
             })
         } content: {
             VStack(alignment: .leading, spacing: 0) {
+                sessionDetails(s)
+                if !s.focusItems.isEmpty {
+                    Text("What we worked on")
+                        .mmFont(.display, 16)
+                        .padding(.top, MMLayout.sectionGap)
+                        .padding(.bottom, MMSpace.s5)
+                    TrainingFocusOutline(items: s.focusItems)
+                }
                 if let photo {
                     MMPhotoTile(photo: photo, height: 330, radius: 26) {
                         ZStack {
@@ -69,16 +77,11 @@ struct CompleteScreen: View {
                                 .padding(12)
                         }
                     }
+                    .padding(.top, MMLayout.sectionGap)
                     .transition(.scale(scale: 0.85).combined(with: .opacity))
                 } else {
                     emptyPhoto
-                }
-                if !s.focusItems.isEmpty {
-                    Text("What we worked on")
-                        .mmFont(.display, 16)
-                        .padding(.top, MMSpace.s8)
-                        .padding(.bottom, MMSpace.s5)
-                    TrainingFocusOutline(items: s.focusItems)
+                        .padding(.top, MMLayout.sectionGap)
                 }
                 MMTextField(placeholder: photo == nil ? "What happened on the mat? @tag a partner" : "Add a few words? @tag a partner",
                             text: $caption, multiline: true, rows: 2, focusRequest: noteFocus)
@@ -137,6 +140,48 @@ struct CompleteScreen: View {
                 }
             }
         }
+    }
+
+    /// Keep the original plan visible while composing, separate from the new post's caption.
+    private func sessionDetails(_ s: Session) -> some View {
+        VStack(alignment: .leading, spacing: MMSpace.s5) {
+            Text("How was \(s.title)?")
+                .mmFont(.display, 22, tracking: -0.03, lineHeight: 1.15)
+                .foregroundStyle(MMColor.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            sessionDetailRow(icon: "map-pin", text: s.gym)
+            sessionDetailRow(icon: "user", text: s.organizer == "me" ? "Hosted by you" : "Hosted by \(mm.person(s.organizer).name)")
+            sessionDetailRow(icon: s.privacy == .link ? "globe" : "lock",
+                             text: s.privacy == .link ? "Session access: anyone with the link (Mat Monkey account required)" : "Session access: friends only")
+            if let note = s.note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
+                VStack(alignment: .leading, spacing: MMSpace.s2) {
+                    Text("Session note")
+                        .mmFont(.body, 13, .semibold)
+                        .foregroundStyle(MMColor.textTertiary)
+                    Text(note)
+                        .mmFont(.body, 15, lineHeight: 1.45)
+                        .foregroundStyle(MMColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(MMSpace.s6)
+        .mmCardSurface(radius: MMRadius.lg)
+    }
+
+    private func sessionDetailRow(icon: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: MMSpace.s4) {
+            MMIcon(icon, size: 16, color: MMColor.textTertiary)
+                .padding(.top, MMSpace.s1)
+                .accessibilityHidden(true)
+            Text(text)
+                .mmFont(.body, 15, lineHeight: 1.45)
+                .foregroundStyle(MMColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     /// Locked until there's a photo or a note. A tap while locked doesn't error loudly:

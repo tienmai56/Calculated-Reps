@@ -8,6 +8,8 @@ protocol AppRuntime: AnyObject {
     func authenticate() async
     func signOut() async
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
+    /// Someone's training partners, or nil when you can't see their list.
+    func partners(of personID: String) async -> [Person]?
     /// Asks for push permission and registers this device. Returns nil on success, or the
     /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
     func enableNotifications() async -> String?
@@ -17,9 +19,11 @@ protocol AppRuntime: AnyObject {
     func saveAvatar(_ jpeg: Data) async -> Bool
     func friendCode() async -> String?
     func connect(_ value: String) async -> String?
+    func sessionInvitationURL(_ sessionID: String) async -> URL?
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
-    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool
     /// Creates or updates the shared copy of one of your goals (photos included) and
     /// returns its id. Recipients see whatever was published last.
     func publishGoal(_ goal: MatGoal) async -> String?
@@ -63,7 +67,7 @@ final class AppModel {
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
-        people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
+        people = [:]; friends = []; circle = []; following = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; discoverableSessions = []; completedSessions = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         editingMonkey = false; monkeyPromptVisible = false; monkeyPromptAnswered = true; monkeyAccount = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
@@ -79,8 +83,21 @@ final class AppModel {
     var me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
     var people: [String: Person] = [:]
     var friends: [Friendship] = []
+    /// People who train with your training partners, with the partners you share. Suggestions and
+    /// search come only from here and your partners: there is no public directory.
+    var circle: [CirclePerson] = []
+    /// Who you follow. No approval needed, and it never widens what you can see:
+    /// posts stay visible only when you or one of your partners trained in them.
+    var following: Set<String> = []
+    /// Training partner lists loaded for profiles: person id → partner ids, your own partners first.
+    var partnerLists: [String: [String]] = [:]
+    /// People known only from a partner list (not your partners or in your circle).
+    var listedPeople: [String: Person] = [:]
     var posts: [Post] = []
     var upcoming: [Session] = []
+    var completedSessions: [Session] = []
+    /// Friends' open plans from Activity. They enter Training only after joining.
+    var discoverableSessions: [Session] = []
     var toComplete: Session?
     var notifications: [AppNotification] = []
     var drafts: [Session] = []
@@ -127,7 +144,7 @@ final class AppModel {
 
     func person(_ id: String) -> Person {
         if id == "me" { return me }
-        return people[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
+        return people[id] ?? listedPeople[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
     }
 
     func post(_ id: String) -> Post? { posts.first { $0.id == id } }
@@ -135,10 +152,63 @@ final class AppModel {
     func findSession(_ id: String) -> Session? {
         if let s = upcoming.first(where: { $0.id == id }) { return s }
         if let s = toComplete, s.id == id { return s }
-        return drafts.first(where: { $0.id == id })
+        if let s = discoverableSessions.first(where: { $0.id == id }) { return s }
+        return drafts.first(where: { $0.id == id }) ?? completedSessions.first(where: { $0.id == id })
     }
 
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
+
+    /// Your training partners who also train with this person, most connected first.
+    func mutualPartners(_ id: String) -> [String] { circle.first { $0.id == id }?.mutual ?? [] }
+
+    func isFollowing(_ id: String) -> Bool { following.contains(id) }
+
+    /// You can follow your training partners, the people they train with, and anyone on a partner list you've opened.
+    func canFollow(_ id: String) -> Bool {
+        id != "me" && (friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
+    }
+
+    /// Loads (or refreshes) someone's training partner list into `partnerLists`.
+    func loadPartners(of id: String) async {
+        var list: [String]
+        if let runtime {
+            guard let found = await runtime.partners(of: id) else { partnerLists[id] = nil; return }
+            for p in found where p.id != "me" && people[p.id] == nil { listedPeople[p.id] = p }
+            list = found.map(\.id)
+        } else {
+            guard !isLive else { return }
+#if DEBUG || MAT_MIND_PROTOTYPE
+            list = SeedData.partnerLists[id] ?? []
+#else
+            list = []
+#endif
+        }
+        func yours(_ p: String) -> Bool { p == "me" || friendship(p) != nil }
+        partnerLists[id] = list.sorted { yours($0) != yours($1) ? yours($0) : person($0).name < person($1).name }
+    }
+
+    /// Suggested for you: everyone sharing at least one training partner with you, most shared partners first.
+    var suggestedPeople: [Person] {
+        circle.filter { !$0.mutual.isEmpty && people[$0.id] != nil && friendship($0.id) == nil }
+            .sorted { $0.mutual.count != $1.mutual.count ? $0.mutual.count > $1.mutual.count : person($0.id).name < person($1.id).name }
+            .map { person($0.id) }
+    }
+
+    /// Name search over your training partners and the people they train with.
+    /// Matches the start of any word in the name, or the username.
+    func searchPeople(_ query: String) -> [Person] {
+        var q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if q.hasPrefix("@") { q.removeFirst() }
+        guard !q.isEmpty else { return [] }
+        let ids = Set(friends.map(\.id)).union(circle.filter { !$0.mutual.isEmpty }.map(\.id))
+        func rank(_ p: Person) -> Int { friendship(p.id) != nil ? 1000 : mutualPartners(p.id).count }
+        return ids.compactMap { people[$0] }
+            .filter { p in
+                let name = p.name.lowercased()
+                return name.hasPrefix(q) || name.split(separator: " ").contains { $0.hasPrefix(q) } || p.username.lowercased().hasPrefix(q)
+            }
+            .sorted { rank($0) != rank($1) ? rank($0) > rank($1) : $0.name < $1.name }
+    }
 
     func goal(_ id: String) -> MatGoal? { goals.first { $0.id == id } }
 
@@ -167,11 +237,66 @@ final class AppModel {
         plannedSessions.first { sessionGoals[$0.id] == goalID }
     }
 
-    /// Invitations and accepted plans, soonest first; declined sessions do not fill the schedule.
-    var plannedSessions: [Session] {
-        upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
+    /// Sessions you organized that have already happened but aren't shared yet, newest first.
+    /// Every one of them can be completed, not just the most recent, so a logged past
+    /// session always has a way into Activity.
+    var readyToShare: [Session] {
+        guard isLive else { return toComplete.map { [$0] } ?? [] }
+        let now = Date()
+        return upcoming.filter { $0.organizer == "me" && startDate(of: $0) <= now }
+            .sorted { startDate(of: $0) > startDate(of: $1) }
+    }
+
+    func isReadyToShare(_ sessionID: String) -> Bool { readyToShare.contains { $0.id == sessionID } }
+
+    /// Invitations and accepted future plans, soonest first.
+    var plannedSessions: [Session] { trainingSessions(past: false) }
+
+    /// Date, not publication or photo state, determines which Training tab owns a session.
+    /// Label-only sample plans remain upcoming; draft and completion samples remain past.
+    func trainingSessions(past: Bool, relativeTo now: Date = Date()) -> [Session] {
+        let completedIDs = Set(completedSessions.map(\.id))
+        let draftIDs = Set(drafts.map(\.id))
+        var seen: Set<String> = []
+        let sessions = upcoming + drafts + (toComplete.map { [$0] } ?? []) + completedSessions
+        return sessions.filter { session in
+            guard seen.insert(session.id).inserted,
+                  session.status(of: "me") == .going || session.status(of: "me") == .invited else { return false }
+            let elapsed = completedIDs.contains(session.id) || (session.startsAt.map { $0 <= now }
+                ?? (draftIDs.contains(session.id) || session.id == toComplete?.id))
+            return elapsed == past
+        }.sorted {
+            let first = startDate(of: $0), second = startDate(of: $1)
+            return first == second ? $0.id < $1.id : (past ? first > second : first < second)
+        }
+    }
+
+    func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
+
+    /// Link-visible plans appear immediately in Activity, without creating a completed post.
+    func activityPlans(at now: Date = Date()) -> [Session] {
+        (upcoming + discoverableSessions)
+            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && startDate(of: $0) > now }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
+                return first == second ? $0.id < $1.id : first < second
+            }
+    }
+
+    /// Keep Activity tied to the nearest unshared session, on either side of now.
+    /// Invitations and declined plans aren't training the member has committed to.
+    func activityPrompt(at now: Date) -> Session? {
+        var sessions = upcoming
+        if let toComplete, !sessions.contains(where: { $0.id == toComplete.id }) {
+            sessions.append(toComplete)
+        }
+        return sessions.filter { $0.organizer == "me" || $0.status(of: "me") == .going }
+            .min {
+                let first = startDate(of: $0), second = startDate(of: $1)
+                let firstDistance = abs(first.timeIntervalSince(now))
+                let secondDistance = abs(second.timeIntervalSince(now))
+                if firstDistance != secondDistance { return firstDistance < secondDistance }
+                // Prefer the past session on a tie, then keep equal-time rows stable.
                 return first == second ? $0.id < $1.id : first < second
             }
     }
@@ -216,6 +341,19 @@ final class AppModel {
 
     func go(_ route: Route) { path.append(route) }
 
+    /// Opens someone's profile: yours is the Profile tab; everyone else, partners included, gets the same profile page.
+    func openPerson(_ id: String) {
+        if id == "me" { setTab(.profile); return }
+        go(.person(id: id))
+    }
+
+    /// Follow or unfollow. The button flips right away; live, the next refresh confirms it.
+    func setFollowing(_ id: String, _ follow: Bool) {
+        guard id != "me" else { return }
+        if follow { following.insert(id) } else { following.remove(id) }
+        if isLive { send("set_follow", ["user_id": id, "follow": follow]) }
+    }
+
     func back() {
         guard !path.isEmpty else { return }
         if case .create = path.last { pendingPlanGoal = nil }
@@ -236,6 +374,10 @@ final class AppModel {
     func copySessionLink(_ id: String) {
         if let runtime { Task { await runtime.copySessionLink(id) } }
         else { showToast("Invite link copied", .success) }
+    }
+
+    func sessionInvitationURL(_ id: String) async -> URL? {
+        await runtime?.sessionInvitationURL(id)
     }
 
     // MARK: Feedback
@@ -306,6 +448,11 @@ final class AppModel {
 
     private func updateSession(_ id: String, _ change: (inout Session) -> Void) {
         if let i = upcoming.firstIndex(where: { $0.id == id }) { change(&upcoming[i]) }
+        if let i = drafts.firstIndex(where: { $0.id == id }) { change(&drafts[i]) }
+        if var session = toComplete, session.id == id {
+            change(&session)
+            toComplete = session
+        }
     }
 
     func like(_ id: String) {
@@ -318,6 +465,22 @@ final class AppModel {
     func comment(_ id: String, _ text: String) {
         if isLive { send("add_comment", ["post_id": id, "body": text]); return }
         updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true)) }
+    }
+
+    /// Your own comments, and any comment on a post you organized, can be deleted.
+    func canDelete(_ comment: Comment, on postID: String) -> Bool {
+        comment.who == "me" || post(postID)?.organizer == "me"
+    }
+
+    /// Deletes a comment. Live, the runtime hides it right away and brings it back if the delete fails.
+    func deleteComment(_ comment: Comment, on postID: String) {
+        if isLive {
+            guard let cloudID = comment.cloudID else { return }
+            send("delete_comment", ["comment_id": cloudID], success: { self.showToast("Comment deleted") })
+            return
+        }
+        updatePost(postID) { $0.comments.removeAll { $0.id == comment.id } }
+        showToast("Comment deleted")
     }
 
     /// Reasons offered when reporting a post or comment (sent as the report's text).
@@ -369,6 +532,9 @@ final class AppModel {
 
     func rsvp(_ sessionID: String, _ status: RSVP) {
         if isLive { send("set_rsvp", ["session_id": sessionID, "rsvp": status.rawValue]); return }
+        if status == .going, let index = discoverableSessions.firstIndex(where: { $0.id == sessionID }) {
+            upcoming.append(discoverableSessions.remove(at: index))
+        }
         updateSession(sessionID) { $0.set("me", status) }
         for i in notifications.indices where notifications[i].session == sessionID { notifications[i].unread = false }
         if status == .going {
@@ -513,6 +679,7 @@ final class AppModel {
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }
         posts.insert(post, at: 0)
+        completedSessions.append(s)
         upcoming.removeAll { $0.id == sessionID }
         drafts.removeAll { $0.id == sessionID }
         if toComplete?.id == sessionID { toComplete = nil }
@@ -600,14 +767,23 @@ final class AppModel {
 
     // MARK: Hosting
 
-    /// Host only: change a planned session's name, time, gym or note. People and focus plan stay.
-    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+    /// Host only. Omitted focus/guests keep their current values; retained guests keep their RSVPs.
+    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus]? = nil, guestIDs: Set<String>? = nil) async -> Bool {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let gym = gym.trimmingCharacters(in: .whitespacesAndNewlines)
         let note = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, !gym.isEmpty, findSession(id)?.organizer == "me" else { return false }
+        guard !title.isEmpty, !gym.isEmpty, let session = findSession(id), session.organizer == "me" else { return false }
+        let focus = focusItems ?? session.focusItems
+        guard TrainingFocusTree.isValid(focus) else { return false }
+        let existing = Set(session.people.map(\.id).filter { $0 != session.organizer })
+        let guests = (guestIDs ?? existing).subtracting([session.organizer])
+        let added = guests.subtracting(existing).sorted()
+        let removed = existing.subtracting(guests).sorted()
+        guard added.allSatisfy({ id in friends.contains { $0.id == id } }) else { return false }
         if let runtime {
-            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note) else { return false }
+            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note,
+                                            focusItems: focus, addedGuests: added, removedGuests: removed) else { return false }
             showToast("Session updated", .success)
             return true
         }
@@ -616,6 +792,9 @@ final class AppModel {
             s.title = title
             s.gym = gym
             s.note = note.isEmpty ? nil : note
+            s.focusItems = TrainingFocusTree.normalized(focus)
+            s.people.removeAll { removed.contains($0.id) }
+            added.forEach { s.set($0, startsAt > Date() ? .invited : .going) }
             s.startsAt = startsAt
             s.day = Self.sessionText(startsAt, "EEE")
             s.date = Int(Self.sessionText(startsAt, "d")) ?? s.date
@@ -637,6 +816,8 @@ final class AppModel {
             return
         }
         upcoming.removeAll { $0.id == id }
+        drafts.removeAll { $0.id == id }
+        if toComplete?.id == id { toComplete = nil }
         forgetGoal(forSession: id)
         showToast("Session deleted")
     }
@@ -750,7 +931,7 @@ final class AppModel {
         return fresh.count
     }
 
-    /// "Plan a session for this": opens the plan form; the new session gets this goal.
+    /// "Plan a training for this": opens the plan form; the new session gets this goal.
     func planSession(forGoal id: String) {
         guard goal(id) != nil else { return }
         go(.create())
@@ -974,8 +1155,13 @@ final class AppModel {
         me = SeedData.me
         people = SeedData.people
         friends = SeedData.friends
+        circle = SeedData.circle
+        following = SeedData.following
+        partnerLists = [:]
+        listedPeople = [:]
         posts = SeedData.posts
         upcoming = SeedData.upcoming
+        discoverableSessions = []
         toComplete = SeedData.toComplete
         notifications = SeedData.notifications
         gyms = SeedData.gyms
@@ -989,6 +1175,7 @@ final class AppModel {
         monkeyPromptAnswered = false
 #endif
         drafts = []
+        completedSessions = []
         path = []
         toast = nil
         highlight = nil
@@ -1000,6 +1187,7 @@ final class AppModel {
     /// Deep links from the web prototype's review panel (`index.html#…`).
     enum Preset: String, CaseIterable, Identifiable {
         case welcome, activity, training, create, complete, friends, qr, profile, notifications
+        case people, person
         case empty, firstSession, awaitingPhoto, focusPlan, invite, active, broken, scan, post
         var id: String { rawValue }
     }
@@ -1021,6 +1209,8 @@ final class AppModel {
         case .scan: setTab(.profile); go(.qr(scan: true))
         case .notifications: setTab(.activity); go(.notifications)
         case .post: setTab(.activity); go(.post(id: "p1"))
+        case .people: setTab(.activity); go(.people)
+        case .person: setTab(.activity); go(.people); go(.person(id: "rafa"))
         case .empty:
             upcoming = []
             toComplete = nil

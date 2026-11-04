@@ -147,7 +147,7 @@ struct MMTag: View {
 
 /// A member's monkey: a minimal two-color face (fur + white) shown right after
 /// their name. Built from a mood, a fur color and a haircut. Stored on the
-/// profile as "mood.fur.haircut" (see migration 20261104140000_monkey_avatars).
+/// profile as "mood.fur.haircut" (see migration 20261104170000_monkey_avatars).
 struct MMMonkeyLook: Hashable {
     enum Mood: String, CaseIterable, Identifiable {
         case happy, grin, focused, tired, side, tapped

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Plan a session (invite friends) or log one that already happened.
+/// Plan a training (invite friends) or log one that already happened.
 struct CreateScreen: View {
     @Environment(AppModel.self) private var mm
 
@@ -71,7 +71,7 @@ struct CreateScreen: View {
 
     var body: some View {
         MMScreen {
-            MMHeader(title: isPast ? "Log a past session" : "Plan a session", leading: {
+            MMHeader(title: isPast ? "Log a past session" : "Plan a training", leading: {
                 MMIconButton("x", label: "Close") { mm.back() }
                     .disabled(mm.busy || submitting)
             })
@@ -125,17 +125,8 @@ struct CreateScreen: View {
                     .padding(.top, 10)
                 }
 
-                field("Where") {
-                    if mm.isLive {
-                        MMPlaceSearchField(label: "Gym or venue", text: $gym)
-                            .padding(.bottom, 12)
-                    }
-                    if !mm.me.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        MMTag(mm.me.gym, icon: "house", selected: gym == mm.me.gym, size: .sm) {
-                            gym = mm.me.gym
-                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        }
-                    }
+                field("Location") {
+                    MMPlaceSearchField(text: $gym)
                     MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
                         if !showNote {
                             MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {
@@ -170,6 +161,10 @@ struct CreateScreen: View {
                 if !isPast {
                     field("Who can join") {
                         MMTabs(items: [MMTabItem("friends", "Friends only"), MMTabItem("link", "Anyone with link")], selection: $privacy)
+                        if privacy == Privacy.link.rawValue {
+                            Text("Appears in your Activity and your friends' feeds so they can join.")
+                                .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, MMSpace.s4)
+                        }
                         if mm.isLive {
                             Text("Create the session, then share its invitation link.")
                                 .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 12)

@@ -42,28 +42,10 @@ function PostCard({ post, highlight }) {
   </article>;
 }
 
-function StreakNudges() {
-  const mm = useMM();
-  const list = mm.s.friends.filter(f => f.thisWeek === 'pending' && mm.streakOf(f) > 0);
-  if (!list.length) return null;
-  return <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '2px 12px 16px', ...hideScroll }}>
-    {list.map(f => { const p = mm.person(f.id); const n = mm.streakOf(f); const [c, tint, ink] = HUEV[p.hue];
-      return <div key={f.id} onClick={() => mm.go('friend', { id: f.id })} style={{ flexShrink: 0, width: 262, padding: 14, borderRadius: 24, background: tint, display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer' }}>
-        <PairAvatars a={mm.s.me} b={p} size={38} hue={p.hue} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ font: '800 16px/1.15 var(--font-display)', letterSpacing: '-.02em', color: ink }}>{n} weeks with {p.name.split(' ')[0]}</div>
-          <div style={{ font: '500 13px/1.3 var(--font-body)', color: 'var(--ink-700)', marginTop: 3 }}>Roll together by Sunday to make it {n + 1}</div>
-        </div>
-        <AIcon name="flame" size={22} filled color="var(--flame-500)" />
-      </div>; })}
-  </div>;
-}
-
 function ActivityScreen({ highlight }) {
   const mm = useMM();
   const unread = mm.s.notifications.filter(n => n.unread).length;
-  return <Screen tabPad header={<Header large title={<span>mat monkey<span style={{ color: 'var(--accent)' }}>.</span></span>} right={<AIB icon="bell" label="Notifications" badge={unread || false} onClick={() => mm.go('notifications')} />} />}>
-    <StreakNudges />
+  return <Screen tabPad header={<Header large title="Activity" right={<AIB icon="bell" label="Notifications" badge={unread || false} onClick={() => mm.go('notifications')} />} />}>
     {mm.s.posts.map(p => <PostCard key={p.id} post={p} highlight={p.id === highlight} />)}
     <div style={{ textAlign: 'center', padding: '10px 40px 20px', font: '500 13px/1.45 var(--font-body)', color: 'var(--text-tertiary)' }}>That's everything from your crew this week.<br />Go make a new memory.</div>
   </Screen>;

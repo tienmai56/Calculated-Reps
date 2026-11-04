@@ -29,7 +29,7 @@ import SwiftData
     var friendIDs: [String] { snapshot.friendships.map { $0.text("a") == userID ? $0.text("b") : $0.text("a") } }
     func person(_ id: String) -> String { snapshot.profiles.first { $0.id == id }?.text("name") ?? "Training partner" }
     func attendees(_ session: String) -> [SocialRow] { snapshot.participants.filter { $0.text("session_id") == session } }
-    func session(_ id: String) -> SocialRow? { snapshot.sessions.first { $0.id == id } }
+    func session(_ id: String) -> SocialRow? { snapshot.sessions.first { $0.id == id } ?? snapshot.activity_sessions?.first { $0.id == id } }
     func postPeople(_ id: String) -> [String] { snapshot.tags.filter { $0.text("post_id") == id }.map { $0.text("user_id") } }
     func start() async {
         await archive.discover()
@@ -195,20 +195,14 @@ import SwiftData
         } catch { self.error = "Could not cache social data: \(error.localizedDescription)" }
     }
     func handle(_ url: URL) {
-        guard ["matmind","https"].contains(url.scheme ?? "") else { return }
-        // HTTPS host must be explicitly configured; never redeem arbitrary web URLs.
-        if url.scheme == "https", url.host != Bundle.main.object(forInfoDictionaryKey:"AppLinkHost") as? String { return }
-        if url.scheme == "matmind", !["friend","session","goal"].contains(url.host ?? "") { return }
+        guard InvitationLinks.parse(url, host: Bundle.main.object(forInfoDictionaryKey: "AppLinkHost") as? String) != nil else { return }
         pendingLink = url
     }
     func redeemPendingLink() async {
         guard let url = pendingLink, userID != nil else { return }
-        let pieces = url.pathComponents.filter { $0 != "/" }
-        let kind = url.scheme == "matmind" ? url.host : pieces.first
-        let token = pieces.last ?? ""
-        guard token.count == 64, token.allSatisfy({$0.isHexDigit}), ["friend","session","goal"].contains(kind ?? "") else { error = "Invalid invitation link."; pendingLink = nil; return }
-        let operation = kind == "friend" ? "redeem_friend" : kind == "goal" ? "redeem_goal_link" : "join_link"
-        if await perform(operation,["token":token]) != nil { pendingLink = nil }
+        guard let destination = InvitationLinks.parse(url, host: Bundle.main.object(forInfoDictionaryKey: "AppLinkHost") as? String) else { error = "Invalid invitation link."; pendingLink = nil; return }
+        let operation = destination.kind == "friend" ? "redeem_friend" : destination.kind == "goal" ? "redeem_goal_link" : "join_link"
+        if await perform(operation,["token":destination.token]) != nil, pendingLink == url { pendingLink = nil }
     }
     func link(kind: String, token: String) -> URL {
         InvitationLinks.make(kind: kind, token: token,

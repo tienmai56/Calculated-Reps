@@ -62,6 +62,11 @@ struct SocialSnapshot: Codable, Equatable {
     var media: [SocialRow] = [], notifications: [SocialRow] = []
     /// Optional so caches saved before goal sharing still decode.
     var shared_goals: [SocialRow]? = nil, goal_shares: [SocialRow]? = nil
+    /// Friends' open plans have their own limit, so discovery cannot crowd out your schedule.
+    var activity_sessions: [SocialRow]? = nil
+    /// Optional so older caches still decode. `circle`: people who share a training partner
+    /// with you (`id`, `mutual` partner ids). `follows`: who you follow.
+    var circle: [SocialRow]? = nil, follows: [SocialRow]? = nil
 }
 
 @Model final class CachedSocialState {
@@ -172,6 +177,10 @@ actor BackendClient {
     func feed(before: SocialRow) async throws -> [SocialRow] {
         let data = try await request(path:"rest/v1/rpc/feed_page",body:["before_time":before.text("published_at"),"before_id":before.id])
         return try JSONDecoder().decode([SocialRow].self,from:data)
+    }
+    /// Someone's training partners (profile rows), or nil when you can't see their list.
+    func partners(of person: String) async throws -> [SocialRow]? {
+        try JSONDecoder().decode([SocialRow]?.self, from: await request(path:"rest/v1/rpc/partners_of", body:["person":person]))
     }
     func postDetails(_ id: String) async throws -> [String:[SocialRow]] {
         try JSONDecoder().decode([String:[SocialRow]].self,from:await request(path:"rest/v1/rpc/post_details",body:["post_id":id]))
@@ -312,6 +321,35 @@ actor BackendClient {
 /// Enable HTTPS generation only after the host's association file and fallback
 /// routes are deployed and verified. Existing custom-scheme links still work.
 enum InvitationLinks {
+    struct Destination: Equatable {
+        let kind: String
+        let token: String
+    }
+
+    /// Share URLs and universal links use the same exact route shape. Restrict
+    /// tokens to ASCII hex (Character.isHexDigit also accepts non-ASCII digits).
+    static func parse(_ url: URL, host: String?) -> Destination? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.user == nil, components.password == nil, components.port == nil else { return nil }
+        let parts = url.path.split(separator: "/").map(String.init)
+        let kind: String
+        let token: String
+        switch components.scheme?.lowercased() {
+        case "https":
+            guard let host, components.host?.lowercased() == host.lowercased(), parts.count == 2 else { return nil }
+            kind = parts[0]; token = parts[1]
+            guard url.path == "/\(kind)/\(token)" else { return nil }
+        case "matmind":
+            guard parts.count == 1, let route = components.host else { return nil }
+            kind = route; token = parts[0]
+            guard url.path == "/\(token)" else { return nil }
+        default: return nil
+        }
+        guard ["friend", "session", "goal"].contains(kind), token.utf8.count == 64,
+              token.utf8.allSatisfy({ (48...57).contains($0) || (65...70).contains($0) || (97...102).contains($0) }) else { return nil }
+        return Destination(kind: kind, token: token.lowercased())
+    }
+
     static func make(kind: String, token: String, host: String?, httpsEnabled: Bool) -> URL {
         var components = URLComponents()
         if httpsEnabled, let host, !host.isEmpty {

@@ -116,6 +116,6 @@
 	<key>AppLinkHost</key>
 	<string>matmindbjj.lovable.app</string>
 	<key>AppLinksEnabled</key>
-	<false/>
+	<true/>
 </dict>
 </plist>

@@ -20,7 +20,40 @@ enum SeedData {
         "marco": Person(id: "marco", name: "Marco Silva", belt: .black, stripes: 2, gym: "Harbor Jiu-Jitsu", hue: .coral, username: "marco",
                         monkey: MMMonkeyLook(mood: .happy, fur: .charcoal, haircut: .clean)),
         "lena": Person(id: "lena", name: "Lena Park", belt: .white, stripes: 1, gym: "Tidewater BJJ", hue: .mint, username: "lena"),
+        // People your partners train with (not your partners yet).
+        "rafa": Person(id: "rafa", name: "Rafa Mendes", belt: .blue, stripes: 2, gym: "Tidewater BJJ", hue: .sun, username: "rafamendes"),
+        "nina": Person(id: "nina", name: "Nina Okafor", belt: .purple, stripes: 1, gym: "Harbor Jiu-Jitsu", hue: .sky, username: "nina"),
+        "tom": Person(id: "tom", name: "Tom Becker", belt: .white, stripes: 4, gym: "North Shore Grappling", hue: .mint, username: "tombecker"),
+        "maya": Person(id: "maya", name: "Maya Chen", belt: .blue, stripes: 0, gym: "Tidewater BJJ", hue: .plum, username: "maya"),
+        "mariana": Person(id: "mariana", name: "Mariana Costa", belt: .purple, stripes: 3, gym: "Harbor Jiu-Jitsu", hue: .sun, username: "mariana"),
+        "chris": Person(id: "chris", name: "Chris Duarte", belt: .brown, stripes: 0, gym: "Harbor Jiu-Jitsu", hue: .coral, username: "chrisd"),
+        // Only reachable through someone's partner list.
+        "lucas": Person(id: "lucas", name: "Lucas Ferreira", belt: .brown, stripes: 2, gym: "Tidewater BJJ", hue: .coral, username: "lucasf"),
+        "hana": Person(id: "hana", name: "Hana Sato", belt: .white, stripes: 2, gym: "Tidewater BJJ", hue: .sky, username: "hana"),
+        "dev": Person(id: "dev", name: "Dev Patel", belt: .purple, stripes: 1, gym: "North Shore Grappling", hue: .mint, username: "devp"),
+        "owen": Person(id: "owen", name: "Owen Brooks", belt: .black, stripes: 1, gym: "Tidewater BJJ", hue: .sun, username: "owen"),
     ]
+
+    /// Each circle member's training partners.
+    static let partnerLists: [String: [String]] = [
+        "rafa": ["sarah", "alex", "kenji", "priya", "maya", "lucas", "hana", "dev", "owen"],
+        "nina": ["marco", "jamie", "sarah", "chris", "mariana"],
+        "tom": ["jamie", "priya", "dev"],
+        "maya": ["sarah", "priya", "rafa", "hana"],
+        "mariana": ["marco", "chris", "nina"],
+        "chris": ["marco", "nina", "mariana"],
+    ]
+
+    static let circle: [CirclePerson] = [
+        CirclePerson(id: "rafa", mutual: ["sarah", "alex", "kenji", "priya"]),
+        CirclePerson(id: "nina", mutual: ["marco", "jamie", "sarah"]),
+        CirclePerson(id: "tom", mutual: ["jamie", "priya"]),
+        CirclePerson(id: "maya", mutual: ["sarah", "priya"]),
+        CirclePerson(id: "mariana", mutual: ["marco"]),
+        CirclePerson(id: "chris", mutual: ["marco"]),
+    ]
+
+    static let following: Set<String> = ["nina"]
 
     private static let T = true, F = false
 
@@ -52,6 +85,16 @@ enum SeedData {
         Post(id: "p4", organizer: "alex", title: "Early bird gi class", gym: "Tidewater BJJ", date: "Wed, Oct 28", ago: "5d",
              photo: "gym-throw", participants: ["alex", "me", "sarah"],
              caption: "6am crew. Takedown day.", likes: ["sarah"], extraLikes: 8, comments: [], time: "6:00 AM"),
+        // Sessions Rafa trained in with your partners, so they're visible on Rafa's profile.
+        Post(id: "p5", organizer: "kenji", title: "Morning drilling", gym: "Tidewater BJJ", date: "Tue, Oct 27", ago: "1w",
+             photo: "floor-drill", participants: ["kenji", "rafa"],
+             caption: "Fifty knee cuts each side. Kenji counted out loud the whole time.", likes: ["sarah"], extraLikes: 4, comments: [], time: "7:00 AM"),
+        Post(id: "p6", organizer: "sarah", title: "Lunch rolls", gym: "Tidewater BJJ", date: "Mon, Oct 26", ago: "1w",
+             photo: "roll-gi-2", participants: ["sarah", "rafa", "priya", "maya"],
+             caption: "Five-minute rounds, short breaks. Priya's guard is getting sticky.", likes: ["priya", "alex"], extraLikes: 6, comments: [], time: "12:15 PM"),
+        Post(id: "p7", organizer: "alex", title: "Closed guard fundamentals", gym: "Tidewater BJJ", date: "Thu, Oct 22", ago: "2w",
+             photo: nil, participants: ["alex", "rafa"],
+             caption: "Rafa walked me through hip bumps and the kimura trap. Hit both live.", likes: ["kenji"], extraLikes: 2, comments: [], time: "6:00 PM"),
     ]
 
     static let upcoming: [Session] = [

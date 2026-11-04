@@ -29,13 +29,10 @@ struct ProfileScreen: View {
         let me = mm.me
         let history = ProfileHistory(posts: mm.posts.filter { $0.participants.contains("me") })
         MMScreen(tabPadding: true) {
-            HStack(spacing: 8) {
-                Spacer()
+            MMHeader(title: "Profile", large: true, trailing: {
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
                 MMIconButton("settings", variant: .filled, label: "Settings") { openSettings() }
-            }
-            .padding(.horizontal, 10)
-            .padding(.top, 2)
+            })
         } content: {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 16) {
@@ -319,10 +316,12 @@ enum ProfileSection: String, CaseIterable, Identifiable {
 /// Icon + label tabs across the full width, with a coral underline on the active one.
 private struct ProfileSectionTabs: View {
     @Binding var selection: ProfileSection
+    /// Someone else's profile leaves out Progress: it's private to its owner.
+    var sections: [ProfileSection] = ProfileSection.allCases
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(ProfileSection.allCases) { item in
+            ForEach(sections) { item in
                 let on = item == selection
                 Button {
                     withAnimation(MMMotion.easeOut(MMMotion.base)) { selection = item }
@@ -747,12 +746,15 @@ private struct ProfileSessionBars: View {
 private struct ProfileActivitySection: View {
     @Environment(AppModel.self) private var mm
     let history: ProfileHistory
+    /// Whose profile this is: the ticket's "with …" line lists everyone else.
+    var owner = "me"
+    var emptyText = "Your finished sessions land here, with notes and who you rolled with."
 
     var body: some View {
         let groups = history.activityGroups()
         VStack(alignment: .leading, spacing: 0) {
             if groups.isEmpty {
-                emptyNote("Your finished sessions land here, with notes and who you rolled with.")
+                emptyNote(emptyText)
             }
             ForEach(groups) { group in
                 MMEyebrow(title: group.title, topPadding: 18) {
@@ -760,7 +762,7 @@ private struct ProfileActivitySection: View {
                 }
                 VStack(spacing: 12) {
                     ForEach(group.items) { item in
-                        PastSessionTicket(item: item) { mm.go(.post(id: item.post.id)) }
+                        PastSessionTicket(item: item, owner: owner) { mm.go(.post(id: item.post.id)) }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -782,6 +784,7 @@ private struct ProfileDashedLine: Shape {
 private struct PastSessionTicket: View {
     @Environment(AppModel.self) private var mm
     let item: ProfileHistory.Item
+    var owner = "me"
     let onTap: () -> Void
 
     private let stubWidth: CGFloat = 76
@@ -797,73 +800,81 @@ private struct PastSessionTicket: View {
         let post = item.post
         let organizer = mm.person(post.organizer)
         let hue: FriendHue = post.organizer == "me" ? .coral : organizer.hue
-        let partnerIDs = post.participants.filter { $0 != "me" }
+        let partnerIDs = ([post.organizer] + post.participants).reduce(into: [String]()) { ids, id in
+            if id != owner && !ids.contains(id) { ids.append(id) }
+        }
         let partners = partnerIDs.map { mm.person($0).avatar }
-        let withLabel = partnerIDs.count == 1 ? "with \(mm.person(partnerIDs[0]).firstName)" : "\(partnerIDs.count) partners"
-        Button(action: onTap) {
-            HStack(spacing: 0) {
-                VStack(spacing: 2) {
-                    Text(text("EEE").uppercased()).mmFont(.display, 12, tracking: 0.04, lineHeight: 1)
-                    Text(text("d")).mmFont(.display, 30, tracking: -0.04, lineHeight: 1)
-                    Text(text("MMM")).mmFont(.body, 12, .bold, lineHeight: 1)
+        let withLabel = partnerIDs.count == 1 ? "with \(partnerIDs[0] == "me" ? "you" : mm.person(partnerIDs[0]).firstName)" : "\(partnerIDs.count) partners"
+        HStack(spacing: 0) {
+            VStack(spacing: 2) {
+                Text(text("EEE").uppercased()).mmFont(.display, 12, tracking: 0.04, lineHeight: 1)
+                Text(text("d")).mmFont(.display, 30, tracking: -0.04, lineHeight: 1)
+                Text(text("MMM")).mmFont(.body, 12, .bold, lineHeight: 1)
+            }
+            .foregroundStyle(hue.ink)
+            .padding(.vertical, 14)
+            .frame(width: stubWidth)
+            .frame(maxHeight: .infinity)
+            .background(hue.tint)
+
+            ProfileDashedLine()
+                .stroke(MMColor.ink200, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                .frame(width: 2)
+                .padding(.vertical, 10)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(post.title)
+                    .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.25)
+                    .foregroundStyle(MMColor.textPrimary)
+                    .multilineTextAlignment(.leading)
+                if !post.gym.isEmpty {
+                    HStack(spacing: 6) {
+                        MMIcon("map-pin", size: 14, color: MMColor.textTertiary)
+                        Text(post.gym).mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
+                    }
                 }
-                .foregroundStyle(hue.ink)
-                .padding(.vertical, 14)
-                .frame(width: stubWidth)
-                .frame(maxHeight: .infinity)
-                .background(hue.tint)
-
-                ProfileDashedLine()
-                    .stroke(MMColor.ink200, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                    .frame(width: 2)
-                    .padding(.vertical, 10)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(post.title)
-                        .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.25)
-                        .foregroundStyle(MMColor.textPrimary)
+                if !post.caption.isEmpty {
+                    Text(post.caption)
+                        .mmFont(.body, 13, lineHeight: 1.4)
+                        .foregroundStyle(MMColor.textSecondary)
+                        .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    if !post.gym.isEmpty {
-                        HStack(spacing: 6) {
-                            MMIcon("map-pin", size: 14, color: MMColor.textTertiary)
-                            Text(post.gym).mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
-                        }
-                    }
-                    if !post.caption.isEmpty {
-                        Text(post.caption)
-                            .mmFont(.body, 13, lineHeight: 1.4)
-                            .foregroundStyle(MMColor.textSecondary)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-                    HStack(spacing: 8) {
-                        if !partners.isEmpty {
+                }
+                HStack(spacing: 8) {
+                    if !partners.isEmpty {
+                        if partnerIDs.count == 1 {
+                            PersonProfileButton(person: mm.person(partnerIDs[0])) {
+                                MMAvatarStack(people: partners, size: 24, max: 3, ring: .white, label: withLabel)
+                            }
+                        } else {
                             MMAvatarStack(people: partners, size: 24, max: 3, ring: .white, label: withLabel)
                         }
-                        Spacer(minLength: 0)
-                        if post.photo != nil {
-                            MMIcon("image", size: 14, color: MMColor.textTertiary)
-                        }
                     }
-                    .padding(.top, 2)
+                    Spacer(minLength: 0)
+                    if post.photo != nil {
+                        MMIcon("image", size: 14, color: MMColor.textTertiary)
+                    }
                 }
-                .padding(.vertical, 14)
-                .padding(.leading, 16)
-                .padding(.trailing, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .clipShape(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous))
-            .mmCardSurface(radius: MMRadius.lg)
-            .overlay(alignment: .topLeading) {
-                Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: -8)
-            }
-            .overlay(alignment: .bottomLeading) {
-                Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: 8)
-            }
+            .padding(.vertical, 14)
+            .padding(.leading, 16)
+            .padding(.trailing, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(MMPressStyle())
-        .accessibilityElement(children: .combine)
+        .fixedSize(horizontal: false, vertical: true)
+        .clipShape(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous))
+        .mmCardSurface(radius: MMRadius.lg)
+        .overlay(alignment: .topLeading) {
+            Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: -8)
+        }
+        .overlay(alignment: .bottomLeading) {
+            Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: 8)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .accessibilityAction(named: Text("Open memory"), onTap)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -872,6 +883,7 @@ private struct PastSessionTicket: View {
 private struct ProfileGallerySection: View {
     @Environment(AppModel.self) private var mm
     let history: ProfileHistory
+    var emptyText = "Photos from your sessions collect here. Add one when you finish a session."
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
 
@@ -879,7 +891,7 @@ private struct ProfileGallerySection: View {
         let groups = history.photoGroups()
         VStack(alignment: .leading, spacing: 0) {
             if groups.isEmpty {
-                emptyNote("Photos from your sessions collect here. Add one when you finish a session.")
+                emptyNote(emptyText)
             }
             ForEach(groups) { group in
                 MMEyebrow(title: group.title, topPadding: 18) {
@@ -962,7 +974,8 @@ private struct NotificationRow: View {
         let p = mm.person(note.who)
         let session = note.session.flatMap { sid in mm.upcoming.first { $0.id == sid } }
         HStack(alignment: .top, spacing: 12) {
-            MMAvatar(name: p.name, photo: p.photo, size: 46)
+            PersonProfileButton(person: p) {
+                MMAvatar(name: p.name, photo: p.photo, size: 46)
                 .overlay(alignment: .bottomTrailing) {
                     MMIcon(kindIcon.name, size: 12, weight: .bold, color: .white)
                         .frame(width: 22, height: 22)
@@ -970,10 +983,16 @@ private struct NotificationRow: View {
                         .background(Circle().fill(MMColor.bgApp).padding(-2.5))
                         .offset(x: 3, y: 3)
                 }
+            }
             VStack(alignment: .leading, spacing: 0) {
                 if note.kind == .invite, let s = session {
-                    (mmRich([.body(p.firstName, 15, .bold)]) + mmMonkeyText(p.monkey)
-                        + mmRich([.body(" invited you to ", 15), .body(s.title, 15, .bold)]))
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        PersonProfileButton(person: p) {
+                            Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                                .mmMonkey(p.monkey, size: 18)
+                        }
+                        mmRich([.body(" invited you to ", 15), .body(s.title, 15, .bold)])
+                    }
                     Text("\(s.day), \(s.month) \(s.date) · \(s.time) · \(s.gym)").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     if s.status(of: "me") == .invited {
                         HStack(spacing: 8) {
@@ -987,7 +1006,13 @@ private struct NotificationRow: View {
                             .padding(.top, 8)
                     }
                 } else {
-                    (mmRich([.body(p.firstName, 15, .bold)]) + mmMonkeyText(p.monkey) + mmRich([.body(" \(note.text)", 15)]))
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        PersonProfileButton(person: p) {
+                            Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                                .mmMonkey(p.monkey, size: 18)
+                        }
+                        Text(" \(note.text)").mmFont(.body, 15).foregroundStyle(MMColor.textPrimary)
+                    }
                     if let quote = note.quote {
                         Text("“\(quote)”").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 4)
                     }
@@ -1019,6 +1044,151 @@ private struct NotificationRow: View {
             case .comment, .published, .like, .mention: if let entity = note.session { mm.go(.post(id: entity)) }
             case .goalShare: break
             }
+        }
+    }
+}
+
+// MARK: - Someone else's profile
+
+/// Another practitioner's profile: the personal profile without Progress, which stays private.
+/// It shows only sessions you can already see: ones you or your training partners were in.
+struct PersonProfileScreen: View {
+    @Environment(AppModel.self) private var mm
+    let id: String
+    @State private var section: ProfileSection = .activity
+    @State private var confirmUnfollow = false
+    @State private var confirmBlock = false
+
+    var body: some View {
+        let p = mm.person(id)
+        let history = ProfileHistory(posts: mm.posts.filter { $0.organizer == id || $0.participants.contains(id) })
+        MMScreen {
+            HStack(spacing: 8) {
+                MMIconButton("chevron-left", label: "Back") { mm.back() }
+                Spacer()
+                if mm.isLive {
+                    Menu {
+                        Button("Block \(p.firstName)", role: .destructive) { confirmBlock = true }
+                    } label: {
+                        MMIcon("ellipsis", size: 20, weight: .bold, color: MMColor.textPrimary)
+                            .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                            .background(Circle().fill(MMColor.paper2))
+                    }
+                    .accessibilityLabel("More options")
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 2)
+        } content: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 16) {
+                    MMAvatar(name: p.name, photo: p.photo, size: 80, belt: p.belt)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(p.name).mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                            .mmMonkey(p.monkey, size: 28)
+                        let handle = [p.username.isEmpty ? nil : "@" + p.username, p.gym.isEmpty ? nil : p.gym].compactMap { $0 }
+                        if !handle.isEmpty {
+                            Text(handle.joined(separator: " · ")).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                        }
+                        MMBelt(rank: p.belt, stripes: p.stripes, size: .sm, width: 120, showLabel: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                if let f = mm.friendship(id) { streakLine(f) }
+                partnersRow
+                HStack(spacing: 10) {
+                    if mm.canFollow(id) { followButton(p) }
+                    if mm.friendship(id) != nil {
+                        MMButton("Invite to train", variant: .secondary, iconLeft: "calendar-plus", fullWidth: true) {
+                            mm.go(.create(friend: id))
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+
+            ProfileSectionTabs(selection: $section, sections: [.activity, .gallery])
+                .padding(.top, 18)
+
+            switch section {
+            case .gallery:
+                ProfileGallerySection(history: history,
+                                      emptyText: "No photos yet from sessions with you or your training partners.")
+            default:
+                ProfileActivitySection(history: history, owner: id,
+                                       emptyText: "No sessions yet with you or your training partners.")
+            }
+
+            Text("You see the sessions \(p.firstName) trained in with you or your training partners.")
+                .mmFont(.body, 13, lineHeight: 1.45).foregroundStyle(MMColor.textTertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 32)
+                .padding(.top, 24)
+                .padding(.bottom, 16)
+        }
+        .mmSheet(isPresented: $confirmUnfollow, title: "Unfollow \(p.firstName)?",
+                 description: "You can follow again anytime.") {
+            VStack(spacing: 12) {
+                MMButton("Unfollow", variant: .danger, iconLeft: "user-minus", fullWidth: true) {
+                    confirmUnfollow = false
+                    mm.setFollowing(id, false)
+                }
+                MMButton("Keep following", variant: .secondary, fullWidth: true) { confirmUnfollow = false }
+            }
+        }
+        .task(id: id) { await mm.loadPartners(of: id) }
+        .confirmationDialog("Block \(p.firstName)?", isPresented: $confirmBlock, titleVisibility: .visible) {
+            Button("Block user", role: .destructive) {
+                Task { if await mm.runtime?.perform("block_user", ["user_id": id]) == true { mm.back() } }
+            }
+        }
+    }
+
+    /// Your weekly streak with a training partner, in the same shape as the line on your own profile.
+    private func streakLine(_ f: Friendship) -> some View {
+        let n = f.streak
+        return HStack(spacing: 8) {
+            MMIcon("flame", size: 20, filled: n > 0, color: n > 0 ? MMColor.flame500 : MMColor.ink300)
+            Text(n > 0 ? "\(n)-week streak together" : "No streak yet")
+                .mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+            Text("·").mmFont(.body, 15).foregroundStyle(MMColor.textTertiary)
+            Text(f.together == 1 ? "1 session together" : "\(f.together) sessions together")
+                .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "12 training partners", like your own profile. Opens the full list.
+    @ViewBuilder
+    private var partnersRow: some View {
+        if let list = mm.partnerLists[id] {
+            Button { mm.go(.partners(of: id)) } label: {
+                HStack(spacing: 10) {
+                    if !list.isEmpty {
+                        MMAvatarStack(people: list.map { mm.person($0).avatar }, size: 30, max: 3, ring: MMColor.bgApp)
+                    }
+                    Text(list.count == 1 ? "1 training partner" : "\(list.count) training partners")
+                        .mmFont(.body, 15, .semibold).foregroundStyle(MMColor.textPrimary)
+                    Spacer(minLength: 4)
+                    if !list.isEmpty { MMIcon("chevron-right", size: 18, color: MMColor.ink500) }
+                }
+                .frame(minHeight: MMLayout.tapTarget)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(MMPressStyle())
+            .disabled(list.isEmpty)
+        }
+    }
+
+    @ViewBuilder
+    private func followButton(_ p: Person) -> some View {
+        if mm.isFollowing(id) {
+            MMButton("Following", variant: .secondary, iconLeft: "user-check", fullWidth: true) { confirmUnfollow = true }
+                .accessibilityHint("Opens unfollow options")
+        } else {
+            MMButton("Follow \(p.firstName)", iconLeft: "user-plus", fullWidth: true) { mm.setFollowing(id, true) }
         }
     }
 }

@@ -17,6 +17,13 @@ struct Person: Identifiable, Hashable {
     var avatar: MMAvatarPerson { MMAvatarPerson(name: name, photo: photo) }
 }
 
+/// Someone who trains with at least one of your training partners but isn't one yet.
+/// `mutual` lists those shared partners, most connected first.
+struct CirclePerson: Identifiable, Hashable {
+    let id: String
+    var mutual: [String]
+}
+
 /// A friendship's weekly streak. `weeks` holds the last completed calendar
 /// weeks, oldest to newest; `thisWeek` is the current Mon–Sun week.
 struct Friendship: Identifiable, Hashable {
@@ -158,6 +165,7 @@ enum Route: Hashable {
     case session(id: String)
     case create(past: Bool = false, friend: String? = nil, focus: [TrainingFocus] = [])
     case complete(id: String)
+    /// A training partner's profile (the same screen as `.person`; kept for links and notifications).
     case friend(id: String)
     /// Friends now open from Profile instead of a tab.
     case friends
@@ -166,6 +174,12 @@ enum Route: Hashable {
     case sharedGoal(id: String)
     case qr(scan: Bool = false)
     case notifications
+    /// Search & discover people, opened from the Activity header.
+    case people
+    /// Someone who isn't your training partner (partners open `.friend`).
+    case person(id: String)
+    /// Someone's full training partner list, opened from their profile.
+    case partners(of: String)
 }
 
 struct SessionDraft: Equatable {
@@ -189,6 +203,23 @@ struct SessionDraft: Equatable {
         if time.contains("AM") { return "Morning rolls" }
         if time.hasPrefix("12") { return "Lunch rolls" }
         return "Evening rolls"
+    }
+
+    /// The suggested name for a session starting at `date`, in the device's time zone.
+    static func suggestedTitle(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE"
+        let weekday = formatter.string(from: date)
+        formatter.dateFormat = "h:mm a"
+        return suggestedTitle(weekday: weekday, time: formatter.string(from: date))
+    }
+
+    /// True when `title` is one of the names we suggest, i.e. the host never renamed it,
+    /// so it should follow the session's day and time when those change.
+    static func isSuggestedTitle(_ title: String) -> Bool {
+        ["Saturday open mat", "Sunday open mat", "Morning rolls", "Lunch rolls", "Evening rolls"]
+            .contains(title.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// One independent session per local calendar day, all at the chosen wall-clock time.
