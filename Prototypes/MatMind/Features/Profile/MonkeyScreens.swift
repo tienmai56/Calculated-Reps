@@ -329,8 +329,7 @@ struct MonkeyPromptSheet: View {
             HStack(alignment: .bottom, spacing: -4) {
                 MMMonkey(look: MMMonkeyLook(mood: .side, fur: .midnight, haircut: .fringe), size: 80)
                     .rotationEffect(.degrees(-10))
-                MMMonkey(look: MMMonkeyLook(mood: .happy, fur: .smoke, haircut: .clean), size: 112)
-                    .opacity(0.3)
+                MMMonkey(look: MMMonkeyLook(mood: .happy, fur: .smoke, haircut: .clean), size: 112, placeholder: true)
                 MMMonkey(look: MMMonkeyLook(mood: .grin, fur: .charcoal, haircut: .mohawk), size: 80)
                     .rotationEffect(.degrees(10))
             }
@@ -395,7 +394,7 @@ struct MonkeyAccountRow: View {
                 if let monkey = mm.me.monkey {
                     MMMonkey(look: monkey, size: 52)
                 } else {
-                    MMMonkey(look: MMMonkeyLook(mood: .happy, fur: .smoke, haircut: .clean), size: 52).opacity(0.35)
+                    MMMonkey(look: MMMonkeyLook(mood: .happy, fur: .smoke, haircut: .clean), size: 52, placeholder: true)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(mm.me.monkey == nil ? "Build my monkey" : "Edit my monkey")

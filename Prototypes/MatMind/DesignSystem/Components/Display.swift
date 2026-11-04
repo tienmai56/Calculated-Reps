@@ -233,11 +233,13 @@ struct MMMonkey: View {
     var look: MMMonkeyLook
     var size: CGFloat = 20
     var label: String?
+    /// "Not built yet": drawn in `--text-disabled` (ink-300) rather than faded, so it stays on a token.
+    var placeholder = false
 
     var body: some View {
         Canvas { context, canvas in
             context.scaleBy(x: canvas.width / 200, y: canvas.height / 200)
-            Self.draw(look, in: &context)
+            Self.draw(look, fur: placeholder ? MMColor.textDisabled : look.fur.color, in: &context)
         }
         .frame(width: size, height: size)
         .accessibilityElement()
@@ -256,8 +258,8 @@ struct MMMonkey: View {
         var p = Path(); p.move(to: a); p.addQuadCurve(to: b, control: control); return p
     }
 
-    static func draw(_ look: MMMonkeyLook, in context: inout GraphicsContext) {
-        let fur = GraphicsContext.Shading.color(look.fur.color)
+    static func draw(_ look: MMMonkeyLook, fur furColor: Color, in context: inout GraphicsContext) {
+        let fur = GraphicsContext.Shading.color(furColor)
         let face = GraphicsContext.Shading.color(MMColor.white)
         let pen = StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round)
 
