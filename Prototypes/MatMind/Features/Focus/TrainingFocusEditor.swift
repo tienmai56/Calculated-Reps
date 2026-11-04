@@ -292,14 +292,18 @@ struct TrainingFocusNames: View {
             } else if wraps {
                 MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) { tags }
             } else {
-                Text(titles.joined(separator: " · "))
-                    .mmText(.bodyS)
-                    .foregroundStyle(MMColor.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .top, spacing: MMSpace.s3) {
+                    MMIcon("notebook-pen", size: 16, color: MMColor.textTertiary)
+                        .padding(.top, MMSpace.s1)
+                    Text(titles.joined(separator: " · "))
+                        .mmText(.bodyS)
+                        .foregroundStyle(MMColor.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("What we worked on: \(titles.joined(separator: ", "))")
+        .accessibilityLabel("\(wraps ? "What we worked on" : "Goals worked on"): \(titles.joined(separator: ", "))")
     }
 
     private var tags: some View {
