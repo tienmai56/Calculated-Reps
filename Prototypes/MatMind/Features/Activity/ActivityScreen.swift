@@ -13,22 +13,17 @@ struct ActivityScreen: View {
     private func feed(at now: Date) -> some View {
         let prompt = mm.activityPrompt(at: now)
         return MMScreen(tabPadding: true) {
-            HStack {
-                MMWordmark(size: 40, markOnly: true)
+            MMHeader(title: "Activity", large: true, leading: {
+                MMHeaderMark()
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
-                Spacer()
+            }, trailing: {
                 MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
                 }
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
-            }
-            .padding(.leading, 20)
-            .padding(.trailing, 10)
-            .padding(.top, 6)
-            .padding(.bottom, 10)
-            .frame(minHeight: MMLayout.headerHeight)
+            })
         } content: {
             if let session = prompt {
                 ReadyToShare(session: session, now: now)

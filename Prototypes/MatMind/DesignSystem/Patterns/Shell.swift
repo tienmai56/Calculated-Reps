@@ -67,6 +67,9 @@ struct MMHeader<Leading: View, Trailing: View>: View {
         let centered = !large && hasLeading
         HStack(spacing: 6) {
             leading
+            // Top-level (large) headers lead with the Silverback mark unless the
+            // screen supplies its own leading view (e.g. Activity's long-press mark).
+            if large && !hasLeading { MMHeaderMark() }
             VStack(alignment: centered ? .center : .leading, spacing: 3) {
                 Text(title)
                     .mmFont(.display, large ? 32 : 18, tracking: large ? -0.035 : -0.015, lineHeight: 1)
@@ -276,6 +279,14 @@ struct MMWordmark: View {
         .foregroundStyle(MMColor.ink900)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Mat Monkey")
+    }
+}
+
+/// The Silverback mark as it sits left of a large tab-screen title.
+struct MMHeaderMark: View {
+    var body: some View {
+        MMWordmark(size: 32, markOnly: true)
+            .padding(.trailing, 4)
     }
 }
 

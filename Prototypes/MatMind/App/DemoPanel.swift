@@ -2,7 +2,7 @@
 import SwiftUI
 
 /// The web prototype's review panel, as a sheet. Open it by long-pressing the
-/// Silverback mark on the Activity tab.
+/// Silverback mark in the Activity header.
 struct DemoPanel: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.dismiss) private var dismiss
