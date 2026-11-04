@@ -59,7 +59,7 @@ import SwiftData
             let failure = error as NSError
             guard !(error is CancellationError),
                   !(failure.domain == NSURLErrorDomain && failure.code == NSURLErrorCancelled) else { return }
-            self.error = error.localizedDescription
+            fail(error)
         }
     }
     func hydratePost(_ id: String) async {
@@ -75,7 +75,7 @@ import SwiftData
             snapshot.likes = merged(snapshot.likes,rows["likes"] ?? [])
             snapshot.tags = merged(snapshot.tags,rows["participants"] ?? [])
             persistCache()
-        } catch { if generation == epoch { self.error = error.localizedDescription } }
+        } catch { if generation == epoch { fail(error) } }
     }
     func loadMoreFeed() async {
         guard !busy,let last = snapshot.posts.sorted(by:{$0.text("published_at") > $1.text("published_at")}).last else { return }
@@ -86,13 +86,13 @@ import SwiftData
             guard generation==epoch else{return}
             moreFeed=rows.count==30
             for row in rows { await hydratePost(row.id) }
-        } catch { if generation==epoch { self.error=error.localizedDescription } }
+        } catch { if generation==epoch { fail(error) } }
     }
     func loadMoreComments(_ post: String) async {
         guard let last=snapshot.comments.filter({$0.text("post_id")==post}).sorted(by:{$0.text("created_at")<$1.text("created_at")}).first else{return}
         let generation=epoch
         do { let rows=try await backend.comments(post:post,before:last); guard generation==epoch else{return}; snapshot.comments += rows.filter { row in !snapshot.comments.contains{$0.id==row.id} } }
-        catch { if generation==epoch { self.error=error.localizedDescription } }
+        catch { if generation==epoch { fail(error) } }
     }
     func authenticate(_ provider: String) async {
         guard !busy else { return }; busy = true; error = nil; defer { busy = false }
@@ -127,13 +127,24 @@ import SwiftData
         do {
             defer { if blocking { busy = false } }
             result = try await backend.command(operation,payload:payload,key:key)
-        } catch { if generation == epoch { self.error = error.localizedDescription }; return nil }
+        } catch { if generation == epoch { fail(error) }; return nil }
         guard generation == epoch else { return nil }
         // A read begun before this write may contain the previous profile.
         if reload { await refresh(force: true) }
         message = "Saved."
         return result
     }
+    /// Shows a failed request. A sign-in that can't be renewed ends the session, so the member
+    /// lands on Welcome with one clear message instead of every save failing.
+    private func fail(_ error: Error) {
+        guard (error as? CloudError)?.sessionExpired == true else { self.error = error.localizedDescription; return }
+        guard userID != nil else { return }
+        Task {
+            await logout()
+            self.error = CloudError.expired.message
+        }
+    }
+
     func logout() async {
         error = nil; message = nil
         epoch = UUID(); let old = userID; userID = nil; SocialPushCoordinator.pending = nil; snapshot = SocialSnapshot(); pendingLink = nil

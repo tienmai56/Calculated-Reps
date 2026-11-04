@@ -82,7 +82,18 @@ struct SocialSnapshot: Codable, Equatable {
 
 struct CloudError: LocalizedError {
     let message: String
+    /// HTTP status and the server's machine-readable code, when the error came from a response.
+    var status: Int? = nil
+    var code: String? = nil
+    /// The saved sign-in can't be renewed; the member has to sign in again.
+    var sessionExpired = false
     var errorDescription: String? { message }
+
+    static let expired = CloudError(message: "Your sign-in expired. Sign in again to keep going.", sessionExpired: true)
+
+    /// Supabase Auth's codes for a refresh token that is gone for good: revoked, already
+    /// rotated (for example by a refresh whose response never arrived) or its session ended.
+    static let deadRefreshCodes: Set<String> = ["refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired"]
 }
 
 enum CloudSignInError: LocalizedError, Equatable {
@@ -129,14 +140,17 @@ actor BackendClient {
     private let configuration: BackendConfiguration?
     private let session: URLSession
     private let saveCredential: (Data) throws -> Void
+    private let deleteCredential: () -> Void
     private var credential: CloudCredential?
     private var refreshTask: Task<Void, Error>?
     init(configuration: BackendConfiguration? = .configured, session: URLSession = .shared,
          loadCredential: () -> Data? = BackendClient.readKeychain,
-         saveCredential: @escaping (Data) throws -> Void = BackendClient.saveKeychain) {
+         saveCredential: @escaping (Data) throws -> Void = BackendClient.saveKeychain,
+         deleteCredential: @escaping () -> Void = { SecItemDelete(BackendClient.keychainQuery() as CFDictionary) }) {
         self.configuration = configuration
         self.session = session
         self.saveCredential = saveCredential
+        self.deleteCredential = deleteCredential
         if let data = loadCredential() { credential = try? JSONDecoder().decode(CloudCredential.self, from: data) }
     }
     func identity() -> String? { credential?.user.id }
@@ -203,8 +217,16 @@ actor BackendClient {
         guard credential == rejected else { return } // Another request already refreshed.
         if let refreshTask { return try await refreshTask.value }
         let task = Task {
-            let data = try await request(path: "auth/v1/token?grant_type=refresh_token",
+            let data: Data
+            do {
+                data = try await request(path: "auth/v1/token?grant_type=refresh_token",
                                          body: ["refresh_token": rejected.refresh_token], authenticated: false, retry: false)
+            } catch let error as CloudError where error.code.map(CloudError.deadRefreshCodes.contains) == true {
+                // Retrying can't revive this token, and every later request would fail the same
+                // way. End the session so the member signs in again instead of seeing "Request failed".
+                if credential == rejected { credential = nil; deleteCredential() }
+                throw CloudError.expired
+            }
             let refreshed = try JSONDecoder().decode(CloudCredential.self, from: data)
             guard credential == rejected, refreshed.user.id == rejected.user.id else {
                 throw CloudError(message: "Sign-in changed. Please try again.")
@@ -251,7 +273,10 @@ actor BackendClient {
         }
         guard (200..<300).contains(http.statusCode) else {
             let object = try? JSONSerialization.jsonObject(with:data) as? [String:Any]
-            throw CloudError(message:object?["message"] as? String ?? object?["error_description"] as? String ?? "Request failed (\(http.statusCode)). Try again.")
+            // PostgREST and Storage use "message"; Supabase Auth uses "msg" and "error_code".
+            let message = object?["message"] as? String ?? object?["msg"] as? String ?? object?["error_description"] as? String
+            let code = object?["error_code"] as? String ?? object?["code"] as? String ?? object?["error"] as? String
+            throw CloudError(message: message ?? "Request failed (\(http.statusCode)). Try again.", status: http.statusCode, code: code)
         }
         return data
     }
