@@ -68,10 +68,11 @@ struct TrainingScreen: View {
     }
 
     private func sessionCard(_ s: Session) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SessionTicket(session: s, reservesMenuSpace: s.organizer == "me" && !mm.isCompleted(s)) { mm.go(.session(id: s.id)) }
+        let showsMenu = section == "upcoming" || (s.organizer == "me" && !mm.isCompleted(s))
+        return VStack(alignment: .leading, spacing: 8) {
+            SessionTicket(session: s, reservesMenuSpace: showsMenu) { mm.go(.session(id: s.id)) }
                 .overlay(alignment: .topTrailing) {
-                    if s.organizer == "me" && !mm.isCompleted(s) { sessionMenu(s) }
+                    if showsMenu { sessionMenu(s) }
                 }
             if section == "upcoming" && s.status(of: "me") == .invited {
                 HStack(spacing: 8) {
@@ -82,11 +83,18 @@ struct TrainingScreen: View {
         }
     }
 
-    /// Host-only options on a ticket.
+    /// Everyone can share an upcoming plan; only its host can edit or delete it.
     private func sessionMenu(_ s: Session) -> some View {
         Menu {
-            Button { editingSession = s } label: { Label("Edit session", image: "pencil") }
-            Button(role: .destructive) { deletingSession = s } label: { Label("Delete session", image: "trash-2") }
+            if section == "upcoming" {
+                ShareLink(item: sessionShareText(s), subject: Text(s.title)) {
+                    Label("Share session", image: "share-2")
+                }
+            }
+            if s.organizer == "me" && !mm.isCompleted(s) {
+                Button { editingSession = s } label: { Label("Edit session", image: "pencil") }
+                Button(role: .destructive) { deletingSession = s } label: { Label("Delete session", image: "trash-2") }
+            }
         } label: {
             MMIcon("ellipsis", size: 20, color: MMColor.ink700)
                 .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
@@ -95,6 +103,20 @@ struct TrainingScreen: View {
         .accessibilityLabel("Options for \(s.title)")
         .padding(.top, 2)
         .padding(.trailing, 2)
+    }
+
+    private func sessionShareText(_ s: Session) -> String {
+        let when: String
+        if let startsAt = s.startsAt {
+            let formatter = DateFormatter()
+            formatter.timeZone = .current
+            formatter.dateStyle = .full
+            formatter.timeStyle = .short
+            when = "\(formatter.string(from: startsAt)) (\(formatter.timeZone.identifier))"
+        } else {
+            when = "\(s.day), \(s.month) \(s.date) · \(s.time)"
+        }
+        return "\(s.title)\n\(when)\n\(s.gym)"
     }
 }
 
