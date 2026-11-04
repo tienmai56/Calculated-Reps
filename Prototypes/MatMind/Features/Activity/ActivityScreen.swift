@@ -22,7 +22,8 @@ struct ActivityScreen: View {
             .padding(.bottom, 10)
             .frame(minHeight: MMLayout.headerHeight)
         } content: {
-            ForEach(mm.readyToShare) { session in
+            // Only your latest training asks for a photo; older ones are shared from their session page.
+            if let session = mm.toComplete {
                 ReadyToShare(session: session)
                     .padding(.vertical, 12)
             }
@@ -113,7 +114,7 @@ private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        if !mm.readyToShare.isEmpty {
+        if mm.toComplete != nil {
             // The "How was …?" card above holds Complete & share, so no second primary here.
             MMEmptyState(artwork: .memory, title: "Proof you showed up.",
                          message: "Share a post-roll photo\nand your crew sees it here.")
