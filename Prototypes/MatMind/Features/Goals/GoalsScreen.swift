@@ -362,25 +362,58 @@ struct WorkingOnGoalCard: View {
     let onTap: () -> Void
 
     var body: some View {
+        let people = sharedWith
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(goal.title).mmFont(.display, 18, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
-                        .multilineTextAlignment(.leading)
-                    if !goal.cardPreview.isEmpty {
-                        Text(goal.cardPreview).mmFont(.body, 13, lineHeight: 1.4).foregroundStyle(MMColor.textSecondary)
-                            .lineLimit(2)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(goal.title).mmFont(.display, 18, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
                             .multilineTextAlignment(.leading)
+                        if !goal.cardPreview.isEmpty {
+                            Text(goal.cardPreview).mmFont(.body, 13, lineHeight: 1.4).foregroundStyle(MMColor.textSecondary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
+                        meta
                     }
-                    meta
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    MMIcon("chevron-right", size: 18, color: MMColor.ink400)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                MMIcon("chevron-right", size: 18, color: MMColor.ink400)
+                .padding(16)
+                if !people.isEmpty {
+                    Rectangle().fill(MMColor.borderSubtle).frame(height: 1)
+                    MMAvatarStack(people: people.map(\.avatar), size: 30, max: 8, ring: MMColor.surfaceCard,
+                                  label: Self.sharedLabel(people.map(\.firstName)))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Self.sharedLabel(people.map(\.firstName)))
+                }
             }
-            .padding(16)
             .mmCardSurface(radius: 22)
         }
         .buttonStyle(MMPressStyle())
+    }
+
+    /// Training partners this goal went to, invited or accepted. Declined ones drop off.
+    private var sharedWith: [Person] {
+        mm.recipients(ofGoal: goal.id)
+            .filter { $0.value != "declined" }
+            .map { mm.person($0.key) }
+            .sorted { $0.name < $1.name }
+    }
+
+    /// "Shared with Sarah", "Sarah and Alex", then "Sarah, Alex and 3 others".
+    static func sharedLabel(_ firstNames: [String]) -> String {
+        switch firstNames.count {
+        case 0: return ""
+        case 1: return "Shared with \(firstNames[0])"
+        case 2: return "Shared with \(firstNames[0]) and \(firstNames[1])"
+        default:
+            let rest = firstNames.count - 2
+            return "Shared with \(firstNames[0]), \(firstNames[1]) and \(rest) \(rest == 1 ? "other" : "others")"
+        }
     }
 
     private var meta: some View {
