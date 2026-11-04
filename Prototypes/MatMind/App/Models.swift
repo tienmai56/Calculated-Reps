@@ -189,6 +189,23 @@ struct SessionDraft: Equatable {
         return "Evening rolls"
     }
 
+    /// The suggested name for a session starting at `date`, in the device's time zone.
+    static func suggestedTitle(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE"
+        let weekday = formatter.string(from: date)
+        formatter.dateFormat = "h:mm a"
+        return suggestedTitle(weekday: weekday, time: formatter.string(from: date))
+    }
+
+    /// True when `title` is one of the names we suggest, i.e. the host never renamed it,
+    /// so it should follow the session's day and time when those change.
+    static func isSuggestedTitle(_ title: String) -> Bool {
+        ["Saturday open mat", "Sunday open mat", "Morning rolls", "Lunch rolls", "Evening rolls"]
+            .contains(title.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     /// One independent session per local calendar day, all at the chosen wall-clock time.
     func scheduled(on dates: [Date], calendar: Calendar = .current) -> [SessionDraft] {
         let formatter = DateFormatter()

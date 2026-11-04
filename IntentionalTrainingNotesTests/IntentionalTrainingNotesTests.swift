@@ -426,6 +426,20 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(ui.plannedSessions.map(\.id), ["s1", "s2", "s3"])
     }
 
+    func testSuggestedSessionNameFollowsTheStartTime() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        // Tue, Nov 3 2026.
+        let morning = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 3, hour: 7)))
+        let evening = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 3, hour: 18, minute: 30)))
+        let saturday = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 7, hour: 7)))
+        XCTAssertEqual(SessionDraft.suggestedTitle(for: morning), "Morning rolls")
+        XCTAssertEqual(SessionDraft.suggestedTitle(for: evening), "Evening rolls")
+        XCTAssertEqual(SessionDraft.suggestedTitle(for: saturday), "Saturday open mat")
+        XCTAssertTrue(SessionDraft.isSuggestedTitle("Morning rolls"))
+        XCTAssertFalse(SessionDraft.isSuggestedTitle("Comp prep"), "A name the host chose must not be replaced")
+    }
+
     func testGoalPhotosAreSavedPrivatelyAndRemovable() throws {
         let ui = AppModel(live: false)
         let big = UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 1500)).image { context in
