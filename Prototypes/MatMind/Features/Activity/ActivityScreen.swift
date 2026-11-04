@@ -486,14 +486,20 @@ struct PostDetailScreen: View {
                     }
                     .padding(.top, 14)
                     .padding(.leading, -6)
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if mm.isLive && !post.comments.isEmpty {
+                            Button {
+                                Task { _ = await mm.runtime?.perform("load_more_comments", ["post_id": post.id]) }
+                            } label: {
+                                Text("Load older comments").mmFont(.body, 13, .semibold, lineHeight: 1).foregroundStyle(MMColor.textSecondary)
+                                    .frame(minHeight: MMLayout.tapTarget)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 46)
+                        }
                         ForEach(post.comments) { c in
                             CommentRow(comment: c, postID: post.id)
-                        }
-                        if mm.isLive && !post.comments.isEmpty {
-                            MMButton("Load older comments", variant: .ghost, size: .sm) {
-                                Task { _ = await mm.runtime?.perform("load_more_comments", ["post_id": post.id]) }
-                            }
                         }
                         if post.comments.isEmpty {
                             Text("No comments yet. Be the first.").mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
@@ -686,10 +692,13 @@ private struct CommentRow: View {
                 MMAvatar(name: p.name, photo: p.photo, size: 34)
             }
             VStack(alignment: .leading, spacing: 2) {
-                PersonProfileButton(person: p) {
+                // Plain button: the avatar already carries the 44pt profile
+                // target, so the name mustn't stretch the bubble to 44pt.
+                Button { mm.openPerson(p.id) } label: {
                     Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
                         .mmMonkey(p.monkey, size: 16)
                 }
+                .buttonStyle(.plain)
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
