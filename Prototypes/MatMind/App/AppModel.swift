@@ -992,7 +992,8 @@ final class AppModel {
         path = []
         toast = nil
         highlight = nil
-        fresh = nil        editingMonkey = false
+        fresh = nil
+        editingMonkey = false
         monkeyPromptVisible = false
     }
 
