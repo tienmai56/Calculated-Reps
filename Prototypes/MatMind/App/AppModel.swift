@@ -590,8 +590,9 @@ final class AppModel {
         creatingSessions = false
     }
 
+    /// Editors use `presentingResult: false` to retain their route and leave pending planning goals alone.
     @discardableResult
-    func createSessions(_ requests: [SessionCreationRequest]) async -> Bool {
+    func createSessions(_ requests: [SessionCreationRequest], presentingResult: Bool = true) async -> Bool {
         guard !busy, !requests.isEmpty,
               requests.allSatisfy({ TrainingFocusTree.isValid($0.draft.focusItems) }),
               requests.count == 1 || requests.allSatisfy({ !$0.draft.past }),
@@ -600,7 +601,7 @@ final class AppModel {
             guard requests.allSatisfy({ $0.draft.startsAt != nil && !$0.draft.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else { return false }
         }
         let generation = creationGeneration
-        let goalToAttach = requests[0].draft.past ? nil : pendingPlanGoal
+        let goalToAttach = !presentingResult || requests[0].draft.past ? nil : pendingPlanGoal
         creatingSessions = true
         defer { if generation == creationGeneration { creatingSessions = false } }
         for request in requests {
@@ -613,6 +614,7 @@ final class AppModel {
             createdSessions[request.id] = id
             if let goalToAttach { setGoal(goalToAttach, forSession: id) }
         }
+        guard presentingResult else { return true }
         pendingPlanGoal = nil
         if requests.count == 1, let request = requests.first, let id = createdSessions[request.id] {
             replace(request.draft.past ? .complete(id: id) : .session(id: id))
