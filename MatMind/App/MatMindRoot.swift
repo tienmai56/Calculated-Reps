@@ -546,7 +546,8 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         let deleting = operation == "delete_post" ? body["post_id"] as? String : nil
         if let deleting { deletingPosts.insert(deleting); sync() }
-        let result = await model.perform(operation, body)
+        // A delete is already applied on screen, so it doesn't lock the app while it runs.
+        let result = await model.perform(operation, body, blocking: deleting == nil)
         // On failure the post comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         sync()

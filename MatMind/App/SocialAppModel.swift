@@ -115,17 +115,23 @@ import SwiftData
             // Closing the provider sheet leaves the user on Welcome.
         } catch { self.error = error.localizedDescription }
     }
-    @discardableResult func perform(_ operation: String, _ payload: [String:Any], key: UUID = UUID()) async -> [String:ArchiveValue]? {
-        guard !busy else { return nil }; busy = true; error = nil; defer { busy = false }
+    /// `busy` (which locks the app and shows the spinner) covers only the write itself; the
+    /// follow-up refresh runs unlocked so the app is usable while new data loads.
+    /// `blocking: false` skips the lock entirely, for writes the UI has already applied optimistically.
+    @discardableResult func perform(_ operation: String, _ payload: [String:Any], key: UUID = UUID(), blocking: Bool = true) async -> [String:ArchiveValue]? {
+        if blocking { guard !busy else { return nil }; busy = true }
+        error = nil
         let generation = epoch
+        let result: [String:ArchiveValue]
         do {
-            let result = try await backend.command(operation,payload:payload,key:key)
-            guard generation == epoch else { return nil }
-            // A read begun before this write may contain the previous profile.
-            await refresh(force: true)
-            message = "Saved."
-            return result
+            defer { if blocking { busy = false } }
+            result = try await backend.command(operation,payload:payload,key:key)
         } catch { if generation == epoch { self.error = error.localizedDescription }; return nil }
+        guard generation == epoch else { return nil }
+        // A read begun before this write may contain the previous profile.
+        await refresh(force: true)
+        message = "Saved."
+        return result
     }
     func logout() async {
         error = nil; message = nil
