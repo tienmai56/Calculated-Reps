@@ -307,7 +307,12 @@ final class AppModel {
     }
 
     func deletePost(_ id: String) {
-        if isLive { send("delete_post", ["post_id": id], success: { self.back() }); return }
+        if isLive {
+            // The runtime hides the post immediately; leave its page now rather than after the round trip.
+            back()
+            send("delete_post", ["post_id": id], success: { self.showToast("Post deleted from every profile") })
+            return
+        }
         posts.removeAll { $0.id == id }
         back()
         showToast("Post deleted from every profile")

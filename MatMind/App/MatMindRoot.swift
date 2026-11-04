@@ -367,6 +367,9 @@ final class LiveMatMindRuntime: AppRuntime {
     private var loadingGoalPhotos: Set<String> = []
     /// Your own goal photos already in the goal-media bucket (named by content).
     private var uploadedGoalPhotos: Set<String> = []
+    /// Posts deleted on this device whose delete is still in flight: hidden right away so the
+    /// card leaves without waiting for the command and the follow-up snapshot refresh.
+    private var deletingPosts: Set<String> = []
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -426,7 +429,7 @@ final class LiveMatMindRuntime: AppRuntime {
         ui.toComplete = ui.upcoming.first { session in
             session.organizer == "me" && (model.session(session.id)?.date("starts_at") ?? .distantFuture) <= Date()
         }
-        ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty }.map { row in
+        ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
             return Post(id: row.id, organizer: localID(row.text("author")), title: row.text("title"), gym: row.text("venue"),
                         date: dateText(date, "EEE, MMM d"), ago: RelativeDateTimeFormatter().localizedString(for: row.date("published_at") ?? date, relativeTo: Date()),
@@ -541,7 +544,12 @@ final class LiveMatMindRuntime: AppRuntime {
         if ["edit_post", "delete_post"].contains(operation), let id = body["post_id"] as? String {
             body["version"] = model.snapshot.posts.first { $0.id == id }?.number("version")
         }
-        let result = await model.perform(operation, body)
+        let deleting = operation == "delete_post" ? body["post_id"] as? String : nil
+        if let deleting { deletingPosts.insert(deleting); sync() }
+        // A delete is already applied on screen, so it doesn't lock the app while it runs.
+        let result = await model.perform(operation, body, blocking: deleting == nil)
+        // On failure the post comes back and the error alert explains why.
+        if let deleting { deletingPosts.remove(deleting) }
         sync()
         return result != nil
     }
