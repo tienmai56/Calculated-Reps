@@ -177,6 +177,9 @@ struct SessionDetailScreen: View {
     @State private var picked: Set<String> = []
     @State private var showFocusEditor = false
     @State private var focusDraft: [TrainingFocus] = []
+    private var pickableGoals: [MatGoal] {
+        mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
 
     var body: some View {
         if let s = mm.upcoming.first(where: { $0.id == id }) ?? (mm.toComplete?.id == id ? mm.toComplete : nil) {
@@ -304,7 +307,13 @@ struct SessionDetailScreen: View {
             ScrollView {
                 MMDialogBody(title: "What are we working on?", description: "Big idea first. Details underneath.",
                              onClose: { showFocusEditor = false }) {
-                    TrainingFocusEditor(items: $focusDraft)
+                    if !pickableGoals.isEmpty {
+                        Text("Pick from your goals, or add your own.")
+                            .mmFont(.body, 13)
+                            .foregroundStyle(MMColor.textTertiary)
+                            .padding(.bottom, MMSpace.s5)
+                    }
+                    TrainingFocusEditor(items: $focusDraft, goals: pickableGoals)
                 } actions: {
                     EmptyView()
                 }
