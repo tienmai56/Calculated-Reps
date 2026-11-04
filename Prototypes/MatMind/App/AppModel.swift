@@ -19,7 +19,8 @@ protocol AppRuntime: AnyObject {
     func connect(_ value: String) async -> String?
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
-    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool
     /// Creates or updates the shared copy of one of your goals (photos included) and
     /// returns its id. Recipients see whatever was published last.
     func publishGoal(_ goal: MatGoal) async -> String?
@@ -608,14 +609,23 @@ final class AppModel {
 
     // MARK: Hosting
 
-    /// Host only: change a planned session's name, time, gym or note. People and focus plan stay.
-    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+    /// Host only. Omitted focus/guests keep their current values; retained guests keep their RSVPs.
+    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus]? = nil, guestIDs: Set<String>? = nil) async -> Bool {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let gym = gym.trimmingCharacters(in: .whitespacesAndNewlines)
         let note = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, !gym.isEmpty, findSession(id)?.organizer == "me" else { return false }
+        guard !title.isEmpty, !gym.isEmpty, let session = findSession(id), session.organizer == "me" else { return false }
+        let focus = focusItems ?? session.focusItems
+        guard TrainingFocusTree.isValid(focus) else { return false }
+        let existing = Set(session.people.map(\.id).filter { $0 != session.organizer })
+        let guests = (guestIDs ?? existing).subtracting([session.organizer])
+        let added = guests.subtracting(existing).sorted()
+        let removed = existing.subtracting(guests).sorted()
+        guard added.allSatisfy({ id in friends.contains { $0.id == id } }) else { return false }
         if let runtime {
-            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note) else { return false }
+            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note,
+                                            focusItems: focus, addedGuests: added, removedGuests: removed) else { return false }
             showToast("Session updated", .success)
             return true
         }
@@ -624,6 +634,9 @@ final class AppModel {
             s.title = title
             s.gym = gym
             s.note = note.isEmpty ? nil : note
+            s.focusItems = TrainingFocusTree.normalized(focus)
+            s.people.removeAll { removed.contains($0.id) }
+            added.forEach { s.set($0, startsAt > Date() ? .invited : .going) }
             s.startsAt = startsAt
             s.day = Self.sessionText(startsAt, "EEE")
             s.date = Int(Self.sessionText(startsAt, "d")) ?? s.date

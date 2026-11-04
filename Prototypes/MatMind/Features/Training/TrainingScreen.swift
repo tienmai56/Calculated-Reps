@@ -98,7 +98,7 @@ struct TrainingScreen: View {
     }
 }
 
-/// Host-only edit: name, when, gym and note. People and the focus plan stay as they are.
+/// Host-only session draft. Closing discards changes, including focus and guests.
 private struct MatSessionEditorSheet: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.dismiss) private var dismiss
@@ -107,7 +107,10 @@ private struct MatSessionEditorSheet: View {
     @State private var startsAt: Date
     @State private var gym: String
     @State private var note: String
+    @State private var focusItems: [TrainingFocus]
+    @State private var guestIDs: Set<String>
     @State private var saving = false
+    @State private var saveFailed = false
 
     init(session: Session, startsAt: Date) {
         self.session = session
@@ -117,16 +120,24 @@ private struct MatSessionEditorSheet: View {
         _startsAt = State(initialValue: startsAt)
         _gym = State(initialValue: session.gym)
         _note = State(initialValue: session.note ?? "")
+        _focusItems = State(initialValue: session.focusItems)
+        _guestIDs = State(initialValue: Set(session.people.map(\.id).filter { $0 != session.organizer }))
     }
 
     private var canSave: Bool {
         !saving && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && TrainingFocusTree.isValid(TrainingFocusTree.optionalOutline(focusItems))
+    }
+
+    private var guestOptions: [String] {
+        let existing = session.people.map(\.id).filter { $0 != session.organizer }
+        return existing + mm.friends.map(\.id).filter { $0 != session.organizer && !existing.contains($0) }
     }
 
     var body: some View {
         ScrollView {
-            MMDialogBody(title: "Edit session", description: "Everyone in it sees the change.", onClose: { dismiss() }) {
+            MMDialogBody(title: "Edit session", description: "Everyone in it sees the change.", onClose: { if !saving { dismiss() } }) {
                 VStack(alignment: .leading, spacing: 18) {
                     MMTextField(label: "Session name", placeholder: "Saturday open mat", text: $title)
                     VStack(alignment: .leading, spacing: 8) {
@@ -141,7 +152,14 @@ private struct MatSessionEditorSheet: View {
                     }
                     MMPlaceSearchField(label: "Gym", placeholder: "Search gyms or addresses", text: $gym)
                     MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("What we're working on").mmFont(.display, 16)
+                        TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false,
+                                            goals: mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                    }
+                    guestList
                 }
+                .disabled(saving)
                 .padding(.top, MMSpace.s4)
             } actions: {
                 EmptyView()
@@ -150,23 +168,71 @@ private struct MatSessionEditorSheet: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
-            MMButton("Save changes", fullWidth: true) {
-                saving = true
-                Task {
-                    let saved = await mm.editSession(session.id, title: title, startsAt: startsAt, gym: gym, note: note)
-                    saving = false
-                    if saved { dismiss() }
+            VStack(spacing: 10) {
+                if saveFailed {
+                    Text("Couldn't save your changes. Try again, or reopen the session to get its latest details.")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
                 }
+                MMButton(saving ? "Saving…" : "Save changes", fullWidth: true) {
+                    saving = true
+                    saveFailed = false
+                    Task {
+                        let saved = await mm.editSession(session.id, title: title, startsAt: startsAt, gym: gym, note: note,
+                                                         focusItems: TrainingFocusTree.optionalOutline(focusItems), guestIDs: guestIDs)
+                        saving = false
+                        if saved { dismiss() } else { saveFailed = true }
+                    }
+                }
+                .disabled(!canSave)
             }
-            .disabled(!canSave)
             .padding(MMSpace.s6)
             .background(MMColor.bgApp)
         }
         .background(MMColor.bgApp)
+        .interactiveDismissDisabled(saving)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(MMRadius.xl)
         .presentationBackground(MMColor.bgApp)
+    }
+
+    private var guestList: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Guest list").mmFont(.display, 16)
+            Text("Select friends to invite. Uncheck a guest to remove them.")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            HStack(spacing: 12) {
+                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 36)
+                Text("You").mmFont(.body, 15, .semibold)
+                Spacer()
+                Text("Organizer").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            }
+            .frame(minHeight: MMLayout.tapTarget)
+            ForEach(guestOptions, id: \.self) { id in
+                guestRow(id)
+            }
+            if guestOptions.isEmpty {
+                Text("Add friends from your profile to invite them here.")
+                    .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            }
+        }
+    }
+
+    private func guestRow(_ id: String) -> some View {
+        let person = mm.person(id)
+        return HStack(spacing: 12) {
+            MMAvatar(name: person.name, photo: person.photo, size: 36)
+            MMCheckbox(isOn: Binding(
+                get: { guestIDs.contains(id) },
+                set: { if $0 { guestIDs.insert(id) } else { guestIDs.remove(id) } }
+            ), label: person.name)
+            .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+            .accessibilityLabel("Include \(person.name)")
+            if let status = session.status(of: id) {
+                MMBadge(status.badge.label, variant: status.badge.variant)
+            }
+        }
+        .frame(minHeight: MMLayout.tapTarget)
     }
 }
 
