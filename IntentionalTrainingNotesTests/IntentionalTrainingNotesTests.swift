@@ -475,6 +475,14 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(ui.plannedSessions.map(\.id), ["s1", "s2", "s3"])
     }
 
+    func testDidntTrainClearsTheSharePrompt() {
+        let ui = AppModel(live: false)
+        XCTAssertEqual(ui.readyToShare.map(\.id), ["c1"])
+        ui.deleteSession("c1")
+        XCTAssertTrue(ui.readyToShare.isEmpty, "Deleting a session you didn't train removes its \"How was …?\" card")
+        XCTAssertNil(ui.findSession("c1"))
+    }
+
     func testTrainingTabsUseExactStartWithoutRequiringAPhotoOrPost() {
         let ui = AppModel(live: true)
         let now = ISO8601DateFormatter().date(from: "2026-11-03T12:00:00Z")!

@@ -55,6 +55,7 @@ struct ActivityScreen: View {
 private struct ReadyToShare: View {
     @Environment(AppModel.self) private var mm
     let session: Session
+    @State private var confirmingSkip = false
 
     /// Solo sessions share with the crew; never "the 1 of you".
     private var shareLine: String {
@@ -76,11 +77,21 @@ private struct ReadyToShare: View {
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
                 Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
+                // Say which session this is: an older one can still be waiting here.
+                Text("\(session.day), \(session.month) \(session.date) · \(session.time)")
+                    .mmFont(.body, 12, .semibold, lineHeight: 1.3).foregroundStyle(MMColor.ink200)
+                    .padding(.top, 2)
                 Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
                     .padding(.top, 4)
-                MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
-                    .padding(.top, 10)
+                HStack(spacing: 14) {
+                    MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
+                    Button("Didn't train") { confirmingSkip = true }
+                        .mmFont(.body, 13, .semibold, lineHeight: 1.2)
+                        .foregroundStyle(MMColor.ink200)
+                        .frame(minHeight: 36)
+                }
+                .padding(.top, 10)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -88,6 +99,12 @@ private struct ReadyToShare: View {
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
         .padding(.horizontal, 16)
         .padding(.top, 4)
+        .confirmationDialog("Didn't train at \(session.title)?", isPresented: $confirmingSkip, titleVisibility: .visible) {
+            Button("Delete session", role: .destructive) { mm.deleteSession(session.id) }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text(session.people.count > 1 ? "It comes off everyone's schedule and won't be shared." : "It comes off your schedule and won't be shared.")
+        }
     }
 }
 
