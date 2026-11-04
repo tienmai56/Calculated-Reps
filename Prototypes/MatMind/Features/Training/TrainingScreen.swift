@@ -401,7 +401,7 @@ struct SessionDetailScreen: View {
                     }
                     MMButton("Join", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
                 }
-            } else {
+            } else if mine == .going {
                 HStack(spacing: 8) {
                     MMBadge("You're going", variant: .success, dot: true, height: 34, fontSize: 14, paddingX: 14)
                     MMButton("Can't make it", variant: .ghost, size: .sm) {
@@ -410,6 +410,8 @@ struct SessionDetailScreen: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
+            } else if s.privacy == .link && mm.startDate(of: s) > Date() {
+                MMButton("Join session", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
             }
         }
         .sheet(isPresented: $showFocusEditor) {

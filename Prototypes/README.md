@@ -20,10 +20,11 @@ All data is sample data held in memory (`App/SeedData.swift`, from `ui_kits/app/
 
 ## Empty states
 
-The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity is a completed-session feed: an empty schedule alone never clears existing posts.
+The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity shows upcoming link-visible plans as well as completed memories: an empty schedule alone never clears existing posts.
 
 - **Home, no shared posts or plans:** “Good memories start on the mat.” Plan a training session; add friends by QR when the friend list is empty, or log a past session when friends already exist.
-- **Home, a plan exists:** “Your first photo is on its way.” View the plan or invitation. No post is created until a session is completed and published.
+- **Home, a friends-only plan exists:** “Your first photo is on its way.” View the plan or invitation. No completed post is created until a session is completed and published.
+- **Home, an upcoming link-visible plan exists:** show its session ticket under **Coming up**, even with no completed posts. The host and their friends see it; friends can open details and join. Discovery alone does not put it in Training. Tickets leave Activity when declined, started, cancelled or completed.
 - **Home, a session awaits completion:** “Proof you showed up.” Complete & share (in the card above) is the next action.
 - **Training → Upcoming, no upcoming plans/invites:** “Summon your crew” Plan a training session, with “Already trained? Log it” as a secondary action. Existing activity and past sessions remain available.
 - **Training → Past:** the same session tickets, newest first, including past sessions without a photo or shared post. Completed sessions stay here after publishing. The empty state offers **Log a past session**.

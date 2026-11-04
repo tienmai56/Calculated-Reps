@@ -317,7 +317,9 @@ Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candida
 - **No emoji, no unicode icons** (only "·" as a meta separator). No PNG icons.
 
 ## 8. Screens & journeys
-Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming and past) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a session**.
+Tabs: **Activity** (open upcoming plans and completed sessions) · **Training** (upcoming and past) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a session**.
+
+Upcoming sessions set to **Anyone with the link** appear immediately in the host's and the host's friends' Activity feeds, in a **Coming up** section ordered soonest first. Use the existing session ticket with date, time, gym and host, a link visibility label, and **Join session** for friends who aren't going. Tapping the ticket opens session details. Discovery does not add the session to Training: joining does. Friends-only sessions stay out of Activity. Declined, started, cancelled and completed plans leave this section; publishing a completed session still creates its own memory with the existing photo-or-note rule. Blocks and inactive friendships prevent discovery and feed joins. Invitation links keep their existing account requirement.
 
 | # | Screen | Prototype file |
 |---|---|---|
@@ -371,7 +373,7 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 
 - Activity artwork (all Activity empty states: a first-time user, someone who deleted their only post, and a planned first session still awaiting its photo): **Peek-a-boo**. A Silverback hides behind the photo-memory frame, springs out past its edge with `--ease-bounce`, the camera "clicks" (a white flash over the photo slot as the icon squeezes to .86), nods, then ducks back; about a 5s loop. The mark only moves as a whole and is never redrawn. Reduce Motion shows it still, peeking.
 - No completed posts or plans: “Good memories start on the mat.” Plan a training session; add existing friends by QR as the secondary action when needed.
-- Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses “Proof you showed up.” · “Share a post-roll photo and your crew sees it here.” with no button, since the Complete & share card above holds the primary action.
+- A friends-only plan exists but no shared post or open link-visible plan: “Your first photo is on its way.” View the plan or invitation. An upcoming link-visible plan renders its Activity ticket even without any memories. A pending completion uses “Proof you showed up.” · “Share a post-roll photo and your crew sees it here.” with no button, since the Complete & share card above holds the primary action.
 - No upcoming sessions/invitations: “Summon your crew” Plan a training session; Already trained? Log it is secondary.
 - No personal past sessions: offer Log a past session.
 - No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
@@ -426,8 +428,8 @@ Native: `Features/Goals/GoalsScreen.swift`, `Features/Goals/GoalSharing.swift`, 
 - Altered, redrawn or recolored logo (use `assets/brand/` files as-is).
 
 **Product constraints (MVP)**
-- Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
-- Join sessions only via invitation, direct addition, or a valid link (Mat Monkey account required), never from the feed.
+- Activity shows upcoming link-visible session tickets and posts tied to completed sessions; the completion flow remains the memory composer.
+- Join sessions via invitation, direct addition, a valid link (Mat Monkey account required), or a friend's upcoming link-visible ticket in Activity. No public discovery of strangers.
 - Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
 - Friends connect instantly via QR, with no requests or approvals.
 

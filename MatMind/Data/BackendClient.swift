@@ -62,6 +62,8 @@ struct SocialSnapshot: Codable, Equatable {
     var media: [SocialRow] = [], notifications: [SocialRow] = []
     /// Optional so caches saved before goal sharing still decode.
     var shared_goals: [SocialRow]? = nil, goal_shares: [SocialRow]? = nil
+    /// Friends' open plans have their own limit, so discovery cannot crowd out your schedule.
+    var activity_sessions: [SocialRow]? = nil
 }
 
 @Model final class CachedSocialState {

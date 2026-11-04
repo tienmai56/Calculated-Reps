@@ -161,6 +161,10 @@ struct CreateScreen: View {
                 if !isPast {
                     field("Who can join") {
                         MMTabs(items: [MMTabItem("friends", "Friends only"), MMTabItem("link", "Anyone with link")], selection: $privacy)
+                        if privacy == Privacy.link.rawValue {
+                            Text("Appears in your Activity and your friends' feeds so they can join.")
+                                .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, MMSpace.s4)
+                        }
                         if mm.isLive {
                             Text("Create the session, then share its invitation link.")
                                 .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 12)
