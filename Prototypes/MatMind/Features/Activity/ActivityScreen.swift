@@ -189,7 +189,7 @@ struct PostCard: View {
                         .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
                     ])
                     .lineSpacing(1)
-                    Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 MMIconButton("ellipsis", size: 36, label: "Post options") { showMenu = true }
