@@ -24,7 +24,7 @@ The first-session state uses the same paper canvas, photo-memory frame, ticket s
 
 - **Home, no shared posts or plans:** “Good memories start on the mat.” Plan a training session; add friends by QR when the friend list is empty, or log a past session when friends already exist.
 - **Home, a plan exists:** “Your first photo is on its way.” View the plan or invitation. No post is created until a session is completed and published.
-- **Home, a session awaits completion:** Complete & share is the next action.
+- **Home, a session awaits completion:** “Proof you showed up.” Complete & share (in the card above) is the next action.
 - **Training, no upcoming plans/invites:** “Summon your crew” Plan a training session, with “Already trained? Log it” as a secondary action. Existing activity and past sessions remain available.
 - **Past, no personal shared sessions:** Log a past session.
 

@@ -98,8 +98,8 @@ private struct EmptyActivity: View {
     var body: some View {
         if mm.toComplete != nil {
             // The "How was …?" card above holds Complete & share, so no second primary here.
-            MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
-                         message: "Share the post-roll photo above.\nIt lands here for your crew.")
+            MMEmptyState(artwork: .memory, title: "Proof you showed up.",
+                         message: "Share a post-roll photo\nand your crew sees it here.")
         } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
             MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
                          message: "Train together, then share the post-roll photo.",

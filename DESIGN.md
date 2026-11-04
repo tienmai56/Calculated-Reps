@@ -370,7 +370,7 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 
 - Activity artwork (all Activity empty states: a first-time user, someone who deleted their only post, and a planned first session still awaiting its photo): **Peek-a-boo**. A Silverback hides behind the photo-memory frame, springs out past its edge with `--ease-bounce`, the camera "clicks" (a white flash over the photo slot as the icon squeezes to .86), nods, then ducks back; about a 5s loop. The mark only moves as a whole and is never redrawn. Reduce Motion shows it still, peeking.
 - No completed posts or plans: “Good memories start on the mat.” Plan a training session; add existing friends by QR as the secondary action when needed.
-- Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses Complete & share instead.
+- Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses “Proof you showed up.” · “Share a post-roll photo and your crew sees it here.” with no button, since the Complete & share card above holds the primary action.
 - No upcoming sessions/invitations: “Summon your crew” Plan a training session; Already trained? Log it is secondary.
 - No personal past sessions: offer Log a past session.
 - No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
