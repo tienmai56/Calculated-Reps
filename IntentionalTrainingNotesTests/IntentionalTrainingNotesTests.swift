@@ -3,6 +3,7 @@ import UIKit
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
+    @MainActor
     func testActivityPlansAreFutureLinkSessionsWithoutChangingMemories() {
         let ui = AppModel(live: true)
         let now = Date(timeIntervalSince1970: 1_800_000_000)
@@ -20,6 +21,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["later"], "Cancelling removes the plan from Activity")
     }
 
+    @MainActor
     func testLiveActivityDiscoveryEntersTrainingOnlyAfterJoiningAndLeavesAfterCompletion() throws {
         let model = SocialAppModel()
         model.userID = "owner"
@@ -53,6 +55,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertTrue(ui.discoverableSessions.isEmpty)
     }
 
+    @MainActor
     func testCreatingALinkVisiblePreviewPlanAddsActivityImmediately() {
         let ui = AppModel(live: false)
         ui.upcoming = []
@@ -70,6 +73,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertEqual(ui.posts, memories)
     }
 
+    @MainActor
     func testJoiningADiscoveredPreviewPlanAddsItToTraining() {
         let ui = AppModel(live: false)
         ui.upcoming = []
