@@ -425,7 +425,7 @@ final class LiveMatMindRuntime: AppRuntime {
             return Friendship(id: other, weeks: weeks, thisWeek: buckets.contains(formatter.string(from: week)) ? .done : .pending,
                               best: model.streak(row).best, together: credits.count, currentStreak: model.streak(row).current)
         }
-        let sessions = model.snapshot.sessions.filter { ["planned", "completed"].contains($0.text("status")) }.map { row in
+        let sessions = (model.snapshot.sessions + (model.snapshot.activity_sessions ?? [])).filter { ["planned", "completed"].contains($0.text("status")) }.map { row in
             let date = row.date("starts_at") ?? Date()
             let content = SessionNoteCodec.decode(row.text("note"))
             return Session(id: row.id, title: row.text("title"), day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
@@ -434,8 +434,9 @@ final class LiveMatMindRuntime: AppRuntime {
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
-        ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" }
+        ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" && ($0.organizer == "me" || $0.status(of: "me") != nil) }
         ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
+        ui.discoverableSessions = sessions.filter { model.session($0.id)?.text("status") == "planned" && $0.organizer != "me" && $0.status(of: "me") == nil && $0.privacy == .link }
         ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
             return Post(id: row.id, organizer: localID(row.text("author")), title: row.text("title"), gym: row.text("venue"),

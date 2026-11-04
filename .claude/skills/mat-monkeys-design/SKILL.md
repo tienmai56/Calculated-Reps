@@ -12,7 +12,7 @@ If invoked with no task, ask what they want to build, then act as an expert prod
 
 ## Core styling rules
 - **Canvas:** Paper `#FAF6EF` app background, white cards, ink `#1D1B18` text. Never pure black, never grey-blue neutrals.
-- **One primary:** Coral `#FF5C39` (`--accent`) for the main CTA, the center "Plan a session" button, likes, focus. One primary button per screen.
+- **One primary:** Coral `#FF5C39` (`--accent`) for the main CTA, the center "Plan a training" button, likes, focus. One primary button per screen.
 - **Friend hues:** sun / mint / sky / plum / coral. Assign one per friendship and reuse it everywhere (streak belt, pair card, ticket stub). Use the `-100` tint for backgrounds and `-700` for text on it.
 - **Flame `#FF7A1A`** only for streaks. **Belt colors** only to show rank.
 - **Type:** Bricolage Grotesque 800 for display, titles, buttons (tracking −0.02 to −0.04em). Archivo for body. JetBrains Mono only for links and codes, never for stats.
@@ -38,7 +38,7 @@ Your favorite training partner: warm, a little cheeky, mat-literate. Sentence ca
 
 ## Guardrails (never)
 - Free-form posts: posts come only from completed sessions.
-- Public discovery or matching with strangers; joining sessions from the feed.
+- Public discovery or matching with strangers. Friends may join upcoming link-visible sessions from Activity.
 - Group chat or DMs.
 - Daily streaks, leaderboards, badges, milestones, rankings, performance analytics.
 - Custom avatar builder (not MVP).

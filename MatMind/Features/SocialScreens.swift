@@ -80,7 +80,7 @@ struct SocialTrainingScreen: View {
     @Environment(SocialAppModel.self) private var app
     var body: some View {
         List {
-            if app.snapshot.sessions.isEmpty { ContentUnavailableView("Make time for the mat",systemImage:"calendar",description:Text("Plan a session and invite a training partner.")) }
+            if app.snapshot.sessions.isEmpty { ContentUnavailableView("Make time for the mat",systemImage:"calendar",description:Text("Plan a training and invite a training partner.")) }
             ForEach(app.snapshot.sessions.sorted { ($0.date("starts_at") ?? .distantPast) > ($1.date("starts_at") ?? .distantPast) }) { s in
                 NavigationLink { SocialSessionScreen(id:s.id) } label: {
                     VStack(alignment:.leading,spacing:6) { Text(s.text("title")).font(.headline); Text(s.date("starts_at") ?? .distantPast,style:.date); Text(s.text("venue") + " · " + s.text("status")).font(.caption).foregroundStyle(.secondary) }
@@ -163,7 +163,7 @@ struct SocialCreateScreen: View {
                 if await app.perform("create_session",payload,key:draft.key) != nil { app.clearDraft(key:"plan"); dismiss() }
             } }.disabled(app.userID == nil || app.me == nil || draft.title.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty || draft.venue.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty || app.busy)
             Text("Past sessions can be logged using their actual date and time. Legacy archive records are never used here.").font(.caption).foregroundStyle(.secondary)
-        }.navigationTitle("Plan a session")
+        }.navigationTitle("Plan a training")
         .toolbar { Button("Close") { dismiss() } }
         .onAppear { if let saved = app.draft(PlanningDraft.self,key:"plan") { draft = saved } }
         .onChange(of:draft) { old,new in

@@ -29,7 +29,7 @@ import SwiftData
     var friendIDs: [String] { snapshot.friendships.map { $0.text("a") == userID ? $0.text("b") : $0.text("a") } }
     func person(_ id: String) -> String { snapshot.profiles.first { $0.id == id }?.text("name") ?? "Training partner" }
     func attendees(_ session: String) -> [SocialRow] { snapshot.participants.filter { $0.text("session_id") == session } }
-    func session(_ id: String) -> SocialRow? { snapshot.sessions.first { $0.id == id } }
+    func session(_ id: String) -> SocialRow? { snapshot.sessions.first { $0.id == id } ?? snapshot.activity_sessions?.first { $0.id == id } }
     func postPeople(_ id: String) -> [String] { snapshot.tags.filter { $0.text("post_id") == id }.map { $0.text("user_id") } }
     func start() async {
         await archive.discover()

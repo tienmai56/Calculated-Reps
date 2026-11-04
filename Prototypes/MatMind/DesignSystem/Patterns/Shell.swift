@@ -67,6 +67,9 @@ struct MMHeader<Leading: View, Trailing: View>: View {
         let centered = !large && hasLeading
         HStack(spacing: 6) {
             leading
+            // Top-level (large) headers lead with the Silverback mark unless the
+            // screen supplies its own leading view (e.g. Activity's long-press mark).
+            if large && !hasLeading { MMHeaderMark() }
             VStack(alignment: centered ? .center : .leading, spacing: 3) {
                 Text(title)
                     .mmFont(.display, large ? 32 : 18, tracking: large ? -0.035 : -0.015, lineHeight: 1)
@@ -251,8 +254,11 @@ extension MMPhotoTile where Overlay == EmptyView {
 // MARK: - Wordmark
 
 /// Official Silverback artwork with the lowercase Mat Monkey wordmark.
+/// `markOnly` drops the name for tight spots like tab headers; the full
+/// lockup stays on the Welcome screen.
 struct MMWordmark: View {
     var size: CGFloat = 32
+    var markOnly = false
 
     var body: some View {
         HStack(spacing: MMSpace.s4) {
@@ -262,15 +268,25 @@ struct MMWordmark: View {
                 .scaledToFit()
                 .frame(width: size, height: size)
                 .accessibilityHidden(true)
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("mat monkey").lineLimit(1).minimumScaleFactor(0.75)
-                Text(".").foregroundStyle(MMColor.accent)
+            if !markOnly {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text("mat monkey").lineLimit(1).minimumScaleFactor(0.75)
+                    Text(".").foregroundStyle(MMColor.accent)
+                }
             }
         }
         .mmFont(.display, size, tracking: -0.04, lineHeight: 1)
         .foregroundStyle(MMColor.ink900)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Mat Monkey")
+    }
+}
+
+/// The Silverback mark as it sits left of a large tab-screen title.
+struct MMHeaderMark: View {
+    var body: some View {
+        MMWordmark(size: 32, markOnly: true)
+            .padding(.trailing, 4)
     }
 }
 

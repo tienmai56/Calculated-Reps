@@ -21,7 +21,7 @@
 ## 1. Product
 **Mat Monkey** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
-One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Friends, Profile) and a center **Plan a session** button.
+One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Friends, Profile) and a center **Plan a training** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
@@ -230,7 +230,7 @@ Layout: screen gutter 16px · tap target 44px · header 54px · tab bar 86px · 
 Voice: **your favorite training partner.** Warm, a little cheeky, mat-literate, never preachy or competitive.
 - **Person:** "you" for the user. Friends by first name ("Roll together by Sunday to make it 9"). The product never says "we".
 - **Casing:** sentence case everywhere: buttons, titles, badges. The wordmark is lowercase. No ALL-CAPS labels except the 3-letter day on session tickets (SAT).
-- **Buttons:** verb-first, friendly: "Plan a session", "Join", "Invite Sarah to train", "Complete & share", "Start again".
+- **Buttons:** verb-first, friendly: "Plan a training", "Join", "Invite Sarah to train", "Complete & share", "Start again".
 - **Streak copy is encouraging, never guilt:** "8 weeks with Sarah", "Roll together by Sunday to make it 9", "This week's locked in". A broken streak reads "Pick it back up · best 12 weeks", never "You lost your streak".
 - **Celebrate people, not numbers:** "Shared with the crew", "You & Lena are friends", "Sarah joined Saturday open mat". Avoid stats, scores, and rankings.
 - **Light humor in empty and prompt states:** "Sweaty, smiling, slightly crooked. That's the one." / "Rolls are better with friends."
@@ -279,7 +279,7 @@ React primitives live in `design-system/components/<group>/`. Each has `Name.jsx
 | **Belt** | sizes: xs 8, sm 12, md 16, lg 24 · stripes: 0–4 · bar: black; red for black/coral/red belts |
 | **StreakBelt** | segment: 1 calendar week (Mon–Sun) · states: done / missed / pending-hatched · hues: friendHues |
 | **Tabs** | variants: segmented / underline |
-| **TabBar** | height: 86 · items: Activity / Training / Friends / Profile · centerAction: Plan a session (coral, 56×46 pill) |
+| **TabBar** | height: 86 · items: Activity / Training / Friends / Profile · centerAction: Plan a training (coral, 56×46 pill) |
 | **Dialog** | variants: sheet / modal · sheetRadius: xl top · overlay: surface-overlay |
 | **Toast** | shape: ink pill · variants: default / success / danger / streak / friend · autoDismissMs: 2600 |
 | **Tooltip** | surface: ink-900 · radius: 10 |
@@ -296,7 +296,7 @@ Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candida
 - **No emoji, no unicode icons** (only "·" as a meta separator). No PNG icons.
 
 ## 8. Screens & journeys
-Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invites, past, plan) · **Friends** (weekly streaks, QR) · **Profile**. The center tab button is **Plan a session**.
+Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invites, past, plan) · **Friends** (weekly streaks, QR) · **Profile**. The center tab button is **Plan a training**.
 
 | # | Screen | Prototype file |
 |---|---|---|
@@ -310,7 +310,7 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming, invit
 | 8 | Notifications | `ui_kits/app/Me.jsx` |
 
 Journeys:
-- **A — Plan together:** Training → Plan a session → gym/date/time → invite → friends join → session shows participants.
+- **A — Plan together:** Training → Plan a training → gym/date/time → invite → friends join → session shows participants.
 - **B — Share a memory:** completed session → photo → mark completed → publish → post on every participant's profile and friends' feeds → likes/comments.
 - **C — Keep a streak:** Friends → active streak → friend profile → invite → complete together → streak +1.
 

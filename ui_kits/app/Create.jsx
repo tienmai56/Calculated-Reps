@@ -23,7 +23,7 @@ function CreateScreen({ past: pastInit, friend }) {
   const autoName = d[1] === 'Sat' || d[1] === 'Sun' ? (d[1] === 'Sat' ? 'Saturday' : 'Sunday') + ' open mat' : time.includes('AM') ? 'Morning rolls' : time.startsWith('12') ? 'Lunch rolls' : 'Evening rolls';
   const toggle = id => setInv(inv.includes(id) ? inv.filter(x => x !== id) : [...inv, id]);
   const submit = () => mm.createSession({ title: name.trim() || autoName, day: d[1], date: d[2], month: d[3], time, gym, note, invited: inv, privacy, past });
-  return <Screen push header={<Header left={<CIB icon="x" label="Close" onClick={mm.back} />} title={past ? 'Log a past session' : 'Plan a session'} />}
+  return <Screen push header={<Header left={<CIB icon="x" label="Close" onClick={mm.back} />} title={past ? 'Log a past session' : 'Plan a training'} />}
     footer={<CBtn size="lg" fullWidth iconLeft={past ? 'camera' : 'send'} onClick={submit}>{past ? 'Next: add a photo' : inv.length ? `Send invites to ${inv.length}` : 'Create session'}</CBtn>}>
     <div style={{ padding: '0 16px' }}><CTabs items={[{ id: 'plan', label: 'Upcoming' }, { id: 'past', label: 'Already happened' }]} value={past ? 'past' : 'plan'} onChange={v => { setPast(v === 'past'); setDay(v === 'past' ? 0 : 5); }} /></div>
     <div style={{ padding: '18px 16px 0' }}>

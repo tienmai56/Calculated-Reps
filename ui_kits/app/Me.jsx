@@ -4,7 +4,7 @@ function ProfileScreen() {
   const mm = useMM(); const me = mm.s.me; const [settings, setSettings] = React.useState(false);
   const mine = mm.s.posts.filter(p => p.participants.includes('me'));
   const active = mm.s.friends.filter(f => mm.streakOf(f) > 0).sort((a, b) => mm.streakOf(b) - mm.streakOf(a));
-  return <Screen tabPad header={<div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 10px 0', flexShrink: 0 }}><MIB icon="settings" variant="filled" label="Settings" onClick={() => setSettings(true)} /></div>}>
+  return <Screen tabPad header={<Header large title="Profile" right={<MIB icon="settings" variant="filled" label="Settings" onClick={() => setSettings(true)} />} />}>
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 4 }}>
       <MAv name={me.name} src={me.src} size={108} belt={me.belt} />
       <div style={{ font: '800 30px/1.05 var(--font-display)', letterSpacing: '-.035em', marginTop: 14 }}>{me.name}</div>

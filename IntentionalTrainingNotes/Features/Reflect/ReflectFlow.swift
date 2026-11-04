@@ -172,7 +172,7 @@ struct ReflectPickSessionStep: View {
                     let done = sessions.filter { $0.status == .done && !sessionHasReflection($0) }
 
                     if planned.isEmpty && done.isEmpty {
-                        EmptyDashedState(title: "No sessions to reflect on.", subtitle: "Plan a session from the + button, or all sessions have been reflected on.")
+                        EmptyDashedState(title: "No sessions to reflect on.", subtitle: "Plan a training from the + button, or all sessions have been reflected on.")
                     }
 
                     if !planned.isEmpty {

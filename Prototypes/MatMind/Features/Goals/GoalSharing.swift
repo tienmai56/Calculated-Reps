@@ -59,9 +59,11 @@ struct GoalInviteCard: View {
         let owner = mm.person(shared.owner)
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                MMAvatar(name: owner.name, photo: owner.photo, size: 40, belt: owner.belt, ring: MMColor.surfaceCard)
+                PersonProfileButton(person: owner) {
+                    MMAvatar(name: owner.name, photo: owner.photo, size: 40, belt: owner.belt, ring: MMColor.surfaceCard)
+                }
                 VStack(alignment: .leading, spacing: 2) {
-                    mmRich([.body(owner.firstName, 15, .bold), .body(" shared ", 15), .body(shared.title, 15, .bold)])
+                    PersonText([.person(owner, 15, .bold, short: true), .body(" shared ", 15), .body(shared.title, 15, .bold)])
                         .fixedSize(horizontal: false, vertical: true)
                     if !meta.isEmpty {
                         Text(meta).mmFont(.body, 12, .medium, lineHeight: 1.3).foregroundStyle(MMColor.textTertiary)
@@ -101,30 +103,33 @@ struct SharedGoalCard: View {
     var body: some View {
         let owner = mm.person(shared.owner)
         let preview = shared.content.cardPreview
-        Button(action: onTap) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(shared.title).mmFont(.display, 18, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(shared.title).mmFont(.display, 18, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    PersonProfileButton(person: owner) {
                         SharedFromChip(person: owner)
                     }
-                    if !preview.isEmpty {
-                        Text(preview).mmFont(.body, 13, lineHeight: 1.4).foregroundStyle(MMColor.textSecondary)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-                    if !shared.contentsSummary.isEmpty {
-                        Text(shared.contentsSummary).mmFont(.body, 12, .medium, lineHeight: 1.3).foregroundStyle(MMColor.textTertiary)
-                    }
                 }
-                MMIcon("chevron-right", size: 18, color: MMColor.ink400)
+                if !preview.isEmpty {
+                    Text(preview).mmFont(.body, 13, lineHeight: 1.4).foregroundStyle(MMColor.textSecondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                if !shared.contentsSummary.isEmpty {
+                    Text(shared.contentsSummary).mmFont(.body, 12, .medium, lineHeight: 1.3).foregroundStyle(MMColor.textTertiary)
+                }
             }
-            .padding(16)
-            .mmCardSurface(radius: 22)
+            MMIcon("chevron-right", size: 18, color: MMColor.ink400)
         }
-        .buttonStyle(MMPressStyle())
+        .padding(16)
+        .mmCardSurface(radius: 22)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: Text("Open goal"), onTap)
         .accessibilityHint("From \(owner.name)")
     }
 }
@@ -495,20 +500,22 @@ struct SharedGoalScreen: View {
     private func sender(_ owner: Person, shared: SharedGoal) -> some View {
         let ago = shared.sharedAt.map { RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()) }
         let meta = ["\(owner.belt.title) belt", owner.gym, ago].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-        return HStack(spacing: 14) {
-            MMPairAvatars(a: owner.avatar, b: mm.me.avatar, size: 44, hue: owner.hue, ring: owner.hue.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(owner.name) shared a goal with you")
-                    .mmFont(.display, 16, lineHeight: 1.25)
-                    .foregroundStyle(MMColor.ink900)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(meta).mmFont(.body, 13, lineHeight: 1.4).foregroundStyle(owner.hue.ink)
+        return PersonProfileButton(person: owner) {
+            HStack(spacing: 14) {
+                MMPairAvatars(a: owner.avatar, b: mm.me.avatar, size: 44, hue: owner.hue, ring: owner.hue.tint)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(owner.name) shared a goal with you")
+                        .mmFont(.display, 16, lineHeight: 1.25)
+                        .foregroundStyle(MMColor.ink900)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(meta).mmFont(.body, 13, lineHeight: 1.4).foregroundStyle(owner.hue.ink)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous).fill(owner.hue.tint))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous).fill(owner.hue.tint))
         .accessibilityElement(children: .combine)
     }
 }

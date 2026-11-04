@@ -21,7 +21,7 @@
 ## 1. Product
 **Mat Monkey** is a mobile-first social app for the Jiu-Jitsu community. Its job is to get training partners to **show up and train together in real life**: connect with partners (instant QR), plan sessions as easily as inviting a friend to hang out, share a photo memory after training, see friends' sessions, and keep **weekly friendship streaks**. Think Strava meets a close-knit academy: less competitive, more playful, focused on friendships.
 
-One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Goals, Profile) and a center **Plan a session** button.
+One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Goals, Profile) and a center **Plan a training** button.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
@@ -231,7 +231,7 @@ Layout: screen gutter 16px · tap target 44px · header 54px · tab bar 86px · 
 Voice: **your favorite training partner.** Warm, a little cheeky, mat-literate, never preachy or competitive.
 - **Person:** "you" for the user. Friends by first name ("Roll together by Sunday to make it 9"). The product never says "we".
 - **Casing:** sentence case everywhere: buttons, titles, badges. The wordmark is lowercase. No ALL-CAPS labels except the 3-letter day on session tickets (SAT).
-- **Buttons:** verb-first, friendly: "Plan a session", "Join", "Invite Sarah to train", "Complete & share", "Start again".
+- **Buttons:** verb-first, friendly: "Plan a training", "Join", "Invite Sarah to train", "Complete & share", "Start again".
 - **Streak copy is encouraging, never guilt:** "8 weeks with Sarah", "Roll together by Sunday to make it 9", "This week's locked in". A broken streak reads "Pick it back up · best 12 weeks", never "You lost your streak".
 - **Celebrate people, not numbers:** "Shared with the crew", "You & Lena are friends", "Sarah joined Saturday open mat". Avoid stats, scores, and rankings.
 - **Light humor in empty and prompt states:** "Sweaty, smiling, slightly crooked. That's the one." / "Rolls are better with friends."
@@ -277,7 +277,7 @@ A calm, front-facing gorilla head built from simple geometry: an ink head, a pap
 - **Minimum size:** mark 24px tall; lockup 120px wide; below that use the mark alone.
 - **Don't:** recolor the head, swap the brow to belt or friend hues, add outlines, shadows, gradients, or expressions, rotate it, place the ink head directly on ink (use the app-icon tile), or redraw it. Use the files.
 - **In code:** use the `Logo` component (`design-system/components/core/Logo.jsx`, variants `mark` / `mono` / `appIcon` / `lockup` / `lockupInverse`). It draws from tokens, so no asset paths are needed.
-- **In the app:** the mark appears on the splash screen, onboarding and empty states; the tab-screen headers keep the plain Bricolage title. One logo per screen at most.
+- **In the app:** the full lockup (mark + wordmark) appears on the splash screen and onboarding. Top-level tab-screen headers (Activity, Training, Goals, Friends, Profile) show the mark alone at 32pt, left of the plain Bricolage screen title; pushed screens with a back button show the title only. The mark also appears as a character in empty-state artwork. One logo (mark or lockup) per screen at most, not counting empty-state artwork.
 
 ## 6. Components
 React primitives live in `design-system/components/<group>/`. Each has `Name.jsx` (named export), `Name.d.ts` (props contract), and `Name.prompt.md` (usage). Styling comes only from the CSS variables, with no CSS-in-JS libraries and no npm dependencies besides React.
@@ -300,7 +300,7 @@ React primitives live in `design-system/components/<group>/`. Each has `Name.jsx
 | **Belt** | sizes: xs 8, sm 12, md 16, lg 24 · stripes: 0–4 · bar: black; red for black/coral/red belts |
 | **StreakBelt** | segment: 1 calendar week (Mon–Sun) · states: done / missed / pending-hatched · hues: friendHues |
 | **Tabs** | variants: segmented / underline |
-| **TabBar** | height: 86 · items: Activity / Training / Goals / Profile · centerAction: Plan a session (coral, 56×46 pill) |
+| **TabBar** | height: 86 · items: Activity / Training / Goals / Profile · centerAction: Plan a training (coral, 56×46 pill) |
 | **Dialog** | variants: sheet / modal · sheetRadius: xl top · overlay: surface-overlay |
 | **Toast** | shape: ink pill · variants: default / success / danger / streak / friend · autoDismissMs: 2600 |
 | **Tooltip** | surface: ink-900 · radius: 10 |
@@ -317,7 +317,9 @@ Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candida
 - **No emoji, no unicode icons** (only "·" as a meta separator). No PNG icons.
 
 ## 8. Screens & journeys
-Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming and past) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a session**.
+Tabs: **Activity** (open upcoming plans and completed sessions) · **Training** (upcoming and past) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a training**.
+
+Upcoming sessions set to **Anyone with the link** appear immediately in the host's and the host's friends' Activity feeds, in a **Coming up** section ordered soonest first. Use the existing session ticket with date, time, gym and host, a link visibility label, and **Join session** for friends who aren't going. Tapping the ticket opens session details. Discovery does not add the session to Training: joining does. Friends-only sessions stay out of Activity. Declined, started, cancelled and completed plans leave this section; publishing a completed session still creates its own memory with the existing photo-or-note rule. Blocks and inactive friendships prevent discovery and feed joins. Invitation links keep their existing account requirement.
 
 | # | Screen | Prototype file |
 |---|---|---|
@@ -334,7 +336,7 @@ Tabs: **Activity** (feed of completed sessions) · **Training** (upcoming and pa
 | 10 | Someone else's profile | `Prototypes/MatMind/Features/Profile/ProfileScreen.swift` (`PersonProfileScreen`) |
 
 Journeys:
-- **A — Plan together:** Training → Plan a session → gym/date/time → invite → friends join → session shows participants.
+- **A — Plan together:** Training → Plan a training → gym/date/time → invite → friends join → session shows participants.
 - **B — Share a memory:** completed session → take or upload a photo and/or write a note → publish → post on every participant's profile and friends' feeds → likes/comments. A photo **or** a note enables publishing (see Share the session); no completion toggle is required.
 - **C — Keep a streak:** Profile → Friends → active streak → friend profile → invite → complete together → streak +1.
 
@@ -377,7 +379,7 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 
 - Activity artwork (all Activity empty states: a first-time user, someone who deleted their only post, and a planned first session still awaiting its photo): **Peek-a-boo**. A Silverback hides behind the photo-memory frame, springs out past its edge with `--ease-bounce`, the camera "clicks" (a white flash over the photo slot as the icon squeezes to .86), nods, then ducks back; about a 5s loop. The mark only moves as a whole and is never redrawn. Reduce Motion shows it still, peeking.
 - No completed posts or plans: “Good memories start on the mat.” Plan a training session; add existing friends by QR as the secondary action when needed.
-- Plan exists but no shared post: “Your first photo is on its way.” View the plan or invitation. A pending completion uses “Proof you showed up.” · “Share a post-roll photo and your crew sees it here.” with no button, since the Complete & share card above holds the primary action.
+- A friends-only plan exists but no shared post or open link-visible plan: “Your first photo is on its way.” View the plan or invitation. An upcoming link-visible plan renders its Activity ticket even without any memories. A pending completion uses “Proof you showed up.” · “Share a post-roll photo and your crew sees it here.” with no button, since the Complete & share card above holds the primary action.
 - No upcoming sessions/invitations: “Summon your crew” Plan a training session; Already trained? Log it is secondary.
 - No personal past sessions: offer Log a past session.
 - No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
@@ -388,11 +390,11 @@ Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Bro
 
 ### Tabs, Goals and Training
 
-Tab bar: **Activity · Training · + (Plan a session) · Goals · Profile**. Friends is no longer a tab: it opens from Profile, and the streak reminder dot sits on the Profile tab. Every tab header carries the round paper-2 **My code** (QR) button at the top right; pushed screens keep their own back and action buttons.
+Tab bar: **Activity · Training · + (Plan a training) · Goals · Profile**. Friends is no longer a tab: it opens from Profile, and the streak reminder dot sits on the Profile tab. Every tab header carries the round paper-2 **My code** (QR) button at the top right; pushed screens keep their own back and action buttons.
 
 - **Training** has **Upcoming** and **Past** tabs using the same ticket cards, spacing and layout. Upcoming shows Invites (Decline / Join) and Coming up, soonest first. Past shows sessions whose start time has passed, newest first, including sessions without a photo or shared post and completed sessions. Declined and cancelled sessions stay out. Editing the date moves a session between tabs; publishing keeps it in Past. Every upcoming ticket carries an ellipsis menu with **Share session**. For a host in the live app, it creates an invitation URL and opens the native share sheet with that URL, enabling the rich preview described below. Other participants and the demo share the existing plain-text summary (name, date/time including timezone, and gym), without granting invitation permissions. Uncompleted tickets you host also offer: **Edit session** (name, date and time, gym, note, **What we're working on**, and **Guest list**) and **Delete session** (confirmed; it comes off everyone's schedule). Focus and guest changes stay in the draft until **Save changes**. The organizer stays on the list; retained guests keep their RSVP and newly added friends receive invitations for upcoming sessions. Profile → Activity still shows shared posts.
 - **Goals** lists what you're working on as white cards: name, a two-line notes preview, link/photo counts and when it's next on the mat ("On Sat with Sarah", never a score). **Add a goal** sits in the section header; its sheet has the name, notes and **References** (an **Add photo** tile and **Add a link**, each removable before saving; photos are saved when the goal is added). **Import** (in the empty state, a quiet link under the list) reads the file from Settings → Export local sessions (the .zip, or its training-v1.json): each active goal keeps its name; each task becomes a "- Task: notes" line, with its link and photos. Archived goals, sessions and reflections are left out, and importing twice adds nothing.
-- **Goal page** is edited in place: the name (a 28pt display field) and next session; **Details** as a multi-line field ("-" starts a sub-point); **References** (photos, with an **Add photo** tile that opens the photo library and touch-and-hold to remove; links shown by host in mono, opening in the browser; **Add a link**). Goal photos are re-encoded as JPEG without location metadata, capped at 2048 px and stored privately on the device; an ellipsis menu with **Plan a session for this** (attaches the goal to the session you create) and Delete goal; and the primary **Save goal**, enabled once the name or details change. Leaving with unsaved edits asks before discarding. Photos and links save as soon as they're added.
+- **Goal page** is edited in place: the name (a 28pt display field) and next session; **Details** as a multi-line field ("-" starts a sub-point); **References** (photos, with an **Add photo** tile that opens the photo library and touch-and-hold to remove; links shown by host in mono, opening in the browser; **Add a link**). Goal photos are re-encoded as JPEG without location metadata, capped at 2048 px and stored privately on the device; an ellipsis menu with **Plan a training for this** (attaches the goal to the session you create) and Delete goal; and the primary **Save goal**, enabled once the name or details change. Leaving with unsaved edits asks before discarding. Photos and links save as soon as they're added.
 - **Profile → Friends:** a card with friend avatars and the count (opens the friends list), or "Add your first training partner" (opens My code), followed by Weekly streaks and Activity.
 - Goals are personal (name, free-form notes, reference links and photos). They're stored on the device per account and attached only to sessions in your own schedule until you share one. No progress, completion counts or rankings.
 
@@ -437,6 +439,7 @@ Implementation: website repository `your-note-haven`, with the read-only
 
 **Your circle** is your training partners plus the people they train with (one shared partner is enough). Suggestions and search only ever come from it: there is no public directory, and someone two partners away can't be found. Circle members can see each other's name, belt, gym and photo.
 
+- **Profile navigation:** tapping a member name or avatar in a post, comment, participant list, notification or shared-goal sender opens that member's profile. Inline names keep their existing typography and link by member ID; tapping your own name opens your Profile tab. Comment expansion, notification details, RSVP and guest selection keep their separate actions.
 - **Entry:** a round paper-2 **Search** button (Lucide `search`) in the Activity header, before Notifications and My code. It pushes Search.
 - **Search** (Direction A, familiar and minimal): back button and a search field ("Search people by name") at the top. Before typing, **Suggested for you** · "People who train with your training partners": a plain list, most shared partners first. Each row is a 48pt avatar with belt ring, the name (display 16), the gym (no belt strip or belt label: the ring shows rank), and up to three 18pt mutual avatars with "4 mutual partners" (or "1 mutual partner · Kenji"). The row opens the profile; **Follow** sits on the right as a small inverse pill with `user-plus`, and turns into a secondary **Following** pill with `check` (tap again to unfollow). Training partners read "Your training partner" and have no Follow button. Typing matches the start of any word in a name or a username; result rows add an xs belt strip with belt · gym: partners first, then by shared partners, with the typed part in full weight. No match: "No one by that name in your circle".
 - **Someone else's profile** reuses the personal profile header (80pt avatar, 28pt name, @username · gym, belt strip), then the same partners row as your own profile (a 30pt avatar stack, "12 training partners", chevron) that opens **Rafa's training partners**: the full list, **Your training partners** first, then **Others**, in Search's row style. Then a full-width primary **Follow Rafa**, or a secondary **Following** that opens an "Unfollow Rafa?" sheet ("You can follow again anytime"). Two underline tabs only: **Activity** (ticket stubs grouped by week, "with …" listing everyone but the profile's owner) and **Gallery** (3-column photo grid by month). No Progress and no Training partners tab. A closing line explains the scope: "You see the sessions Rafa trained in with you or your training partners."
@@ -470,8 +473,8 @@ Native: `PeopleSearchScreen`, `PersonProfileScreen`, `AppModel.circle` / `follow
 - Altered, redrawn or recolored logo (use `assets/brand/` files as-is).
 
 **Product constraints (MVP)**
-- Activity only shows posts tied to completed sessions; the completion flow *is* the composer.
-- Join sessions only via invitation, direct addition, or a valid link (Mat Monkey account required), never from the feed.
+- Activity shows upcoming link-visible session tickets and posts tied to completed sessions; the completion flow remains the memory composer.
+- Join sessions via invitation, direct addition, a valid link (Mat Monkey account required), or a friend's upcoming link-visible ticket in Activity. No public discovery of strangers.
 - Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
 - Friends connect instantly via QR, with no requests or approvals.
 

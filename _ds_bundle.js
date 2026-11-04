@@ -2951,7 +2951,7 @@ function App() {
     } : t),
     centerAction: {
       icon: 'plus',
-      label: 'Plan a session',
+      label: 'Plan a training',
       onClick: () => mm.go('create')
     }
   }), toastMsg && /*#__PURE__*/React.createElement("div", {
@@ -3678,7 +3678,7 @@ function CreateScreen({
         label: "Close",
         onClick: mm.back
       }),
-      title: past ? 'Log a past session' : 'Plan a session'
+      title: past ? 'Log a past session' : 'Plan a training'
     }),
     footer: /*#__PURE__*/React.createElement(CBtn, {
       size: "lg",
@@ -4709,7 +4709,7 @@ function Connected({
         friend: id
       });
     }
-  }, "Plan a session with ", p.name.split(' ')[0]), /*#__PURE__*/React.createElement(FBtn, {
+  }, "Plan a training with ", p.name.split(' ')[0]), /*#__PURE__*/React.createElement(FBtn, {
     variant: "ghost",
     fullWidth: true,
     onClick: onDone
@@ -5910,7 +5910,7 @@ function TrainingScreen() {
       right: /*#__PURE__*/React.createElement(TIB, {
         icon: "calendar-plus",
         variant: "filled",
-        label: "Plan a session",
+        label: "Plan a training",
         onClick: () => mm.go('create')
       })
     }), /*#__PURE__*/React.createElement("div", {

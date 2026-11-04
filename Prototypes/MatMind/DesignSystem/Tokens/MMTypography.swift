@@ -141,9 +141,10 @@ struct MMRun {
     var text: String
     var font: Font
     var color: Color
+    var link: URL? = nil
 
-    static func body(_ text: String, _ size: CGFloat, _ weight: MMWeight = .regular, color: Color = MMColor.textPrimary) -> MMRun {
-        MMRun(text: text, font: MMFont.body(size, weight), color: color)
+    static func body(_ text: String, _ size: CGFloat, _ weight: MMWeight = .regular, color: Color = MMColor.textPrimary, link: URL? = nil) -> MMRun {
+        MMRun(text: text, font: MMFont.body(size, weight), color: color, link: link)
     }
 }
 
@@ -153,6 +154,7 @@ func mmRich(_ runs: [MMRun]) -> Text {
         var part = AttributedString(run.text)
         part.font = run.font
         part.foregroundColor = run.color
+        part.link = run.link
         all += part
     }
     return Text(all)

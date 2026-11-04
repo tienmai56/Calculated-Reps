@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Tab 1: a feed of completed sessions only (the completion flow is the composer).
+/// Tab 1: open upcoming plans and completed memories from your crew.
 struct ActivityScreen: View {
     @Environment(AppModel.self) private var mm
 
@@ -12,40 +12,46 @@ struct ActivityScreen: View {
 
     private func feed(at now: Date) -> some View {
         let prompt = mm.activityPrompt(at: now)
+        let plans = mm.activityPlans(at: now)
         return MMScreen(tabPadding: true) {
-            HStack {
-                MMWordmark(size: 32)
+            MMHeader(title: "Activity", large: true, leading: {
+                MMHeaderMark()
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
-                Spacer()
+            }, trailing: {
                 MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
                 }
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
-            }
-            .padding(.leading, 20)
-            .padding(.trailing, 10)
-            .padding(.top, 6)
-            .padding(.bottom, 10)
-            .frame(minHeight: MMLayout.headerHeight)
+            })
         } content: {
             if let session = prompt {
                 ReadyToShare(session: session, now: now)
                     .padding(.vertical, 12)
             }
-            if mm.posts.isEmpty {
+            if mm.posts.isEmpty && plans.isEmpty {
                 EmptyActivity(prompt: prompt, now: now)
             } else {
+                if !plans.isEmpty {
+                    MMEyebrow("Coming up", topPadding: MMSpace.s4)
+                    VStack(spacing: MMSpace.s6) {
+                        ForEach(plans) { session in
+                            ActivityPlanCard(session: session)
+                        }
+                    }
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.bottom, MMSpace.s6)
+                }
                 ForEach(mm.posts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
                 }
-                if mm.isLive {
+                if mm.isLive && !mm.posts.isEmpty {
                     MMButton("Load older memories", variant: .ghost) {
                         Task { _ = await mm.runtime?.perform("load_more_feed", [:]) }
                     }.padding(.horizontal, 16)
                 }
-                Text("That's everything from your crew this week.\nGo make a new memory.")
+                Text("You're all caught up with your crew.\nGo make a new memory.")
                     .mmFont(.body, 13, .medium, lineHeight: 1.45)
                     .foregroundStyle(MMColor.textTertiary)
                     .multilineTextAlignment(.center)
@@ -53,6 +59,33 @@ struct ActivityScreen: View {
                     .padding(.horizontal, 40)
                     .padding(.top, 10)
                     .padding(.bottom, 20)
+            }
+        }
+    }
+}
+
+/// An invitation to train, using the same ticket as Training and session details.
+private struct ActivityPlanCard: View {
+    @Environment(AppModel.self) private var mm
+    let session: Session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s4) {
+            HStack(spacing: MMSpace.s3) {
+                MMIcon("link", size: 14, color: MMColor.textTertiary)
+                Text("Anyone with the link")
+                    .mmFont(.body, 13, .medium).foregroundStyle(MMColor.textSecondary)
+                Spacer()
+                if session.status(of: "me") == .going {
+                    MMBadge(session.organizer == "me" ? "You host" : "Going", variant: .success)
+                }
+            }
+            SessionTicket(session: session) { mm.go(.session(id: session.id)) }
+            if session.organizer != "me" && session.status(of: "me") != .going {
+                MMButton("Join session", size: .sm, iconLeft: "check", fullWidth: true) {
+                    mm.rsvp(session.id, .going)
+                }
+                .disabled(mm.busy)
             }
         }
     }
@@ -121,7 +154,7 @@ private struct ReadyToShare: View {
     }
 }
 
-/// No completed sessions yet. A plan stays a plan until the organizer publishes it.
+/// No open Activity plans or completed memories yet.
 private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
     let prompt: Session?
@@ -142,7 +175,7 @@ private struct EmptyActivity: View {
             }
         } else {
             MMEmptyState(artwork: .memory, title: "Good memories\nstart on the mat.",
-                         message: "Plan a session with your people.\nShare the photo after the rolls.",
+                         message: "Plan a training with your people.\nShare the photo after the rolls.",
                          actionTitle: "Plan a training session", actionIcon: "plus",
                          secondaryTitle: mm.friends.isEmpty ? "Add your mat people" : "Already trained? Log it",
                          secondaryIcon: mm.friends.isEmpty ? "qr-code" : "history",
@@ -166,20 +199,18 @@ struct PostCard: View {
     var body: some View {
         let org = mm.person(post.organizer)
         let liked = post.likes.contains("me")
-        let others = post.participants.filter { $0 != post.organizer }.map { $0 == "me" ? "You" : mm.person($0).name }
+        let others = post.participants.filter { $0 != post.organizer }.map { mm.person($0) }
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
-                Button {
-                    if post.organizer != "me" { mm.openPerson(post.organizer) }
-                } label: {
+                PersonProfileButton(person: org) {
                     MMAvatar(name: org.name, photo: org.photo, size: 42, belt: org.belt, ring: MMColor.white)
                 }
                 .buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 2) {
-                    mmRich([
-                        .body(post.organizer == "me" ? "You" : org.name, 15, .bold, color: MMColor.ink900),
-                        .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
-                    ])
+                    PersonText([
+                        .person(org, 15, .bold, color: MMColor.ink900),
+                        .body(others.isEmpty ? " trained" : " trained with ", 14, color: MMColor.textSecondary),
+                    ] + PersonText.names(others, size: 14, color: MMColor.textSecondary))
                     .lineSpacing(1)
                     Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
@@ -217,14 +248,14 @@ struct PostCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(post.title).mmFont(.display, 21, tracking: -0.025, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
-                if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
-                    TrainingFocusNames(items: post.focusItems)
-                        .padding(.top, MMSpace.s1)
-                }
                 if !post.caption.isEmpty {
                     MentionText(text: post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
+                    TrainingFocusNames(items: post.focusItems)
+                        .padding(.top, MMSpace.s1)
                 }
             }
             .padding(.horizontal, 4)
@@ -262,21 +293,32 @@ struct PostCard: View {
                     .accessibilityIdentifier("inline-comments-\(post.id)")
                     .transition(.opacity.combined(with: .move(edge: .top)))
             } else if let first = post.comments.first {
-                Button { toggleComments() } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        mmRich([.body(mm.person(first.who).firstName, 14, .bold), .body(" \(first.text)", 14)])
-                        if post.comments.count > 1 {
-                            Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        PersonProfileButton(person: mm.person(first.who)) {
+                            Text(first.who == "me" ? "You" : mm.person(first.who).firstName)
+                                .mmFont(.body, 14, .bold).foregroundStyle(MMColor.textPrimary)
                         }
+                        Button { toggleComments() } label: {
+                            Text(" \(first.text)").mmFont(.body, 14).foregroundStyle(MMColor.textPrimary)
+                                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Expand comments in the feed")
                     }
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
-                    .padding(.top, 2)
-                    .padding(.bottom, 4)
+                    if post.comments.count > 1 {
+                        Button { toggleComments() } label: {
+                            Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                                .frame(minHeight: MMLayout.tapTarget)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Expand comments in the feed")
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
+                .padding(.bottom, 4)
             }
         }
         .padding(12)
@@ -396,8 +438,12 @@ struct PostDetailScreen: View {
                         .padding(.bottom, 14)
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by \(isOrganizer ? "you" : organizer.name)")
-                        .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
+                    PersonText([
+                        .body("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by ", 13, .semibold, color: MMColor.textTertiary),
+                        .body(isOrganizer ? "you" : organizer.name, 13, .semibold, color: MMColor.textTertiary,
+                              link: PersonProfileLink.url(for: post.organizer)),
+                    ])
+                    .mmFont(.body, 13, .semibold, lineHeight: 1.4)
                     MentionText(text: post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
@@ -410,14 +456,16 @@ struct PostDetailScreen: View {
                         HStack(alignment: .top, spacing: 14) {
                             ForEach(post.participants, id: \.self) { pid in
                                 let p = mm.person(pid)
-                                VStack(spacing: 6) {
-                                    MMAvatar(name: p.name, photo: p.photo, size: 52, belt: p.belt)
-                                    Text(pid == "me" ? "You" : p.firstName).mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
-                                    if pid == post.organizer {
-                                        MMBadge("Host", variant: .soft, height: 18, fontSize: 10, paddingX: 6)
+                                PersonProfileButton(person: p) {
+                                    VStack(spacing: 6) {
+                                        MMAvatar(name: p.name, photo: p.photo, size: 52, belt: p.belt)
+                                        Text(pid == "me" ? "You" : p.firstName).mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
+                                        if pid == post.organizer {
+                                            MMBadge("Host", variant: .soft, height: 18, fontSize: 10, paddingX: 6)
+                                        }
                                     }
+                                    .frame(width: 60)
                                 }
-                                .frame(width: 60)
                             }
                         }
                         .padding(.top, 12)
@@ -428,9 +476,9 @@ struct PostDetailScreen: View {
                         if post.likes.isEmpty && post.extraLikes == 0 {
                             Text("Be the first to like this").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
                         } else {
-                        mmRich([
+                        PersonText([
                             .body("Liked by ", 14, .semibold, color: MMColor.textSecondary),
-                            .body(mmNames(post.likes.map { $0 == "me" ? "You" : mm.person($0).name }), 14, .bold, color: MMColor.ink900),
+                        ] + PersonText.names(post.likes.map { mm.person($0) }, size: 14, weight: .bold, color: MMColor.ink900) + [
                             .body(post.extraLikes > 0 ? " and \(post.extraLikes) others" : "", 14, .semibold, color: MMColor.textSecondary),
                         ])
                         }
@@ -633,9 +681,13 @@ private struct CommentRow: View {
     var body: some View {
         let p = mm.person(comment.who)
         HStack(alignment: .top, spacing: 12) {
-            MMAvatar(name: p.name, photo: p.photo, size: 34)
+            PersonProfileButton(person: p) {
+                MMAvatar(name: p.name, photo: p.photo, size: 34)
+            }
             VStack(alignment: .leading, spacing: 2) {
-                Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                PersonProfileButton(person: p) {
+                    Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                }
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }

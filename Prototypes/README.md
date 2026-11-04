@@ -14,16 +14,17 @@ The welcome photo stack fans into place and gently floats while the app is activ
 
 For visual review without Xcode, run `python3 Prototypes/WelcomePreview/serve.py` from the repository root and open the welcome preview on loopback port 4174. This standalone browser companion uses the same design-system tokens and assets; its demo continuation and return flow are independent of SwiftUI. Native compilation still requires Xcode 26 on macOS.
 
-**Prototype tools:** long-press the "mat monkey." wordmark on Welcome or Activity. That opens the review panel: journeys A–C, jumps to Welcome and the app screens, the key states, a component gallery, and "Reset demo".
+**Prototype tools:** long-press the "mat monkey." wordmark on Welcome, or the Silverback mark in the Activity header. That opens the review panel: journeys A–C, jumps to Welcome and the app screens, the key states, a component gallery, and "Reset demo".
 
 All data is sample data held in memory (`App/SeedData.swift`, from `ui_kits/app/data.js`). Nothing is saved or sent anywhere.
 
 ## Empty states
 
-The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity is a completed-session feed: an empty schedule alone never clears existing posts.
+The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity shows upcoming link-visible plans as well as completed memories: an empty schedule alone never clears existing posts.
 
 - **Home, no shared posts or plans:** “Good memories start on the mat.” Plan a training session; add friends by QR when the friend list is empty, or log a past session when friends already exist.
-- **Home, a plan exists:** “Your first photo is on its way.” View the plan or invitation. No post is created until a session is completed and published.
+- **Home, a friends-only plan exists:** “Your first photo is on its way.” View the plan or invitation. No completed post is created until a session is completed and published.
+- **Home, an upcoming link-visible plan exists:** show its session ticket under **Coming up**, even with no completed posts. The host and their friends see it; friends can open details and join. Discovery alone does not put it in Training. Tickets leave Activity when declined, started, cancelled or completed.
 - **Home, a session awaits completion:** “Proof you showed up.” Complete & share (in the card above) is the next action.
 - **Training → Upcoming, no upcoming plans/invites:** “Summon your crew” Plan a training session, with “Already trained? Log it” as a secondary action. Existing activity and past sessions remain available.
 - **Training → Past:** the same session tickets, newest first, including past sessions without a photo or shared post. Completed sessions stay here after publishing. The empty state offers **Log a past session**.
@@ -34,7 +35,7 @@ For a browser visual companion, run `python3 Prototypes/EmptyPreview/serve.py` f
 
 ## Session focus outline
 
-Plan a session keeps its original date carousel, time pills, gym chips, notes, friend grid, and privacy controls. **Add a focus**, beside Add a note, expands the optional **What are we working on?** section and focuses a blank item. Each focus has one **Add a detail** at the bottom of its card, and details sit one level under the focus, each with its own remove button. Details don't nest further; deeper items saved by earlier builds still show and can be removed. Titles are editable in place; the outline is not a checklist or a performance tracker.
+Plan a training keeps its original date carousel, time pills, gym chips, notes, friend grid, and privacy controls. **Add a focus**, beside Add a note, expands the optional **What are we working on?** section and focuses a blank item. Each focus has one **Add a detail** at the bottom of its card, and details sit one level under the focus, each with its own remove button. Details don't nest further; deeper items saved by earlier builds still show and can be removed. Titles are editable in place; the outline is not a checklist or a performance tracker.
 
 Blank items must be named or removed before saving; a completely empty outline is valid. Removing a parent asks for confirmation and removes its descendants. Cancel keeps the whole branch. Indentation is capped visually on small screens; deeper levels are labeled explicitly and retain their actual hierarchy.
 
@@ -42,7 +43,7 @@ When you have goals, they show as tags at the top of the section. Tapping one ad
 
 The organizer can edit the outline on session details using the pencil beside **What we're working on**, or from a hosted ticket's **Edit session** sheet. That sheet also includes **Guest list**: check friends to invite and uncheck guests to remove them. The organizer stays on the list and retained guests keep their RSVP. Focus and guest changes save with the session details; closing discards unsaved edits. The outline is carried into the completion flow and kept with the published post. Posts show only the focus names: as one scrolling row of tags under the title in the Activity feed (the caption is cut to two lines there), and as wrapping tags under **What we worked on** on post detail. Details are never shown on posts.
 
-For a populated example, long-press the Mat Monkey wordmark → States → **Plan a session · nested focus details** (a focus with details). Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
+For a populated example, long-press the Silverback mark on Activity → States → **Plan a training · nested focus details** (a focus with details). Normal planning starts with one blank optional focus card. This works for both upcoming sessions and logging a past session.
 
 A standalone browser companion is in `Prototypes/FocusPreview/`. Run `python3 Prototypes/FocusPreview/serve.py` from the repository root; it serves only preview assets on loopback port 4176. The browser companion mirrors the native planning form, including the original date/time, gym, note, friend, and privacy controls. The Example and Blank buttons are review controls outside the phone. Browser state is independent of the native app. The browser's completion action uses a labeled sample photo; real authentication and backend services are not connected.
 

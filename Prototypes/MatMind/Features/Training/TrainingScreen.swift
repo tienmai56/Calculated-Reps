@@ -440,7 +440,7 @@ struct SessionDetailScreen: View {
                     }
                     MMButton("Join", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
                 }
-            } else {
+            } else if mine == .going {
                 HStack(spacing: 8) {
                     MMBadge("You're going", variant: .success, dot: true, height: 34, fontSize: 14, paddingX: 14)
                     MMButton("Can't make it", variant: .ghost, size: .sm) {
@@ -449,6 +449,8 @@ struct SessionDetailScreen: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
+            } else if s.privacy == .link && mm.startDate(of: s) > Date() {
+                MMButton("Join session", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
             }
         }
         .sheet(isPresented: $showFocusEditor) {
@@ -539,10 +541,15 @@ private struct AttendeeRow: View {
         let badge = attendee.status.badge
         let isFresh = mm.fresh == session.id + attendee.id
         HStack(spacing: 12) {
-            MMAvatar(name: p.name, photo: p.photo, size: 40, belt: p.belt, ring: .white)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(attendee.id == "me" ? "You" : p.name).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
-                Text(attendee.id == session.organizer ? "Organizer" : p.gym).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            PersonProfileButton(person: p) {
+                HStack(spacing: 12) {
+                    MMAvatar(name: p.name, photo: p.photo, size: 40, belt: p.belt, ring: .white)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(attendee.id == "me" ? "You" : p.name).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                        Text(attendee.id == session.organizer ? "Organizer" : p.gym).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             MMBadge(badge.label, variant: badge.variant)

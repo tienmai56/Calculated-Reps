@@ -8,6 +8,6 @@ The Silverback logo, drawn inline from tokens (no asset paths needed). Rules: `D
 <Logo variant="lockupInverse" size={40} /> {/* on an ink card */}
 ```
 
-- One logo per screen at most; tab headers keep the plain Bricolage title.
+- One logo per screen at most. Top-level tab headers show the mark alone (32px) left of the plain Bricolage title; pushed screens show the title only.
 - Mark minimum 24px; lockup at least 120px wide (size ≥ 28).
 - Never recolor, outline or redraw it. For native or print, use the files in `assets/brand/`.
