@@ -15,6 +15,13 @@ struct Person: Identifiable, Hashable {
     var avatar: MMAvatarPerson { MMAvatarPerson(name: name, photo: photo) }
 }
 
+/// Someone who trains with at least one of your training partners but isn't one yet.
+/// `mutual` lists those shared partners, most connected first.
+struct CirclePerson: Identifiable, Hashable {
+    let id: String
+    var mutual: [String]
+}
+
 /// A friendship's weekly streak. `weeks` holds the last completed calendar
 /// weeks, oldest to newest; `thisWeek` is the current Mon–Sun week.
 struct Friendship: Identifiable, Hashable {
@@ -156,6 +163,7 @@ enum Route: Hashable {
     case session(id: String)
     case create(past: Bool = false, friend: String? = nil, focus: [TrainingFocus] = [])
     case complete(id: String)
+    /// A training partner's profile (the same screen as `.person`; kept for links and notifications).
     case friend(id: String)
     /// Friends now open from Profile instead of a tab.
     case friends
@@ -164,6 +172,12 @@ enum Route: Hashable {
     case sharedGoal(id: String)
     case qr(scan: Bool = false)
     case notifications
+    /// Search & discover people, opened from the Activity header.
+    case people
+    /// Someone who isn't your training partner (partners open `.friend`).
+    case person(id: String)
+    /// Someone's full training partner list, opened from their profile.
+    case partners(of: String)
 }
 
 struct SessionDraft: Equatable {

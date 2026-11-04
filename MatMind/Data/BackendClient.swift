@@ -62,6 +62,9 @@ struct SocialSnapshot: Codable, Equatable {
     var media: [SocialRow] = [], notifications: [SocialRow] = []
     /// Optional so caches saved before goal sharing still decode.
     var shared_goals: [SocialRow]? = nil, goal_shares: [SocialRow]? = nil
+    /// Optional so older caches still decode. `circle`: people who share a training partner
+    /// with you (`id`, `mutual` partner ids). `follows`: who you follow.
+    var circle: [SocialRow]? = nil, follows: [SocialRow]? = nil
 }
 
 @Model final class CachedSocialState {
@@ -172,6 +175,10 @@ actor BackendClient {
     func feed(before: SocialRow) async throws -> [SocialRow] {
         let data = try await request(path:"rest/v1/rpc/feed_page",body:["before_time":before.text("published_at"),"before_id":before.id])
         return try JSONDecoder().decode([SocialRow].self,from:data)
+    }
+    /// Someone's training partners (profile rows), or nil when you can't see their list.
+    func partners(of person: String) async throws -> [SocialRow]? {
+        try JSONDecoder().decode([SocialRow]?.self, from: await request(path:"rest/v1/rpc/partners_of", body:["person":person]))
     }
     func postDetails(_ id: String) async throws -> [String:[SocialRow]] {
         try JSONDecoder().decode([String:[SocialRow]].self,from:await request(path:"rest/v1/rpc/post_details",body:["post_id":id]))
