@@ -77,7 +77,7 @@ function App() {
         <TabScreen key={tab} highlight={highlight} />
         {stack.map(st => { const C = SCREENS[st.name]; return <C key={st.key} {...st.props} />; })}
         {stack.length === 0 && <XTab style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20 }} value={tab} onChange={mm.setTab} items={TABS.map(t => t.id === 'friends' ? { ...t, badge: mm.s.friends.some(f => mm.streakOf(f) > 0 && f.thisWeek === 'pending') } : t)}
-          centerAction={{ icon: 'plus', label: 'Plan a session', onClick: () => mm.go('create') }} />}
+          centerAction={{ icon: 'plus', label: 'Plan a training', onClick: () => mm.go('create') }} />}
         {toastMsg && <div key={toastMsg.k} style={{ position: 'absolute', top: 6, left: 12, right: 12, zIndex: 85, animation: 'mmToast .4s var(--ease-bounce)' }}><XToast variant={toastMsg.variant} message={toastMsg.message} /></div>}
       </Phone>
     </MMCtx.Provider>

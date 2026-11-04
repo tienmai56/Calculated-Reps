@@ -9,7 +9,7 @@
 const NS = window.MatMonkeysDesignSystem_8b0f80;
 const { Button, IconButton, Icon, Logo } = NS;
 function App(){ return <div className="c">
-<div className="r"><span className="lab">variant</span><Button iconLeft="plus">Plan a session</Button><Button variant="secondary">Decline</Button><Button variant="soft" iconLeft="link">Copy link</Button><Button variant="inverse">Join</Button><Button variant="ghost">Skip</Button></div>
+<div className="r"><span className="lab">variant</span><Button iconLeft="plus">Plan a training</Button><Button variant="secondary">Decline</Button><Button variant="soft" iconLeft="link">Copy link</Button><Button variant="inverse">Join</Button><Button variant="ghost">Skip</Button></div>
 <div className="r"><span className="lab">size</span><Button size="sm">Small</Button><Button size="md">Medium</Button><Button size="lg">Large</Button><Button disabled>Disabled</Button></div>
 <div className="r"><span className="lab">icon btn</span><IconButton icon="bell" label="Alerts" badge={3}/><IconButton icon="heart" label="Like" active filledWhenActive/><IconButton icon="message-circle" label="Comment"/><IconButton icon="bookmark" variant="filled" label="Save"/><IconButton icon="plus" variant="accent" label="New"/><IconButton icon="ellipsis" size={36} label="More"/></div>
 <div className="r"><span className="lab">icon</span>{['calendar-plus','users','qr-code','scan-line','map-pin','camera','handshake','link'].map(n=><Icon key={n} name={n} size={22} color="var(--text-secondary)"/>)}<Icon name="flame" size={22} color="var(--flame-500)" filled/></div>

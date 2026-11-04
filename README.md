@@ -54,7 +54,7 @@ Button, IconButton, Icon, Logo · Input, Select, Checkbox, Radio, Switch · Belt
 ## Use it
 ```html
 <link rel="stylesheet" href="styles.css">
-<button style="background:var(--accent);color:var(--text-on-accent);border-radius:var(--radius-pill)">Plan a session</button>
+<button style="background:var(--accent);color:var(--text-on-accent);border-radius:var(--radius-pill)">Plan a training</button>
 ```
 ```js
 // tailwind.config.js

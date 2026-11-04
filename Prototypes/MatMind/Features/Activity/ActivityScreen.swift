@@ -14,22 +14,17 @@ struct ActivityScreen: View {
         let prompt = mm.activityPrompt(at: now)
         let plans = mm.activityPlans(at: now)
         return MMScreen(tabPadding: true) {
-            HStack {
-                MMWordmark(size: 32)
+            MMHeader(title: "Activity", large: true, leading: {
+                MMHeaderMark()
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
-                Spacer()
+            }, trailing: {
                 MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
                 }
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
-            }
-            .padding(.leading, 20)
-            .padding(.trailing, 10)
-            .padding(.top, 6)
-            .padding(.bottom, 10)
-            .frame(minHeight: MMLayout.headerHeight)
+            })
         } content: {
             if let session = prompt {
                 ReadyToShare(session: session, now: now)
@@ -180,7 +175,7 @@ private struct EmptyActivity: View {
             }
         } else {
             MMEmptyState(artwork: .memory, title: "Good memories\nstart on the mat.",
-                         message: "Plan a session with your people.\nShare the photo after the rolls.",
+                         message: "Plan a training with your people.\nShare the photo after the rolls.",
                          actionTitle: "Plan a training session", actionIcon: "plus",
                          secondaryTitle: mm.friends.isEmpty ? "Add your mat people" : "Already trained? Log it",
                          secondaryIcon: mm.friends.isEmpty ? "qr-code" : "history",
@@ -255,14 +250,14 @@ struct PostCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(post.title).mmFont(.display, 21, tracking: -0.025, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
-                if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
-                    TrainingFocusNames(items: post.focusItems)
-                        .padding(.top, MMSpace.s1)
-                }
                 if !post.caption.isEmpty {
                     MentionText(text: post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
+                    TrainingFocusNames(items: post.focusItems)
+                        .padding(.top, MMSpace.s1)
                 }
             }
             .padding(.horizontal, 4)
