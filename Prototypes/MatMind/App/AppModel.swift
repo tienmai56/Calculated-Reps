@@ -466,7 +466,7 @@ final class AppModel {
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
                         caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems,
-                        occurredAt: s.startsAt ?? Date())
+                        occurredAt: s.startsAt ?? Date(), time: s.time)
         let streaks = friends
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }

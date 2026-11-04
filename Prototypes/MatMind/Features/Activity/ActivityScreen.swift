@@ -404,7 +404,7 @@ struct PostDetailScreen: View {
                         .padding(.bottom, 14)
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("\(post.date) · organized by \(isOrganizer ? "you" : organizer.name)")
+                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by \(isOrganizer ? "you" : organizer.name)")
                         .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
                     MentionText(text: post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
                         .fixedSize(horizontal: false, vertical: true)

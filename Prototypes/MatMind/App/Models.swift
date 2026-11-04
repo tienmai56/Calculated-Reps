@@ -62,6 +62,15 @@ struct Post: Identifiable, Hashable {
     var focusItems: [TrainingFocus] = []
     /// When the session happened, when known (live posts). Preview posts only have `date` text.
     var occurredAt: Date? = nil
+    /// Start time text (e.g. "6:00 PM"). Live posts derive it from `occurredAt`.
+    var time: String? = nil
+
+    var timeText: String? {
+        if let time { return time }
+        guard let occurredAt else { return nil }
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "h:mm a"
+        return formatter.string(from: occurredAt)
+    }
 }
 
 enum RSVP: String {
