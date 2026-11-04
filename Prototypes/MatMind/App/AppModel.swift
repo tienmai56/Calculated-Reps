@@ -279,10 +279,10 @@ final class AppModel {
 
     func go(_ route: Route) { path.append(route) }
 
-    /// Opens someone's profile: yours is the Profile tab, a training partner's shows your streak together.
+    /// Opens someone's profile: yours is the Profile tab; everyone else, partners included, gets the same profile page.
     func openPerson(_ id: String) {
         if id == "me" { setTab(.profile); return }
-        go(friendship(id) != nil ? .friend(id: id) : .person(id: id))
+        go(.person(id: id))
     }
 
     /// Follow or unfollow. The button flips right away; live, the next refresh confirms it.

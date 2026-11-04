@@ -677,9 +677,9 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.isFollowing("rafa"))
         ui.setFollowing("rafa", false)
         XCTAssertFalse(ui.isFollowing("rafa"))
-        // Partners open their streak profile; everyone else opens the public profile.
+        // Everyone, training partners included, opens the same profile page.
         ui.openPerson("sarah")
-        XCTAssertEqual(ui.path.last, .friend(id: "sarah"))
+        XCTAssertEqual(ui.path.last, .person(id: "sarah"))
         ui.openPerson("rafa")
         XCTAssertEqual(ui.path.last, .person(id: "rafa"))
     }

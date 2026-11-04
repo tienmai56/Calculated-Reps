@@ -45,7 +45,8 @@ struct MMAppShell: View {
         case let .session(id): SessionDetailScreen(id: id)
         case let .create(past, friend, focus): CreateScreen(startPast: past, friend: friend, initialFocus: focus)
         case let .complete(id): CompleteScreen(id: id)
-        case let .friend(id): FriendProfileScreen(id: id)
+        // Training partners get the same profile as everyone else, plus your streak and Invite.
+        case let .friend(id): PersonProfileScreen(id: id)
         case .friends: FriendsScreen(pushed: true)
         case let .goal(id): GoalDetailScreen(id: id)
         case let .sharedGoal(id): SharedGoalScreen(id: id)

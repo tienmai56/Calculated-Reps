@@ -163,6 +163,7 @@ enum Route: Hashable {
     case session(id: String)
     case create(past: Bool = false, friend: String? = nil, focus: [TrainingFocus] = [])
     case complete(id: String)
+    /// A training partner's profile (the same screen as `.person`; kept for links and notifications).
     case friend(id: String)
     /// Friends now open from Profile instead of a tab.
     case friends

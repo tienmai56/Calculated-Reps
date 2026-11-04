@@ -1066,8 +1066,16 @@ struct PersonProfileScreen: View {
                     }
                     Spacer(minLength: 0)
                 }
+                if let f = mm.friendship(id) { streakLine(f) }
                 partnersRow
-                if mm.canFollow(id) { followButton(p) }
+                HStack(spacing: 10) {
+                    if mm.canFollow(id) { followButton(p) }
+                    if mm.friendship(id) != nil {
+                        MMButton("Invite to train", variant: .secondary, iconLeft: "calendar-plus", fullWidth: true) {
+                            mm.go(.create(friend: id))
+                        }
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
@@ -1108,6 +1116,20 @@ struct PersonProfileScreen: View {
                 Task { if await mm.runtime?.perform("block_user", ["user_id": id]) == true { mm.back() } }
             }
         }
+    }
+
+    /// Your weekly streak with a training partner, in the same shape as the line on your own profile.
+    private func streakLine(_ f: Friendship) -> some View {
+        let n = f.streak
+        return HStack(spacing: 8) {
+            MMIcon("flame", size: 20, filled: n > 0, color: n > 0 ? MMColor.flame500 : MMColor.ink300)
+            Text(n > 0 ? "\(n)-week streak together" : "No streak yet")
+                .mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+            Text("·").mmFont(.body, 15).foregroundStyle(MMColor.textTertiary)
+            Text(f.together == 1 ? "1 session together" : "\(f.together) sessions together")
+                .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     /// "12 training partners", like your own profile. Opens the full list.
