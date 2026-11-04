@@ -1,6 +1,26 @@
 import SwiftUI
 import UIKit
 
+struct TrainingInvitationCard: View {
+    @Environment(AppModel.self) private var mm
+    let invitation: TrainingInvitation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("\(mm.person(invitation.organizer).firstName) invited you to train")
+                .mmFont(.display, 20, .bold).foregroundStyle(MMColor.textPrimary)
+            Text("Accept to see the session details.")
+                .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+            HStack(spacing: 8) {
+                MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }
+                MMButton("Accept", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(invitation.id, .going) }
+            }
+        }
+        .padding(16)
+        .mmCardSurface(radius: 22)
+    }
+}
+
 /// Tab 2: upcoming and past training, using the same session tickets.
 struct TrainingScreen: View {
     @Environment(AppModel.self) private var mm
@@ -33,9 +53,9 @@ struct TrainingScreen: View {
 
     private func training(now: Date) -> some View {
         let past = section == "past"
-        let list = mm.trainingSessions(past: past, relativeTo: now)
-        let invites = past ? [] : list.filter { $0.status(of: "me") == .invited }
-        let rest = past ? list : list.filter { $0.status(of: "me") != .invited }
+        let list = mm.trainingSessions(past: past, relativeTo: now).filter { $0.status(of: "me") != .invited }
+        let invites = past ? [] : mm.pendingTrainingInvitations
+        let rest = list
         return MMScreen(tabPadding: true) {
             MMHeader(title: "Training", large: true, trailing: {
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
@@ -44,7 +64,16 @@ struct TrainingScreen: View {
                 .padding(.horizontal, MMSpace.s6)
                 .padding(.bottom, MMSpace.s4)
         } content: {
-            if list.isEmpty {
+            if !past && !mm.pendingTrainingInvitations.isEmpty {
+                MMEyebrow("Invites", topPadding: 8)
+                VStack(spacing: 16) {
+                    ForEach(mm.pendingTrainingInvitations) { invitation in
+                        TrainingInvitationCard(invitation: invitation)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            if list.isEmpty && (past || mm.pendingTrainingInvitations.isEmpty) {
                 if past {
                     MMEmptyState(artwork: .plan, title: "Your past training",
                                  message: "Sessions show up here once their start time has passed. No photo needed.",
@@ -54,13 +83,6 @@ struct TrainingScreen: View {
                 } else {
                     EmptyTraining()
                 }
-            }
-            if !invites.isEmpty {
-                MMEyebrow("Invites", topPadding: 8)
-                VStack(spacing: 16) {
-                    ForEach(invites) { s in sessionCard(s) }
-                }
-                .padding(.horizontal, 16)
             }
             if !rest.isEmpty {
                 MMEyebrow(past ? "Past training" : "Coming up", topPadding: invites.isEmpty ? 8 : MMLayout.sectionGap)
@@ -74,22 +96,16 @@ struct TrainingScreen: View {
     }
 
     private func sessionCard(_ s: Session) -> some View {
-        let showsMenu = section == "upcoming" || (s.organizer == "me" && !mm.isCompleted(s))
+        let showsMenu = s.organizer == "me" && !mm.isCompleted(s)
         return VStack(alignment: .leading, spacing: 8) {
             SessionTicket(session: s, reservesMenuSpace: showsMenu) { mm.go(.session(id: s.id)) }
                 .overlay(alignment: .topTrailing) {
                     if showsMenu { sessionMenu(s) }
                 }
-            if section == "upcoming" && s.status(of: "me") == .invited {
-                HStack(spacing: 8) {
-                    MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(s.id, .declined) }
-                    MMButton("Join", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
-                }
-            }
         }
     }
 
-    /// Everyone can share an upcoming plan; only its host can edit or delete it.
+    /// The host can share a private invitation link, edit or delete the plan.
     private func sessionMenu(_ s: Session) -> some View {
         Menu {
             if section == "upcoming" {
@@ -100,17 +116,13 @@ struct TrainingScreen: View {
                         Task {
                             defer { preparingShare = false }
                             if let url = await mm.sessionInvitationURL(s.id) {
-                                invitationShare = TrainingInvitationShare(url: url, title: s.title)
+                                invitationShare = TrainingInvitationShare(url: url, title: "Training invitation")
                             }
                         }
                     } label: {
                         Label("Share session", image: "share-2")
                     }
                     .disabled(preparingShare)
-                } else {
-                    ShareLink(item: sessionShareText(s), subject: Text(s.title)) {
-                        Label("Share session", image: "share-2")
-                    }
                 }
             }
             if s.organizer == "me" && !mm.isCompleted(s) {
@@ -125,20 +137,6 @@ struct TrainingScreen: View {
         .accessibilityLabel("Options for \(s.title)")
         .padding(.top, 2)
         .padding(.trailing, 2)
-    }
-
-    private func sessionShareText(_ s: Session) -> String {
-        let when: String
-        if let startsAt = s.startsAt {
-            let formatter = DateFormatter()
-            formatter.timeZone = .current
-            formatter.dateStyle = .full
-            formatter.timeStyle = .short
-            when = "\(formatter.string(from: startsAt)) (\(formatter.timeZone.identifier))"
-        } else {
-            when = "\(s.day), \(s.month) \(s.date) · \(s.time)"
-        }
-        return "\(s.title)\n\(when)\n\(s.gym)"
     }
 }
 
@@ -214,7 +212,7 @@ private struct MatSessionEditorSheet: View {
 
     private var guestOptions: [String] {
         let existing = session.people.map(\.id).filter { $0 != session.organizer }
-        return existing + mm.friends.map(\.id).filter { $0 != session.organizer && !existing.contains($0) }
+        return existing + mm.invitees.map(\.id).filter { $0 != session.organizer && !existing.contains($0) }
     }
 
     var body: some View {
@@ -401,10 +399,26 @@ struct SessionDetailScreen: View {
     }
 
     var body: some View {
-        if let s = mm.findSession(id) {
+        if let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == id }) {
+            MMScreen {
+                MMHeader(title: "Training invitation", leading: {
+                    MMIconButton("chevron-left", label: "Back") { mm.back() }
+                })
+            } content: {
+                TrainingInvitationCard(invitation: invitation).padding(.horizontal, 16)
+            }
+        } else if let s = mm.findSession(id) {
             detail(s)
         } else {
-            MMColor.bgApp.ignoresSafeArea().toolbar(.hidden, for: .navigationBar)
+            MMScreen {
+                MMHeader(title: "Training", leading: {
+                    MMIconButton("chevron-left", label: "Back") { mm.back() }
+                })
+            } content: {
+                Text("This invitation is no longer available.")
+                    .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+                    .padding(.horizontal, 16)
+            }
         }
     }
 
@@ -414,7 +428,7 @@ struct SessionDetailScreen: View {
         let mine = s.status(of: "me")
         // Organizer first, everyone else in invite order.
         let rows = s.people.filter { $0.id == s.organizer } + s.people.filter { $0.id != s.organizer }
-        let addable = mm.friends.map(\.id).filter { fid in s.status(of: fid) == nil }
+        let addable = mm.invitees.map(\.id).filter { fid in s.status(of: fid) == nil }
         return MMScreen {
             MMHeader(title: "", leading: {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }

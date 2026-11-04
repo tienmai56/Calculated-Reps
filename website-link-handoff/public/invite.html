@@ -33,7 +33,7 @@
   if (pieces.length === 2 && ['friend','session','goal'].includes(kind) && /^[a-f0-9]{64}$/i.test(token || '')) {
     document.getElementById('description').textContent = {
       friend: 'A training partner invited you to connect on Mat Monkey.',
-      session: 'You’re invited to train together. Open Mat Monkey to see the session.',
+      session: 'You’re invited to train together. Open Mat Monkey and accept to see the session details.',
       goal: 'Someone shared a goal with you. Open it in Mat Monkey to see who it’s from and accept or decline.'
     }[kind];
     const open = document.getElementById('open');

@@ -132,6 +132,12 @@ struct Session: Identifiable, Hashable {
     var going: [String] { people.filter { $0.status == .going }.map(\.id) }
 }
 
+/// No session fields are delivered until this invitation is accepted.
+struct TrainingInvitation: Identifiable, Hashable {
+    let id: String
+    let organizer: String
+}
+
 struct AppNotification: Identifiable, Hashable {
     enum Kind: String {
         case invite, joined, comment, published, like, friend, mention

@@ -23,6 +23,11 @@
 
 One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Activity, Training, Goals, Profile) and a center **Plan a training** button.
 
+### Following and session invitations
+Scanning a code follows that person immediately. Scanning and Follow grant the same access: see their activity and invite them to train. Following is one-way and needs no approval. Training history and streaks do not grant additional visibility or invite permissions.
+
+An invitation shows the host with Accept and Decline. Accepting unlocks the session title, time, venue, notes, focus and guest list. Following, a pending invitation, or opening a session link does not reveal these details. Link previews are generic. Upcoming sessions appear only for the host and accepted guests.
+
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
 - **Logo: the Silverback** (adopted v1.1.0). A geometric gorilla head with a coral brow band, paired with the lowercase wordmark "mat monkey." in Bricolage Grotesque 800 with a coral period. Files live in `assets/brand/`; rules in §5.1. **Mat Monkey** is the product name as of design-system v1.2.0. Existing bundle identifiers, callbacks and storage keys (including `matmind.hasCompletedOnboarding` and `matmind.reflection.reminder`) retain their original values so existing installs, links and sign-in continue working.
@@ -320,7 +325,7 @@ Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candida
 ## 8. Screens & journeys
 Tabs: **Activity** (open upcoming plans and completed sessions) · **Training** (upcoming and past) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a training**.
 
-Upcoming sessions set to **Anyone with the link** appear immediately in the host's and the host's friends' Activity feeds, in a **Coming up** section ordered soonest first. Use the existing session ticket with date, time, gym and host, a link visibility label, and **Join session** for friends who aren't going. Tapping the ticket opens session details. Discovery does not add the session to Training: joining does. Friends-only sessions stay out of Activity. Declined, started, cancelled and completed plans leave this section; publishing a completed session still creates its own memory with the existing photo-or-note rule. Blocks and inactive friendships prevent discovery and feed joins. Invitation links keep their existing account requirement.
+Upcoming link-visible sessions appear in the host's and accepted guests' Activity, ordered soonest first. Followers receive a generic invitation with Accept and Decline; session tickets and details appear only after acceptance. Opening an invitation link creates a pending invitation and never accepts automatically. Declined, started, cancelled and completed plans leave Coming up. Publishing a completed session creates a separate memory with the existing photo-or-note rule, visible to its participants and followers. Blocks revoke access. Invitation links require a Mat Monkey account.
 
 | # | Screen | Prototype file |
 |---|---|---|

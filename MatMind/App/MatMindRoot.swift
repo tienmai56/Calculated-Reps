@@ -461,7 +461,10 @@ final class LiveMatMindRuntime: AppRuntime {
             return Friendship(id: other, weeks: weeks, thisWeek: buckets.contains(formatter.string(from: week)) ? .done : .pending,
                               best: model.streak(row).best, together: credits.count, currentStreak: model.streak(row).current)
         }
-        let sessions = (model.snapshot.sessions + (model.snapshot.activity_sessions ?? [])).filter { ["planned", "completed"].contains($0.text("status")) }.map { row in
+        let sessions = model.snapshot.sessions.filter { row in
+            ["planned", "completed"].contains(row.text("status")) &&
+            (row.text("organizer") == userID || model.attendees(row.id).contains { $0.text("user_id") == userID && $0.text("rsvp") == "going" })
+        }.map { row in
             let date = row.date("starts_at") ?? Date()
             let content = SessionNoteCodec.decode(row.text("note"))
             return Session(id: row.id, title: row.text("title"), day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
@@ -494,6 +497,19 @@ final class LiveMatMindRuntime: AppRuntime {
             CirclePerson(id: localID(row.text("id")), mutual: (row.values["mutual"]?.strings ?? []).map(localID))
         }
         ui.following = Set((model.snapshot.follows ?? []).map { localID($0.text("followee")) })
+        ui.trainingInvitations = (model.snapshot.training_invitations ?? []).map { row in
+            let host = localID(row.text("organizer"))
+            if ui.people[host] == nil {
+                ui.people[host] = Person(id: host, name: row.text("organizer_name"), belt: .white, stripes: 0, gym: "", hue: .coral)
+            }
+            return TrainingInvitation(id: row.text("id"), organizer: host)
+        }
+        // Old caches may still contain invited sessions; render only their invitation.
+        for row in model.snapshot.sessions where row.text("organizer") != userID && model.attendees(row.id).contains(where: { $0.text("user_id") == userID && $0.text("rsvp") == "invited" }) {
+            if !ui.trainingInvitations.contains(where: { $0.id == row.id }) {
+                ui.trainingInvitations.append(TrainingInvitation(id: row.id, organizer: localID(row.text("organizer"))))
+            }
+        }
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
                             who: localID(row.text("actor")), session: row.text("entity_id"), text: row.text("message"),

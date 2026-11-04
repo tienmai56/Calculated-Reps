@@ -128,7 +128,7 @@ enum SeedData {
         AppNotification(id: "n4", kind: .published, who: "sarah", text: "shared Sunday No-Gi open mat. You're in it.", photo: "roll-gi", time: "18h"),
         AppNotification(id: "n5", kind: .joined, who: "sarah", text: "joined Saturday open mat", time: "1d"),
         AppNotification(id: "n6", kind: .like, who: "priya", text: "liked your memory", photo: "group-class", time: "1d"),
-        AppNotification(id: "n7", kind: .friend, who: "lena", text: "added you as a training partner", time: "2d"),
+        AppNotification(id: "n7", kind: .friend, who: "lena", text: "started following you", time: "2d"),
     ]
 
     static let goals: [MatGoal] = [
