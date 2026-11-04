@@ -125,8 +125,8 @@ struct CreateScreen: View {
                     .padding(.top, 10)
                 }
 
-                field("Where") {
-                    MMPlaceSearchField(label: "Gym or venue", text: $gym)
+                field("Location") {
+                    MMPlaceSearchField(text: $gym)
                     MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
                         if !showNote {
                             MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {
