@@ -42,6 +42,7 @@ struct ProfileScreen: View {
                     MMAvatar(name: me.name, photo: me.photo, size: 80, belt: me.belt)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(me.name).mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                            .mmMonkey(me.monkey, size: 28)
                         if !me.username.isEmpty {
                             Text("@" + me.username).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                         }
@@ -69,6 +70,15 @@ struct ProfileScreen: View {
         }
         .mmSheet(isPresented: $showSettings, title: "Account") {
             VStack(alignment: .leading, spacing: 16) {
+                // Build my monkey (Maybe later, or never asked) or Edit my monkey.
+                MonkeyAccountRow {
+                    showSettings = false
+                    Task {
+                        // Let the sheet finish closing before the builder covers the screen.
+                        try? await Task.sleep(for: .seconds(0.35))
+                        mm.editingMonkey = true
+                    }
+                }
                 photoRow
                 MMTextField(label: "Name", text: $name)
                 if mm.isLive {
@@ -962,7 +972,8 @@ private struct NotificationRow: View {
                 }
             VStack(alignment: .leading, spacing: 0) {
                 if note.kind == .invite, let s = session {
-                    mmRich([.body(p.firstName, 15, .bold), .body(" invited you to ", 15), .body(s.title, 15, .bold)])
+                    (mmRich([.body(p.firstName, 15, .bold)]) + mmMonkeyText(p.monkey)
+                        + mmRich([.body(" invited you to ", 15), .body(s.title, 15, .bold)]))
                     Text("\(s.day), \(s.month) \(s.date) · \(s.time) · \(s.gym)").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     if s.status(of: "me") == .invited {
                         HStack(spacing: 8) {
@@ -976,7 +987,7 @@ private struct NotificationRow: View {
                             .padding(.top, 8)
                     }
                 } else {
-                    mmRich([.body(p.firstName, 15, .bold), .body(" \(note.text)", 15)])
+                    (mmRich([.body(p.firstName, 15, .bold)]) + mmMonkeyText(p.monkey) + mmRich([.body(" \(note.text)", 15)]))
                     if let quote = note.quote {
                         Text("“\(quote)”").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 4)
                     }

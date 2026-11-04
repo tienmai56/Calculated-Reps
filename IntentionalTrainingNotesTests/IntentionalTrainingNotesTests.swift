@@ -1500,3 +1500,53 @@ final class GoalSharingTests: XCTestCase {
                        "https://matmindbjj.lovable.app/goal/" + token)
     }
 }
+
+@MainActor
+final class MonkeyTests: XCTestCase {
+    func testMonkeyCodesRoundTripAndMatchTheServerFormat() throws {
+        // Mirrors the profiles.monkey check in 20261104140000_monkey_avatars.sql.
+        let server = try NSRegularExpression(pattern: "^(happy|grin|focused|tired|side|tapped)\\.(ink-900|ink-700|ink-500|coral-700)\\.(clean|tuft|fringe|mohawk|topknot|curls)$")
+        for mood in MMMonkeyLook.Mood.allCases {
+            for fur in MMMonkeyLook.Fur.allCases {
+                for haircut in MMMonkeyLook.Haircut.allCases {
+                    let look = MMMonkeyLook(mood: mood, fur: fur, haircut: haircut)
+                    XCTAssertEqual(MMMonkeyLook(code: look.code), look)
+                    XCTAssertEqual(server.numberOfMatches(in: look.code, range: NSRange(look.code.startIndex..., in: look.code)), 1, look.code)
+                }
+            }
+        }
+        XCTAssertEqual(MMMonkeyLook(code: "grin.coral-700.topknot"), MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .topknot))
+    }
+
+    func testUnknownOrMissingMonkeysMeanJustTheName() {
+        for code in ["", "happy.ink-900", "angry.ink-900.tuft", "happy.sun-600.tuft", "happy.ink-900.afro", "happy.ink-900.tuft.extra"] {
+            XCTAssertNil(MMMonkeyLook(code: code), code)
+        }
+    }
+
+#if DEBUG
+    func testPreviewMembersGetOneInvitationAndSavingAnswersIt() async {
+        let ui = AppModel(live: false)
+        ui.enterDemo()
+        XCTAssertNil(ui.me.monkey)
+        XCTAssertTrue(ui.shouldAskForMonkey, "an account without a monkey is asked on Activity")
+        ui.go(.notifications)
+        XCTAssertFalse(ui.shouldAskForMonkey, "never over a pushed screen")
+        ui.back()
+
+        let look = MMMonkeyLook(mood: .focused, fur: .charcoal, haircut: .mohawk)
+        let saved = await ui.saveMonkey(look)
+        XCTAssertTrue(saved)
+        XCTAssertEqual(ui.me.monkey, look)
+        XCTAssertFalse(ui.shouldAskForMonkey)
+    }
+
+    func testMaybeLaterStopsTheInvitation() {
+        let ui = AppModel(live: false)
+        ui.enterDemo()
+        ui.answerMonkeyPrompt()
+        XCTAssertNil(ui.me.monkey)
+        XCTAssertFalse(ui.shouldAskForMonkey, "Maybe later: the Account row is the way back in")
+    }
+#endif
+}

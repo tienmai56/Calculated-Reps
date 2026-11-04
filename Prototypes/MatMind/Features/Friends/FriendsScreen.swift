@@ -116,6 +116,7 @@ private struct FriendStreakCard: View {
                 MMPairAvatars(a: mm.me.avatar, b: p.avatar, size: 40, hue: broken ? .coral : p.hue, knot: !broken)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("You + \(p.firstName)").mmFont(.display, 17, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
+                        .mmMonkey(p.monkey, size: 20)
                     Text(copy.line).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
                 .multilineTextAlignment(.leading)
@@ -172,7 +173,9 @@ struct FriendProfileScreen: View {
         } content: {
             VStack(spacing: 0) {
                 MMAvatar(name: p.name, photo: p.photo, size: 104, belt: p.belt)
-                Text(p.name).mmFont(.display, 30, tracking: -0.035, lineHeight: 1.05).foregroundStyle(MMColor.ink900).padding(.top, 14)
+                Text(p.name).mmFont(.display, 30, tracking: -0.035, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                    .mmMonkey(p.monkey, size: 28)
+                    .padding(.top, 14)
                 Text(p.gym).mmFont(.body, 14).foregroundStyle(MMColor.textTertiary).padding(.top, 4)
                 MMBelt(rank: p.belt, stripes: p.stripes, size: .sm, width: 180, showLabel: true).padding(.top, 14)
             }

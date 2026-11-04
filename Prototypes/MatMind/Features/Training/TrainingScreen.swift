@@ -331,6 +331,7 @@ struct SessionDetailScreen: View {
                     HStack(spacing: 12) {
                         MMAvatar(name: p.name, size: 36)
                         Text(p.name).mmFont(.body, 15, .semibold).foregroundStyle(MMColor.textPrimary)
+                            .mmMonkey(p.monkey, size: 18)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         MMCheckbox(isOn: Binding(
                             get: { picked.contains(fid) },
@@ -379,6 +380,7 @@ private struct AttendeeRow: View {
             MMAvatar(name: p.name, photo: p.photo, size: 40, belt: p.belt, ring: .white)
             VStack(alignment: .leading, spacing: 2) {
                 Text(attendee.id == "me" ? "You" : p.name).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                    .mmMonkey(p.monkey, size: 18)
                 Text(attendee.id == session.organizer ? "Organizer" : p.gym).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

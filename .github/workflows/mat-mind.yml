@@ -77,7 +77,7 @@ jobs:
       - name: Validate migrations and authorization
         env:
           PGPASSWORD: local-test-password
-        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/monkey.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
       - name: Verify simultaneous username allocation
         env:
           PGPASSWORD: local-test-password

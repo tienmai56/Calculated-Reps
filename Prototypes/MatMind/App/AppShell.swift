@@ -14,6 +14,7 @@ struct MMAppShell: View {
                         }
                 }
                 .transition(.opacity)
+                .modifier(MonkeyPresentation())
             } else {
                 WelcomeScreen()
                     .transition(.opacity)
@@ -52,6 +53,37 @@ struct MMAppShell: View {
         case let .qr(scan): QRScreen(startOnScan: scan)
         case .notifications: NotificationsScreen()
         }
+    }
+}
+
+/// Members who joined before monkeys get one invitation on Activity once the feed is up;
+/// the builder opens over whatever screen is showing and closes back onto it.
+private struct MonkeyPresentation: ViewModifier {
+    @Environment(AppModel.self) private var mm
+    @State private var buildAfterPrompt = false
+
+    func body(content: Content) -> some View {
+        @Bindable var mm = mm
+        content
+            .task(id: mm.shouldAskForMonkey) {
+                guard mm.shouldAskForMonkey else { return }
+                // Let the feed settle before asking.
+                try? await Task.sleep(for: .seconds(1.2))
+                if mm.shouldAskForMonkey { mm.monkeyPromptVisible = true }
+            }
+            .sheet(isPresented: $mm.monkeyPromptVisible, onDismiss: {
+                // Swiping the sheet away counts as Maybe later.
+                mm.answerMonkeyPrompt()
+                if buildAfterPrompt { buildAfterPrompt = false; mm.editingMonkey = true }
+            }) {
+                MonkeyPromptSheet(
+                    onBuild: { buildAfterPrompt = true; mm.monkeyPromptVisible = false },
+                    onLater: { mm.monkeyPromptVisible = false }
+                )
+            }
+            .fullScreenCover(isPresented: $mm.editingMonkey) {
+                MonkeyEditScreen()
+            }
     }
 }
 

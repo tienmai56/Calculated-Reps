@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "Mat Monkey Design System",
-  "version": "1.2.0",
-  "updated": "2026-11-02",
+  "version": "1.3.0",
+  "updated": "2026-11-04",
   "platform": {
     "primary": "iOS (SwiftUI)",
     "designWidth": 390,
@@ -523,6 +523,44 @@
       "fallback": "initials on friend-hue tint",
       "ring": "belt color"
     },
+    "Monkey": {
+      "placement": "right after a member's name, never in place of the avatar",
+      "sizes": {
+        "comment": 16,
+        "ticket": 16,
+        "list": 20,
+        "post": 20,
+        "profile": 28
+      },
+      "canvas": 200,
+      "colors": {
+        "fur": [
+          "ink-900",
+          "ink-700",
+          "ink-500",
+          "coral-700"
+        ],
+        "face": "white"
+      },
+      "moods": [
+        "happy",
+        "grin",
+        "focused",
+        "tired",
+        "side",
+        "tapped"
+      ],
+      "haircuts": [
+        "clean",
+        "tuft",
+        "fringe",
+        "mohawk",
+        "topknot",
+        "curls"
+      ],
+      "stored": "mood.fur.haircut",
+      "backdrop": "none"
+    },
     "AvatarStack": {
       "overlap": "32% of size",
       "ringWidth": 2.5
@@ -595,7 +633,7 @@
       "leaderboards",
       "badges or milestones",
       "performance analytics",
-      "custom avatar builder",
+      "avatar options beyond the monkey (mood, fur, haircut)",
       "emoji in UI chrome",
       "gradients as decoration",
       "pure black text",

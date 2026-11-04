@@ -65,6 +65,7 @@ final class AppModel {
         gyms = []; cameraRoll = []
         people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
+        editingMonkey = false; monkeyPromptVisible = false; monkeyPromptAnswered = true; monkeyAccount = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
     }
@@ -245,6 +246,47 @@ final class AppModel {
         later(2.6) { [weak self] in
             if self?.toast?.id == data.id { self?.toast = nil }
         }
+    }
+
+    // MARK: Monkey
+
+    /// The monkey builder, open over whatever screen the member was on.
+    var editingMonkey = false
+    /// The one-time "Your monkey's waiting" sheet for members who joined before monkeys.
+    var monkeyPromptVisible = false
+    /// Whether this account already answered that sheet (Build my monkey or Maybe later).
+    private(set) var monkeyPromptAnswered = true
+    @ObservationIgnored private var monkeyAccount: String?
+
+    /// Ask once, on Activity with nothing pushed, after the profile exists.
+    var shouldAskForMonkey: Bool {
+        isSignedIn && !me.name.isEmpty && me.monkey == nil && !monkeyPromptAnswered
+            && path.isEmpty && tab == .activity && !editingMonkey
+    }
+
+    private static func monkeyPromptKey(_ account: String) -> String { "matmonkeys.monkeyPrompt.\(account)" }
+
+    /// Installed app: reads whether the signed-in account already answered the invitation.
+    func loadMonkeyPrompt(account: String) {
+        guard isLive, monkeyAccount != account else { return }
+        monkeyAccount = account
+        monkeyPromptAnswered = UserDefaults.standard.bool(forKey: Self.monkeyPromptKey(account))
+    }
+
+    /// Build or Maybe later: either way the sheet doesn't come back. Account keeps the row.
+    func answerMonkeyPrompt() {
+        monkeyPromptAnswered = true
+        if isLive, let monkeyAccount { UserDefaults.standard.set(true, forKey: Self.monkeyPromptKey(monkeyAccount)) }
+    }
+
+    /// Saves the signed-in member's monkey: the set_monkey command when live, this device in preview.
+    func saveMonkey(_ look: MMMonkeyLook) async -> Bool {
+        if isLive {
+            guard let runtime, await runtime.perform("set_monkey", ["monkey": look.code]) else { return false }
+        }
+        me.monkey = look
+        answerMonkeyPrompt()
+        return true
     }
 
     private func later(_ seconds: Double, _ work: @escaping @MainActor () -> Void) {
@@ -943,12 +985,15 @@ final class AppModel {
         sharedGoals = SeedData.sharedGoals
         sharedGoalIDs = [:]
         goalRecipients = [:]
+        // The preview account predates monkeys, so reviewers see the invitation.
+        monkeyPromptAnswered = false
 #endif
         drafts = []
         path = []
         toast = nil
         highlight = nil
-        fresh = nil
+        fresh = nil        editingMonkey = false
+        monkeyPromptVisible = false
     }
 
     /// Deep links from the web prototype's review panel (`index.html#…`).

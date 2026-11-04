@@ -171,10 +171,25 @@ struct PostCard: View {
     @State private var commentsExpanded = false
     @State private var commentText = ""
 
+    /// " trained with Lena & Kenji": first names, each followed by their monkey.
+    private func trainedWith(_ ids: [String]) -> Text {
+        func plain(_ text: String) -> Text { mmRich([.body(text, 14, color: MMColor.textSecondary)]) }
+        guard !ids.isEmpty else { return plain(" trained") }
+        let shown = ids.count <= 2 ? ids : Array(ids.prefix(2))
+        var text = plain(" trained with ")
+        for (index, id) in shown.enumerated() {
+            if index > 0 { text = text + plain(ids.count <= 2 ? " & " : ", ") }
+            let person = mm.person(id)
+            text = text + plain(id == "me" ? "You" : person.firstName) + mmMonkeyText(person.monkey, size: 16)
+        }
+        if ids.count > 2 { text = text + plain(" +\(ids.count - 2)") }
+        return text
+    }
+
     var body: some View {
         let org = mm.person(post.organizer)
         let liked = post.likes.contains("me")
-        let others = post.participants.filter { $0 != post.organizer }.map { $0 == "me" ? "You" : mm.person($0).name }
+        let others = post.participants.filter { $0 != post.organizer }
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Button {
@@ -184,10 +199,8 @@ struct PostCard: View {
                 }
                 .buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 2) {
-                    mmRich([
-                        .body(post.organizer == "me" ? "You" : org.name, 15, .bold, color: MMColor.ink900),
-                        .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
-                    ])
+                    (mmRich([.body(post.organizer == "me" ? "You" : org.name, 15, .bold, color: MMColor.ink900)])
+                        + mmMonkeyText(org.monkey) + trainedWith(others))
                     .lineSpacing(1)
                     Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
@@ -272,7 +285,8 @@ struct PostCard: View {
             } else if let first = post.comments.first {
                 Button { toggleComments() } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        mmRich([.body(mm.person(first.who).firstName, 14, .bold), .body(" \(first.text)", 14)])
+                        (mmRich([.body(mm.person(first.who).firstName, 14, .bold)]) + mmMonkeyText(mm.person(first.who).monkey, size: 16)
+                            + mmRich([.body(" \(first.text)", 14)]))
                         if post.comments.count > 1 {
                             Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                         }
@@ -636,6 +650,7 @@ private struct CommentRow: View {
             MMAvatar(name: p.name, photo: p.photo, size: 34)
             VStack(alignment: .leading, spacing: 2) {
                 Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                    .mmMonkey(p.monkey, size: 16)
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -702,6 +717,7 @@ struct MentionSuggestions: View {
                         HStack(spacing: 8) {
                             MMAvatar(name: person.name, photo: person.photo, size: 28)
                             Text(person.name).mmFont(.body, 13, .semibold).foregroundStyle(MMColor.textPrimary)
+                                .mmMonkey(person.monkey, size: 16)
                             Text("@" + person.username).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                                 .lineLimit(1)
                             Spacer(minLength: 0)

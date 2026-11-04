@@ -41,7 +41,7 @@ Your favorite training partner: warm, a little cheeky, mat-literate. Sentence ca
 - Public discovery or matching with strangers; joining sessions from the feed.
 - Group chat or DMs.
 - Daily streaks, leaderboards, badges, milestones, rankings, performance analytics.
-- Custom avatar builder (not MVP).
+- Avatar options beyond the monkey's mood, fur and haircut (see `DESIGN.md` › Monkeys).
 - Decorative gradients, dark "fitness dashboard" styling, emoji UI, a redrawn or recolored logo (use the Silverback files in `assets/brand/` as-is).
 
 ## When producing work
