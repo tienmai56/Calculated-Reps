@@ -353,6 +353,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var photos: [String: String] = [:]
     private var avatarPhotos: [String: String] = [:]
     private var loadingAvatars: Set<String> = []
+    /// Photos of people known only from a partner list (snapshot avatars are pruned to the snapshot).
+    private var listAvatars: [String: String] = [:]
     private var photoOwner: String?
     private let imageLoader: (String, String) async throws -> Data
     private var connecting = false
@@ -392,9 +394,10 @@ final class LiveMatMindRuntime: AppRuntime {
     func sync() {
         if photoOwner != model.userID {
             ui.resetSessionCreation()
-            for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) { try? FileManager.default.removeItem(atPath: path) }
+            for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) + Array(listAvatars.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
             avatarPhotos = [:]
+            listAvatars = [:]
             goalPhotos = [:]
             uploadedGoalPhotos = []
             photoOwner = model.userID
@@ -444,6 +447,10 @@ final class LiveMatMindRuntime: AppRuntime {
         // One "How was …?" card on Activity; `readyToShare` still lets any past session be shared from its page.
         ui.toComplete = Self.photoPrompt(upcoming: ui.upcoming, posts: ui.posts)
         syncSharedGoals(userID)
+        ui.circle = (model.snapshot.circle ?? []).map { row in
+            CirclePerson(id: localID(row.text("id")), mutual: (row.values["mutual"]?.strings ?? []).map(localID))
+        }
+        ui.following = Set((model.snapshot.follows ?? []).map { localID($0.text("followee")) })
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
                             who: localID(row.text("actor")), session: row.text("entity_id"), text: row.text("message"),
@@ -565,8 +572,9 @@ final class LiveMatMindRuntime: AppRuntime {
         if let deleting { deletingPosts.insert(deleting); sync() }
         if let deletingComment { deletingComments.insert(deletingComment); sync() }
         // A delete is already applied on screen, so it doesn't lock the app while it runs.
-        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either.
-        let result = await model.perform(operation, body, blocking: deleting == nil && deletingComment == nil && operation != "share_goal")
+        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either,
+        // and Follow has already flipped its button.
+        let result = await model.perform(operation, body, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow"].contains(operation))
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -753,6 +761,21 @@ final class LiveMatMindRuntime: AppRuntime {
               let token = result["token"]?.string else { return false }
         UIPasteboard.general.url = model.link(kind: "goal", token: token)
         return true
+    }
+    func partners(of personID: String) async -> [Person]? {
+        // `try?` flattens the optional: nil for a failed request or a list you can't see.
+        guard let owner = model.userID, let rows = try? await model.backend.partners(of: cloudID(personID)),
+              model.userID == owner else { return nil }
+        for key in Set(rows.map { $0.text("avatar_key") }) where !key.isEmpty && avatarPhotos[key] == nil && listAvatars[key] == nil {
+            guard let data = try? await imageLoader(key, "avatars"), model.userID == owner else { continue }
+            let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-avatar-\(UUID().uuidString).jpg")
+            if (try? data.write(to: path, options: .atomic)) != nil { listAvatars[key] = path.path }
+        }
+        return rows.map { row in
+            var found = person(row)
+            if found.photo == nil { found.photo = listAvatars[row.text("avatar_key")] }
+            return found
+        }
     }
     func scannerView(found: @escaping (String) -> Void) -> AnyView { AnyView(LiveScannerView(found: found)) }
     func exportView() -> AnyView {

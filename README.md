@@ -2,7 +2,7 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
-Upcoming sessions set to **Anyone with the link** appear in the host's and their friends' Activity feeds as soon as they are created. Friends can open the ticket and join; joining adds it to Training. Friends-only plans stay out of Activity. Apply `supabase/migrations/20261104140002_upcoming_activity_sessions.sql` before shipping this UI; it extends session visibility and validates joins from the feed.
+Upcoming sessions set to **Anyone with the link** appear in the host's and their friends' Activity feeds as soon as they are created. Friends can open the ticket and join; joining adds it to Training. Friends-only plans stay out of Activity. Apply `supabase/migrations/20261104160002_upcoming_activity_sessions.sql` before shipping this UI; it extends session visibility and validates joins from the feed.
 
 Live UI models start empty. Sample records and photos require explicit preview mode; Release/TestFlight builds exclude the sample photo catalog and demo tools. CI inspects the archived app's asset catalog to enforce this.
 

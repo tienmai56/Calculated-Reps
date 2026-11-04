@@ -63,7 +63,9 @@ create or replace function public.snapshot() returns jsonb language sql stable s
  'media',coalesce((select jsonb_agg(t) from public.media_assets t where state='ready'),'[]'::jsonb),
  'notifications',coalesce((select jsonb_agg(t) from (select * from public.notifications order by created_at desc limit 100) t),'[]'::jsonb),
  'shared_goals',coalesce((select jsonb_agg(t) from (select * from public.shared_goals where deleted_at is null order by updated_at desc limit 200) t),'[]'::jsonb),
- 'goal_shares',coalesce((select jsonb_agg(t) from (select * from public.goal_shares order by created_at desc limit 1000) t),'[]'::jsonb));
+ 'goal_shares',coalesce((select jsonb_agg(t) from (select * from public.goal_shares order by created_at desc limit 1000) t),'[]'::jsonb),
+ 'circle',public.my_circle(),
+ 'follows',coalesce((select jsonb_agg(t) from public.follows t),'[]'::jsonb));
 $$;
 revoke all on function public.snapshot() from public,anon;
 grant execute on function public.snapshot() to authenticated;

@@ -892,6 +892,71 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.cameraRoll.isEmpty)
     }
 
+    func testPeopleSearchStaysInYourCircleAndFollowingToggles() {
+        let ui = AppModel(live: false)
+        // Suggested: people who share a partner, most shared partners first; never your partners.
+        XCTAssertEqual(ui.suggestedPeople.first?.id, "rafa")
+        XCTAssertEqual(ui.mutualPartners("rafa").count, 4)
+        XCTAssertFalse(ui.suggestedPeople.contains { ui.friendship($0.id) != nil })
+        let counts = ui.suggestedPeople.map { ui.mutualPartners($0.id).count }
+        XCTAssertEqual(counts, counts.sorted(by: >))
+        // Search: word starts and usernames, partners first, nobody outside the circle.
+        XCTAssertEqual(ui.searchPeople("ma").map(\.id), ["marco", "maya", "mariana"])
+        XCTAssertEqual(ui.searchPeople("@rafam").map(\.id), ["rafa"])
+        XCTAssertEqual(ui.searchPeople("Mendes").map(\.id), ["rafa"])
+        XCTAssertTrue(ui.searchPeople("lena").isEmpty, "Lena isn't a partner and shares none with you")
+        XCTAssertTrue(ui.searchPeople("  ").isEmpty)
+        // Following needs no approval and can be undone.
+        XCTAssertFalse(ui.isFollowing("rafa"))
+        ui.setFollowing("rafa", true)
+        XCTAssertTrue(ui.isFollowing("rafa"))
+        ui.setFollowing("rafa", false)
+        XCTAssertFalse(ui.isFollowing("rafa"))
+        // Everyone, training partners included, opens the same profile page.
+        ui.openPerson("sarah")
+        XCTAssertEqual(ui.path.last, .person(id: "sarah"))
+        ui.openPerson("rafa")
+        XCTAssertEqual(ui.path.last, .person(id: "rafa"))
+    }
+
+    func testPartnerListsPutYourPartnersFirst() async {
+        let ui = AppModel(live: false)
+        await ui.loadPartners(of: "rafa")
+        let list = ui.partnerLists["rafa"] ?? []
+        XCTAssertEqual(list.count, 9)
+        XCTAssertEqual(Array(list.prefix(4)), ["alex", "kenji", "priya", "sarah"])
+        XCTAssertEqual(ui.person("owen").name, "Owen Brooks")
+        XCTAssertTrue(ui.canFollow("owen"), "anyone on a partner list you can see can be followed")
+        XCTAssertTrue(ui.canFollow("sarah"))
+        XCTAssertFalse(ui.canFollow("lena"), "not your partner, not in your circle, on no list you've opened")
+        XCTAssertFalse(ui.canFollow("me"))
+        XCTAssertTrue(ui.searchPeople("owen").isEmpty, "a partner list doesn't widen search")
+    }
+
+    func testLiveSnapshotMapsCircleAndFollows() throws {
+        let data = Data(#"""
+        {
+          "profiles":[{"id":"owner","name":"Dani"},{"id":"sarah","name":"Sarah Lee"},{"id":"rafa","name":"Rafa Mendes"}],
+          "friendships":[{"id":"f1","a":"owner","b":"sarah","active":true,"timezone":"UTC"}],
+          "circle":[{"id":"rafa","mutual":["sarah"]}],
+          "follows":[{"follower":"owner","followee":"rafa"}],
+          "sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]
+        }
+        """#.utf8)
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: data)
+        let ui = AppModel(live: true)
+        LiveMatMindRuntime(model: model, ui: ui).sync()
+        XCTAssertEqual(ui.circle, [CirclePerson(id: "rafa", mutual: ["sarah"])])
+        XCTAssertEqual(ui.suggestedPeople.map(\.id), ["rafa"])
+        XCTAssertTrue(ui.isFollowing("rafa"))
+        // Caches saved before following existed still decode.
+        let old = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"{"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]}"#.utf8))
+        XCTAssertNil(old.circle)
+        XCTAssertNil(old.follows)
+    }
+
     func testPhotoPromptFollowsLatestStartedTrainingUntilItIsShared() {
         let iso = ISO8601DateFormatter()
         let now = iso.date(from: "2026-11-04T12:00:00Z")!

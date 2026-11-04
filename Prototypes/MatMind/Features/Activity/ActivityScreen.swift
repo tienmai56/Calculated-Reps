@@ -11,6 +11,7 @@ struct ActivityScreen: View {
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
                 Spacer()
+                MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
                 MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
                     mm.go(.notifications)
                 }
@@ -40,7 +41,6 @@ struct ActivityScreen: View {
             if mm.posts.isEmpty && plans.isEmpty {
                 EmptyActivity()
             } else {
-                StreakNudges()
                 if !plans.isEmpty {
                     MMEyebrow("Coming up", topPadding: MMSpace.s4)
                     VStack(spacing: MMSpace.s6) {
@@ -180,47 +180,6 @@ private struct EmptyActivity: View {
     }
 }
 
-/// Tinted cards for live streaks that still need this week's session.
-private struct StreakNudges: View {
-    @Environment(AppModel.self) private var mm
-
-    var body: some View {
-        let list = mm.friends.filter { $0.thisWeek == .pending && $0.streak > 0 }
-        if !list.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(list) { f in
-                        let p = mm.person(f.id)
-                        Button { mm.go(.friend(id: f.id)) } label: {
-                            HStack(spacing: 12) {
-                                MMPairAvatars(a: mm.me.avatar, b: p.avatar, size: 38, hue: p.hue, ring: p.hue.tint)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("\(f.streak) weeks with \(p.firstName)")
-                                        .mmFont(.display, 16, lineHeight: 1.15)
-                                        .foregroundStyle(p.hue.ink)
-                                    Text("Roll together by Sunday to make it \(f.streak + 1)")
-                                        .mmFont(.body, 13, .medium, lineHeight: 1.3)
-                                        .foregroundStyle(MMColor.ink700)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                MMIcon("flame", size: 22, filled: true, color: MMColor.flame500)
-                            }
-                            .multilineTextAlignment(.leading)
-                            .padding(14)
-                            .frame(width: 262)
-                            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(p.hue.tint))
-                        }
-                        .buttonStyle(MMPressStyle())
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 2)
-                .padding(.bottom, 16)
-            }
-        }
-    }
-}
-
 struct PostCard: View {
     @Environment(AppModel.self) private var mm
     let post: Post
@@ -238,7 +197,7 @@ struct PostCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Button {
-                    if post.organizer != "me" { mm.go(.friend(id: post.organizer)) }
+                    if post.organizer != "me" { mm.openPerson(post.organizer) }
                 } label: {
                     MMAvatar(name: org.name, photo: org.photo, size: 42, belt: org.belt, ring: MMColor.white)
                 }
@@ -826,7 +785,7 @@ struct MentionText: View {
         Text(styled)
             .environment(\.openURL, OpenURLAction { url in
                 guard url.scheme == "matmonkeys-mention", let id = url.pathComponents.last else { return .systemAction }
-                if id == "me" { mm.setTab(.profile) } else { mm.go(.friend(id: id)) }
+                mm.openPerson(id)
                 return .handled
             })
     }
