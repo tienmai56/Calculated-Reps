@@ -545,6 +545,97 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.plannedSessions.contains { $0.id == "tomorrow" })
     }
 
+    func testActivityPromptFollowsTheNearestCommittedSessionAsTimePasses() {
+        let ui = AppModel(live: true)
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        func session(_ id: String, offset: TimeInterval, organizer: String = "me", status: RSVP = .going) -> Session {
+            Session(id: id, title: id, day: "Tue", date: 3, month: "Nov", time: "10:00 AM", gym: "Home gym",
+                    organizer: organizer, people: [Attendee(id: "me", status: status)], startsAt: now.addingTimeInterval(offset))
+        }
+        let recent = session("recent", offset: -3600)
+        let next = session("next", offset: 7200)
+        ui.upcoming = [
+            session("old", offset: -86400), next, recent,
+            session("invited", offset: 1, organizer: "friend", status: .invited),
+            session("declined", offset: -1, organizer: "friend", status: .declined),
+        ]
+        // A stale completion pointer must not decide which session Activity shows.
+        ui.toComplete = ui.upcoming.first
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "recent")
+        ui.upcoming.reverse()
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "recent")
+        XCTAssertEqual(ui.activityPrompt(at: now.addingTimeInterval(7200))?.id, "next")
+
+        ui.upcoming = [session("near-future", offset: 60), recent]
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "near-future", "An upcoming session can be closer than a past one")
+        ui.toComplete = nil
+        ui.upcoming = [next]
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "next", "The prompt must exist before any session is ready to share")
+        ui.upcoming = [session("joined", offset: 60, organizer: "friend"), next]
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "joined")
+
+        ui.upcoming = []
+        XCTAssertNil(ui.activityPrompt(at: now))
+        ui.toComplete = recent
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "recent", "Preview completion sessions can live outside the schedule")
+    }
+
+    func testActivityPromptBreaksEqualDistanceAndEqualTimeTiesConsistently() {
+        let ui = AppModel(live: true)
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        func session(_ id: String, offset: TimeInterval) -> Session {
+            Session(id: id, title: id, day: "Tue", date: 3, month: "Nov", time: "10:00 AM", gym: "Home gym",
+                    organizer: "me", people: [Attendee(id: "me", status: .going)], startsAt: now.addingTimeInterval(offset))
+        }
+        ui.upcoming = [session("future", offset: 60), session("past-b", offset: -60), session("past-a", offset: -60)]
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "past-a")
+        ui.upcoming.reverse()
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "past-a")
+    }
+
+    func testLiveCompletionUsesMostRecentUnsharedHostedSession() throws {
+        let data = Data(#"""
+        {
+          "profiles":[],"friendships":[],
+          "sessions":[
+            {"id":"old","organizer":"owner","starts_at":"2030-11-01T10:00:00Z","status":"planned"},
+            {"id":"completed","organizer":"owner","starts_at":"2030-11-03T11:59:00Z","status":"completed"},
+            {"id":"cancelled","organizer":"owner","starts_at":"2030-11-03T11:58:00Z","status":"cancelled"},
+            {"id":"friend","organizer":"friend","starts_at":"2030-11-03T11:57:00Z","status":"planned"},
+            {"id":"next","organizer":"owner","starts_at":"2030-11-04T10:00:00Z","status":"planned"},
+            {"id":"recent","organizer":"owner","starts_at":"2030-11-03T10:00:00Z","status":"planned"}
+          ],
+          "participants":[],
+          "posts":[{"id":"unrelated","author":"owner","occurred_at":"2030-11-03T11:59:00Z","caption":"Another training"}],
+          "tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]
+        }
+        """#.utf8)
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: data)
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2030-11-03T12:00:00Z"))
+        runtime.sync(now: now)
+        XCTAssertEqual(ui.toComplete?.id, "recent")
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "recent", "A later post for another training must not hide this unshared session")
+        model.snapshot.sessions.reverse()
+        runtime.sync(now: now)
+        XCTAssertEqual(ui.toComplete?.id, "recent")
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "recent")
+
+        // Publishing or cancelling the closest session advances the prompt.
+        let recentIndex = try XCTUnwrap(model.snapshot.sessions.firstIndex { $0.id == "recent" })
+        model.snapshot.sessions[recentIndex].values["status"] = .string("completed")
+        runtime.sync(now: now)
+        XCTAssertTrue(ui.completedSessions.contains { $0.id == "recent" })
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "next")
+        let nextIndex = try XCTUnwrap(model.snapshot.sessions.firstIndex { $0.id == "next" })
+        model.snapshot.sessions[nextIndex].values["status"] = .string("cancelled")
+        runtime.sync(now: now)
+        XCTAssertEqual(ui.activityPrompt(at: now)?.id, "old")
+    }
+
     func testEditingASessionsDateMovesItToItsChronologicalPosition() async throws {
         let ui = AppModel(live: false)
         // Preview tickets have labels only until they are edited.
@@ -955,35 +1046,6 @@ final class MatMindLiveUITests: XCTestCase {
         let old = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"{"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]}"#.utf8))
         XCTAssertNil(old.circle)
         XCTAssertNil(old.follows)
-    }
-
-    func testPhotoPromptFollowsLatestStartedTrainingUntilItIsShared() {
-        let iso = ISO8601DateFormatter()
-        let now = iso.date(from: "2026-11-04T12:00:00Z")!
-        func session(_ id: String, _ start: String, organizer: String = "me") -> Session {
-            Session(id: id, title: id, day: "Wed", date: 4, month: "Nov", time: "8:00 AM", gym: "Home gym",
-                    organizer: organizer, people: [Attendee(id: "me", status: .going)], startsAt: iso.date(from: start)!)
-        }
-        func post(_ at: String, organizer: String = "me", participants: [String] = ["me"]) -> Post {
-            Post(id: at, organizer: organizer, title: "Rolls", gym: "Home gym", date: "Wed, Nov 4", ago: "now", photo: nil,
-                 participants: participants, caption: "", likes: [], extraLikes: 0, comments: [], occurredAt: iso.date(from: at)!)
-        }
-        let older = session("older", "2026-11-02T08:00:00Z")
-        let latest = session("latest", "2026-11-04T08:00:00Z")
-        let future = session("future", "2026-11-05T08:00:00Z")
-        let theirs = session("theirs", "2026-11-04T09:00:00Z", organizer: "friend")
-
-        // The card picks the most recent training that has started, never a future or someone else's one.
-        XCTAssertEqual(LiveMatMindRuntime.photoPrompt(upcoming: [older, future, latest, theirs], posts: [], now: now)?.id, "latest")
-        // A photo shared for that training (yours, or one you're tagged in) clears the card.
-        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [older, latest], posts: [post("2026-11-04T08:00:00Z")], now: now))
-        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [latest], posts: [post("2026-11-04T10:00:00Z", organizer: "friend")], now: now))
-        // Older unshared plans don't come back once a newer training is shared.
-        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [older], posts: [post("2026-11-03T18:00:00Z")], now: now))
-        // A post from before the training, or one you're not in, doesn't count.
-        XCTAssertEqual(LiveMatMindRuntime.photoPrompt(upcoming: [latest], posts: [post("2026-11-03T18:00:00Z")], now: now)?.id, "latest")
-        XCTAssertEqual(LiveMatMindRuntime.photoPrompt(upcoming: [latest], posts: [post("2026-11-04T10:00:00Z", organizer: "friend", participants: ["friend"])], now: now)?.id, "latest")
-        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [future], posts: [], now: now))
     }
 
     func testFocusOutlineRoundTripsWithoutLosingPlainNotes() {

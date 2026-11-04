@@ -281,6 +281,24 @@ final class AppModel {
             }
     }
 
+    /// Keep Activity tied to the nearest unshared session, on either side of now.
+    /// Invitations and declined plans aren't training the member has committed to.
+    func activityPrompt(at now: Date) -> Session? {
+        var sessions = upcoming
+        if let toComplete, !sessions.contains(where: { $0.id == toComplete.id }) {
+            sessions.append(toComplete)
+        }
+        return sessions.filter { $0.organizer == "me" || $0.status(of: "me") == .going }
+            .min {
+                let first = startDate(of: $0), second = startDate(of: $1)
+                let firstDistance = abs(first.timeIntervalSince(now))
+                let secondDistance = abs(second.timeIntervalSince(now))
+                if firstDistance != secondDistance { return firstDistance < secondDistance }
+                // Prefer the past session on a tie, then keep equal-time rows stable.
+                return first == second ? $0.id < $1.id : first < second
+            }
+    }
+
     var unreadCount: Int { notifications.filter(\.unread).count }
 
     /// The Profile tab (home of Friends) shows a dot while any live streak still needs this week's session.

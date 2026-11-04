@@ -5,7 +5,15 @@ struct ActivityScreen: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        MMScreen(tabPadding: true) {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            feed(at: context.date)
+        }
+    }
+
+    private func feed(at now: Date) -> some View {
+        let prompt = mm.activityPrompt(at: now)
+        let plans = mm.activityPlans(at: now)
+        return MMScreen(tabPadding: true) {
             HStack {
                 MMWordmark(size: 32)
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
@@ -23,23 +31,12 @@ struct ActivityScreen: View {
             .padding(.bottom, 10)
             .frame(minHeight: MMLayout.headerHeight)
         } content: {
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                activityContent(at: context.date)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func activityContent(at now: Date) -> some View {
-        let plans = mm.activityPlans(at: now)
-        VStack(spacing: 0) {
-            // Only your latest training asks for a photo; older ones are shared from their session page.
-            if let session = mm.toComplete {
-                ReadyToShare(session: session)
+            if let session = prompt {
+                ReadyToShare(session: session, now: now)
                     .padding(.vertical, 12)
             }
             if mm.posts.isEmpty && plans.isEmpty {
-                EmptyActivity()
+                EmptyActivity(prompt: prompt, now: now)
             } else {
                 if !plans.isEmpty {
                     MMEyebrow("Coming up", topPadding: MMSpace.s4)
@@ -99,40 +96,51 @@ private struct ActivityPlanCard: View {
     }
 }
 
-/// Ink prompt card: "How was … ?" → Complete & share.
+/// The nearest session: share a past roll, or open an upcoming plan.
 private struct ReadyToShare: View {
     @Environment(AppModel.self) private var mm
     let session: Session
+    let now: Date
     @State private var confirmingSkip = false
+
+    private var hasStarted: Bool { mm.startDate(of: session) <= now }
+    private var canShare: Bool { hasStarted && session.organizer == "me" }
 
     /// Solo sessions share with the crew; never "the 1 of you".
     private var shareLine: String {
+        if !hasStarted { return "\(session.day) \(session.month) \(session.date) · \(session.time) · \(session.gym)" }
+        if !canShare { return "Your crew's post-roll memory starts here." }
         switch session.people.count {
-        case ...1: "Add a photo and share it with your crew."
-        case 2: "Add a photo and share it with the two of you."
-        case let n: "Add a photo and share it with the \(n) of you."
+        case ...1: return "Add a photo and share it with your crew."
+        case 2: return "Add a photo and share it with the two of you."
+        case let n: return "Add a photo and share it with the \(n) of you."
         }
     }
 
     var body: some View {
         HStack(spacing: 14) {
-            MMIcon("camera", size: 28, color: MMColor.ink500)
+            MMIcon(hasStarted ? "camera" : "calendar", size: 28, color: MMColor.ink500)
                 .frame(width: 64, height: 64)
                 .background(MMColor.paper2)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
-                Text("How was \(session.title)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
+                Text(hasStarted ? "How was \(session.title)?" : "Coming up: \(session.title)")
+                    .mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
                 Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
                     .padding(.top, 4)
                 HStack(spacing: 14) {
-                    MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
-                    Button("Didn't train") { confirmingSkip = true }
-                        .mmFont(.body, 13, .semibold, lineHeight: 1.2)
-                        .foregroundStyle(MMColor.ink200)
-                        .frame(minHeight: 36)
+                    MMButton(canShare ? "Complete & share" : "View session", size: .sm, iconLeft: canShare ? "camera" : "calendar") {
+                        mm.go(canShare ? .complete(id: session.id) : .session(id: session.id))
+                    }
+                    if canShare {
+                        Button("Didn't train") { confirmingSkip = true }
+                            .mmFont(.body, 13, .semibold, lineHeight: 1.2)
+                            .foregroundStyle(MMColor.ink200)
+                            .frame(minHeight: 36)
+                    }
                 }
                 .padding(.top, 10)
             }
@@ -154,12 +162,15 @@ private struct ReadyToShare: View {
 /// No open Activity plans or completed memories yet.
 private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
+    let prompt: Session?
+    let now: Date
 
     var body: some View {
-        if mm.toComplete != nil {
-            // The "How was …?" card above holds Complete & share, so no second primary here.
-            MMEmptyState(artwork: .memory, title: "Proof you showed up.",
-                         message: "Share a post-roll photo\nand your crew sees it here.")
+        if let prompt {
+            // The session card above already holds the primary action.
+            let hasStarted = mm.startDate(of: prompt) <= now
+            MMEmptyState(artwork: .memory, title: hasStarted ? "Proof you showed up." : "Your first photo\nis on its way.",
+                         message: hasStarted ? "Share a post-roll photo\nand your crew sees it here." : "Train together, then share the post-roll photo.")
         } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
             MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
                          message: "Train together, then share the post-roll photo.",

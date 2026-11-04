@@ -391,7 +391,7 @@ final class LiveMatMindRuntime: AppRuntime {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
                stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")], username: row.text("username"))
     }
-    func sync() {
+    func sync(now: Date = Date()) {
         if photoOwner != model.userID {
             ui.resetSessionCreation()
             for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) + Array(listAvatars.values) { try? FileManager.default.removeItem(atPath: path) }
@@ -444,8 +444,12 @@ final class LiveMatMindRuntime: AppRuntime {
                         focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
                         occurredAt: date)
         }
-        // One "How was …?" card on Activity; `readyToShare` still lets any past session be shared from its page.
-        ui.toComplete = Self.photoPrompt(upcoming: ui.upcoming, posts: ui.posts)
+        ui.toComplete = ui.upcoming.filter { session in
+            session.organizer == "me" && (session.startsAt ?? .distantFuture) <= now
+        }.sorted {
+            let first = $0.startsAt ?? .distantPast, second = $1.startsAt ?? .distantPast
+            return first == second ? $0.id < $1.id : first > second
+        }.first
         syncSharedGoals(userID)
         ui.circle = (model.snapshot.circle ?? []).map { row in
             CirclePerson(id: localID(row.text("id")), mutual: (row.values["mutual"]?.strings ?? []).map(localID))
@@ -456,18 +460,6 @@ final class LiveMatMindRuntime: AppRuntime {
                             who: localID(row.text("actor")), session: row.text("entity_id"), text: row.text("message"),
                             time: RelativeDateTimeFormatter().localizedString(for: row.date("created_at") ?? Date(), relativeTo: Date()), unread: row.text("read_at").isEmpty)
         }
-    }
-    /// The "How was …?" card follows your most recent training that has started: the latest
-    /// planned session you organize. Once a post of yours (or one you're tagged in) covers that
-    /// training — it happened at or after the session's start — the card goes away, so a training
-    /// you already shared a photo for never keeps asking, and older unshared plans don't resurface.
-    nonisolated static func photoPrompt(upcoming: [Session], posts: [Post], now: Date = Date()) -> Session? {
-        guard let latest = upcoming
-            .filter({ $0.organizer == "me" && ($0.startsAt ?? .distantFuture) <= now })
-            .max(by: { ($0.startsAt ?? .distantPast) < ($1.startsAt ?? .distantPast) }),
-              let start = latest.startsAt else { return nil }
-        let shared = posts.contains { ($0.organizer == "me" || $0.participants.contains("me")) && ($0.occurredAt ?? .distantPast) >= start }
-        return shared ? nil : latest
     }
     func loadPhotos() async {
         sync()
