@@ -426,9 +426,9 @@ final class LiveMatMindRuntime: AppRuntime {
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
-        ui.toComplete = ui.upcoming.first { session in
-            session.organizer == "me" && (model.session(session.id)?.date("starts_at") ?? .distantFuture) <= Date()
-        }
+        // The most recent of your sessions that already happened; `readyToShare` lists all of them.
+        ui.toComplete = ui.upcoming.filter { $0.organizer == "me" && ($0.startsAt ?? .distantFuture) <= Date() }
+            .max { ($0.startsAt ?? .distantPast) < ($1.startsAt ?? .distantPast) }
         ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
             return Post(id: row.id, organizer: localID(row.text("author")), title: row.text("title"), gym: row.text("venue"),
@@ -565,9 +565,11 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let date = draft.startsAt, !draft.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             model.error = "Choose a date, time and gym."; return nil
         }
+        // A past session's partners are added below as attended, without an invitation
+        // to something that already happened.
         let result = await model.perform("create_session", ["title": draft.title, "starts_at": ISO8601DateFormatter().string(from: date), "timezone": draft.timezone,
                                                           "venue": draft.gym, "note": SessionNoteCodec.encode(note: draft.note, focus: draft.focusItems),
-                                                          "invited": draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue], key: key)
+                                                          "invited": draft.past ? [] : draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue], key: key)
         // Past sessions require the organizer to confirm attendance before publishing.
         if draft.past, let id = result?["id"]?.string {
             for person in draft.invited { _ = await model.perform("manage_participant", ["session_id": id, "user_id": cloudID(person), "remove": false]) }

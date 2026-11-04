@@ -403,7 +403,7 @@ final class MatMindLiveUITests: XCTestCase {
             session("morning-b", "2030-12-31T10:00:00Z", status: .invited),
             session("morning-a", "2030-12-31T10:00:00Z"),
             session("declined", "2030-12-30T10:00:00Z", status: .declined),
-            session("awaiting-photo", "2030-12-29T10:00:00Z"),
+            session("awaiting-photo", "2020-12-29T10:00:00Z"),
         ]
         ui.toComplete = ui.upcoming.last
         ui.sessionGoals = ["next-year": "goal", "evening": "goal", "morning-a": "goal"]
@@ -413,6 +413,30 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(ui.nextSession(forGoal: "goal")?.id, "morning-a")
         ui.upcoming.reverse()
         XCTAssertEqual(ui.plannedSessions.map(\.id), ["morning-a", "morning-b", "evening", "next-year"], "A refresh with a different row order must not reorder equal-time sessions")
+    }
+
+    func testEveryPastSessionYouLoggedCanBeShared() {
+        let ui = AppModel(live: true)
+        func session(_ id: String, _ start: Date, organizer: String = "me") -> Session {
+            Session(id: id, title: id, day: "Mon", date: 1, month: "Jan", time: "6:00 PM", gym: "Home gym",
+                    organizer: organizer, people: [Attendee(id: "me", status: .going)], startsAt: start)
+        }
+        let now = Date()
+        ui.upcoming = [
+            session("tomorrow", now.addingTimeInterval(86_400)),
+            session("this-morning", now.addingTimeInterval(-3_600 * 6)),
+            session("logged-three-days-ago", now.addingTimeInterval(-86_400 * 3)),
+            session("friend-hosted", now.addingTimeInterval(-86_400), organizer: "friend"),
+        ]
+        ui.toComplete = ui.upcoming[1]
+
+        // An older logged session is shareable too, not only the most recent one.
+        XCTAssertEqual(ui.readyToShare.map(\.id), ["this-morning", "logged-three-days-ago"])
+        XCTAssertTrue(ui.isReadyToShare("logged-three-days-ago"))
+        XCTAssertFalse(ui.isReadyToShare("tomorrow"))
+        // Sessions waiting to be shared have already happened, so they aren't "coming up".
+        XCTAssertFalse(ui.plannedSessions.contains { $0.id == "logged-three-days-ago" })
+        XCTAssertTrue(ui.plannedSessions.contains { $0.id == "tomorrow" })
     }
 
     func testEditingASessionsDateMovesItToItsChronologicalPosition() async throws {
