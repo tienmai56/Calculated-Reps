@@ -36,10 +36,13 @@ joins a session, or accepts a goal. Existing table RLS is unchanged.
    app: opens the exact invitation. No app: web summary plus App Store. Messenger's
    browser: explicit **Open in Mat Monkey** action. After installing, return to the
    original invitation; cross-install deferred linking is not implemented.
-6. Set `AppLinksEnabled` to true in `IntentionalTrainingNotes/Info.plist`, regenerate
-   signing profiles if needed, and ship the iOS build. It remains false in this
-   change because the hosting and signed-device checks are not yet complete.
+6. `AppLinksEnabled` is now true in `IntentionalTrainingNotes/Info.plist` following
+   live association, PNG, and backend-lookup checks. Regenerate signing profiles
+   if needed and verify a signed iPhone build before shipping it. Existing installed
+   builds keep their current sharing behavior until updated.
 
-No website publication or hosted migration is performed merely by preparing these
-changes. The website PR's `docs/ios-invitation-links.md` contains the route and
-deployment details. Social applications control their own preview crops and caches.
+The preview migration is applied and the website is published. Live checks passed
+for the Apple association JSON, 1200 × 630 PNG, and unavailable invitation/image
+responses (preview version `20261104.2`). The website's `docs/ios-invitation-links.md`
+contains route details. Social applications control their own preview crops and
+caches. A signed iPhone release remains a separate step.
