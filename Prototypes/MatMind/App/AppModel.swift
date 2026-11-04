@@ -278,6 +278,22 @@ final class AppModel {
         updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true)) }
     }
 
+    /// Your own comments, and any comment on a post you organized, can be deleted.
+    func canDelete(_ comment: Comment, on postID: String) -> Bool {
+        comment.who == "me" || post(postID)?.organizer == "me"
+    }
+
+    /// Deletes a comment. Live, the runtime hides it right away and brings it back if the delete fails.
+    func deleteComment(_ comment: Comment, on postID: String) {
+        if isLive {
+            guard let cloudID = comment.cloudID else { return }
+            send("delete_comment", ["comment_id": cloudID], success: { self.showToast("Comment deleted") })
+            return
+        }
+        updatePost(postID) { $0.comments.removeAll { $0.id == comment.id } }
+        showToast("Comment deleted")
+    }
+
     /// Reasons offered when reporting a post or comment (sent as the report's text).
     static let reportReasons = ["Spam or scam", "Harassment or bullying", "Nudity or sexual content",
                                 "Violence or threats", "Hate speech", "Something else"]

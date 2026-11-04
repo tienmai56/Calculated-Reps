@@ -389,6 +389,25 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertNil(ui.pendingPlanGoal)
     }
 
+    func testCommentsCanBeDeletedByTheirAuthorOrThePostOrganizer() {
+        let ui = AppModel(live: false)
+        // p1 is Sarah's post: you can delete your own comment there, not Alex's.
+        ui.comment("p1", "Wrong post, sorry")
+        let mine = ui.post("p1")!.comments.last!
+        let alexs = ui.post("p1")!.comments.first!
+        XCTAssertTrue(ui.canDelete(mine, on: "p1"))
+        XCTAssertFalse(ui.canDelete(alexs, on: "p1"))
+        ui.deleteComment(mine, on: "p1")
+        XCTAssertFalse(ui.post("p1")!.comments.contains { $0.id == mine.id })
+        XCTAssertEqual(ui.post("p1")!.comments.count, 2)
+
+        // p3 is your post: you can clear anyone's comment on it.
+        let lenas = ui.post("p3")!.comments.first!
+        XCTAssertTrue(ui.canDelete(lenas, on: "p3"))
+        ui.deleteComment(lenas, on: "p3")
+        XCTAssertTrue(ui.post("p3")!.comments.isEmpty)
+    }
+
     func testTrainingScheduleAndGoalNextSessionUseStartTimeRatherThanSnapshotOrder() {
         let ui = AppModel(live: true)
         func session(_ id: String, _ start: String, status: RSVP = .going) -> Session {

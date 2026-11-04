@@ -370,6 +370,8 @@ final class LiveMatMindRuntime: AppRuntime {
     /// Posts deleted on this device whose delete is still in flight: hidden right away so the
     /// card leaves without waiting for the command and the follow-up snapshot refresh.
     private var deletingPosts: Set<String> = []
+    /// Comments deleted on this device whose delete is still in flight, hidden the same way.
+    private var deletingComments: Set<String> = []
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -435,7 +437,7 @@ final class LiveMatMindRuntime: AppRuntime {
                         date: dateText(date, "EEE, MMM d"), ago: RelativeDateTimeFormatter().localizedString(for: row.date("published_at") ?? date, relativeTo: Date()),
                         photo: photos[row.text("media_id")], participants: model.snapshot.tags.filter { $0.text("post_id") == row.id && $0.flag("visible") }.map { localID($0.text("user_id")) },
                         caption: row.text("caption"), likes: model.snapshot.likes.filter { $0.text("post_id") == row.id }.map { localID($0.text("user_id")) }, extraLikes: 0,
-                        comments: model.snapshot.comments.filter { $0.text("post_id") == row.id }.map { Comment(who: localID($0.text("author")), text: $0.text("body"), cloudID: $0.id) },
+                        comments: model.snapshot.comments.filter { $0.text("post_id") == row.id && !deletingComments.contains($0.id) }.map { Comment(who: localID($0.text("author")), text: $0.text("body"), cloudID: $0.id) },
                         focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
                         occurredAt: date)
         }
@@ -545,12 +547,19 @@ final class LiveMatMindRuntime: AppRuntime {
             body["version"] = model.snapshot.posts.first { $0.id == id }?.number("version")
         }
         let deleting = operation == "delete_post" ? body["post_id"] as? String : nil
+        let deletingComment = operation == "delete_comment" ? body["comment_id"] as? String : nil
         if let deleting { deletingPosts.insert(deleting); sync() }
+        if let deletingComment { deletingComments.insert(deletingComment); sync() }
         // A delete is already applied on screen, so it doesn't lock the app while it runs.
         // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either.
-        let result = await model.perform(operation, body, blocking: deleting == nil && operation != "share_goal")
-        // On failure the post comes back and the error alert explains why.
+        let result = await model.perform(operation, body, blocking: deleting == nil && deletingComment == nil && operation != "share_goal")
+        // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
+        if let deletingComment {
+            // Drop it locally too: merged post details and older pages don't remove rows on their own.
+            if result != nil { model.snapshot.comments.removeAll { $0.id == deletingComment } }
+            deletingComments.remove(deletingComment)
+        }
         sync()
         return result != nil
     }
