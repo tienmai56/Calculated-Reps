@@ -307,7 +307,7 @@ struct PeopleSearchScreen: View {
             .padding(.top, 32)
         } else {
             LazyVStack(spacing: 0) {
-                ForEach(people) { PersonSearchRow(person: $0) }
+                ForEach(people) { PersonSearchRow(person: $0, showsBelt: false) }
             }
             Text("That's everyone your partners train with. Rolled with someone new? Scan each other's code.")
                 .mmFont(.body, 13, lineHeight: 1.45).foregroundStyle(MMColor.textTertiary)
@@ -350,6 +350,8 @@ private struct PersonSearchRow: View {
     @Environment(AppModel.self) private var mm
     let person: Person
     var query = ""
+    /// Suggestions leave the belt to the avatar's ring; search results spell it out.
+    var showsBelt = true
 
     var body: some View {
         let p = person
@@ -361,10 +363,14 @@ private struct PersonSearchRow: View {
                     MMAvatar(name: p.name, photo: p.photo, size: 48, belt: p.belt)
                     VStack(alignment: .leading, spacing: 4) {
                         name(p.name)
-                        HStack(spacing: 6) {
-                            MMBelt(rank: p.belt, stripes: p.stripes, size: .xs, width: 30)
-                            Text([p.belt.title, p.gym].filter { !$0.isEmpty }.joined(separator: " · "))
-                                .mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
+                        if showsBelt {
+                            HStack(spacing: 6) {
+                                MMBelt(rank: p.belt, stripes: p.stripes, size: .xs, width: 30)
+                                Text([p.belt.title, p.gym].filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
+                            }
+                        } else if !p.gym.isEmpty {
+                            Text(p.gym).mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
                         }
                         if partner {
                             Text("Your training partner").mmFont(.body, 12, .semibold).foregroundStyle(MMColor.textSecondary)
