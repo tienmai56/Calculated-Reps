@@ -1,32 +1,45 @@
-# Lovable invitation-link handoff
+# Shared-link website implementation
 
-Target website: https://matmindbjj.lovable.app/
+Target host: https://matmindbjj.lovable.app/
 
-The website repository has now been supplied, and the actual TanStack Start implementation is prepared in [draft PR #1](https://github.com/tienmai56/your-note-haven/pull/1). It serves the association JSON through the custom server entry and adds native friend/session routes. Prefer that implementation over the static reference assets below. Production build, type checking, focused linting, six tests and HTTP checks of the built Cloudflare worker passed. The live site has not been republished.
+The actual website implementation is in
+[PR #1](https://github.com/tienmai56/your-note-haven/pull/1) in `your-note-haven`.
+It handles friend, training-session, and shared-goal URLs, serves Apple's association
+JSON, and generates real PNG social cards. Prefer it over the older static
+`public/invite.html` reference, which does not provide rich previews.
 
-The public site responds successfully. As checked on November 1, 2026 (Pacific), both `/.well-known/apple-app-site-association` and `/friend/test` return HTTP 404. No live website changes have been made.
+Training previews show the approved session title, date/time and timezone, gym,
+confirmed participant names, and top-level focus names. They use the existing
+Paper 3 background, Coral 500 date stub, original monochrome Silverback, Bricolage
+Grotesque, Archivo, and Lucide artwork. Full notes and nested focus details remain
+inside the app. Friend and goal cards remain generic.
 
-The iOS project now declares this host and its Associated Domains entitlement. `AppLinksEnabled` is deliberately false until the web setup is verified, so invitation generation continues to use `matmind://`.
+The website reads the social project's deliberately public, read-only
+`invitation_preview(link_kind,token)` RPC, added by
+`supabase/migrations/20261104130001_invitation_previews.sql`. A full active bearer
+token authorizes only this summary; fetching the preview never redeems the link,
+joins a session, or accepts a goal. Existing table RLS is unchanged.
 
-## Add these files to the actual Lovable website repository
+## Rollout order
 
-1. Copy `public/.well-known/apple-app-site-association` into the website's public assets. It must be published at the exact extensionless URL below, with HTTP 200, a JSON content type and no redirects. A normal React SPA fallback is not sufficient.
-2. Verify the AASA app identifier against the App Identifier Prefix in the production app's provisioning profile. `9R4A2F8F94` is the development team configured in this Xcode project; replace it if the production prefix differs.
-3. Add actual website routes `/friend/:token`, `/session/:token` and `/goal/:token` (shared goals). `public/invite.html` supplies a self-contained fallback view to adapt to the site's router, or to serve through internal rewrites that preserve the original invitation path. Merely copying `invite.html` into public assets does not create those routes. Keep the existing homepage intact.
-4. Publish the Lovable site and verify its deployed responses. If this hosting setup cannot serve the extensionless JSON file with the required response, use a controlled host that can.
+1. Apply the reviewed preview migration to the social Supabase project.
+2. Configure website runtime bindings `MAT_MONKEY_SUPABASE_URL` and
+   `MAT_MONKEY_SUPABASE_PUBLISHABLE_KEY` for that same project. The website's existing
+   `VITE_SUPABASE_*` settings belong to a different project. Use a publishable/anon
+   key, never a service-role key.
+3. Confirm the production App Identifier Prefix matches
+   `9R4A2F8F94.com.tienmai.intentionaltrainingnotes`, then publish the website.
+4. Run `SESSION_SHARE_TOKEN=<real active token> node scripts/verify-share-host.mjs`
+   from this repository. It verifies the live association, session HTML, and PNG
+   without printing or redeeming the token.
+5. Verify physical-device universal-link behavior and sign-in continuation. Installed
+   app: opens the exact invitation. No app: web summary plus App Store. Messenger's
+   browser: explicit **Open in Mat Monkey** action. After installing, return to the
+   original invitation; cross-install deferred linking is not implemented.
+6. Set `AppLinksEnabled` to true in `IntentionalTrainingNotes/Info.plist`, regenerate
+   signing profiles if needed, and ship the iOS build. It remains false in this
+   change because the hosting and signed-device checks are not yet complete.
 
-The fallback provides an explicit Open in Mat Monkey button and the supplied App Store listing. It never exposes session content, redeems a token, collects analytics or uploads legacy data. Users who install must return to their original invitation; this is not deferred deep linking across installation.
-
-## Verify before enabling HTTPS invitation generation
-
-```sh
-curl -i https://matmindbjj.lovable.app/.well-known/apple-app-site-association
-curl -i https://matmindbjj.lovable.app/friend/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-curl -i https://matmindbjj.lovable.app/session/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-```
-
-The association URL must return the JSON file, not the home page. Both invitation paths must return the intended fallback. The sample token is only for testing page rendering; it is not a valid backend invitation.
-
-Regenerate the app's signing profile with Associated Domains, rebuild/install the app, and test valid server-issued friend/session invitations on a physical device. Verify installed/uninstalled behavior, expired links, and sign-in continuation. Keep the custom URL scheme registered for the fallback button.
-
-Once verified, set `AppLinksEnabled` to true in the production Info.plist. Do not change `AppStoreURL` into an invitation hostname; it remains the installation destination.
+No website publication or hosted migration is performed merely by preparing these
+changes. The website PR's `docs/ios-invitation-links.md` contains the route and
+deployment details. Social applications control their own preview crops and caches.

@@ -400,6 +400,31 @@ Sharing works like a session invite. Goals has two segmented tabs under the titl
 
 Native: `Features/Goals/GoalsScreen.swift`, `Features/Goals/GoalSharing.swift`, `Features/Training/TrainingScreen.swift`, `MatGoal` and `SharedGoal` in `App/Models.swift`.
 
+### External shared-link previews
+
+Training-session links show a useful summary before opening the app: session title,
+date/time with timezone, gym, confirmed participant names (up to three plus a
+remaining count), and up to three top-level focus names. Full session notes and
+nested focus details remain inside the app. This session summary is intentionally
+visible to anyone receiving the bearer invitation link. Friend and goal links use
+generic branded previews; goal content remains private.
+
+Use the ticket motif: **paper-3** main canvas, **coral-500** date stub, ink text,
+white focus chips, and the supplied monochrome Silverback on coral. Headline in
+Bricolage Grotesque 800, body in Archivo, Lucide location and people icons. Design
+canvas 1200 × 630. Long titles fit two lines; full metadata and the browser summary
+retain the original title and details. No pretend buttons in the preview image.
+
+An HTTPS link supplies server-rendered Open Graph / Twitter metadata and a PNG
+image, and routes to the exact native invitation via Universal Links. The web
+fallback has **Open in Mat Monkey** and App Store actions. It does not redeem an
+invitation. After installation, return to the original link. Expired, revoked, and
+cancelled session links show an unavailable state. Social apps control preview
+layout and caching.
+
+Implementation: website repository `your-note-haven`, with the read-only
+`invitation_preview` RPC in this repository. Rollout: `website-link-handoff/README.md`.
+
 ## 9. Guardrails
 **Always**
 - One primary button per screen.
