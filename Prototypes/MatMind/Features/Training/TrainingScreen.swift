@@ -1,41 +1,17 @@
 import SwiftUI
 
-/// Tab 2: invites and what's coming up. Goals have their own tab; past sessions
-/// live in Profile → Activity.
+/// Tab 2: upcoming and past training, using the same session tickets.
 struct TrainingScreen: View {
     @Environment(AppModel.self) private var mm
     /// The hosted session being edited, or waiting for delete confirmation.
     @State private var editingSession: Session?
     @State private var deletingSession: Session?
+    @State private var section = "upcoming"
 
     var body: some View {
-        let list = mm.plannedSessions
-        let invites = list.filter { $0.status(of: "me") == .invited }
-        let rest = list.filter { $0.status(of: "me") != .invited }
-        MMScreen(tabPadding: true) {
-            MMHeader(title: "Training", large: true, trailing: {
-                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
-            })
-        } content: {
-            if list.isEmpty {
-                EmptyTraining()
-            }
-            if !invites.isEmpty {
-                MMEyebrow("Invites", topPadding: 8)
-                VStack(spacing: 16) {
-                    ForEach(invites) { s in sessionCard(s) }
-                }
-                .padding(.horizontal, 16)
-            }
-            if !rest.isEmpty {
-                MMEyebrow("Coming up", topPadding: invites.isEmpty ? 8 : MMLayout.sectionGap)
-                VStack(spacing: 16) {
-                    ForEach(rest) { s in sessionCard(s) }
-                }
-                .padding(.horizontal, 16)
-            }
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            training(now: context.date)
         }
-        .animation(MMMotion.easeOut(), value: list.map(\.id))
         .sheet(item: $editingSession) { s in
             MatSessionEditorSheet(session: s, startsAt: mm.startDate(of: s))
         }
@@ -49,13 +25,55 @@ struct TrainingScreen: View {
         }
     }
 
+    private func training(now: Date) -> some View {
+        let past = section == "past"
+        let list = mm.trainingSessions(past: past, relativeTo: now)
+        let invites = past ? [] : list.filter { $0.status(of: "me") == .invited }
+        let rest = past ? list : list.filter { $0.status(of: "me") != .invited }
+        return MMScreen(tabPadding: true) {
+            MMHeader(title: "Training", large: true, trailing: {
+                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+            })
+            MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
+                .padding(.horizontal, MMSpace.s6)
+                .padding(.bottom, MMSpace.s4)
+        } content: {
+            if list.isEmpty {
+                if past {
+                    MMEmptyState(artwork: .plan, title: "Your past training",
+                                 message: "Sessions show up here once their start time has passed. No photo needed.",
+                                 actionTitle: "Log a past session", actionIcon: "history") {
+                        mm.go(.create(past: true))
+                    }
+                } else {
+                    EmptyTraining()
+                }
+            }
+            if !invites.isEmpty {
+                MMEyebrow("Invites", topPadding: 8)
+                VStack(spacing: 16) {
+                    ForEach(invites) { s in sessionCard(s) }
+                }
+                .padding(.horizontal, 16)
+            }
+            if !rest.isEmpty {
+                MMEyebrow(past ? "Past training" : "Coming up", topPadding: invites.isEmpty ? 8 : MMLayout.sectionGap)
+                VStack(spacing: 16) {
+                    ForEach(rest) { s in sessionCard(s) }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+        .animation(MMMotion.easeOut(), value: list.map(\.id))
+    }
+
     private func sessionCard(_ s: Session) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SessionTicket(session: s, reservesMenuSpace: s.organizer == "me") { mm.go(.session(id: s.id)) }
+            SessionTicket(session: s, reservesMenuSpace: s.organizer == "me" && !mm.isCompleted(s)) { mm.go(.session(id: s.id)) }
                 .overlay(alignment: .topTrailing) {
-                    if s.organizer == "me" { sessionMenu(s) }
+                    if s.organizer == "me" && !mm.isCompleted(s) { sessionMenu(s) }
                 }
-            if s.status(of: "me") == .invited {
+            if section == "upcoming" && s.status(of: "me") == .invited {
                 HStack(spacing: 8) {
                     MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(s.id, .declined) }
                     MMButton("Join", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
@@ -248,7 +266,7 @@ struct SessionDetailScreen: View {
     }
 
     var body: some View {
-        if let s = mm.upcoming.first(where: { $0.id == id }) ?? (mm.toComplete?.id == id ? mm.toComplete : nil) {
+        if let s = mm.findSession(id) {
             detail(s)
         } else {
             MMColor.bgApp.ignoresSafeArea().toolbar(.hidden, for: .navigationBar)
@@ -257,6 +275,7 @@ struct SessionDetailScreen: View {
 
     private func detail(_ s: Session) -> some View {
         let isOrganizer = s.organizer == "me"
+        let completed = mm.isCompleted(s)
         let mine = s.status(of: "me")
         // Organizer first, everyone else in invite order.
         let rows = s.people.filter { $0.id == s.organizer } + s.people.filter { $0.id != s.organizer }
@@ -288,11 +307,11 @@ struct SessionDetailScreen: View {
                         .padding(.horizontal, 4)
                         .padding(.top, 14)
                 }
-                if !s.focusItems.isEmpty || isOrganizer {
+                if !s.focusItems.isEmpty || (isOrganizer && !completed) {
                     HStack {
                         Text("What we're working on").mmFont(.display, 18)
                         Spacer()
-                        if isOrganizer {
+                        if isOrganizer && !completed {
                             MMIconButton("pencil", label: "Edit session focus") {
                                 focusDraft = s.focusItems
                                 showFocusEditor = true
@@ -317,7 +336,7 @@ struct SessionDetailScreen: View {
                     .padding(.bottom, 10)
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { i, row in
-                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && row.id != "me", divider: i < rows.count - 1)
+                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && !completed && row.id != "me", divider: i < rows.count - 1)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -328,7 +347,9 @@ struct SessionDetailScreen: View {
             }
             .padding(.horizontal, 16)
         } footer: {
-            if isOrganizer {
+            if completed {
+                MMBadge("Completed", variant: .success, dot: true)
+            } else if isOrganizer {
                 VStack(spacing: 10) {
                     let photoReady = mm.isReadyToShare(s.id)
                     MMButton("Take a photo", variant: .secondary, size: .lg, iconLeft: "camera", fullWidth: true) {
