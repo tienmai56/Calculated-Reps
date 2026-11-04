@@ -783,14 +783,27 @@ final class AppModel {
         return task
     }
 
+    /// The shared copy's id. A goal that's already shared is republished on every save, so
+    /// reuse it (after any save still on its way) instead of uploading everything again.
+    private func sharedCopy(_ goalID: String) async -> String? {
+        if let shared = sharedGoalIDs[goalID] {
+            if let pending = goalPublishes[goalID] { return await pending.value ?? shared }
+            return shared
+        }
+        return await publishLatest(goalID)?.value
+    }
+
     /// Shares one of your goals with training partners. Everything in it goes along:
     /// notes, parts, videos, photos and links. They get an invitation to accept or decline.
     @discardableResult
     func shareGoal(_ goalID: String, with people: [String]) async -> Bool {
         let people = people.filter { $0 != "me" }
         guard goal(goalID) != nil, !people.isEmpty else { return false }
+        let names = people.count == 1 ? person(people[0]).firstName : "\(people.count) training partners"
         if let runtime {
-            guard let shared = await publishLatest(goalID)?.value,
+            // The share sheet closes right away; this says it's on its way. Failures show the app's alert.
+            showToast("Sharing with \(names)…")
+            guard let shared = await sharedCopy(goalID),
                   await runtime.perform("share_goal", ["goal_id": shared, "recipients": people]) else { return false }
         } else {
             guard !isLive else { return false }
@@ -799,7 +812,7 @@ final class AppModel {
             for person in people where answers[person] != "accepted" { answers[person] = "pending" }
             goalRecipients[goalID] = answers
         }
-        showToast(people.count == 1 ? "Shared with \(person(people[0]).firstName)" : "Shared with \(people.count) training partners", .success)
+        showToast("Shared with \(names)", .success)
         return true
     }
 
@@ -808,7 +821,7 @@ final class AppModel {
     func copyGoalLink(_ goalID: String) async -> Bool {
         guard goal(goalID) != nil else { return false }
         if let runtime {
-            guard let shared = await publishLatest(goalID)?.value, await runtime.copyGoalLink(shared) else { return false }
+            guard let shared = await sharedCopy(goalID), await runtime.copyGoalLink(shared) else { return false }
         } else {
             guard !isLive else { return false }
             sharedGoalIDs[goalID] = goalID
