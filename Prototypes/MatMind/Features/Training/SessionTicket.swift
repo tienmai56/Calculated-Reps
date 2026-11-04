@@ -23,7 +23,10 @@ struct SessionTicket: View {
 
     var body: some View {
         if let onTap {
-            Button(action: onTap) { ticket }.buttonStyle(MMPressStyle())
+            ticket
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onTap)
+                .accessibilityAction(named: Text("Open session"), onTap)
         } else {
             ticket
         }
@@ -75,8 +78,10 @@ struct SessionTicket: View {
                 HStack {
                     MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
                     Spacer(minLength: 4)
-                    Text(session.organizer == "me" ? "You host" : "by \(organizer.firstName)")
-                        .mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                    PersonProfileButton(person: organizer) {
+                        Text(session.organizer == "me" ? "You host" : "by \(organizer.firstName)")
+                            .mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                    }
                 }
                 .padding(.top, 4)
             }
@@ -93,6 +98,6 @@ struct SessionTicket: View {
         .overlay(alignment: .bottomLeading) {
             Circle().fill(notchColor).frame(width: 18, height: 18).offset(x: stubWidth - 8, y: 9)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }

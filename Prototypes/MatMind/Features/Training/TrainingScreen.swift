@@ -500,10 +500,15 @@ private struct AttendeeRow: View {
         let badge = attendee.status.badge
         let isFresh = mm.fresh == session.id + attendee.id
         HStack(spacing: 12) {
-            MMAvatar(name: p.name, photo: p.photo, size: 40, belt: p.belt, ring: .white)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(attendee.id == "me" ? "You" : p.name).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
-                Text(attendee.id == session.organizer ? "Organizer" : p.gym).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            PersonProfileButton(person: p) {
+                HStack(spacing: 12) {
+                    MMAvatar(name: p.name, photo: p.photo, size: 40, belt: p.belt, ring: .white)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(attendee.id == "me" ? "You" : p.name).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                        Text(attendee.id == session.organizer ? "Organizer" : p.gym).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             MMBadge(badge.label, variant: badge.variant)

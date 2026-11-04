@@ -896,6 +896,43 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.cameraRoll.isEmpty)
     }
 
+    func testInlineNamesLinkEachMemberEvenWhenTheirNamesMatch() throws {
+        let ui = AppModel(live: false)
+        var first = ui.person("sarah")
+        var second = ui.person("alex")
+        first.name = "Alex Lee"
+        second.name = "Alex Lee"
+        let people = [first, second, ui.person("kenji")]
+        let runs = PersonText.names(people, size: 14)
+        XCTAssertEqual(runs.map(\.text).joined(), "Alex, Alex +1")
+        let ids = runs.compactMap(\.link).compactMap { PersonProfileLink.personID(from: $0) }
+        XCTAssertEqual(ids, ["sarah", "alex"])
+        XCTAssertNil(runs.last?.link, "The remaining-person count is not somebody's name")
+        for id in ids {
+            ui.openPerson(id)
+            XCTAssertEqual(ui.path.last, .person(id: id))
+        }
+        XCTAssertEqual(PersonText.names([], size: 14).count, 0)
+        XCTAssertEqual(PersonText.names([ui.me, first], size: 14).map(\.text).joined(), "You & Alex")
+    }
+
+    func testProfileLinksPreserveIDsAndRejectUnrelatedURLs() throws {
+        for id in ["me", "sarah", "00000000-0000-0000-0000-000000000301", "member / +?&#é"] {
+            let url = try XCTUnwrap(PersonProfileLink.url(for: id))
+            XCTAssertEqual(PersonProfileLink.personID(from: url), id)
+        }
+        XCTAssertNil(PersonProfileLink.url(for: ""))
+        for value in ["https://example.com/?id=sarah", "matmonkeys-person://other?id=sarah",
+                      "matmonkeys-person://profile?id=", "matmonkeys-person://profile?id=sarah&id=alex"] {
+            XCTAssertNil(PersonProfileLink.personID(from: try XCTUnwrap(URL(string: value))))
+        }
+        let ui = AppModel(live: false)
+        ui.go(.post(id: "p1"))
+        ui.openPerson(try XCTUnwrap(PersonProfileLink.personID(from: try XCTUnwrap(PersonProfileLink.url(for: "me")))))
+        XCTAssertEqual(ui.tab, .profile)
+        XCTAssertTrue(ui.path.isEmpty)
+    }
+
     func testPeopleSearchStaysInYourCircleAndFollowingToggles() {
         let ui = AppModel(live: false)
         // Suggested: people who share a partner, most shared partners first; never your partners.

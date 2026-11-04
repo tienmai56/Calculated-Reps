@@ -161,20 +161,18 @@ struct PostCard: View {
     var body: some View {
         let org = mm.person(post.organizer)
         let liked = post.likes.contains("me")
-        let others = post.participants.filter { $0 != post.organizer }.map { $0 == "me" ? "You" : mm.person($0).name }
+        let others = post.participants.filter { $0 != post.organizer }.map { mm.person($0) }
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
-                Button {
-                    if post.organizer != "me" { mm.openPerson(post.organizer) }
-                } label: {
+                PersonProfileButton(person: org) {
                     MMAvatar(name: org.name, photo: org.photo, size: 42, belt: org.belt, ring: MMColor.white)
                 }
                 .buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 2) {
-                    mmRich([
-                        .body(post.organizer == "me" ? "You" : org.name, 15, .bold, color: MMColor.ink900),
-                        .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
-                    ])
+                    PersonText([
+                        .person(org, 15, .bold, color: MMColor.ink900),
+                        .body(others.isEmpty ? " trained" : " trained with ", 14, color: MMColor.textSecondary),
+                    ] + PersonText.names(others, size: 14, color: MMColor.textSecondary))
                     .lineSpacing(1)
                     Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
@@ -257,21 +255,32 @@ struct PostCard: View {
                     .accessibilityIdentifier("inline-comments-\(post.id)")
                     .transition(.opacity.combined(with: .move(edge: .top)))
             } else if let first = post.comments.first {
-                Button { toggleComments() } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        mmRich([.body(mm.person(first.who).firstName, 14, .bold), .body(" \(first.text)", 14)])
-                        if post.comments.count > 1 {
-                            Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        PersonProfileButton(person: mm.person(first.who)) {
+                            Text(first.who == "me" ? "You" : mm.person(first.who).firstName)
+                                .mmFont(.body, 14, .bold).foregroundStyle(MMColor.textPrimary)
                         }
+                        Button { toggleComments() } label: {
+                            Text(" \(first.text)").mmFont(.body, 14).foregroundStyle(MMColor.textPrimary)
+                                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Expand comments in the feed")
                     }
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
-                    .padding(.top, 2)
-                    .padding(.bottom, 4)
+                    if post.comments.count > 1 {
+                        Button { toggleComments() } label: {
+                            Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                                .frame(minHeight: MMLayout.tapTarget)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Expand comments in the feed")
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
+                .padding(.bottom, 4)
             }
         }
         .padding(12)
@@ -391,8 +400,12 @@ struct PostDetailScreen: View {
                         .padding(.bottom, 14)
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by \(isOrganizer ? "you" : organizer.name)")
-                        .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
+                    PersonText([
+                        .body("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by ", 13, .semibold, color: MMColor.textTertiary),
+                        .body(isOrganizer ? "you" : organizer.name, 13, .semibold, color: MMColor.textTertiary,
+                              link: PersonProfileLink.url(for: post.organizer)),
+                    ])
+                    .mmFont(.body, 13, .semibold, lineHeight: 1.4)
                     MentionText(text: post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
@@ -405,14 +418,16 @@ struct PostDetailScreen: View {
                         HStack(alignment: .top, spacing: 14) {
                             ForEach(post.participants, id: \.self) { pid in
                                 let p = mm.person(pid)
-                                VStack(spacing: 6) {
-                                    MMAvatar(name: p.name, photo: p.photo, size: 52, belt: p.belt)
-                                    Text(pid == "me" ? "You" : p.firstName).mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
-                                    if pid == post.organizer {
-                                        MMBadge("Host", variant: .soft, height: 18, fontSize: 10, paddingX: 6)
+                                PersonProfileButton(person: p) {
+                                    VStack(spacing: 6) {
+                                        MMAvatar(name: p.name, photo: p.photo, size: 52, belt: p.belt)
+                                        Text(pid == "me" ? "You" : p.firstName).mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
+                                        if pid == post.organizer {
+                                            MMBadge("Host", variant: .soft, height: 18, fontSize: 10, paddingX: 6)
+                                        }
                                     }
+                                    .frame(width: 60)
                                 }
-                                .frame(width: 60)
                             }
                         }
                         .padding(.top, 12)
@@ -423,9 +438,9 @@ struct PostDetailScreen: View {
                         if post.likes.isEmpty && post.extraLikes == 0 {
                             Text("Be the first to like this").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
                         } else {
-                        mmRich([
+                        PersonText([
                             .body("Liked by ", 14, .semibold, color: MMColor.textSecondary),
-                            .body(mmNames(post.likes.map { $0 == "me" ? "You" : mm.person($0).name }), 14, .bold, color: MMColor.ink900),
+                        ] + PersonText.names(post.likes.map { mm.person($0) }, size: 14, weight: .bold, color: MMColor.ink900) + [
                             .body(post.extraLikes > 0 ? " and \(post.extraLikes) others" : "", 14, .semibold, color: MMColor.textSecondary),
                         ])
                         }
@@ -628,9 +643,13 @@ private struct CommentRow: View {
     var body: some View {
         let p = mm.person(comment.who)
         HStack(alignment: .top, spacing: 12) {
-            MMAvatar(name: p.name, photo: p.photo, size: 34)
+            PersonProfileButton(person: p) {
+                MMAvatar(name: p.name, photo: p.photo, size: 34)
+            }
             VStack(alignment: .leading, spacing: 2) {
-                Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                PersonProfileButton(person: p) {
+                    Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                }
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
