@@ -93,7 +93,9 @@ private struct MatSessionEditorSheet: View {
 
     init(session: Session, startsAt: Date) {
         self.session = session
-        _title = State(initialValue: session.title)
+        // A suggested name ("Morning rolls") that no longer matches the time is stale: fix it up front.
+        _title = State(initialValue: SessionDraft.isSuggestedTitle(session.title)
+                       ? SessionDraft.suggestedTitle(for: startsAt) : session.title)
         _startsAt = State(initialValue: startsAt)
         _gym = State(initialValue: session.gym)
         _note = State(initialValue: session.note ?? "")
@@ -114,6 +116,10 @@ private struct MatSessionEditorSheet: View {
                         DatePicker("When", selection: $startsAt, displayedComponents: [.date, .hourAndMinute])
                             .labelsHidden()
                             .tint(MMColor.accent)
+                            .onChange(of: startsAt) { _, newValue in
+                                // Keep a suggested name in step with the new day and time; custom names stay.
+                                if SessionDraft.isSuggestedTitle(title) { title = SessionDraft.suggestedTitle(for: newValue) }
+                            }
                     }
                     MMPlaceSearchField(label: "Gym", placeholder: "Search gyms or addresses", text: $gym)
                     MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
