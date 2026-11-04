@@ -10,6 +10,8 @@ struct Person: Identifiable, Hashable {
     var photo: String?
     var email: String?
     var username: String = ""
+    /// Shown right after their name. nil until they build one.
+    var monkey: MMMonkeyLook? = nil
 
     var firstName: String { name.split(separator: " ").first.map(String.init) ?? name }
     var avatar: MMAvatarPerson { MMAvatarPerson(name: name, photo: photo) }

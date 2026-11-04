@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Card
 
@@ -139,6 +140,249 @@ struct MMTag: View {
             }
         }
         .animation(MMMotion.easeOut(MMMotion.fast), value: selected)
+    }
+}
+
+// MARK: - Monkey
+
+/// A member's monkey: a minimal two-color face (fur + white) shown right after
+/// their name. Built from a mood, a fur color and a haircut. Stored on the
+/// profile as "mood.fur.haircut" (see migration 20261104170000_monkey_avatars).
+struct MMMonkeyLook: Hashable {
+    enum Mood: String, CaseIterable, Identifiable {
+        case happy, grin, focused, tired, side, tapped
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .happy: return "Oss."
+            case .grin: return "Good rolls"
+            case .focused: return "Game face"
+            case .tired: return "Round six"
+            case .side: return "Side-eye"
+            case .tapped: return "Tapped"
+            }
+        }
+    }
+
+    /// Dark tokens only (3:1 or more on white): the features are drawn in the fur color, so
+    /// light furs would wash out. The friend-hue 700s are allowed here and never mean a friendship.
+    enum Fur: String, CaseIterable, Identifiable {
+        case midnight = "ink-900", charcoal = "ink-700", smoke = "ink-500", ginger = "coral-700"
+        case navy = "sky-700", grape = "plum-700", moss = "mint-700"
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .midnight: return "Midnight"
+            case .charcoal: return "Charcoal"
+            case .smoke: return "Smoke"
+            case .ginger: return "Ginger"
+            case .navy: return "Navy"
+            case .grape: return "Grape"
+            case .moss: return "Moss"
+            }
+        }
+        var color: Color {
+            switch self {
+            case .midnight: return MMColor.ink900
+            case .charcoal: return MMColor.ink700
+            case .smoke: return MMColor.ink500
+            case .ginger: return MMColor.coral700
+            case .navy: return MMColor.sky700
+            case .grape: return MMColor.plum700
+            case .moss: return MMColor.mint700
+            }
+        }
+    }
+
+    enum Haircut: String, CaseIterable, Identifiable {
+        case clean, tuft, fringe, mohawk, topknot, curls
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .clean: return "Clean"
+            case .tuft: return "Tuft"
+            case .fringe: return "Fringe"
+            case .mohawk: return "Mohawk"
+            case .topknot: return "Top knot"
+            case .curls: return "Curls"
+            }
+        }
+    }
+
+    var mood: Mood = .happy
+    var fur: Fur = .midnight
+    var haircut: Haircut = .tuft
+
+    init(mood: Mood = .happy, fur: Fur = .midnight, haircut: Haircut = .tuft) {
+        self.mood = mood
+        self.fur = fur
+        self.haircut = haircut
+    }
+
+    /// Parses "mood.fur.haircut"; anything else (including empty) means no monkey.
+    init?(code: String) {
+        let parts = code.split(separator: ".").map(String.init)
+        guard parts.count == 3, let mood = Mood(rawValue: parts[0]), let fur = Fur(rawValue: parts[1]),
+              let haircut = Haircut(rawValue: parts[2]) else { return nil }
+        self.init(mood: mood, fur: fur, haircut: haircut)
+    }
+
+    var code: String { "\(mood.rawValue).\(fur.rawValue).\(haircut.rawValue)" }
+
+    static func random() -> MMMonkeyLook {
+        MMMonkeyLook(mood: Mood.allCases.randomElement() ?? .happy,
+                     fur: Fur.allCases.randomElement() ?? .midnight,
+                     haircut: Haircut.allCases.randomElement() ?? .tuft)
+    }
+}
+
+/// Draws a monkey on a 200×200 grid scaled to `size`. No backdrop: just the face.
+struct MMMonkey: View {
+    var look: MMMonkeyLook
+    var size: CGFloat = 20
+    var label: String?
+    /// "Not built yet": drawn in `--text-disabled` (ink-300) rather than faded, so it stays on a token.
+    var placeholder = false
+
+    var body: some View {
+        Canvas { context, canvas in
+            context.scaleBy(x: canvas.width / 200, y: canvas.height / 200)
+            Self.draw(look, fur: placeholder ? MMColor.textDisabled : look.fur.color, in: &context)
+        }
+        .frame(width: size, height: size)
+        .accessibilityElement()
+        .accessibilityLabel(label ?? "")
+        .accessibilityHidden(label == nil)
+    }
+
+    private static func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+    private static func circle(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> Path {
+        Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
+    }
+    private static func line(_ a: CGPoint, _ b: CGPoint) -> Path {
+        var p = Path(); p.move(to: a); p.addLine(to: b); return p
+    }
+    private static func curve(_ a: CGPoint, _ control: CGPoint, _ b: CGPoint) -> Path {
+        var p = Path(); p.move(to: a); p.addQuadCurve(to: b, control: control); return p
+    }
+
+    static func draw(_ look: MMMonkeyLook, fur furColor: Color, in context: inout GraphicsContext) {
+        let fur = GraphicsContext.Shading.color(furColor)
+        let face = GraphicsContext.Shading.color(MMColor.white)
+        let pen = StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round)
+
+        // Haircuts that sit above the head go first, so the head covers their base.
+        switch look.haircut {
+        case .tuft:
+            var p = Path()
+            p.move(to: pt(94, 44))
+            p.addCurve(to: pt(132, 23), control1: pt(96, 26), control2: pt(114, 16))
+            p.addCurve(to: pt(110, 44), control1: pt(118, 25), control2: pt(110, 32))
+            p.closeSubpath()
+            context.fill(p, with: fur)
+        case .mohawk:
+            var p = Path()
+            p.addLines([pt(82, 46), pt(88, 24), pt(97, 40), pt(102, 18), pt(109, 40), pt(118, 24), pt(122, 46)])
+            p.closeSubpath()
+            context.fill(p, with: fur)
+            context.stroke(p, with: fur, style: StrokeStyle(lineWidth: 6, lineJoin: .round))
+        case .topknot:
+            context.fill(circle(100, 30, 15), with: fur)
+        case .curls:
+            let curls: [(CGFloat, CGFloat, CGFloat)] = [(70, 54, 16), (88, 42, 17), (112, 42, 17), (130, 54, 16)]
+            for (x, y, r) in curls {
+                context.fill(circle(x, y, r), with: fur)
+            }
+        case .clean, .fringe:
+            break
+        }
+
+        // Ears, head and the light face mask.
+        context.fill(circle(36, 100, 23), with: fur)
+        context.fill(circle(164, 100, 23), with: fur)
+        context.fill(circle(31, 100, 10), with: face)
+        context.fill(circle(169, 100, 10), with: face)
+        context.fill(circle(100, 100, 62), with: fur)
+        context.fill(circle(82, 96, 25), with: face)
+        context.fill(circle(118, 96, 25), with: face)
+        context.fill(Path(ellipseIn: CGRect(x: 64, y: 96, width: 72, height: 56)), with: face)
+
+        if look.haircut == .fringe {
+            var p = Path()
+            p.move(to: pt(56, 82))
+            p.addQuadCurve(to: pt(100, 86), control: pt(80, 68))
+            p.addQuadCurve(to: pt(144, 82), control: pt(120, 68))
+            p.addLine(to: pt(144, 60))
+            p.addLine(to: pt(56, 60))
+            p.closeSubpath()
+            context.fill(p, with: fur)
+        }
+
+        // Mood: eyes and mouth only, in the fur color.
+        func eyes(_ dx: CGFloat = 0) {
+            context.fill(circle(84 + dx, 98, 7), with: fur)
+            context.fill(circle(116 + dx, 98, 7), with: fur)
+        }
+        func strokes(_ paths: Path...) { for path in paths { context.stroke(path, with: fur, style: pen) } }
+        switch look.mood {
+        case .happy:
+            eyes()
+            strokes(curve(pt(86, 128), pt(100, 138), pt(114, 128)))
+        case .grin:
+            strokes(curve(pt(76, 100), pt(84, 90), pt(92, 100)),
+                 curve(pt(108, 100), pt(116, 90), pt(124, 100)),
+                 curve(pt(80, 124), pt(100, 146), pt(120, 124)))
+        case .focused:
+            eyes()
+            strokes(line(pt(73, 84), pt(92, 89)), line(pt(127, 84), pt(108, 89)), line(pt(88, 132), pt(112, 132)))
+        case .tired:
+            strokes(line(pt(76, 99), pt(92, 99)), line(pt(108, 99), pt(124, 99)),
+                 curve(pt(88, 135), pt(100, 128), pt(112, 135)))
+        case .side:
+            eyes(5)
+            strokes(line(pt(88, 133), pt(112, 129)))
+        case .tapped:
+            eyes()
+            strokes(Path(ellipseIn: CGRect(x: 93, y: 116, width: 14, height: 16)))
+        }
+    }
+}
+
+/// Rendered monkeys for use inside `Text`, cached per look, size and scale.
+@MainActor
+enum MMMonkeyImages {
+    private static var cache: [String: Image] = [:]
+
+    static func image(_ look: MMMonkeyLook, size: CGFloat, scale: CGFloat) -> Image? {
+        let key = "\(look.code)@\(size)x\(scale)"
+        if let hit = cache[key] { return hit }
+        let renderer = ImageRenderer(content: MMMonkey(look: look, size: size))
+        renderer.scale = scale
+        guard let cgImage = renderer.cgImage else { return nil }
+        let image = Image(decorative: cgImage, scale: scale)
+        cache[key] = image
+        return image
+    }
+}
+
+/// A monkey that flows inside a sentence: `mmRich(...) + mmMonkeyText(person.monkey)`.
+/// Empty when the member hasn't built one.
+@MainActor
+func mmMonkeyText(_ look: MMMonkeyLook?, size: CGFloat = 18) -> Text {
+    guard let look, let image = MMMonkeyImages.image(look, size: size, scale: UITraitCollection.current.displayScale) else {
+        return Text("")
+    }
+    return Text(" ") + Text(image).baselineOffset(-size * 0.22)
+}
+
+extension View {
+    /// Puts a member's monkey right after this name, about the height of the text.
+    /// No monkey yet: just the name.
+    func mmMonkey(_ look: MMMonkeyLook?, size: CGFloat = 20) -> some View {
+        HStack(spacing: max(4, size * 0.25)) {
+            self
+            if let look { MMMonkey(look: look, size: size) }
+        }
     }
 }
 

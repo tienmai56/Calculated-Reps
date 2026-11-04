@@ -39,6 +39,7 @@ struct ProfileScreen: View {
                     MMAvatar(name: me.name, photo: me.photo, size: 80, belt: me.belt)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(me.name).mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                            .mmMonkey(me.monkey, size: 28)
                         if !me.username.isEmpty {
                             Text("@" + me.username).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                         }
@@ -66,6 +67,15 @@ struct ProfileScreen: View {
         }
         .mmSheet(isPresented: $showSettings, title: "Account") {
             VStack(alignment: .leading, spacing: 16) {
+                // Build my monkey (Maybe later, or never asked) or Edit my monkey.
+                MonkeyAccountRow {
+                    showSettings = false
+                    Task {
+                        // Let the sheet finish closing before the builder covers the screen.
+                        try? await Task.sleep(for: .seconds(0.35))
+                        mm.editingMonkey = true
+                    }
+                }
                 photoRow
                 MMTextField(label: "Name", text: $name)
                 if mm.isLive {
@@ -979,6 +989,7 @@ private struct NotificationRow: View {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         PersonProfileButton(person: p) {
                             Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                                .mmMonkey(p.monkey, size: 18)
                         }
                         mmRich([.body(" invited you to ", 15), .body(s.title, 15, .bold)])
                     }
@@ -998,6 +1009,7 @@ private struct NotificationRow: View {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         PersonProfileButton(person: p) {
                             Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                                .mmMonkey(p.monkey, size: 18)
                         }
                         Text(" \(note.text)").mmFont(.body, 15).foregroundStyle(MMColor.textPrimary)
                     }
@@ -1073,6 +1085,7 @@ struct PersonProfileScreen: View {
                     MMAvatar(name: p.name, photo: p.photo, size: 80, belt: p.belt)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(p.name).mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                            .mmMonkey(p.monkey, size: 28)
                         let handle = [p.username.isEmpty ? nil : "@" + p.username, p.gym.isEmpty ? nil : p.gym].compactMap { $0 }
                         if !handle.isEmpty {
                             Text(handle.joined(separator: " · ")).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)

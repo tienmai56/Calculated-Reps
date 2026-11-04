@@ -116,6 +116,7 @@ private struct FriendStreakCard: View {
                 MMPairAvatars(a: mm.me.avatar, b: p.avatar, size: 40, hue: broken ? .coral : p.hue, knot: !broken)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("You + \(p.firstName)").mmFont(.display, 17, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
+                        .mmMonkey(p.monkey, size: 20)
                     Text(copy.line).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
                 .multilineTextAlignment(.leading)

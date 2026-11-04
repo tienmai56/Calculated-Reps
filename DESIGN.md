@@ -2,7 +2,7 @@
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
-> Version 1.2.0 · Last updated 2026-11-04
+> Version 1.3.0 · Last updated 2026-11-04
 
 ## Contents
 1. Product
@@ -296,6 +296,7 @@ React primitives live in `design-system/components/<group>/`. Each has `Name.jsx
 | **Badge** | variants: neutral / accent / soft / success / warning / danger / info / flame · height: 24 · radius: pill · casing: sentence |
 | **Tag** | sizes: sm 32, md 40 · selected: ink-900 fill, paper text |
 | **Avatar** | sizes: 24 / 28 / 30 / 34 / 40 / 44 / 52 / 60 / 80 / 104 / 108 · fallback: initials on friend-hue tint · ring: belt color |
+| **Monkey** | after the name, not the avatar · sizes: 16 (comments, tickets) / 20 (posts, lists) / 28 (profile) · fur: ink-900 / ink-700 / ink-500 / coral-700 / sky-700 / plum-700 / mint-700 · face: white · no backdrop |
 | **AvatarStack** | overlap: 32% of size · ringWidth: 2.5 |
 | **Belt** | sizes: xs 8, sm 12, md 16, lg 24 · stripes: 0–4 · bar: black; red for black/coral/red belts |
 | **StreakBelt** | segment: 1 calendar week (Mon–Sun) · states: done / missed / pending-hatched · hues: friendHues |
@@ -448,6 +449,20 @@ Implementation: website repository `your-note-haven`, with the read-only
 
 Native: `PeopleSearchScreen`, `PersonProfileScreen`, `AppModel.circle` / `following`. Backend: `supabase/migrations/20261104150000_people_and_follows.sql` (`follows`, `in_circle`, `my_circle`, `set_follow`) and `20261104160000_partner_lists.sql` (`partners_of`).
 
+### Monkeys
+
+Every member can have a **monkey**: a minimal two-color face that sits **right after their name**, about the height of the text. It never replaces the avatar; photos, initials, belt rings and friend hues stay as they are. No monkey yet means just the name, with no placeholder.
+
+- **Drawing:** a round fur head, two ears with light centers, a peanut-shaped white face mask, dot eyes and a single mouth line, all drawn in the fur color. No backdrop circle, outline, blush, highlight or attire. It's a separate character from the Silverback, which is never redrawn.
+- **Options (three, nothing more):** **Mood** (Oss., Good rolls, Game face, Round six, Side-eye, Tapped), **Fur** (Midnight `ink-900`, Charcoal `ink-700`, Smoke `ink-500`, Ginger `coral-700`, Navy `sky-700`, Grape `plum-700`, Moss `mint-700`; dark tokens only, at least 3:1 on white, because the features are drawn in the fur color. Monkey fur is the one place friend-hue 700s appear outside a friendship, and a monkey's fur never signals one) and **Haircut** (Clean, Tuft, Fringe, Mohawk, Top knot, Curls). The face is always white. A monkey that isn't built yet (the invitation sheet, the Account row) is drawn in `ink-300` (`--text-disabled`), never faded with opacity.
+- **Sizes:** 28 on profile headers, 20 in post headers and lists, 16 in comments and tickets. Inside a sentence ("Sam trained with Lena & Kenji") each first name carries its own monkey.
+- **Builder:** a large preview, a "Name + monkey" chip, one hint line, a segmented **Mood · Fur · Haircut** control and a 3-column grid of white tiles. Every tile previews *your* monkey with that option; the selected tile gets a 2pt ink border. Changes pop with `--ease-bounce`; Reduce Motion skips the pop.
+- **New members:** profile setup is four steps. 1 Details ("First, who's rolling?", button **Next**) · 2 **Meet your monkey** (a random one is already waiting; Build my monkey, or Keep this one / Skip) · 3 **Build** ("Looks like me") · 4 **Reveal** ("Looking sharp, Sam.", a tilted polaroid and a name-row preview) with **Complete my profile**, which saves the profile and the monkey together.
+- **Existing members:** one sheet on Activity, once the feed is up, never over a pushed screen: "Your monkey's waiting, Lena." · "Your monkey goes next to your name." · **Build my monkey** / **Maybe later**. Building opens the builder over the current screen; **Save my monkey** closes it onto the same screen, refreshed with the monkey after their name, and the toast "Fresh monkey on the mat". Maybe later (or swiping the sheet away) ends the invitation; **Account** keeps a **Build my monkey** row (later **Edit my monkey**).
+- **Storage:** `profiles.monkey` holds `mood.fur.haircut` (null until built), changed only through the `set_monkey` command and returned in the snapshot like the rest of the profile.
+
+Native: `DesignSystem/Components/Display.swift` (`MMMonkey`, `MMMonkeyLook`, `mmMonkey`, `mmMonkeyText`), `Features/Profile/MonkeyScreens.swift`, profile setup in `MatMind/App/MatMindRoot.swift`. Backend: `supabase/migrations/20261104170000_monkey_avatars.sql`.
+
 ## 9. Guardrails
 **Always**
 - One primary button per screen.
@@ -466,7 +481,7 @@ Native: `PeopleSearchScreen`, `PersonProfileScreen`, `AppModel.circle` / `follow
 - Leaderboards.
 - Badges or milestones.
 - Performance analytics.
-- Custom avatar builder.
+- Avatar options beyond the monkey (mood, fur, haircut): no outfits, accessories, photo filters or extra colors.
 - Emoji in UI chrome.
 - Gradients as decoration.
 - Pure black text.

@@ -131,8 +131,9 @@ struct MatMindRoot: View {
     }
 }
 
-/// First-run profile: photo, name, phone, home gym and belt. Stripes are edited
-/// later from Profile; the phone number is optional and stored privately (account settings).
+/// First-run profile: photo, name, phone, home gym and belt, then the member's monkey
+/// (meet → build → reveal). "Complete my profile" on the last step saves both. Stripes
+/// are edited later from Profile; the phone number is optional and stored privately.
 private struct LiveProfileSetup: View {
     private struct CountryCode: Hashable { let code: String; let name: String }
     private static let countryCodes = [
@@ -155,6 +156,11 @@ private struct LiveProfileSetup: View {
     @State private var photoRequest = UUID()
     @State private var loadingPhoto = false
     @State private var saving = false
+    @State private var step: Step = .details
+    /// A random monkey is waiting before they build one, so skipping still leaves them with one.
+    @State private var monkey = MMMonkeyLook.random()
+
+    private enum Step { case details, meet, build, reveal }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedGym: String { gym.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -170,6 +176,31 @@ private struct LiveProfileSetup: View {
     }
 
     var body: some View {
+        Group {
+            switch step {
+            case .details:
+                details
+            case .meet:
+                MonkeyMeetView(look: $monkey, onBack: { go(.details) }, onBuild: { go(.build) }, onKeep: { go(.reveal) })
+            case .build:
+                MonkeyBuilderView(look: $monkey, name: trimmedName, mode: .setup,
+                                  onBack: { go(.meet) }, onSkip: { go(.reveal) }, onDone: { go(.reveal) })
+            case .reveal:
+                MonkeyRevealView(look: monkey, name: trimmedName,
+                                 detail: [belt.map { "\($0.title) belt" }, trimmedGym].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "),
+                                 busy: saving || app.busy,
+                                 onBack: { go(.build) },
+                                 onComplete: { Task { await save() } })
+            }
+        }
+        .transition(.move(edge: .trailing).combined(with: .opacity))
+    }
+
+    private func go(_ next: Step) {
+        withAnimation(MMMotion.easeOut()) { step = next }
+    }
+
+    private var details: some View {
         MMScreen {
             HStack {
                 MMWordmark(size: 24)
@@ -184,6 +215,7 @@ private struct LiveProfileSetup: View {
             .frame(height: MMLayout.headerHeight)
         } content: {
             VStack(alignment: .leading, spacing: 20) {
+                MonkeyStepDots(step: 1)
                 Text("First, who's rolling?").mmFont(.display, 30).foregroundStyle(MMColor.textPrimary)
                 photoRow
                 MMTextField(label: "Name", required: true, placeholder: "What your partners call you", text: $name)
@@ -196,7 +228,7 @@ private struct LiveProfileSetup: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         } footer: {
-            MMButton("Complete my profile", size: .lg, fullWidth: true) { Task { await save() } }
+            MMButton("Next", size: .lg, fullWidth: true) { go(.meet) }
                 .disabled(!canSave)
         }
         .onChange(of: pickedPhoto) { _, item in
@@ -345,7 +377,9 @@ private struct LiveProfileSetup: View {
             }
             payload["avatar_key"] = key
         }
-        await app.perform("save_profile", payload)
+        guard await app.perform("save_profile", payload, refresh: false) != nil else { return }
+        // The profile exists now; if the monkey doesn't stick, Account still offers Build my monkey.
+        if await app.perform("set_monkey", ["monkey": monkey.code]) == nil { await app.refresh(force: true) }
     }
 }
 
@@ -392,7 +426,8 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     private func person(_ row: SocialRow) -> Person {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
-               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")], username: row.text("username"))
+               stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")], username: row.text("username"),
+               monkey: MMMonkeyLook(code: row.text("monkey")))
     }
     func sync(now: Date = Date()) {
         if photoOwner != model.userID {
@@ -408,6 +443,7 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.isSignedIn = true
         ui.loadGoals(account: userID)
+        ui.loadMonkeyPrompt(account: userID)
         ui.me = model.me.map(person) ?? Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         ui.people = Dictionary(uniqueKeysWithValues: model.snapshot.profiles.filter { $0.id != model.userID }.map { (localID($0.id), person($0)) })
         ui.gyms = Array(Set(model.snapshot.profiles.map { $0.text("gym") }.filter { !$0.isEmpty })).sorted()

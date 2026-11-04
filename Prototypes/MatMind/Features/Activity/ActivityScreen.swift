@@ -298,6 +298,7 @@ struct PostCard: View {
                         PersonProfileButton(person: mm.person(first.who)) {
                             Text(first.who == "me" ? "You" : mm.person(first.who).firstName)
                                 .mmFont(.body, 14, .bold).foregroundStyle(MMColor.textPrimary)
+                                .mmMonkey(mm.person(first.who).monkey, size: 16)
                         }
                         Button { toggleComments() } label: {
                             Text(" \(first.text)").mmFont(.body, 14).foregroundStyle(MMColor.textPrimary)
@@ -687,6 +688,7 @@ private struct CommentRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 PersonProfileButton(person: p) {
                     Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                        .mmMonkey(p.monkey, size: 16)
                 }
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -772,6 +774,7 @@ struct MentionSuggestions: View {
                         HStack(spacing: 8) {
                             MMAvatar(name: person.name, photo: person.photo, size: 28)
                             Text(person.name).mmFont(.body, 13, .semibold).foregroundStyle(MMColor.textPrimary)
+                                .mmMonkey(person.monkey, size: 16)
                             Text("@" + person.username).mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                                 .lineLimit(1)
                             Spacer(minLength: 0)

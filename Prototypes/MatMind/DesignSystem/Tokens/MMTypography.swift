@@ -142,6 +142,9 @@ struct MMRun {
     var font: Font
     var color: Color
     var link: URL? = nil
+    /// A member's monkey, drawn right after this run's text (see PersonText).
+    var monkey: MMMonkeyLook? = nil
+    var monkeySize: CGFloat = 18
 
     static func body(_ text: String, _ size: CGFloat, _ weight: MMWeight = .regular, color: Color = MMColor.textPrimary, link: URL? = nil) -> MMRun {
         MMRun(text: text, font: MMFont.body(size, weight), color: color, link: link)

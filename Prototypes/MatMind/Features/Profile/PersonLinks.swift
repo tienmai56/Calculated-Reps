@@ -23,8 +23,11 @@ enum PersonProfileLink {
 extension MMRun {
     static func person(_ person: Person, _ size: CGFloat, _ weight: MMWeight = .regular,
                        short: Bool = false, color: Color = MMColor.textPrimary) -> MMRun {
-        .body(person.id == "me" ? "You" : (short ? person.firstName : person.name), size, weight,
-              color: color, link: PersonProfileLink.url(for: person.id))
+        var run = MMRun.body(person.id == "me" ? "You" : (short ? person.firstName : person.name), size, weight,
+                             color: color, link: PersonProfileLink.url(for: person.id))
+        run.monkey = person.monkey
+        run.monkeySize = (size * 1.15).rounded()
+        return run
     }
 }
 
@@ -35,8 +38,15 @@ struct PersonText: View {
 
     init(_ runs: [MMRun]) { self.runs = runs }
 
+    /// Each name carries its member's monkey; the runs between names render as before.
+    private var text: Text {
+        runs.reduce(Text("")) { text, run in
+            text + mmRich([run]) + (run.monkey == nil ? Text("") : mmMonkeyText(run.monkey, size: run.monkeySize))
+        }
+    }
+
     var body: some View {
-        mmRich(runs)
+        text
             .environment(\.openURL, OpenURLAction { url in
                 guard let id = PersonProfileLink.personID(from: url) else { return .systemAction }
                 mm.openPerson(id)
