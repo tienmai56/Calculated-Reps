@@ -68,7 +68,6 @@ private struct ReadyToShare: View {
     }
 
     var body: some View {
-        let shortTitle = session.title.lowercased().replacingOccurrences(of: "no-gi ", with: "")
         HStack(spacing: 14) {
             MMIcon("camera", size: 28, color: MMColor.ink500)
                 .frame(width: 64, height: 64)
@@ -77,11 +76,7 @@ private struct ReadyToShare: View {
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
-                Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
-                // Say which session this is: an older one can still be waiting here.
-                Text("\(session.day), \(session.month) \(session.date) · \(session.time)")
-                    .mmFont(.body, 12, .semibold, lineHeight: 1.3).foregroundStyle(MMColor.ink200)
-                    .padding(.top, 2)
+                Text("How was \(session.title)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
                 Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
                     .padding(.top, 4)
