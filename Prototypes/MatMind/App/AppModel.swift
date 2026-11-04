@@ -66,7 +66,7 @@ final class AppModel {
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
-        people = [:]; friends = []; circle = []; following = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; completedSessions = []; toComplete = nil
+        people = [:]; friends = []; circle = []; following = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; discoverableSessions = []; completedSessions = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
@@ -94,6 +94,8 @@ final class AppModel {
     var posts: [Post] = []
     var upcoming: [Session] = []
     var completedSessions: [Session] = []
+    /// Friends' open plans from Activity. They enter Training only after joining.
+    var discoverableSessions: [Session] = []
     var toComplete: Session?
     var notifications: [AppNotification] = []
     var drafts: [Session] = []
@@ -148,6 +150,7 @@ final class AppModel {
     func findSession(_ id: String) -> Session? {
         if let s = upcoming.first(where: { $0.id == id }) { return s }
         if let s = toComplete, s.id == id { return s }
+        if let s = discoverableSessions.first(where: { $0.id == id }) { return s }
         return drafts.first(where: { $0.id == id }) ?? completedSessions.first(where: { $0.id == id })
     }
 
@@ -267,6 +270,16 @@ final class AppModel {
     }
 
     func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
+
+    /// Link-visible plans appear immediately in Activity, without creating a completed post.
+    func activityPlans(at now: Date = Date()) -> [Session] {
+        (upcoming + discoverableSessions)
+            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && startDate(of: $0) > now }
+            .sorted {
+                let first = startDate(of: $0), second = startDate(of: $1)
+                return first == second ? $0.id < $1.id : first < second
+            }
+    }
 
     /// Keep Activity tied to the nearest unshared session, on either side of now.
     /// Invitations and declined plans aren't training the member has committed to.
@@ -472,6 +485,9 @@ final class AppModel {
 
     func rsvp(_ sessionID: String, _ status: RSVP) {
         if isLive { send("set_rsvp", ["session_id": sessionID, "rsvp": status.rawValue]); return }
+        if status == .going, let index = discoverableSessions.firstIndex(where: { $0.id == sessionID }) {
+            upcoming.append(discoverableSessions.remove(at: index))
+        }
         updateSession(sessionID) { $0.set("me", status) }
         for i in notifications.indices where notifications[i].session == sessionID { notifications[i].unread = false }
         if status == .going {
@@ -1098,6 +1114,7 @@ final class AppModel {
         listedPeople = [:]
         posts = SeedData.posts
         upcoming = SeedData.upcoming
+        discoverableSessions = []
         toComplete = SeedData.toComplete
         notifications = SeedData.notifications
         gyms = SeedData.gyms

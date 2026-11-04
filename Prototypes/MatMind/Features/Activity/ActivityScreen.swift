@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Tab 1: a feed of completed sessions only (the completion flow is the composer).
+/// Tab 1: open upcoming plans and completed memories from your crew.
 struct ActivityScreen: View {
     @Environment(AppModel.self) private var mm
 
@@ -12,6 +12,7 @@ struct ActivityScreen: View {
 
     private func feed(at now: Date) -> some View {
         let prompt = mm.activityPrompt(at: now)
+        let plans = mm.activityPlans(at: now)
         return MMScreen(tabPadding: true) {
             MMHeader(title: "Activity", large: true, leading: {
                 MMHeaderMark()
@@ -29,18 +30,28 @@ struct ActivityScreen: View {
                 ReadyToShare(session: session, now: now)
                     .padding(.vertical, 12)
             }
-            if mm.posts.isEmpty {
+            if mm.posts.isEmpty && plans.isEmpty {
                 EmptyActivity(prompt: prompt, now: now)
             } else {
+                if !plans.isEmpty {
+                    MMEyebrow("Coming up", topPadding: MMSpace.s4)
+                    VStack(spacing: MMSpace.s6) {
+                        ForEach(plans) { session in
+                            ActivityPlanCard(session: session)
+                        }
+                    }
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.bottom, MMSpace.s6)
+                }
                 ForEach(mm.posts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
                 }
-                if mm.isLive {
+                if mm.isLive && !mm.posts.isEmpty {
                     MMButton("Load older memories", variant: .ghost) {
                         Task { _ = await mm.runtime?.perform("load_more_feed", [:]) }
                     }.padding(.horizontal, 16)
                 }
-                Text("That's everything from your crew this week.\nGo make a new memory.")
+                Text("You're all caught up with your crew.\nGo make a new memory.")
                     .mmFont(.body, 13, .medium, lineHeight: 1.45)
                     .foregroundStyle(MMColor.textTertiary)
                     .multilineTextAlignment(.center)
@@ -48,6 +59,33 @@ struct ActivityScreen: View {
                     .padding(.horizontal, 40)
                     .padding(.top, 10)
                     .padding(.bottom, 20)
+            }
+        }
+    }
+}
+
+/// An invitation to train, using the same ticket as Training and session details.
+private struct ActivityPlanCard: View {
+    @Environment(AppModel.self) private var mm
+    let session: Session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s4) {
+            HStack(spacing: MMSpace.s3) {
+                MMIcon("link", size: 14, color: MMColor.textTertiary)
+                Text("Anyone with the link")
+                    .mmFont(.body, 13, .medium).foregroundStyle(MMColor.textSecondary)
+                Spacer()
+                if session.status(of: "me") == .going {
+                    MMBadge(session.organizer == "me" ? "You host" : "Going", variant: .success)
+                }
+            }
+            SessionTicket(session: session) { mm.go(.session(id: session.id)) }
+            if session.organizer != "me" && session.status(of: "me") != .going {
+                MMButton("Join session", size: .sm, iconLeft: "check", fullWidth: true) {
+                    mm.rsvp(session.id, .going)
+                }
+                .disabled(mm.busy)
             }
         }
     }
@@ -116,7 +154,7 @@ private struct ReadyToShare: View {
     }
 }
 
-/// No completed sessions yet. A plan stays a plan until the organizer publishes it.
+/// No open Activity plans or completed memories yet.
 private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
     let prompt: Session?

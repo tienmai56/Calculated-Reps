@@ -3,6 +3,93 @@ import UIKit
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
+    @MainActor
+    func testActivityPlansAreFutureLinkSessionsWithoutChangingMemories() {
+        let ui = AppModel(live: true)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        func plan(_ id: String, privacy: Privacy = .link, rsvp: RSVP = .going, offset: TimeInterval = 60) -> Session {
+            Session(id: id, title: id, day: "Fri", date: 15, month: "Jan", time: "6:00 PM", gym: "Gym",
+                    organizer: "me", privacy: privacy, people: [Attendee(id: "me", status: rsvp)],
+                    startsAt: now.addingTimeInterval(offset))
+        }
+        ui.upcoming = [plan("private", privacy: .friends), plan("later", offset: 120), plan("started", offset: 0),
+                       plan("declined", rsvp: .declined), plan("earlier")]
+        XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["earlier", "later"])
+        XCTAssertTrue(ui.activityPlans(at: now.addingTimeInterval(120)).isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty, "An upcoming entry never creates a completed memory")
+        ui.upcoming.removeAll { $0.id == "earlier" }
+        XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["later"], "Cancelling removes the plan from Activity")
+    }
+
+    @MainActor
+    func testLiveActivityDiscoveryEntersTrainingOnlyAfterJoiningAndLeavesAfterCompletion() throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot.activity_sessions = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"id":"open","organizer":"friend","title":"Open rolls","starts_at":"2099-01-01T18:00:00Z","venue":"Gym","status":"planned","join_mode":"link"}]
+        """#.utf8))
+        model.snapshot.participants = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"session_id":"open","user_id":"friend","rsvp":"going"}]
+        """#.utf8))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        XCTAssertEqual(ui.activityPlans().map(\.id), ["open"])
+        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        XCTAssertEqual(ui.findSession("open")?.organizer, "friend", "Feed tickets can open session details")
+        model.snapshot.participants += try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"session_id":"open","user_id":"owner","rsvp":"going"}]
+        """#.utf8))
+        model.snapshot.sessions = model.snapshot.activity_sessions ?? []
+        model.snapshot.activity_sessions = []
+        runtime.sync()
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ["open"])
+        XCTAssertEqual(ui.activityPlans().map(\.id), ["open"], "Joining keeps just one Activity entry")
+        XCTAssertTrue(ui.discoverableSessions.isEmpty)
+        model.snapshot.sessions[0].values["status"] = .string("completed")
+        runtime.sync()
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        model.userID = nil
+        runtime.sync()
+        XCTAssertTrue(ui.discoverableSessions.isEmpty)
+    }
+
+    @MainActor
+    func testCreatingALinkVisiblePreviewPlanAddsActivityImmediately() {
+        let ui = AppModel(live: false)
+        ui.upcoming = []
+        ui.toComplete = nil
+        let memories = ui.posts
+        var draft = SessionDraft(title: "Open rolls", day: "Fri", date: 15, month: "Jan", time: "6:00 PM", gym: "Gym",
+                                 note: "", invited: [], privacy: .link, past: false,
+                                 startsAt: Date().addingTimeInterval(3600))
+        ui.createSession(draft)
+        XCTAssertEqual(ui.activityPlans().map(\.title), ["Open rolls"])
+        draft.title = "Private rolls"
+        draft.privacy = .friends
+        ui.createSession(draft)
+        XCTAssertEqual(ui.activityPlans().map(\.title), ["Open rolls"])
+        XCTAssertEqual(ui.posts, memories)
+    }
+
+    @MainActor
+    func testJoiningADiscoveredPreviewPlanAddsItToTraining() {
+        let ui = AppModel(live: false)
+        ui.upcoming = []
+        ui.discoverableSessions = [Session(id: "open", title: "Open rolls", day: "Fri", date: 15, month: "Jan", time: "6:00 PM", gym: "Gym",
+                                           organizer: "sarah", privacy: .link, people: [Attendee(id: "sarah", status: .going)],
+                                           startsAt: Date().addingTimeInterval(3600))]
+        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        ui.rsvp("open", .going)
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ["open"])
+        XCTAssertEqual(ui.activityPlans().map(\.id), ["open"])
+        XCTAssertEqual(ui.findSession("open")?.status(of: "me"), .going)
+        ui.rsvp("open", .declined)
+        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+    }
+
     func testMentionTypingAndInsertionAfterEmoji() {
         XCTAssertEqual(UsernameMention.query(in: "Great rolls 😀 @Hi"), "hi")
         XCTAssertEqual(UsernameMention.inserting("hippo", in: "Great rolls 😀 @Hi"), "Great rolls 😀 @hippo ")
