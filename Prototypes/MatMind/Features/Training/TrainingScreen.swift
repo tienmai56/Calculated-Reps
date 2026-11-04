@@ -264,7 +264,7 @@ struct SessionDetailScreen: View {
         } footer: {
             if isOrganizer {
                 VStack(spacing: 10) {
-                    let photoReady = mm.toComplete?.id == s.id
+                    let photoReady = mm.isReadyToShare(s.id)
                     MMButton("Take a photo", variant: .secondary, size: .lg, iconLeft: "camera", fullWidth: true) {
                         mm.go(.complete(id: s.id))
                     }

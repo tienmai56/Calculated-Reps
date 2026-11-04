@@ -166,9 +166,23 @@ final class AppModel {
         plannedSessions.first { sessionGoals[$0.id] == goalID }
     }
 
+    /// Sessions you organized that have already happened but aren't shared yet, newest first.
+    /// Every one of them can be completed, not just the most recent, so a logged past
+    /// session always has a way into Activity.
+    var readyToShare: [Session] {
+        guard isLive else { return toComplete.map { [$0] } ?? [] }
+        let now = Date()
+        return upcoming.filter { $0.organizer == "me" && startDate(of: $0) <= now }
+            .sorted { startDate(of: $0) > startDate(of: $1) }
+    }
+
+    func isReadyToShare(_ sessionID: String) -> Bool { readyToShare.contains { $0.id == sessionID } }
+
     /// Invitations and accepted plans, soonest first; declined sessions do not fill the schedule.
+    /// Your own sessions that already happened are waiting to be shared, not coming up.
     var plannedSessions: [Session] {
-        upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
+        let sharing = Set(readyToShare.map(\.id))
+        return upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || !sharing.contains($0.id)) }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
                 return first == second ? $0.id < $1.id : first < second
