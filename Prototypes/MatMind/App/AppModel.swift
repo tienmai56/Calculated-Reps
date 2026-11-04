@@ -625,6 +625,7 @@ final class AppModel {
             return
         }
         upcoming.removeAll { $0.id == id }
+        if toComplete?.id == id { toComplete = nil }
         forgetGoal(forSession: id)
         showToast("Session deleted")
     }
