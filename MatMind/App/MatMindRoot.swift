@@ -547,7 +547,8 @@ final class LiveMatMindRuntime: AppRuntime {
         let deleting = operation == "delete_post" ? body["post_id"] as? String : nil
         if let deleting { deletingPosts.insert(deleting); sync() }
         // A delete is already applied on screen, so it doesn't lock the app while it runs.
-        let result = await model.perform(operation, body, blocking: deleting == nil)
+        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either.
+        let result = await model.perform(operation, body, blocking: deleting == nil && operation != "share_goal")
         // On failure the post comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         sync()
@@ -676,13 +677,11 @@ final class LiveMatMindRuntime: AppRuntime {
     func publishGoal(_ goal: MatGoal) async -> String? {
         guard let owner = model.userID else { model.error = "Sign in to share goals."; return nil }
         do {
-            var photos: [String] = []
-            for photo in goal.photos { if let key = try await uploadGoalPhoto(photo, owner: owner) { photos.append(key) } }
-            var parts: [[String: Any]] = []
-            for part in goal.parts {
-                var keys: [String] = []
-                for photo in part.photos { if let key = try await uploadGoalPhoto(photo, owner: owner) { keys.append(key) } }
-                parts.append(["id": part.id, "title": part.title, "notes": part.notes, "link": part.link, "photos": keys])
+            // Upload every photo at once rather than one after another, keeping their order.
+            let keys = try await uploadGoalPhotos(goal.photos + goal.parts.flatMap(\.photos), owner: owner)
+            let photos = goal.photos.compactMap { keys[$0] }
+            let parts: [[String: Any]] = goal.parts.map { part in
+                ["id": part.id, "title": part.title, "notes": part.notes, "link": part.link, "photos": part.photos.compactMap { keys[$0] }]
             }
             // Not `model.perform`: saving a shared goal republishes in the background
             // and must not be refused while another command is running.
@@ -690,12 +689,22 @@ final class LiveMatMindRuntime: AppRuntime {
                 "client_id": goal.id, "title": goal.title, "notes": goal.notes,
                 "links": goal.links, "photos": photos, "parts": parts])
             guard model.userID == owner, let id = result["id"]?.string else { return nil }
-            await model.refresh(force: true)
-            sync()
+            // Don't make the caller wait for a full reload; a share right after refreshes anyway.
+            Task { await model.refresh(force: true); sync() }
             return id
         } catch {
             if model.userID == owner { model.error = "Couldn't share \(goal.title): \(error.localizedDescription)" }
             return nil
+        }
+    }
+    /// Uploads goal photos in parallel. Returns local file name → stored key; files missing
+    /// from this device are left out.
+    private func uploadGoalPhotos(_ files: [String], owner: String) async throws -> [String: String] {
+        try await withThrowingTaskGroup(of: (String, String?).self) { group in
+            for file in Set(files) { group.addTask { @MainActor in (file, try await self.uploadGoalPhoto(file, owner: owner)) } }
+            var keys: [String: String] = [:]
+            for try await (file, key) in group { if let key { keys[file] = key } }
+            return keys
         }
     }
     /// Uploads one goal photo, named by its content, so re-saves and retries reuse it.
@@ -714,7 +723,9 @@ final class LiveMatMindRuntime: AppRuntime {
         return key
     }
     func copyGoalLink(_ sharedID: String) async -> Bool {
-        guard let result = await model.perform("goal_token", ["goal_id": sharedID]), let token = result["token"]?.string else { return false }
+        // Making a link changes nothing on screen, so skip the lock and the full reload.
+        guard let result = await model.perform("goal_token", ["goal_id": sharedID], blocking: false, refresh: false),
+              let token = result["token"]?.string else { return false }
         UIPasteboard.general.url = model.link(kind: "goal", token: token)
         return true
     }

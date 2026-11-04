@@ -157,6 +157,8 @@ struct GoalShareSheet: View {
     let goalID: String
     @State private var picked: [String] = []
     @State private var working = false
+    /// Result of the last copy, shown in the sheet (the app's toast sits under it).
+    @State private var linkCopied: Bool?
 
     var body: some View {
         if let goal = mm.goal(goalID) {
@@ -198,16 +200,22 @@ struct GoalShareSheet: View {
                         Button {
                             Task {
                                 working = true
-                                await mm.copyGoalLink(goal.id)
+                                linkCopied = nil
+                                linkCopied = await mm.copyGoalLink(goal.id)
                                 working = false
                             }
                         } label: {
                             HStack(spacing: 10) {
                                 MMIcon("link", size: 18, color: MMColor.textTertiary)
-                                Text("Copy a link to this goal").mmFont(.body, 15, .semibold, lineHeight: 1.2)
+                                Text(linkTitle).mmFont(.body, 15, .semibold, lineHeight: 1.2)
                                     .foregroundStyle(MMColor.textPrimary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                MMIcon("copy", size: 18, weight: .bold, color: MMColor.ink900)
+                                if working {
+                                    ProgressView().tint(MMColor.ink900)
+                                } else {
+                                    MMIcon(linkCopied == true ? "check" : "copy", size: 18, weight: .bold,
+                                           color: linkCopied == true ? MMColor.mint700 : MMColor.ink900)
+                                }
                             }
                             .padding(.horizontal, 14)
                             .frame(minHeight: 52)
@@ -215,6 +223,14 @@ struct GoalShareSheet: View {
                         }
                         .buttonStyle(MMPressStyle())
                         .disabled(working)
+                        if linkCopied == false {
+                            HStack(alignment: .top, spacing: 6) {
+                                MMIcon("circle-alert", size: 14, color: MMColor.coral700).padding(.top, 1)
+                                Text("Couldn't make a link. Check your connection and try again.")
+                                    .mmFont(.body, 12, lineHeight: 1.3).foregroundStyle(MMColor.coral700)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                         HStack(alignment: .top, spacing: 6) {
                             MMIcon("lock", size: 14, color: MMColor.textTertiary).padding(.top, 1)
                             Text("Anyone with the link can ask to add it. They need a Mat Monkey account to see what's inside.")
@@ -231,12 +247,12 @@ struct GoalShareSheet: View {
         }
         .safeAreaInset(edge: .bottom) {
             MMButton(shareTitle, size: .lg, iconLeft: "send", fullWidth: true) {
-                Task {
-                    working = true
-                    let done = await mm.shareGoal(goal.id, with: picked)
-                    working = false
-                    if done { dismiss() }
-                }
+                // Close now: the toast says it's sharing and then that it's shared, and a
+                // failure shows the app's alert, which this sheet would otherwise cover.
+                let people = picked
+                let id = goal.id
+                dismiss()
+                Task { await mm.shareGoal(id, with: people) }
             }
             .disabled(picked.isEmpty || working)
             .padding(MMSpace.s6)
@@ -247,6 +263,11 @@ struct GoalShareSheet: View {
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(MMRadius.xl)
         .presentationBackground(MMColor.bgApp)
+    }
+
+    private var linkTitle: String {
+        if working { return "Making a link…" }
+        return linkCopied == true ? "Link copied. Paste it anywhere." : "Copy a link to this goal"
     }
 
     private var shareTitle: String {

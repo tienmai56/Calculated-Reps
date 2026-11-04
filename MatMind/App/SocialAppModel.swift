@@ -118,7 +118,8 @@ import SwiftData
     /// `busy` (which locks the app and shows the spinner) covers only the write itself; the
     /// follow-up refresh runs unlocked so the app is usable while new data loads.
     /// `blocking: false` skips the lock entirely, for writes the UI has already applied optimistically.
-    @discardableResult func perform(_ operation: String, _ payload: [String:Any], key: UUID = UUID(), blocking: Bool = true) async -> [String:ArchiveValue]? {
+    /// `refresh: false` skips the reload for writes that change nothing on screen.
+    @discardableResult func perform(_ operation: String, _ payload: [String:Any], key: UUID = UUID(), blocking: Bool = true, refresh reload: Bool = true) async -> [String:ArchiveValue]? {
         if blocking { guard !busy else { return nil }; busy = true }
         error = nil
         let generation = epoch
@@ -129,7 +130,7 @@ import SwiftData
         } catch { if generation == epoch { self.error = error.localizedDescription }; return nil }
         guard generation == epoch else { return nil }
         // A read begun before this write may contain the previous profile.
-        await refresh(force: true)
+        if reload { await refresh(force: true) }
         message = "Saved."
         return result
     }
