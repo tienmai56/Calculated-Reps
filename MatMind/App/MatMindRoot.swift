@@ -419,7 +419,7 @@ final class LiveMatMindRuntime: AppRuntime {
             return Friendship(id: other, weeks: weeks, thisWeek: buckets.contains(formatter.string(from: week)) ? .done : .pending,
                               best: model.streak(row).best, together: credits.count, currentStreak: model.streak(row).current)
         }
-        ui.upcoming = model.snapshot.sessions.filter { $0.text("status") == "planned" }.map { row in
+        let sessions = model.snapshot.sessions.filter { ["planned", "completed"].contains($0.text("status")) }.map { row in
             let date = row.date("starts_at") ?? Date()
             let content = SessionNoteCodec.decode(row.text("note"))
             return Session(id: row.id, title: row.text("title"), day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
@@ -428,6 +428,8 @@ final class LiveMatMindRuntime: AppRuntime {
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
+        ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" }
+        ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
         // The most recent of your sessions that already happened; `readyToShare` lists all of them.
         ui.toComplete = ui.upcoming.filter { $0.organizer == "me" && ($0.startsAt ?? .distantFuture) <= Date() }
             .max { ($0.startsAt ?? .distantPast) < ($1.startsAt ?? .distantPast) }
@@ -676,13 +678,13 @@ final class LiveMatMindRuntime: AppRuntime {
                                                        "note": SessionNoteCodec.encode(note: old.note, focus: items)])
         sync(); return result != nil
     }
-    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool {
         guard let row = model.session(sessionID) else { return false }
-        // Keep the focus plan that shares the note field.
-        let old = SessionNoteCodec.decode(row.text("note"))
-        let result = await model.perform("edit_session", ["session_id": sessionID, "version": row.number("version"), "title": title,
+        let result = await model.perform("edit_session_details", ["session_id": sessionID, "version": row.number("version"), "title": title,
                                                        "starts_at": ISO8601DateFormatter().string(from: startsAt), "timezone": row.text("timezone"),
-                                                       "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: old.focus)])
+                                                       "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: focusItems),
+                                                       "added_guests": addedGuests, "removed_guests": removedGuests])
         sync(); return result != nil
     }
     func publishGoal(_ goal: MatGoal) async -> String? {

@@ -462,6 +462,12 @@ final class MatMindLiveUITests: XCTestCase {
         let ui = AppModel(live: false)
         // Preview tickets have labels only until they are edited.
         XCTAssertEqual(ui.plannedSessions.map(\.id), ["s2", "s3", "s1"])
+        // Give the label-only samples future starts so this checks ordering, not tab migration.
+        let base = Date().addingTimeInterval(86400)
+        for (index, id) in ["s2", "s3", "s1"].enumerated() {
+            let i = try XCTUnwrap(ui.upcoming.firstIndex { $0.id == id })
+            ui.upcoming[i].startsAt = base.addingTimeInterval(Double(index) * 3600)
+        }
         let first = try XCTUnwrap(ui.plannedSessions.first)
         let earlier = ui.startDate(of: first).addingTimeInterval(-3600)
         let edited = await ui.editSession("s1", title: "Earlier rolls", startsAt: earlier, gym: "Home gym", note: "")
@@ -475,6 +481,60 @@ final class MatMindLiveUITests: XCTestCase {
         ui.deleteSession("c1")
         XCTAssertTrue(ui.readyToShare.isEmpty, "Deleting a session you didn't train removes its \"How was …?\" card")
         XCTAssertNil(ui.findSession("c1"))
+    }
+
+    func testTrainingTabsUseExactStartWithoutRequiringAPhotoOrPost() {
+        let ui = AppModel(live: true)
+        let now = ISO8601DateFormatter().date(from: "2026-11-03T12:00:00Z")!
+        func session(_ id: String, offset: TimeInterval, status: RSVP = .going) -> Session {
+            Session(id: id, title: id, day: "Tue", date: 3, month: "Nov", time: "12:00 PM", gym: "Home gym",
+                    organizer: "me", people: [Attendee(id: "me", status: status)], startsAt: now.addingTimeInterval(offset))
+        }
+        ui.upcoming = [session("old", offset: -86400), session("later", offset: 86400),
+                       session("at-start", offset: 0), session("recent-b", offset: -60),
+                       session("recent-a", offset: -60), session("invite", offset: 60, status: .invited),
+                       session("declined", offset: -120, status: .declined)]
+        ui.toComplete = ui.upcoming.first
+        ui.completedSessions = [session("shared", offset: -3600)]
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertEqual(ui.trainingSessions(past: false, relativeTo: now).map(\.id), ["invite", "later"])
+        XCTAssertEqual(ui.trainingSessions(past: true, relativeTo: now).map(\.id),
+                       ["at-start", "recent-a", "recent-b", "shared", "old"])
+        XCTAssertEqual(ui.trainingSessions(past: true, relativeTo: now.addingTimeInterval(60)).first?.id, "invite")
+        ui.clearLiveData()
+        XCTAssertTrue(ui.trainingSessions(past: true, relativeTo: now).isEmpty)
+    }
+
+    func testEditingMovesTrainingBetweenTabsEvenWithAStaleCompletionPrompt() async throws {
+        let ui = AppModel(live: false)
+        let now = Date()
+        let id = try XCTUnwrap(ui.upcoming.first { $0.organizer == "me" }?.id)
+        let past = now.addingTimeInterval(-3600)
+        let savedPast = await ui.editSession(id, title: "Past rolls", startsAt: past, gym: "Home gym", note: "")
+        XCTAssertTrue(savedPast)
+        ui.toComplete = ui.findSession(id)
+        XCTAssertTrue(ui.trainingSessions(past: true, relativeTo: now).contains { $0.id == id })
+        XCTAssertFalse(ui.trainingSessions(past: false, relativeTo: now).contains { $0.id == id })
+        let savedFuture = await ui.editSession(id, title: "Future rolls", startsAt: now.addingTimeInterval(3600), gym: "Home gym", note: "")
+        XCTAssertTrue(savedFuture)
+        XCTAssertFalse(ui.trainingSessions(past: true, relativeTo: now).contains { $0.id == id })
+        XCTAssertTrue(ui.trainingSessions(past: false, relativeTo: now).contains { $0.id == id })
+    }
+
+    func testUnsharedPastDraftRemainsInTrainingAfterPublishingWithoutAPhoto() throws {
+        let ui = AppModel(live: false)
+        let draft = SessionDraft(title: "Yesterday's rounds", day: "Mon", date: 2, month: "Nov", time: "6:00 PM",
+                                 gym: "Home gym", note: "", invited: [], privacy: .friends, past: true,
+                                 startsAt: Date().addingTimeInterval(-86400))
+        ui.createSession(draft)
+        let session = try XCTUnwrap(ui.drafts.last)
+        XCTAssertTrue(ui.trainingSessions(past: true).contains { $0.id == session.id })
+        XCTAssertNotNil(ui.findSession(session.id))
+        let result = ui.publish(session.id, photo: nil, caption: "Great rounds", people: ["me"])
+        XCTAssertNotNil(result)
+        XCTAssertEqual(ui.trainingSessions(past: true).filter { $0.id == session.id }.count, 1)
+        XCTAssertTrue(ui.isCompleted(session))
+        XCTAssertNotNil(ui.findSession(session.id))
     }
 
     func testSuggestedSessionNameFollowsTheStartTime() throws {
@@ -588,6 +648,43 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(ui.saveGoal(MatGoal(id: "blank-goal", title: " "), parts: [grip]), "A goal still needs a name")
         ui.deleteGoal(goal.id)
         XCTAssertFalse(FileManager.default.fileExists(atPath: files[0].path), "Deleting a goal deletes its part photos")
+    }
+
+    func testSessionEditSavesFocusAndGuestChangesWithoutResettingRSVPs() async throws {
+        let ui = AppModel(live: false)
+        let original = try XCTUnwrap(ui.findSession("s1"))
+        let start = Date().addingTimeInterval(86400)
+        let focus = [TrainingFocus(title: "  Mount attacks ", children: [TrainingFocus(title: " Armbar ")])]
+        let guests: Set<String> = ["sarah", "kenji", "lena", "priya"]
+
+        let edited = await ui.editSession("s1", title: original.title, startsAt: start, gym: original.gym,
+                                          note: "Bring a gi", focusItems: focus, guestIDs: guests)
+        XCTAssertTrue(edited)
+        let saved = try XCTUnwrap(ui.findSession("s1"))
+        XCTAssertEqual(saved.focusItems.first?.title, "Mount attacks")
+        XCTAssertEqual(saved.focusItems.first?.children.first?.title, "Armbar")
+        XCTAssertEqual(saved.note, "Bring a gi")
+        XCTAssertNil(saved.status(of: "alex"))
+        XCTAssertEqual(saved.status(of: "priya"), .invited)
+        XCTAssertEqual(saved.status(of: "me"), .going, "The organizer stays even though guests excludes them")
+        for id in ["sarah", "kenji", "lena"] {
+            XCTAssertEqual(saved.status(of: id), original.status(of: id), "Retained guests keep their RSVP")
+        }
+
+        let invalid = await ui.editSession("s1", title: "Unsaved name", startsAt: start, gym: original.gym,
+                                           note: "Unsaved note", focusItems: [TrainingFocus()], guestIDs: [])
+        XCTAssertFalse(invalid)
+        XCTAssertEqual(ui.findSession("s1"), saved, "Invalid focus prevents every change")
+        let stranger = await ui.editSession("s1", title: "Unsaved name", startsAt: start, gym: original.gym,
+                                            note: "", focusItems: [], guestIDs: ["stranger"])
+        XCTAssertFalse(stranger)
+        XCTAssertEqual(ui.findSession("s1"), saved)
+
+        let cleared = await ui.editSession("s1", title: saved.title, startsAt: start, gym: saved.gym,
+                                           note: "", focusItems: [], guestIDs: [])
+        XCTAssertTrue(cleared)
+        XCTAssertEqual(ui.findSession("s1")?.focusItems, [])
+        XCTAssertEqual(ui.findSession("s1")?.people.map(\.id), ["me"])
     }
 
     func testHostCanEditAndDeleteOnlyTheirOwnSessions() async {
