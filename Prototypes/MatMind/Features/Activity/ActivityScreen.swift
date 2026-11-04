@@ -31,7 +31,6 @@ struct ActivityScreen: View {
             if mm.posts.isEmpty {
                 EmptyActivity()
             } else {
-                StreakNudges()
                 ForEach(mm.posts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
                 }
@@ -69,7 +68,6 @@ private struct ReadyToShare: View {
     }
 
     var body: some View {
-        let shortTitle = session.title.lowercased().replacingOccurrences(of: "no-gi ", with: "")
         HStack(spacing: 14) {
             MMIcon("camera", size: 28, color: MMColor.ink500)
                 .frame(width: 64, height: 64)
@@ -78,11 +76,7 @@ private struct ReadyToShare: View {
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
-                Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
-                // Say which session this is: an older one can still be waiting here.
-                Text("\(session.day), \(session.month) \(session.date) · \(session.time)")
-                    .mmFont(.body, 12, .semibold, lineHeight: 1.3).foregroundStyle(MMColor.ink200)
-                    .padding(.top, 2)
+                Text("How was \(session.title)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
                 Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
                     .padding(.top, 4)
@@ -134,47 +128,6 @@ private struct EmptyActivity: View {
                          secondaryIcon: mm.friends.isEmpty ? "qr-code" : "history",
                          secondaryAction: { mm.go(mm.friends.isEmpty ? .qr() : .create(past: true)) }) {
                 mm.go(.create())
-            }
-        }
-    }
-}
-
-/// Tinted cards for live streaks that still need this week's session.
-private struct StreakNudges: View {
-    @Environment(AppModel.self) private var mm
-
-    var body: some View {
-        let list = mm.friends.filter { $0.thisWeek == .pending && $0.streak > 0 }
-        if !list.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(list) { f in
-                        let p = mm.person(f.id)
-                        Button { mm.go(.friend(id: f.id)) } label: {
-                            HStack(spacing: 12) {
-                                MMPairAvatars(a: mm.me.avatar, b: p.avatar, size: 38, hue: p.hue, ring: p.hue.tint)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("\(f.streak) weeks with \(p.firstName)")
-                                        .mmFont(.display, 16, lineHeight: 1.15)
-                                        .foregroundStyle(p.hue.ink)
-                                    Text("Roll together by Sunday to make it \(f.streak + 1)")
-                                        .mmFont(.body, 13, .medium, lineHeight: 1.3)
-                                        .foregroundStyle(MMColor.ink700)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                MMIcon("flame", size: 22, filled: true, color: MMColor.flame500)
-                            }
-                            .multilineTextAlignment(.leading)
-                            .padding(14)
-                            .frame(width: 262)
-                            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(p.hue.tint))
-                        }
-                        .buttonStyle(MMPressStyle())
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 2)
-                .padding(.bottom, 16)
             }
         }
     }

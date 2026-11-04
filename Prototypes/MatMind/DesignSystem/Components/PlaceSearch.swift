@@ -88,7 +88,7 @@ final class PlaceSearch {
 
 /// Shared by home-gym setup and session venues. Only an actively edited field searches.
 struct MMPlaceSearchField: View {
-    var label: String
+    var label: String? = nil
     var required = false
     var placeholder = "Search gyms or addresses"
     @Binding var text: String
