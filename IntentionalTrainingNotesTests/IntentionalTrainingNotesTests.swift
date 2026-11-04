@@ -691,8 +691,10 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(list.count, 9)
         XCTAssertEqual(Array(list.prefix(4)), ["alex", "kenji", "priya", "sarah"])
         XCTAssertEqual(ui.person("owen").name, "Owen Brooks")
-        XCTAssertFalse(ui.canFollow("owen"), "people outside your circle can be viewed, not followed")
-        XCTAssertTrue(ui.canFollow("maya"))
+        XCTAssertTrue(ui.canFollow("owen"), "anyone on a partner list you can see can be followed")
+        XCTAssertTrue(ui.canFollow("sarah"))
+        XCTAssertFalse(ui.canFollow("lena"), "not your partner, not in your circle, on no list you've opened")
+        XCTAssertFalse(ui.canFollow("me"))
         XCTAssertTrue(ui.searchPeople("owen").isEmpty, "a partner list doesn't widen search")
     }
 

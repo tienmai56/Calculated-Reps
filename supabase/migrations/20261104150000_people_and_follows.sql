@@ -308,11 +308,11 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  delete from public.follows where (follower=actor and followee=target) or (follower=target and followee=actor);
  elsif operation='set_follow' then
  -- One-way and instant, no approval. Only people in your circle (your training partners and
- -- the people they train with), matching what Search can find.
+ -- the people they train with), or on a partner list you can see (20261104160000_partner_lists.sql).
  target:=(payload->>'user_id')::uuid;
  if target is null or target=actor then raise exception 'Choose someone to follow'; end if;
  if coalesce((payload->>'follow')::boolean,true) then
- if not (public.are_friends(actor,target) or public.in_circle(actor,target)) then raise exception 'You can follow people who train with your training partners'; end if;
+ if not (public.are_friends(actor,target) or public.in_circle(actor,target) or public.listed_partner(actor,target)) then raise exception 'You can follow people who train with your training partners'; end if;
  insert into public.follows(follower,followee) values(actor,target) on conflict do nothing;
  else
  delete from public.follows where follower=actor and followee=target;

@@ -156,8 +156,10 @@ final class AppModel {
 
     func isFollowing(_ id: String) -> Bool { following.contains(id) }
 
-    /// You can follow your training partners and the people they train with.
-    func canFollow(_ id: String) -> Bool { id != "me" && (friendship(id) != nil || circle.contains { $0.id == id }) }
+    /// You can follow your training partners, the people they train with, and anyone on a partner list you've opened.
+    func canFollow(_ id: String) -> Bool {
+        id != "me" && (friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
+    }
 
     /// Loads (or refreshes) someone's training partner list into `partnerLists`.
     func loadPartners(of id: String) async {

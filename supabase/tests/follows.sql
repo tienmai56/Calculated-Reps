@@ -36,13 +36,15 @@ select pg_temp.assert_true(exists(select 1 from public.profiles where id='000000
 select pg_temp.assert_true(public.partners_of('00000000-0000-0000-0000-000000000305') is null,'no list for people outside your circle');
 select pg_temp.assert_true(public.partners_of('00000000-0000-0000-0000-000000000304') is null,'no list for strangers');
 select pg_temp.assert_true(public.partners_of('00000000-0000-0000-0000-000000000302') is not null,'your partners'' lists are visible');
+select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000305","follow":true}',gen_random_uuid());
+select pg_temp.assert_true((select count(*)=1 from public.follows where followee='00000000-0000-0000-0000-000000000305'),'people on a visible partner list can be followed');
+select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000305","follow":false}',gen_random_uuid());
 
 -- Following: instant, circle only, and only you see who you follow.
 select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000303","follow":true}',gen_random_uuid());
 select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000303","follow":true}',gen_random_uuid());
 select pg_temp.assert_true((select jsonb_array_length(public.snapshot()->'follows'))=1,'following twice keeps one follow');
 select pg_temp.assert_true(pg_temp.fails($q$select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000304","follow":true}',gen_random_uuid())$q$),'cannot follow a stranger');
-select pg_temp.assert_true(pg_temp.fails($q$select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000305","follow":true}',gen_random_uuid())$q$),'cannot follow outside the circle');
 select pg_temp.assert_true(pg_temp.fails($q$select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000301","follow":true}',gen_random_uuid())$q$),'cannot follow yourself');
 select pg_temp.assert_true(pg_temp.fails($q$insert into public.follows values('00000000-0000-0000-0000-000000000301','00000000-0000-0000-0000-000000000302')$q$),'follows are written only through commands');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000303',true);

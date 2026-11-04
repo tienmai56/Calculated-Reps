@@ -1,8 +1,9 @@
 -- Training partner lists on someone else's profile.
 -- You can see the full partner list of anyone in your circle (your partners and
 -- the people they train with): name, belt, gym, username and photo of each
--- partner. Those partners' profiles become readable, and nothing else does:
--- posts keep their rules, and name search still covers only your circle.
+-- partner. Those partners' profiles become readable and can be followed (set_follow
+-- checks listed_partner), and nothing else changes: posts keep their rules, and name
+-- search still covers only your circle.
 
 -- target trains with someone whose partner list viewer may see, and they haven't blocked each other.
 create function public.listed_partner(viewer uuid,target uuid) returns boolean language sql stable security definer set search_path='' as $$

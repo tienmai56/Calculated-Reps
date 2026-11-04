@@ -368,13 +368,13 @@ struct PartnersListScreen: View {
             }
             if !yours.isEmpty {
                 MMEyebrow(title: "Your training partners", topPadding: 12) { MMMeta("\(yours.count)") }
-                LazyVStack(spacing: 0) { ForEach(yours, id: \.self) { PersonSearchRow(person: mm.person($0)) } }
+                LazyVStack(spacing: 0) { ForEach(yours, id: \.self) { PersonSearchRow(person: mm.person($0), followsPartners: true) } }
             }
             if !others.isEmpty {
                 MMEyebrow(title: yours.isEmpty ? "Training partners" : "Others", topPadding: yours.isEmpty ? 12 : MMLayout.sectionGap) {
                     MMMeta("\(others.count)")
                 }
-                LazyVStack(spacing: 0) { ForEach(others, id: \.self) { PersonSearchRow(person: mm.person($0)) } }
+                LazyVStack(spacing: 0) { ForEach(others, id: \.self) { PersonSearchRow(person: mm.person($0), followsPartners: true) } }
             }
         }
         .task(id: id) { await mm.loadPartners(of: id) }
@@ -388,6 +388,8 @@ private struct PersonSearchRow: View {
     var query = ""
     /// Suggestions leave the belt to the avatar's ring; search results spell it out.
     var showsBelt = true
+    /// Partner lists offer Follow on every row, your own partners included. Search labels them instead.
+    var followsPartners = false
 
     var body: some View {
         let p = person
@@ -427,7 +429,7 @@ private struct PersonSearchRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityHint("Opens \(p.firstName)'s profile")
 
-            if !partner && mm.canFollow(p.id) {
+            if (!partner || followsPartners) && mm.canFollow(p.id) {
                 if mm.isFollowing(p.id) {
                     MMButton("Following", variant: .secondary, size: .sm, iconLeft: "check") { mm.setFollowing(p.id, false) }
                         .accessibilityLabel("Following \(p.name)")
