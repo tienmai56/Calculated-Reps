@@ -176,6 +176,10 @@ actor BackendClient {
         let data = try await request(path:"rest/v1/rpc/feed_page",body:["before_time":before.text("published_at"),"before_id":before.id])
         return try JSONDecoder().decode([SocialRow].self,from:data)
     }
+    /// Someone's training partners (profile rows), or nil when you can't see their list.
+    func partners(of person: String) async throws -> [SocialRow]? {
+        try JSONDecoder().decode([SocialRow]?.self, from: await request(path:"rest/v1/rpc/partners_of", body:["person":person]))
+    }
     func postDetails(_ id: String) async throws -> [String:[SocialRow]] {
         try JSONDecoder().decode([String:[SocialRow]].self,from:await request(path:"rest/v1/rpc/post_details",body:["post_id":id]))
     }

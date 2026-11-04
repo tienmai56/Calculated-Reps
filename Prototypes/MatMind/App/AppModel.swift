@@ -8,6 +8,8 @@ protocol AppRuntime: AnyObject {
     func authenticate() async
     func signOut() async
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
+    /// Someone's training partners, or nil when you can't see their list.
+    func partners(of personID: String) async -> [Person]?
     /// Asks for push permission and registers this device. Returns nil on success, or the
     /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
     func enableNotifications() async -> String?
@@ -63,7 +65,7 @@ final class AppModel {
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
-        people = [:]; friends = []; circle = []; following = []; posts = []; upcoming = []; toComplete = nil
+        people = [:]; friends = []; circle = []; following = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
@@ -84,6 +86,10 @@ final class AppModel {
     /// Who you follow. No approval needed, and it never widens what you can see:
     /// posts stay visible only when you or one of your partners trained in them.
     var following: Set<String> = []
+    /// Training partner lists loaded for profiles: person id → partner ids, your own partners first.
+    var partnerLists: [String: [String]] = [:]
+    /// People known only from a partner list (not your partners or in your circle).
+    var listedPeople: [String: Person] = [:]
     var posts: [Post] = []
     var upcoming: [Session] = []
     var toComplete: Session?
@@ -132,7 +138,7 @@ final class AppModel {
 
     func person(_ id: String) -> Person {
         if id == "me" { return me }
-        return people[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
+        return people[id] ?? listedPeople[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
     }
 
     func post(_ id: String) -> Post? { posts.first { $0.id == id } }
@@ -149,6 +155,28 @@ final class AppModel {
     func mutualPartners(_ id: String) -> [String] { circle.first { $0.id == id }?.mutual ?? [] }
 
     func isFollowing(_ id: String) -> Bool { following.contains(id) }
+
+    /// You can follow your training partners and the people they train with.
+    func canFollow(_ id: String) -> Bool { id != "me" && (friendship(id) != nil || circle.contains { $0.id == id }) }
+
+    /// Loads (or refreshes) someone's training partner list into `partnerLists`.
+    func loadPartners(of id: String) async {
+        var list: [String]
+        if let runtime {
+            guard let found = await runtime.partners(of: id) else { partnerLists[id] = nil; return }
+            for p in found where p.id != "me" && people[p.id] == nil { listedPeople[p.id] = p }
+            list = found.map(\.id)
+        } else {
+            guard !isLive else { return }
+#if DEBUG || MAT_MIND_PROTOTYPE
+            list = SeedData.partnerLists[id] ?? []
+#else
+            list = []
+#endif
+        }
+        func yours(_ p: String) -> Bool { p == "me" || friendship(p) != nil }
+        partnerLists[id] = list.sorted { yours($0) != yours($1) ? yours($0) : person($0).name < person($1).name }
+    }
 
     /// Suggested for you: everyone sharing at least one training partner with you, most shared partners first.
     var suggestedPeople: [Person] {
@@ -981,6 +1009,8 @@ final class AppModel {
         friends = SeedData.friends
         circle = SeedData.circle
         following = SeedData.following
+        partnerLists = [:]
+        listedPeople = [:]
         posts = SeedData.posts
         upcoming = SeedData.upcoming
         toComplete = SeedData.toComplete

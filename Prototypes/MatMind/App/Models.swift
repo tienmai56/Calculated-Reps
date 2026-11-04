@@ -175,6 +175,8 @@ enum Route: Hashable {
     case people
     /// Someone who isn't your training partner (partners open `.friend`).
     case person(id: String)
+    /// Someone's full training partner list, opened from their profile.
+    case partners(of: String)
 }
 
 struct SessionDraft: Equatable {

@@ -1066,8 +1066,8 @@ struct PersonProfileScreen: View {
                     }
                     Spacer(minLength: 0)
                 }
-                mutualRow
-                followButton(p)
+                partnersRow
+                if mm.canFollow(id) { followButton(p) }
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
@@ -1102,6 +1102,7 @@ struct PersonProfileScreen: View {
                 MMButton("Keep following", variant: .secondary, fullWidth: true) { confirmUnfollow = false }
             }
         }
+        .task(id: id) { await mm.loadPartners(of: id) }
         .confirmationDialog("Block \(p.firstName)?", isPresented: $confirmBlock, titleVisibility: .visible) {
             Button("Block user", role: .destructive) {
                 Task { if await mm.runtime?.perform("block_user", ["user_id": id]) == true { mm.back() } }
@@ -1109,34 +1110,25 @@ struct PersonProfileScreen: View {
         }
     }
 
-    /// The training partners you share. Each opens that partner's profile.
+    /// "12 training partners", like your own profile. Opens the full list.
     @ViewBuilder
-    private var mutualRow: some View {
-        let mutual = mm.mutualPartners(id)
-        if !mutual.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(mutual.count == 1 ? "Trains with 1 of your partners" : "Trains with \(mutual.count) of your partners")
-                    .mmFont(.body, 13, .semibold).foregroundStyle(MMColor.textSecondary)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(mutual, id: \.self) { partnerID in
-                            let partner = mm.person(partnerID)
-                            Button { mm.openPerson(partnerID) } label: {
-                                HStack(spacing: 8) {
-                                    MMAvatar(name: partner.name, photo: partner.photo, size: 30)
-                                    Text(partner.firstName).mmFont(.body, 14, .semibold).foregroundStyle(partner.hue.ink)
-                                }
-                                .padding(.leading, 7)
-                                .padding(.trailing, 14)
-                                .frame(minHeight: MMLayout.tapTarget)
-                                .background(Capsule().fill(partner.hue.tint))
-                            }
-                            .buttonStyle(MMPressStyle())
-                            .accessibilityLabel("\(partner.name), your training partner")
-                        }
+    private var partnersRow: some View {
+        if let list = mm.partnerLists[id] {
+            Button { mm.go(.partners(of: id)) } label: {
+                HStack(spacing: 10) {
+                    if !list.isEmpty {
+                        MMAvatarStack(people: list.map { mm.person($0).avatar }, size: 30, max: 3, ring: MMColor.bgApp)
                     }
+                    Text(list.count == 1 ? "1 training partner" : "\(list.count) training partners")
+                        .mmFont(.body, 15, .semibold).foregroundStyle(MMColor.textPrimary)
+                    Spacer(minLength: 4)
+                    if !list.isEmpty { MMIcon("chevron-right", size: 18, color: MMColor.ink500) }
                 }
+                .frame(minHeight: MMLayout.tapTarget)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(MMPressStyle())
+            .disabled(list.isEmpty)
         }
     }
 

@@ -684,6 +684,18 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(ui.path.last, .person(id: "rafa"))
     }
 
+    func testPartnerListsPutYourPartnersFirst() async {
+        let ui = AppModel(live: false)
+        await ui.loadPartners(of: "rafa")
+        let list = ui.partnerLists["rafa"] ?? []
+        XCTAssertEqual(list.count, 9)
+        XCTAssertEqual(Array(list.prefix(4)), ["alex", "kenji", "priya", "sarah"])
+        XCTAssertEqual(ui.person("owen").name, "Owen Brooks")
+        XCTAssertFalse(ui.canFollow("owen"), "people outside your circle can be viewed, not followed")
+        XCTAssertTrue(ui.canFollow("maya"))
+        XCTAssertTrue(ui.searchPeople("owen").isEmpty, "a partner list doesn't widen search")
+    }
+
     func testLiveSnapshotMapsCircleAndFollows() throws {
         let data = Data(#"""
         {

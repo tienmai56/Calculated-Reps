@@ -345,6 +345,42 @@ struct PeopleSearchScreen: View {
     }
 }
 
+/// Someone's full training partner list: your own partners first, then everyone else.
+struct PartnersListScreen: View {
+    @Environment(AppModel.self) private var mm
+    let id: String
+
+    var body: some View {
+        let owner = mm.person(id)
+        let list = mm.partnerLists[id] ?? []
+        let yours = list.filter { $0 == "me" || mm.friendship($0) != nil }
+        let others = list.filter { !yours.contains($0) }
+        MMScreen {
+            MMHeader(title: "\(owner.firstName)'s training partners", leading: {
+                MMIconButton("chevron-left", label: "Back") { mm.back() }
+            })
+        } content: {
+            if list.isEmpty {
+                Text("No training partners yet.")
+                    .mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
+            }
+            if !yours.isEmpty {
+                MMEyebrow(title: "Your training partners", topPadding: 12) { MMMeta("\(yours.count)") }
+                LazyVStack(spacing: 0) { ForEach(yours, id: \.self) { PersonSearchRow(person: mm.person($0)) } }
+            }
+            if !others.isEmpty {
+                MMEyebrow(title: yours.isEmpty ? "Training partners" : "Others", topPadding: yours.isEmpty ? 12 : MMLayout.sectionGap) {
+                    MMMeta("\(others.count)")
+                }
+                LazyVStack(spacing: 0) { ForEach(others, id: \.self) { PersonSearchRow(person: mm.person($0)) } }
+            }
+        }
+        .task(id: id) { await mm.loadPartners(of: id) }
+    }
+}
+
 /// One person in Search: tap the details to open their profile; Follow sits on the right.
 private struct PersonSearchRow: View {
     @Environment(AppModel.self) private var mm
@@ -372,7 +408,9 @@ private struct PersonSearchRow: View {
                         } else if !p.gym.isEmpty {
                             Text(p.gym).mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
                         }
-                        if partner {
+                        if p.id == "me" {
+                            Text("You").mmFont(.body, 12, .semibold).foregroundStyle(MMColor.textSecondary)
+                        } else if partner {
                             Text("Your training partner").mmFont(.body, 12, .semibold).foregroundStyle(MMColor.textSecondary)
                         } else if !mutual.isEmpty {
                             HStack(spacing: 6) {
@@ -389,7 +427,7 @@ private struct PersonSearchRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityHint("Opens \(p.firstName)'s profile")
 
-            if !partner {
+            if !partner && mm.canFollow(p.id) {
                 if mm.isFollowing(p.id) {
                     MMButton("Following", variant: .secondary, size: .sm, iconLeft: "check") { mm.setFollowing(p.id, false) }
                         .accessibilityLabel("Following \(p.name)")

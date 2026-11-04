@@ -21,6 +21,21 @@ enum SeedData {
         "maya": Person(id: "maya", name: "Maya Chen", belt: .blue, stripes: 0, gym: "Tidewater BJJ", hue: .plum, username: "maya"),
         "mariana": Person(id: "mariana", name: "Mariana Costa", belt: .purple, stripes: 3, gym: "Harbor Jiu-Jitsu", hue: .sun, username: "mariana"),
         "chris": Person(id: "chris", name: "Chris Duarte", belt: .brown, stripes: 0, gym: "Harbor Jiu-Jitsu", hue: .coral, username: "chrisd"),
+        // Only reachable through someone's partner list.
+        "lucas": Person(id: "lucas", name: "Lucas Ferreira", belt: .brown, stripes: 2, gym: "Tidewater BJJ", hue: .coral, username: "lucasf"),
+        "hana": Person(id: "hana", name: "Hana Sato", belt: .white, stripes: 2, gym: "Tidewater BJJ", hue: .sky, username: "hana"),
+        "dev": Person(id: "dev", name: "Dev Patel", belt: .purple, stripes: 1, gym: "North Shore Grappling", hue: .mint, username: "devp"),
+        "owen": Person(id: "owen", name: "Owen Brooks", belt: .black, stripes: 1, gym: "Tidewater BJJ", hue: .sun, username: "owen"),
+    ]
+
+    /// Each circle member's training partners.
+    static let partnerLists: [String: [String]] = [
+        "rafa": ["sarah", "alex", "kenji", "priya", "maya", "lucas", "hana", "dev", "owen"],
+        "nina": ["marco", "jamie", "sarah", "chris", "mariana"],
+        "tom": ["jamie", "priya", "dev"],
+        "maya": ["sarah", "priya", "rafa", "hana"],
+        "mariana": ["marco", "chris", "nina"],
+        "chris": ["marco", "nina", "mariana"],
     ]
 
     static let circle: [CirclePerson] = [

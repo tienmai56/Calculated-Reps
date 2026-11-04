@@ -53,6 +53,7 @@ struct MMAppShell: View {
         case .notifications: NotificationsScreen()
         case .people: PeopleSearchScreen()
         case let .person(id): PersonProfileScreen(id: id)
+        case let .partners(id): PartnersListScreen(id: id)
         }
     }
 }

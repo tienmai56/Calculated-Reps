@@ -29,7 +29,13 @@ select pg_temp.assert_true((select public.snapshot()->'circle')=jsonb_build_arra
  'id','00000000-0000-0000-0000-000000000303','mutual',jsonb_build_array('00000000-0000-0000-0000-000000000302'))),'the circle is Rafa, through Sarah');
 select pg_temp.assert_true(exists(select 1 from public.profiles where id='00000000-0000-0000-0000-000000000303'),'circle profiles are readable');
 select pg_temp.assert_true(not exists(select 1 from public.profiles where id='00000000-0000-0000-0000-000000000304'),'strangers stay hidden');
-select pg_temp.assert_true(not exists(select 1 from public.profiles where id='00000000-0000-0000-0000-000000000305'),'two partners away stays hidden');
+
+-- Partner lists: anyone in your circle shows their full list, your own partners first.
+select pg_temp.assert_true((select jsonb_agg(x->>'name') from jsonb_array_elements(public.partners_of('00000000-0000-0000-0000-000000000303')) x)='["Sarah","Lena"]'::jsonb,'Rafa''s partners, yours first');
+select pg_temp.assert_true(exists(select 1 from public.profiles where id='00000000-0000-0000-0000-000000000305'),'partners on a visible list are readable');
+select pg_temp.assert_true(public.partners_of('00000000-0000-0000-0000-000000000305') is null,'no list for people outside your circle');
+select pg_temp.assert_true(public.partners_of('00000000-0000-0000-0000-000000000304') is null,'no list for strangers');
+select pg_temp.assert_true(public.partners_of('00000000-0000-0000-0000-000000000302') is not null,'your partners'' lists are visible');
 
 -- Following: instant, circle only, and only you see who you follow.
 select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000303","follow":true}',gen_random_uuid());
@@ -57,6 +63,8 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000301'
 select pg_temp.assert_true((select jsonb_array_length(public.snapshot()->'follows'))=0,'a block removes the follow');
 select pg_temp.assert_true((select jsonb_array_length(public.snapshot()->'circle'))=0,'a block leaves the circle');
 select pg_temp.assert_true(not exists(select 1 from public.profiles where id='00000000-0000-0000-0000-000000000303'),'a blocker''s profile is hidden');
+select pg_temp.assert_true(public.partners_of('00000000-0000-0000-0000-000000000303') is null,'a blocker''s list is hidden');
+select pg_temp.assert_true(not exists(select 1 from public.profiles where id='00000000-0000-0000-0000-000000000305'),'and so are the partners only it listed');
 
 -- Account deletion removes follows.
 reset role;
