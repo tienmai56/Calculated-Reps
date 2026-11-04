@@ -159,7 +159,7 @@ private struct TrainingInvitationShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
-/// Host-only session draft. Closing discards changes, including focus and guests.
+/// Host-only editor. Additional times become independent sessions; partial saves can be retried.
 private struct MatSessionEditorSheet: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.dismiss) private var dismiss
@@ -172,6 +172,27 @@ private struct MatSessionEditorSheet: View {
     @State private var guestIDs: Set<String>
     @State private var saving = false
     @State private var saveFailed = false
+    @State private var additionalTimes: [SessionEditTime] = []
+    @State private var requests: [SessionCreationRequest] = []
+    @State private var originalSaved = false
+
+    private struct SessionEditTime: Identifiable {
+        let id = UUID()
+        var date: Date
+    }
+
+    private var hasDuplicateTimes: Bool {
+        let minutes = ([startsAt] + additionalTimes.map(\.date)).compactMap {
+            Calendar.current.dateInterval(of: .minute, for: $0)?.start
+        }
+        return Set(minutes).count != minutes.count
+    }
+
+    private var saveTitle: String {
+        if saving { return "Saving…" }
+        if originalSaved { return "Retry remaining times" }
+        return additionalTimes.isEmpty ? "Save changes" : "Save \(additionalTimes.count + 1) sessions"
+    }
 
     init(session: Session, startsAt: Date) {
         self.session = session
@@ -186,7 +207,7 @@ private struct MatSessionEditorSheet: View {
     }
 
     private var canSave: Bool {
-        !saving && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !saving && !mm.busy && !hasDuplicateTimes && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && TrainingFocusTree.isValid(TrainingFocusTree.optionalOutline(focusItems))
     }
@@ -201,16 +222,7 @@ private struct MatSessionEditorSheet: View {
             MMDialogBody(title: "Edit session", description: "Everyone in it sees the change.", onClose: { if !saving { dismiss() } }) {
                 VStack(alignment: .leading, spacing: 18) {
                     MMTextField(label: "Session name", placeholder: "Saturday open mat", text: $title)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("When").mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
-                        DatePicker("When", selection: $startsAt, displayedComponents: [.date, .hourAndMinute])
-                            .labelsHidden()
-                            .tint(MMColor.accent)
-                            .onChange(of: startsAt) { _, newValue in
-                                // Keep a suggested name in step with the new day and time; custom names stay.
-                                if SessionDraft.isSuggestedTitle(title) { title = SessionDraft.suggestedTitle(for: newValue) }
-                            }
-                    }
+                    scheduleFields
                     MMPlaceSearchField(label: "Gym", placeholder: "Search gyms or addresses", text: $gym)
                     MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
                     VStack(alignment: .leading, spacing: 10) {
@@ -220,7 +232,7 @@ private struct MatSessionEditorSheet: View {
                     }
                     guestList
                 }
-                .disabled(saving)
+                .disabled(saving || originalSaved)
                 .padding(.top, MMSpace.s4)
             } actions: {
                 EmptyView()
@@ -231,20 +243,13 @@ private struct MatSessionEditorSheet: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 10) {
                 if saveFailed {
-                    Text("Couldn't save your changes. Try again, or reopen the session to get its latest details.")
+                    Text(originalSaved
+                         ? "Session updated. \(mm.createdCount(for: requests)) of \(requests.count) additional sessions saved. Retry to save the rest, or close to keep what's saved."
+                         : "Couldn't save your changes. Try again, or reopen the session to get its latest details.")
                         .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
                 }
-                MMButton(saving ? "Saving…" : "Save changes", fullWidth: true) {
-                    saving = true
-                    saveFailed = false
-                    Task {
-                        let saved = await mm.editSession(session.id, title: title, startsAt: startsAt, gym: gym, note: note,
-                                                         focusItems: TrainingFocusTree.optionalOutline(focusItems), guestIDs: guestIDs)
-                        saving = false
-                        if saved { dismiss() } else { saveFailed = true }
-                    }
-                }
-                .disabled(!canSave)
+                MMButton(saveTitle, fullWidth: true) { save() }
+                    .disabled(!canSave)
             }
             .padding(MMSpace.s6)
             .background(MMColor.bgApp)
@@ -255,6 +260,75 @@ private struct MatSessionEditorSheet: View {
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(MMRadius.xl)
         .presentationBackground(MMColor.bgApp)
+    }
+
+    private var scheduleFields: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s4) {
+            Text("When").mmFont(.display, 14, .bold, tracking: 0, lineHeight: 1.2)
+                .foregroundStyle(MMColor.textPrimary)
+            DatePicker("Existing session", selection: $startsAt, displayedComponents: [.date, .hourAndMinute])
+                .labelsHidden()
+                .tint(MMColor.accent)
+                .onChange(of: startsAt) { _, newValue in
+                    if SessionDraft.isSuggestedTitle(title) { title = SessionDraft.suggestedTitle(for: newValue) }
+                }
+            ForEach($additionalTimes) { $time in
+                HStack(spacing: MMSpace.s4) {
+                    DatePicker("Additional session", selection: $time.date, displayedComponents: [.date, .hourAndMinute])
+                        .labelsHidden()
+                        .tint(MMColor.accent)
+                    Spacer(minLength: 0)
+                    MMIconButton("x", label: "Remove time") {
+                        additionalTimes.removeAll { $0.id == time.id }
+                    }
+                }
+            }
+            MMButton("Add another time", variant: .ghost, size: .sm, iconLeft: "plus") {
+                let last = additionalTimes.last?.date ?? startsAt
+                let next = Calendar.current.date(byAdding: .hour, value: 1, to: last) ?? last
+                additionalTimes.append(SessionEditTime(date: next))
+            }
+            Text("The first time updates this session. Each added time creates a separate session with the same details and guest list.")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            if hasDuplicateTimes {
+                Text("Choose a different date or time for each session.")
+                    .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+            }
+        }
+    }
+
+    private func save() {
+        guard canSave else { return }
+        saving = true
+        saveFailed = false
+        if !originalSaved {
+            let draft = SessionDraft(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                     day: "", date: 0, month: "", time: "", gym: gym.trimmingCharacters(in: .whitespacesAndNewlines),
+                                     note: note.trimmingCharacters(in: .whitespacesAndNewlines), invited: guestIDs.sorted(),
+                                     privacy: session.privacy, past: false,
+                                     focusItems: TrainingFocusTree.optionalOutline(focusItems))
+            requests = draft.scheduled(at: additionalTimes.map(\.date)).map { SessionCreationRequest(draft: $0) }
+        }
+        Task {
+            if !originalSaved {
+                let saved = await mm.editSession(session.id, title: title, startsAt: startsAt, gym: gym, note: note,
+                                                 focusItems: TrainingFocusTree.optionalOutline(focusItems), guestIDs: guestIDs)
+                guard saved else {
+                    saving = false
+                    saveFailed = true
+                    return
+                }
+                originalSaved = true
+            }
+            let saved: Bool
+            if requests.isEmpty { saved = true }
+            else { saved = await mm.createSessions(requests, presentingResult: false) }
+            saving = false
+            if saved {
+                mm.showToast(requests.isEmpty ? "Session updated" : "\(requests.count + 1) sessions saved", .success)
+                dismiss()
+            } else { saveFailed = true }
+        }
     }
 
     private var guestList: some View {

@@ -222,6 +222,28 @@ struct SessionDraft: Equatable {
             .contains(title.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    /// Additional occurrences of an edited session. Exact local times remain independently editable.
+    func scheduled(at starts: [Date], calendar: Calendar = .current) -> [SessionDraft] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        let minutes = Set(starts.compactMap { calendar.dateInterval(of: .minute, for: $0)?.start }).sorted()
+        return minutes.map { start in
+            var draft = self
+            formatter.dateFormat = "EEE"; draft.day = formatter.string(from: start)
+            formatter.dateFormat = "MMM"; draft.month = formatter.string(from: start)
+            formatter.dateFormat = "h:mm a"; draft.time = formatter.string(from: start)
+            draft.date = calendar.component(.day, from: start)
+            draft.startsAt = start
+            draft.timezone = calendar.timeZone.identifier
+            if draft.title.isEmpty || Self.isSuggestedTitle(draft.title) {
+                draft.title = Self.suggestedTitle(weekday: draft.day, time: draft.time)
+            }
+            return draft
+        }
+    }
+
     /// One independent session per local calendar day, all at the chosen wall-clock time.
     func scheduled(on dates: [Date], calendar: Calendar = .current) -> [SessionDraft] {
         let formatter = DateFormatter()

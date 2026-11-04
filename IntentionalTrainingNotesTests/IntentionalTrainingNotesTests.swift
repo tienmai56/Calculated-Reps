@@ -1191,6 +1191,64 @@ final class MultiDayScheduleTests: XCTestCase {
                      focusItems: [TrainingFocus(title: "Passing")])
     }
 
+    func testMultipleTimesKeepSameDayOccurrencesAndDeduplicateMinutes() throws {
+        let original = draft(title: "Partner drills")
+        let first = date("2026-11-05T00:30:00Z")
+        let second = date("2026-11-05T02:00:00Z")
+        let nextDay = date("2026-11-06T00:30:00Z")
+        let scheduled = original.scheduled(at: [nextDay, second, first.addingTimeInterval(25), first], calendar: calendar)
+        XCTAssertEqual(scheduled.compactMap(\.startsAt), [first, second, nextDay])
+        XCTAssertEqual(scheduled.map(\.time), ["4:30 PM", "6:00 PM", "4:30 PM"])
+        XCTAssertEqual(scheduled.map(\.date), [4, 4, 5])
+        for occurrence in scheduled {
+            XCTAssertEqual(occurrence.title, original.title)
+            XCTAssertEqual(occurrence.gym, original.gym)
+            XCTAssertEqual(occurrence.note, original.note)
+            XCTAssertEqual(occurrence.invited, original.invited)
+            XCTAssertEqual(occurrence.focusItems, original.focusItems)
+            XCTAssertEqual(occurrence.privacy, original.privacy)
+            XCTAssertEqual(occurrence.timezone, "America/Los_Angeles")
+        }
+        XCTAssertTrue(original.scheduled(at: [], calendar: calendar).isEmpty)
+    }
+
+    func testAdditionalTimesUpdateSuggestedTitlesAndPreserveDSTInstants() {
+        let scheduled = draft(title: "Morning rolls").scheduled(at: [date("2026-11-06T17:00:00Z"), date("2026-11-07T02:00:00Z")], calendar: calendar)
+        XCTAssertEqual(scheduled.map(\.title), ["Morning rolls", "Evening rolls"])
+        // Both occurrences of 1:30 AM on the fall-back day represent distinct instants.
+        let starts = [date("2026-11-01T08:30:00Z"), date("2026-11-01T09:30:00Z")]
+        XCTAssertEqual(draft().scheduled(at: starts, calendar: calendar).compactMap(\.startsAt), starts)
+    }
+
+    @MainActor
+    func testAdditionalSessionCreationKeepsTheEditorRouteAndPendingGoal() async throws {
+        let ui = AppModel(live: false)
+        let original = try XCTUnwrap(ui.findSession("s1"))
+        let start = Date().addingTimeInterval(86400)
+        let updated = await ui.editSession(original.id, title: "Partner drills", startsAt: start,
+                                           gym: "Home gym", note: "Bring a gi")
+        XCTAssertTrue(updated)
+        let savedOriginal = ui.findSession(original.id)
+        ui.go(.session(id: original.id))
+        ui.pendingPlanGoal = "g2"
+        let route = ui.path
+        let tab = ui.tab
+        let before = ui.upcoming.count
+        let requests = draft(title: "Partner drills").scheduled(at: [start.addingTimeInterval(3600)], calendar: calendar)
+            .map { SessionCreationRequest(draft: $0) }
+        let created = await ui.createSessions(requests, presentingResult: false)
+        XCTAssertTrue(created)
+        XCTAssertEqual(ui.path, route)
+        XCTAssertEqual(ui.tab, tab)
+        XCTAssertEqual(ui.pendingPlanGoal, "g2", "Editing must not consume a different planning flow's goal")
+        XCTAssertEqual(ui.findSession(original.id), savedOriginal, "Original RSVPs remain unchanged")
+        XCTAssertEqual(ui.upcoming.count, before + 1)
+        let retry = await ui.createSessions(requests, presentingResult: false)
+        XCTAssertTrue(retry)
+        XCTAssertEqual(ui.upcoming.count, before + 1, "Retry skips saved occurrences")
+        XCTAssertEqual(ui.path, route)
+    }
+
     func testNonconsecutiveDaysAreDistinctSortedAndShareTheEnteredDetailsAcrossYearBoundary() throws {
         let original = draft(title: "Partner drills")
         let scheduled = original.scheduled(on: [date("2027-01-02T20:00:00Z"), date("2026-12-31T20:00:00Z"), date("2027-01-02T22:00:00Z")], calendar: calendar)
@@ -1575,6 +1633,33 @@ final class BackendSessionTests: XCTestCase {
         let note = SessionNoteCodec.decode(try XCTUnwrap(retriedPayload["note"] as? String))
         XCTAssertEqual(note.note, "Bring a gi")
         XCTAssertEqual(note.focus.map(\.title), ["Guard passing"])
+    }
+
+    @MainActor
+    func testAdditionalTimesRetryAfterLostResponseWithoutLeavingEditor() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), loseCreateResponseAt: 2)
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        ui.go(.session(id: "existing"))
+        let route = ui.path
+        let requests = creationRequests()
+        let first = await ui.createSessions(requests, presentingResult: false)
+        XCTAssertFalse(first)
+        XCTAssertEqual(ui.createdCount(for: requests), 1)
+        XCTAssertEqual(ui.path, route)
+        let retry = await ui.createSessions(requests, presentingResult: false)
+        XCTAssertTrue(retry)
+        XCTAssertEqual(ui.createdCount(for: requests), 3)
+        let saved = await fixture.createdSessionCount
+        XCTAssertEqual(saved, 3, "A committed occurrence with a lost response must not be duplicated")
+        XCTAssertEqual(ui.path, route)
+        XCTAssertFalse(ui.busy)
     }
 
     @MainActor
