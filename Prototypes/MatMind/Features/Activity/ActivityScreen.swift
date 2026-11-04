@@ -137,7 +137,7 @@ private struct EmptyActivity: View {
             }
         } else {
             MMEmptyState(artwork: .memory, title: "Good memories\nstart on the mat.",
-                         message: "Plan a session with your people.\nShare the photo after the rolls.",
+                         message: "Plan a training with your people.\nShare the photo after the rolls.",
                          actionTitle: "Plan a training session", actionIcon: "plus",
                          secondaryTitle: mm.friends.isEmpty ? "Add your mat people" : "Already trained? Log it",
                          secondaryIcon: mm.friends.isEmpty ? "qr-code" : "history",

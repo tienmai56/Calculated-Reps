@@ -868,7 +868,7 @@ final class AppModel {
         return fresh.count
     }
 
-    /// "Plan a session for this": opens the plan form; the new session gets this goal.
+    /// "Plan a training for this": opens the plan form; the new session gets this goal.
     func planSession(forGoal id: String) {
         guard goal(id) != nil else { return }
         go(.create())

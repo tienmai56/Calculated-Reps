@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Plan a session (invite friends) or log one that already happened.
+/// Plan a training (invite friends) or log one that already happened.
 struct CreateScreen: View {
     @Environment(AppModel.self) private var mm
 
@@ -71,7 +71,7 @@ struct CreateScreen: View {
 
     var body: some View {
         MMScreen {
-            MMHeader(title: isPast ? "Log a past session" : "Plan a session", leading: {
+            MMHeader(title: isPast ? "Log a past session" : "Plan a training", leading: {
                 MMIconButton("x", label: "Close") { mm.back() }
                     .disabled(mm.busy || submitting)
             })

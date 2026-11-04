@@ -302,7 +302,7 @@ private struct ConnectedView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 8)
                 VStack(spacing: 8) {
-                    MMButton("Plan a session with \(p.firstName)", variant: .inverse, size: .lg, iconLeft: "calendar-plus", fullWidth: true) {
+                    MMButton("Plan a training with \(p.firstName)", variant: .inverse, size: .lg, iconLeft: "calendar-plus", fullWidth: true) {
                         mm.replace(.create(friend: friendID))
                     }
                     MMButton("Done", variant: .ghost, fullWidth: true, action: onDone)
