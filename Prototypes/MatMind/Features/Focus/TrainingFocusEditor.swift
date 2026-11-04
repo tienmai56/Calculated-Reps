@@ -5,9 +5,9 @@ struct TrainingFocusEditor: View {
     @Binding var items: [TrainingFocus]
     var allowsEmptyRoots = false
     var focusOnAppear = true
-    /// Your goals, offered as one-tap focuses while planning. A picked goal carries
-    /// over its name only; its notes stay on the goal, viewable from the card.
-    /// `nil` hides the picker (session details).
+    /// Your goals, offered as one-tap focuses while planning and when editing a
+    /// session's focus. A picked goal carries over its name only; its notes stay
+    /// on the goal, viewable from the card. `nil` hides the picker.
     var goals: [MatGoal]? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focusedID: UUID?
@@ -187,9 +187,15 @@ struct TrainingFocusEditor: View {
         return goals?.first { $0.id == goalID }
     }
 
-    /// The root focus picked from this goal, if it is still in the outline.
+    /// The root focus picked from this goal, if it is still in the outline. A saved
+    /// focus has no link yet, so one with the goal's name counts as picked too.
     private func pickedFocusID(for goal: MatGoal) -> UUID? {
-        items.first { goalLinks[$0.id] == goal.id }?.id
+        if let linked = items.first(where: { goalLinks[$0.id] == goal.id }) { return linked.id }
+        let name = goal.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return items.first { item in
+            goalLinks[item.id] == nil
+                && item.title.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(name) == .orderedSame
+        }?.id
     }
 
     private func toggleGoal(_ goal: MatGoal) {
