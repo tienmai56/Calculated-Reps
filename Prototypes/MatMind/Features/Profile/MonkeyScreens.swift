@@ -147,16 +147,9 @@ struct MonkeyBuilderView: View {
             }
         } content: {
             VStack(spacing: 14) {
-                ZStack(alignment: .bottomTrailing) {
-                    MMMonkey(look: look, size: 180, label: "Your monkey")
-                        .scaleEffect(pop ? 0.9 : 1)
-                    MMIconButton("shuffle", variant: .filled, size: 48, label: "Shuffle your monkey") {
-                        change(.random())
-                    }
-                    .background(Circle().fill(MMColor.white).mmShadowFloat())
-                    .offset(x: 24, y: -6)
-                }
-                .padding(.top, 12)
+                MMMonkey(look: look, size: 180, label: "Your monkey")
+                    .scaleEffect(pop ? 0.9 : 1)
+                    .padding(.top, 12)
                 HStack(spacing: 6) {
                     Text(name.isEmpty ? "You" : name).mmFont(.body, 15, .bold, lineHeight: 1).foregroundStyle(MMColor.ink900)
                     MMMonkey(look: look, size: 22)
