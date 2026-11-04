@@ -424,7 +424,18 @@ final class AppModel {
     /// Saves the signed-in member's monkey: the set_monkey command when live, this device in preview.
     func saveMonkey(_ look: MMMonkeyLook) async -> Bool {
         if isLive {
-            guard let runtime, await runtime.perform("set_monkey", ["monkey": look.code]) else { return false }
+            guard let runtime else { return false }
+            // Closing Account (where Build my monkey lives) saves the profile. A command
+            // that starts while another is running is dropped, so wait for that save first.
+            let deadline = Date().addingTimeInterval(8)
+            while runtime.busy && Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            guard !runtime.busy else {
+                showToast("Still saving your profile. Try again in a moment.")
+                return false
+            }
+            guard await runtime.perform("set_monkey", ["monkey": look.code]) else { return false }
         }
         me.monkey = look
         answerMonkeyPrompt()
