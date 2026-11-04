@@ -14,7 +14,7 @@ struct ActivityScreen: View {
         let prompt = mm.activityPrompt(at: now)
         return MMScreen(tabPadding: true) {
             HStack {
-                MMWordmark(size: 32)
+                MMWordmark(size: 40, markOnly: true)
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
                 Spacer()

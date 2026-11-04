@@ -251,8 +251,11 @@ extension MMPhotoTile where Overlay == EmptyView {
 // MARK: - Wordmark
 
 /// Official Silverback artwork with the lowercase Mat Monkey wordmark.
+/// `markOnly` drops the name for tight spots like tab headers; the full
+/// lockup stays on the Welcome screen.
 struct MMWordmark: View {
     var size: CGFloat = 32
+    var markOnly = false
 
     var body: some View {
         HStack(spacing: MMSpace.s4) {
@@ -262,9 +265,11 @@ struct MMWordmark: View {
                 .scaledToFit()
                 .frame(width: size, height: size)
                 .accessibilityHidden(true)
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("mat monkey").lineLimit(1).minimumScaleFactor(0.75)
-                Text(".").foregroundStyle(MMColor.accent)
+            if !markOnly {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text("mat monkey").lineLimit(1).minimumScaleFactor(0.75)
+                    Text(".").foregroundStyle(MMColor.accent)
+                }
             }
         }
         .mmFont(.display, size, tracking: -0.04, lineHeight: 1)
