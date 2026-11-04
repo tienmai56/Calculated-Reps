@@ -63,4 +63,35 @@ select pg_temp.assert_true((select count(*)=1 from public.reports where comment_
 select pg_temp.assert_true((select count(*)=2 from public.reports where post_id=:'pid'),'post reports still work');
 delete from public.comments where id=:'cid';
 select pg_temp.assert_true((select count(*)=1 from public.reports where post_id=:'pid'),'deleting a comment removes its reports');
+-- Adding a friend to an upcoming session invites them with a push, like inviting at creation.
+create function pg_temp.invites(sid uuid) returns bigint language sql as $$ select count(*) from public.notifications n join public.notification_outbox o on o.id=n.id where n.entity_id=sid and n.kind='invite' and n.recipient='00000000-0000-0000-0000-000000000032' $$;
+create function pg_temp.rsvp(sid uuid) returns text language sql as $$ select rsvp from public.session_participants where session_id=sid and user_id='00000000-0000-0000-0000-000000000032' $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000031',true);
+select public.command('create_session',jsonb_build_object('title','Tuesday rolls','venue','Gym','timezone','UTC','starts_at',now()+interval '1 day'),gen_random_uuid())->>'id' as upid \gset
+select public.command('manage_participant',jsonb_build_object('session_id',:'upid','user_id','00000000-0000-0000-0000-000000000032','remove',false),gen_random_uuid());
+select public.command('manage_participant',jsonb_build_object('session_id',:'upid','user_id','00000000-0000-0000-0000-000000000032','remove',false),gen_random_uuid());
+reset role;
+select pg_temp.assert_true(pg_temp.rsvp(:'upid')='invited','a friend added to an upcoming session is invited, not marked going');
+select pg_temp.assert_true(pg_temp.invites(:'upid')=1,'adding a friend queues one invite push; adding again while invited stays quiet');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000032',true);
+select public.command('set_rsvp',jsonb_build_object('session_id',:'upid','rsvp','declined'),gen_random_uuid());
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000031',true);
+select public.command('manage_participant',jsonb_build_object('session_id',:'upid','user_id','00000000-0000-0000-0000-000000000032','remove',false),gen_random_uuid());
+reset role;
+select pg_temp.assert_true(pg_temp.rsvp(:'upid')='invited' and pg_temp.invites(:'upid')=2,'re-adding someone who declined invites and notifies them again');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000032',true);
+select public.command('set_rsvp',jsonb_build_object('session_id',:'upid','rsvp','going'),gen_random_uuid());
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000031',true);
+select public.command('manage_participant',jsonb_build_object('session_id',:'upid','user_id','00000000-0000-0000-0000-000000000032','remove',false),gen_random_uuid());
+reset role;
+select pg_temp.assert_true(pg_temp.rsvp(:'upid')='going' and pg_temp.invites(:'upid')=2,'re-adding someone already going changes nothing');
+-- Past sessions: adding confirms attendance without an invite.
+set local role authenticated;
+select public.command('create_session',jsonb_build_object('title','Last night','venue','Gym','timezone','UTC','starts_at',now()-interval '1 day'),gen_random_uuid())->>'id' as pastid \gset
+select public.command('manage_participant',jsonb_build_object('session_id',:'pastid','user_id','00000000-0000-0000-0000-000000000032','remove',false),gen_random_uuid());
+reset role;
+select pg_temp.assert_true(pg_temp.rsvp(:'pastid')='going' and pg_temp.invites(:'pastid')=0,'adding to a past session marks them going without an invite');
 rollback;

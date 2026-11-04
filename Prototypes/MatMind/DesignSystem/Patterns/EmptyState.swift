@@ -116,8 +116,9 @@ private struct PeekABooMemoryArtwork: View {
                         .fill(MMColor.surfaceCard)
                         .opacity(click ? 0.95 : 0)
                 }
-            Text("Post-roll, with your people.")
+            Text("Gi wrinkled.\nHair wrecked. Perfect.")
                 .mmFont(.display, 13, .bold, lineHeight: 1)
+                .multilineTextAlignment(.center)
                 .foregroundStyle(MMColor.textSecondary)
                 .padding(.bottom, MMSpace.s2)
         }

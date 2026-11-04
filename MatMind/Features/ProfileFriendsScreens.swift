@@ -114,7 +114,7 @@ struct SocialSettingsScreen: View {
                     Button("Save profile") { Task { await app.perform("save_profile",["name":name,"gym":gym,"belt":belt,"stripes":stripes,"timezone":TimeZone.current.identifier]) } }.disabled(name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty || app.busy)
                 }
                 Section {
-                    Button("Enable notifications") { Task { await SocialPushCoordinator.register(in:app) } }
+                    Button("Enable notifications") { Task { await SocialPushCoordinator.register(in:app, userInitiated: true) } }
                     Button("Sign out") { Task { await app.logout() } }
                     Button("Delete cloud account",role:.destructive) { delete=true }
                 }

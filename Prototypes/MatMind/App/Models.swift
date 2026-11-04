@@ -62,6 +62,15 @@ struct Post: Identifiable, Hashable {
     var focusItems: [TrainingFocus] = []
     /// When the session happened, when known (live posts). Preview posts only have `date` text.
     var occurredAt: Date? = nil
+    /// Start time text (e.g. "6:00 PM"). Live posts derive it from `occurredAt`.
+    var time: String? = nil
+
+    var timeText: String? {
+        if let time { return time }
+        guard let occurredAt else { return nil }
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "h:mm a"
+        return formatter.string(from: occurredAt)
+    }
 }
 
 enum RSVP: String {
@@ -178,6 +187,23 @@ struct SessionDraft: Equatable {
         if time.contains("AM") { return "Morning rolls" }
         if time.hasPrefix("12") { return "Lunch rolls" }
         return "Evening rolls"
+    }
+
+    /// The suggested name for a session starting at `date`, in the device's time zone.
+    static func suggestedTitle(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE"
+        let weekday = formatter.string(from: date)
+        formatter.dateFormat = "h:mm a"
+        return suggestedTitle(weekday: weekday, time: formatter.string(from: date))
+    }
+
+    /// True when `title` is one of the names we suggest, i.e. the host never renamed it,
+    /// so it should follow the session's day and time when those change.
+    static func isSuggestedTitle(_ title: String) -> Bool {
+        ["Saturday open mat", "Sunday open mat", "Morning rolls", "Lunch rolls", "Evening rolls"]
+            .contains(title.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// One independent session per local calendar day, all at the chosen wall-clock time.

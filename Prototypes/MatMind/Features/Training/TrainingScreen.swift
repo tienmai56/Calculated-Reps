@@ -111,7 +111,9 @@ private struct MatSessionEditorSheet: View {
 
     init(session: Session, startsAt: Date) {
         self.session = session
-        _title = State(initialValue: session.title)
+        // A suggested name ("Morning rolls") that no longer matches the time is stale: fix it up front.
+        _title = State(initialValue: SessionDraft.isSuggestedTitle(session.title)
+                       ? SessionDraft.suggestedTitle(for: startsAt) : session.title)
         _startsAt = State(initialValue: startsAt)
         _gym = State(initialValue: session.gym)
         _note = State(initialValue: session.note ?? "")
@@ -132,6 +134,10 @@ private struct MatSessionEditorSheet: View {
                         DatePicker("When", selection: $startsAt, displayedComponents: [.date, .hourAndMinute])
                             .labelsHidden()
                             .tint(MMColor.accent)
+                            .onChange(of: startsAt) { _, newValue in
+                                // Keep a suggested name in step with the new day and time; custom names stay.
+                                if SessionDraft.isSuggestedTitle(title) { title = SessionDraft.suggestedTitle(for: newValue) }
+                            }
                     }
                     MMPlaceSearchField(label: "Gym", placeholder: "Search gyms or addresses", text: $gym)
                     MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
@@ -189,6 +195,9 @@ struct SessionDetailScreen: View {
     @State private var picked: Set<String> = []
     @State private var showFocusEditor = false
     @State private var focusDraft: [TrainingFocus] = []
+    private var pickableGoals: [MatGoal] {
+        mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
 
     var body: some View {
         if let s = mm.findSession(id) {
@@ -276,7 +285,7 @@ struct SessionDetailScreen: View {
                 MMBadge("Completed", variant: .success, dot: true)
             } else if isOrganizer {
                 VStack(spacing: 10) {
-                    let photoReady = s.startsAt.map { $0 <= Date() } ?? (mm.toComplete?.id == s.id)
+                    let photoReady = mm.isReadyToShare(s.id)
                     MMButton("Take a photo", variant: .secondary, size: .lg, iconLeft: "camera", fullWidth: true) {
                         mm.go(.complete(id: s.id))
                     }
@@ -319,7 +328,13 @@ struct SessionDetailScreen: View {
             ScrollView {
                 MMDialogBody(title: "What are we working on?", description: "Big idea first. Details underneath.",
                              onClose: { showFocusEditor = false }) {
-                    TrainingFocusEditor(items: $focusDraft)
+                    if !pickableGoals.isEmpty {
+                        Text("Pick from your goals, or add your own.")
+                            .mmFont(.body, 13)
+                            .foregroundStyle(MMColor.textTertiary)
+                            .padding(.bottom, MMSpace.s5)
+                    }
+                    TrainingFocusEditor(items: $focusDraft, goals: pickableGoals)
                 } actions: {
                     EmptyView()
                 }

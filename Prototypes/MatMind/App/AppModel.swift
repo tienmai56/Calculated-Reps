@@ -8,6 +8,9 @@ protocol AppRuntime: AnyObject {
     func authenticate() async
     func signOut() async
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
+    /// Asks for push permission and registers this device. Returns nil on success, or the
+    /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
+    func enableNotifications() async -> String?
     func create(_ draft: SessionDraft, key: UUID) async -> String?
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
     /// Uploads a square JPEG (from `AppModel.avatarJPEG`) and makes it the signed-in member's profile photo.
@@ -163,6 +166,18 @@ final class AppModel {
     func nextSession(forGoal goalID: String) -> Session? {
         plannedSessions.first { sessionGoals[$0.id] == goalID }
     }
+
+    /// Sessions you organized that have already happened but aren't shared yet, newest first.
+    /// Every one of them can be completed, not just the most recent, so a logged past
+    /// session always has a way into Activity.
+    var readyToShare: [Session] {
+        guard isLive else { return toComplete.map { [$0] } ?? [] }
+        let now = Date()
+        return upcoming.filter { $0.organizer == "me" && startDate(of: $0) <= now }
+            .sorted { startDate(of: $0) > startDate(of: $1) }
+    }
+
+    func isReadyToShare(_ sessionID: String) -> Bool { readyToShare.contains { $0.id == sessionID } }
 
     /// Invitations and accepted future plans, soonest first.
     var plannedSessions: [Session] { trainingSessions(past: false) }
@@ -325,7 +340,12 @@ final class AppModel {
     }
 
     func deletePost(_ id: String) {
-        if isLive { send("delete_post", ["post_id": id], success: { self.back() }); return }
+        if isLive {
+            // The runtime hides the post immediately; leave its page now rather than after the round trip.
+            back()
+            send("delete_post", ["post_id": id], success: { self.showToast("Post deleted from every profile") })
+            return
+        }
         posts.removeAll { $0.id == id }
         back()
         showToast("Post deleted from every profile")
@@ -479,7 +499,7 @@ final class AppModel {
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
                         caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems,
-                        occurredAt: s.startsAt ?? Date())
+                        occurredAt: s.startsAt ?? Date(), time: s.time)
         let streaks = friends
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }
@@ -799,14 +819,27 @@ final class AppModel {
         return task
     }
 
+    /// The shared copy's id. A goal that's already shared is republished on every save, so
+    /// reuse it (after any save still on its way) instead of uploading everything again.
+    private func sharedCopy(_ goalID: String) async -> String? {
+        if let shared = sharedGoalIDs[goalID] {
+            if let pending = goalPublishes[goalID] { return await pending.value ?? shared }
+            return shared
+        }
+        return await publishLatest(goalID)?.value
+    }
+
     /// Shares one of your goals with training partners. Everything in it goes along:
     /// notes, parts, videos, photos and links. They get an invitation to accept or decline.
     @discardableResult
     func shareGoal(_ goalID: String, with people: [String]) async -> Bool {
         let people = people.filter { $0 != "me" }
         guard goal(goalID) != nil, !people.isEmpty else { return false }
+        let names = people.count == 1 ? person(people[0]).firstName : "\(people.count) training partners"
         if let runtime {
-            guard let shared = await publishLatest(goalID)?.value,
+            // The share sheet closes right away; this says it's on its way. Failures show the app's alert.
+            showToast("Sharing with \(names)…")
+            guard let shared = await sharedCopy(goalID),
                   await runtime.perform("share_goal", ["goal_id": shared, "recipients": people]) else { return false }
         } else {
             guard !isLive else { return false }
@@ -815,7 +848,7 @@ final class AppModel {
             for person in people where answers[person] != "accepted" { answers[person] = "pending" }
             goalRecipients[goalID] = answers
         }
-        showToast(people.count == 1 ? "Shared with \(person(people[0]).firstName)" : "Shared with \(people.count) training partners", .success)
+        showToast("Shared with \(names)", .success)
         return true
     }
 
@@ -824,7 +857,7 @@ final class AppModel {
     func copyGoalLink(_ goalID: String) async -> Bool {
         guard goal(goalID) != nil else { return false }
         if let runtime {
-            guard let shared = await publishLatest(goalID)?.value, await runtime.copyGoalLink(shared) else { return false }
+            guard let shared = await sharedCopy(goalID), await runtime.copyGoalLink(shared) else { return false }
         } else {
             guard !isLive else { return false }
             sharedGoalIDs[goalID] = goalID

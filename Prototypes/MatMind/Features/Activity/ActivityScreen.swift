@@ -22,7 +22,7 @@ struct ActivityScreen: View {
             .padding(.bottom, 10)
             .frame(minHeight: MMLayout.headerHeight)
         } content: {
-            if let session = mm.toComplete {
+            ForEach(mm.readyToShare) { session in
                 ReadyToShare(session: session)
                     .padding(.vertical, 12)
             }
@@ -96,10 +96,10 @@ private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
 
     var body: some View {
-        if mm.toComplete != nil {
+        if !mm.readyToShare.isEmpty {
             // The "How was …?" card above holds Complete & share, so no second primary here.
-            MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
-                         message: "Share the post-roll photo above.\nIt lands here for your crew.")
+            MMEmptyState(artwork: .memory, title: "Proof you showed up.",
+                         message: "Share a post-roll photo\nand your crew sees it here.")
         } else if let session = mm.plannedSessions.first(where: { $0.status(of: "me") == .going }) ?? mm.plannedSessions.first {
             MMEmptyState(artwork: .memory, title: "Your first photo\nis on its way.",
                          message: "Train together, then share the post-roll photo.",
@@ -189,7 +189,7 @@ struct PostCard: View {
                         .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
                     ])
                     .lineSpacing(1)
-                    Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 MMIconButton("ellipsis", size: 36, label: "Post options") { showMenu = true }
@@ -404,7 +404,7 @@ struct PostDetailScreen: View {
                         .padding(.bottom, 14)
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("\(post.date) · organized by \(isOrganizer ? "you" : organizer.name)")
+                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by \(isOrganizer ? "you" : organizer.name)")
                         .mmFont(.body, 13, .semibold, lineHeight: 1.4).foregroundStyle(MMColor.textTertiary)
                     MentionText(text: post.caption).mmFont(.body, 16, lineHeight: 1.5).foregroundStyle(MMColor.ink800)
                         .fixedSize(horizontal: false, vertical: true)

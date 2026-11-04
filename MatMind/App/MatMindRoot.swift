@@ -83,6 +83,9 @@ struct MatMindRoot: View {
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushToken"))) { _ in
                 Task { await SocialPushCoordinator.uploadToken(in: model) }
             }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushFailed"))) { note in
+                SocialPushCoordinator.registrationFailed(note.userInfo?["message"] as? String ?? "Apple push registration failed.", in: model)
+            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushReceived"))) { _ in
                 Task { await model.refresh(); await runtime?.loadPhotos() }
             }
@@ -364,6 +367,9 @@ final class LiveMatMindRuntime: AppRuntime {
     private var loadingGoalPhotos: Set<String> = []
     /// Your own goal photos already in the goal-media bucket (named by content).
     private var uploadedGoalPhotos: Set<String> = []
+    /// Posts deleted on this device whose delete is still in flight: hidden right away so the
+    /// card leaves without waiting for the command and the follow-up snapshot refresh.
+    private var deletingPosts: Set<String> = []
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -422,10 +428,10 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" }
         ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
-        ui.toComplete = ui.upcoming.first { session in
-            session.organizer == "me" && (model.session(session.id)?.date("starts_at") ?? .distantFuture) <= Date()
-        }
-        ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty }.map { row in
+        // The most recent of your sessions that already happened; `readyToShare` lists all of them.
+        ui.toComplete = ui.upcoming.filter { $0.organizer == "me" && ($0.startsAt ?? .distantFuture) <= Date() }
+            .max { ($0.startsAt ?? .distantPast) < ($1.startsAt ?? .distantPast) }
+        ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
             return Post(id: row.id, organizer: localID(row.text("author")), title: row.text("title"), gym: row.text("venue"),
                         date: dateText(date, "EEE, MMM d"), ago: RelativeDateTimeFormatter().localizedString(for: row.date("published_at") ?? date, relativeTo: Date()),
@@ -530,7 +536,7 @@ final class LiveMatMindRuntime: AppRuntime {
     func signOut() async { await model.logout(); sync() }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
-        if operation == "enable_notifications" { await SocialPushCoordinator.register(in: model); return model.error == nil }
+        if operation == "enable_notifications" { return await enableNotifications() == nil }
         if operation == "delete_account" { await model.deleteAccount(); sync(); return model.userID == nil }
         if operation == "load_more_feed" { await model.loadMoreFeed(); await loadPhotos(); return true }
         if operation == "hydrate_post", let id = payload["post_id"] as? String { await model.hydratePost(id); await loadPhotos(); return true }
@@ -540,17 +546,32 @@ final class LiveMatMindRuntime: AppRuntime {
         if ["edit_post", "delete_post"].contains(operation), let id = body["post_id"] as? String {
             body["version"] = model.snapshot.posts.first { $0.id == id }?.number("version")
         }
-        let result = await model.perform(operation, body)
+        let deleting = operation == "delete_post" ? body["post_id"] as? String : nil
+        if let deleting { deletingPosts.insert(deleting); sync() }
+        // A delete is already applied on screen, so it doesn't lock the app while it runs.
+        // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either.
+        let result = await model.perform(operation, body, blocking: deleting == nil && operation != "share_goal")
+        // On failure the post comes back and the error alert explains why.
+        if let deleting { deletingPosts.remove(deleting) }
         sync()
         return result != nil
+    }
+    func enableNotifications() async -> String? {
+        model.error = nil
+        await SocialPushCoordinator.register(in: model, userInitiated: true)
+        // Hand the failure to the caller instead of the root alert, which can't show over the Account sheet.
+        defer { model.error = nil }
+        return model.error
     }
     func create(_ draft: SessionDraft, key: UUID) async -> String? {
         guard let date = draft.startsAt, !draft.gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             model.error = "Choose a date, time and gym."; return nil
         }
+        // A past session's partners are added below as attended, without an invitation
+        // to something that already happened.
         let result = await model.perform("create_session", ["title": draft.title, "starts_at": ISO8601DateFormatter().string(from: date), "timezone": draft.timezone,
                                                           "venue": draft.gym, "note": SessionNoteCodec.encode(note: draft.note, focus: draft.focusItems),
-                                                          "invited": draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue], key: key)
+                                                          "invited": draft.past ? [] : draft.invited.map(cloudID), "join_mode": draft.privacy.rawValue], key: key)
         // Past sessions require the organizer to confirm attendance before publishing.
         if draft.past, let id = result?["id"]?.string {
             for person in draft.invited { _ = await model.perform("manage_participant", ["session_id": id, "user_id": cloudID(person), "remove": false]) }
@@ -660,13 +681,11 @@ final class LiveMatMindRuntime: AppRuntime {
     func publishGoal(_ goal: MatGoal) async -> String? {
         guard let owner = model.userID else { model.error = "Sign in to share goals."; return nil }
         do {
-            var photos: [String] = []
-            for photo in goal.photos { if let key = try await uploadGoalPhoto(photo, owner: owner) { photos.append(key) } }
-            var parts: [[String: Any]] = []
-            for part in goal.parts {
-                var keys: [String] = []
-                for photo in part.photos { if let key = try await uploadGoalPhoto(photo, owner: owner) { keys.append(key) } }
-                parts.append(["id": part.id, "title": part.title, "notes": part.notes, "link": part.link, "photos": keys])
+            // Upload every photo at once rather than one after another, keeping their order.
+            let keys = try await uploadGoalPhotos(goal.photos + goal.parts.flatMap(\.photos), owner: owner)
+            let photos = goal.photos.compactMap { keys[$0] }
+            let parts: [[String: Any]] = goal.parts.map { part in
+                ["id": part.id, "title": part.title, "notes": part.notes, "link": part.link, "photos": part.photos.compactMap { keys[$0] }]
             }
             // Not `model.perform`: saving a shared goal republishes in the background
             // and must not be refused while another command is running.
@@ -674,12 +693,22 @@ final class LiveMatMindRuntime: AppRuntime {
                 "client_id": goal.id, "title": goal.title, "notes": goal.notes,
                 "links": goal.links, "photos": photos, "parts": parts])
             guard model.userID == owner, let id = result["id"]?.string else { return nil }
-            await model.refresh(force: true)
-            sync()
+            // Don't make the caller wait for a full reload; a share right after refreshes anyway.
+            Task { await model.refresh(force: true); sync() }
             return id
         } catch {
             if model.userID == owner { model.error = "Couldn't share \(goal.title): \(error.localizedDescription)" }
             return nil
+        }
+    }
+    /// Uploads goal photos in parallel. Returns local file name → stored key; files missing
+    /// from this device are left out.
+    private func uploadGoalPhotos(_ files: [String], owner: String) async throws -> [String: String] {
+        try await withThrowingTaskGroup(of: (String, String?).self) { group in
+            for file in Set(files) { group.addTask { @MainActor in (file, try await self.uploadGoalPhoto(file, owner: owner)) } }
+            var keys: [String: String] = [:]
+            for try await (file, key) in group { if let key { keys[file] = key } }
+            return keys
         }
     }
     /// Uploads one goal photo, named by its content, so re-saves and retries reuse it.
@@ -698,7 +727,9 @@ final class LiveMatMindRuntime: AppRuntime {
         return key
     }
     func copyGoalLink(_ sharedID: String) async -> Bool {
-        guard let result = await model.perform("goal_token", ["goal_id": sharedID]), let token = result["token"]?.string else { return false }
+        // Making a link changes nothing on screen, so skip the lock and the full reload.
+        guard let result = await model.perform("goal_token", ["goal_id": sharedID], blocking: false, refresh: false),
+              let token = result["token"]?.string else { return false }
         UIPasteboard.general.url = model.link(kind: "goal", token: token)
         return true
     }
