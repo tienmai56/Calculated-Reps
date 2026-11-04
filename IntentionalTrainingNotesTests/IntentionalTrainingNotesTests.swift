@@ -1400,6 +1400,26 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertEqual(saved, expired)
     }
 
+    func testDeadRefreshTokenEndsTheSessionWithAClearMessage() async throws {
+        // Supabase Auth's reply when a refresh token was revoked or already rotated.
+        let dead = Data(#"{"code":400,"error_code":"refresh_token_not_found","msg":"Invalid Refresh Token: Refresh Token Not Found"}"#.utf8)
+        let expired = CloudCredential(access_token: "old-token", refresh_token: "old-refresh", user: CloudUser(id: "owner"), expires_at: 1)
+        let fixture = BackendHTTPFixture(failureStatus: 400, failureBody: expiryError, refreshStatus: 400, refreshBody: dead)
+        let (client, store) = try makeClient(credential: expired, fixture: fixture)
+        do {
+            _ = try await client.command("save_profile", payload: ["name": "Alex"])
+            XCTFail("A dead refresh token should stop the command")
+        } catch let error as CloudError {
+            XCTAssertTrue(error.sessionExpired)
+            XCTAssertEqual(error.message, "Your sign-in expired. Sign in again to keep going.")
+        }
+        let identity = await client.identity()
+        XCTAssertNil(identity, "The dead session is dropped instead of being retried on every request")
+        XCTAssertNil(store.read())
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.map { $0.url?.path }, ["/auth/v1/token"], "The command itself is never sent")
+    }
+
     func testRPCUnauthorizedRetryPreservesIdempotencyKeyAndPayload() async throws {
         let fixture = BackendHTTPFixture(failureStatus: 401, failureBody: Data(#"{"message":"JWT expired"}"#.utf8))
         let (client, _) = try makeClient(fixture: fixture)
@@ -1632,17 +1652,18 @@ final class BackendSessionTests: XCTestCase {
         }
         let store = BackendCredentialStore(try JSONEncoder().encode(credential))
         let backend = BackendClient(configuration: BackendConfiguration(url: URL(string: "https://" + host)!, key: "test-publishable-key"),
-                                    session: session, loadCredential: store.read, saveCredential: store.write)
+                                    session: session, loadCredential: store.read, saveCredential: store.write, deleteCredential: store.clear)
         return (backend, store)
     }
 }
 
 private final class BackendCredentialStore {
     private let lock = NSLock()
-    private var data: Data
+    private var data: Data?
     init(_ data: Data) { self.data = data }
     func read() -> Data? { lock.lock(); defer { lock.unlock() }; return data }
     func write(_ data: Data) { lock.lock(); defer { lock.unlock() }; self.data = data }
+    func clear() { lock.lock(); defer { lock.unlock() }; data = nil }
 }
 
 private actor BackendHTTPFixture {
@@ -1651,6 +1672,7 @@ private actor BackendHTTPFixture {
     let failureBody: Data
     let rejectFreshToken: Bool
     let refreshStatus: Int
+    let refreshBody: Data?
     let snapshotError: URLError.Code?
     let snapshotStarted: XCTestExpectation?
     private var holdSnapshots: Bool
@@ -1661,12 +1683,13 @@ private actor BackendHTTPFixture {
     private var createReceipts: [String: (payload: Data, id: String)] = [:]
     var createdSessionCount: Int { createReceipts.count }
 
-    init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200,
+    init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
          snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
         self.refreshStatus = refreshStatus
+        self.refreshBody = refreshBody
         self.snapshotError = snapshotError
         self.snapshotStarted = snapshotStarted
         self.holdSnapshots = holdSnapshots
@@ -1699,7 +1722,7 @@ private actor BackendHTTPFixture {
         if request.url?.path == "/auth/v1/token" {
             // Keep refresh in flight while another upload receives its rejection.
             try await Task.sleep(nanoseconds: 50_000_000)
-            if refreshStatus != 200 { return (refreshStatus, Data(#"{"message":"Refresh token rejected"}"#.utf8)) }
+            if refreshStatus != 200 { return (refreshStatus, refreshBody ?? Data(#"{"message":"Refresh token rejected"}"#.utf8)) }
             let refreshed = CloudCredential(access_token: "fresh-token", refresh_token: "rotated-refresh", user: CloudUser(id: "owner"), expires_at: Date().timeIntervalSince1970 + 3600)
             return (200, try JSONEncoder().encode(refreshed))
         }
