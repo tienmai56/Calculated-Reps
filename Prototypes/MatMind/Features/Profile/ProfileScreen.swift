@@ -795,70 +795,76 @@ private struct PastSessionTicket: View {
         }
         let partners = partnerIDs.map { mm.person($0).avatar }
         let withLabel = partnerIDs.count == 1 ? "with \(partnerIDs[0] == "me" ? "you" : mm.person(partnerIDs[0]).firstName)" : "\(partnerIDs.count) partners"
-        Button(action: onTap) {
-            HStack(spacing: 0) {
-                VStack(spacing: 2) {
-                    Text(text("EEE").uppercased()).mmFont(.display, 12, tracking: 0.04, lineHeight: 1)
-                    Text(text("d")).mmFont(.display, 30, tracking: -0.04, lineHeight: 1)
-                    Text(text("MMM")).mmFont(.body, 12, .bold, lineHeight: 1)
+        HStack(spacing: 0) {
+            VStack(spacing: 2) {
+                Text(text("EEE").uppercased()).mmFont(.display, 12, tracking: 0.04, lineHeight: 1)
+                Text(text("d")).mmFont(.display, 30, tracking: -0.04, lineHeight: 1)
+                Text(text("MMM")).mmFont(.body, 12, .bold, lineHeight: 1)
+            }
+            .foregroundStyle(hue.ink)
+            .padding(.vertical, 14)
+            .frame(width: stubWidth)
+            .frame(maxHeight: .infinity)
+            .background(hue.tint)
+
+            ProfileDashedLine()
+                .stroke(MMColor.ink200, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                .frame(width: 2)
+                .padding(.vertical, 10)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(post.title)
+                    .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.25)
+                    .foregroundStyle(MMColor.textPrimary)
+                    .multilineTextAlignment(.leading)
+                if !post.gym.isEmpty {
+                    HStack(spacing: 6) {
+                        MMIcon("map-pin", size: 14, color: MMColor.textTertiary)
+                        Text(post.gym).mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
+                    }
                 }
-                .foregroundStyle(hue.ink)
-                .padding(.vertical, 14)
-                .frame(width: stubWidth)
-                .frame(maxHeight: .infinity)
-                .background(hue.tint)
-
-                ProfileDashedLine()
-                    .stroke(MMColor.ink200, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                    .frame(width: 2)
-                    .padding(.vertical, 10)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(post.title)
-                        .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.25)
-                        .foregroundStyle(MMColor.textPrimary)
+                if !post.caption.isEmpty {
+                    Text(post.caption)
+                        .mmFont(.body, 13, lineHeight: 1.4)
+                        .foregroundStyle(MMColor.textSecondary)
+                        .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    if !post.gym.isEmpty {
-                        HStack(spacing: 6) {
-                            MMIcon("map-pin", size: 14, color: MMColor.textTertiary)
-                            Text(post.gym).mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary).lineLimit(1)
-                        }
-                    }
-                    if !post.caption.isEmpty {
-                        Text(post.caption)
-                            .mmFont(.body, 13, lineHeight: 1.4)
-                            .foregroundStyle(MMColor.textSecondary)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-                    HStack(spacing: 8) {
-                        if !partners.isEmpty {
+                }
+                HStack(spacing: 8) {
+                    if !partners.isEmpty {
+                        if partnerIDs.count == 1 {
+                            PersonProfileButton(person: mm.person(partnerIDs[0])) {
+                                MMAvatarStack(people: partners, size: 24, max: 3, ring: .white, label: withLabel)
+                            }
+                        } else {
                             MMAvatarStack(people: partners, size: 24, max: 3, ring: .white, label: withLabel)
                         }
-                        Spacer(minLength: 0)
-                        if post.photo != nil {
-                            MMIcon("image", size: 14, color: MMColor.textTertiary)
-                        }
                     }
-                    .padding(.top, 2)
+                    Spacer(minLength: 0)
+                    if post.photo != nil {
+                        MMIcon("image", size: 14, color: MMColor.textTertiary)
+                    }
                 }
-                .padding(.vertical, 14)
-                .padding(.leading, 16)
-                .padding(.trailing, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .clipShape(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous))
-            .mmCardSurface(radius: MMRadius.lg)
-            .overlay(alignment: .topLeading) {
-                Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: -8)
-            }
-            .overlay(alignment: .bottomLeading) {
-                Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: 8)
-            }
+            .padding(.vertical, 14)
+            .padding(.leading, 16)
+            .padding(.trailing, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(MMPressStyle())
-        .accessibilityElement(children: .combine)
+        .fixedSize(horizontal: false, vertical: true)
+        .clipShape(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous))
+        .mmCardSurface(radius: MMRadius.lg)
+        .overlay(alignment: .topLeading) {
+            Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: -8)
+        }
+        .overlay(alignment: .bottomLeading) {
+            Circle().fill(MMColor.bgApp).frame(width: 16, height: 16).offset(x: stubWidth - 7, y: 8)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .accessibilityAction(named: Text("Open memory"), onTap)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -958,7 +964,8 @@ private struct NotificationRow: View {
         let p = mm.person(note.who)
         let session = note.session.flatMap { sid in mm.upcoming.first { $0.id == sid } }
         HStack(alignment: .top, spacing: 12) {
-            MMAvatar(name: p.name, photo: p.photo, size: 46)
+            PersonProfileButton(person: p) {
+                MMAvatar(name: p.name, photo: p.photo, size: 46)
                 .overlay(alignment: .bottomTrailing) {
                     MMIcon(kindIcon.name, size: 12, weight: .bold, color: .white)
                         .frame(width: 22, height: 22)
@@ -966,9 +973,15 @@ private struct NotificationRow: View {
                         .background(Circle().fill(MMColor.bgApp).padding(-2.5))
                         .offset(x: 3, y: 3)
                 }
+            }
             VStack(alignment: .leading, spacing: 0) {
                 if note.kind == .invite, let s = session {
-                    mmRich([.body(p.firstName, 15, .bold), .body(" invited you to ", 15), .body(s.title, 15, .bold)])
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        PersonProfileButton(person: p) {
+                            Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                        }
+                        mmRich([.body(" invited you to ", 15), .body(s.title, 15, .bold)])
+                    }
                     Text("\(s.day), \(s.month) \(s.date) · \(s.time) · \(s.gym)").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     if s.status(of: "me") == .invited {
                         HStack(spacing: 8) {
@@ -982,7 +995,12 @@ private struct NotificationRow: View {
                             .padding(.top, 8)
                     }
                 } else {
-                    mmRich([.body(p.firstName, 15, .bold), .body(" \(note.text)", 15)])
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        PersonProfileButton(person: p) {
+                            Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                        }
+                        Text(" \(note.text)").mmFont(.body, 15).foregroundStyle(MMColor.textPrimary)
+                    }
                     if let quote = note.quote {
                         Text("“\(quote)”").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 4)
                     }
