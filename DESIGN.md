@@ -342,6 +342,7 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 
 **Rule: a photo or a note, at least one.** Photos are optional, but a post is never blank. Publish to Activity unlocks once there is a photo, a note, or both. The session focus ("What we worked on") is copied from the plan and never counts on its own. A note that is only whitespace or only `@tags` counts as empty (trim before checking).
 
+- **Remember the session.** The Activity prompt and the white details card above the photo area use "How was {session title}?", preserving the full session title. The details card shows the gym, host, session access and saved session note when present; omit the date and time. Allow long text to wrap. Show the full "What we worked on" outline immediately below the details, before the photo area; "Who trained" remains below the caption. Keep the saved session note separate from the new post's caption.
 - **Say the rule up front.** One hint line sits centered above Publish (13px Archivo with a 16px Lucide icon). Neither field is labeled required or optional.
 - **Nothing yet:** Publish uses the standard disabled button (no shade edge). Hint: info icon, ink-700, “Add a photo, a few words, or both to share.”
 - **Publish tapped while empty:** no banner, toast or dialog. The hint turns coral-700 with a circle-alert icon, “Add a photo or a few words first”, and the note field takes focus (`--ring-focus`, keyboard up), since typing is the fastest fix. Announce the hint to VoiceOver.
