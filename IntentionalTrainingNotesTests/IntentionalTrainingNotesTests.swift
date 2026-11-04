@@ -1487,6 +1487,30 @@ final class GoalSharingTests: XCTestCase {
     }
 
     @MainActor
+    func testSharedGoalEditsAreNoticedByRecipients() throws {
+        let json = #"""
+        {"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "shared_goals":[
+           {"id":"cloud-1","owner":"sarah-id","client_id":"g9","title":"Single leg","notes":"","links":[],"photos":[],"parts":[],"media":[],"version":2},
+           {"id":"cloud-2","owner":"me-id","client_id":"g1","title":"Knee cut","notes":"","links":[],"photos":[],"parts":[],"media":[],"version":5}],
+         "goal_shares":[{"goal_id":"cloud-1","recipient":"me-id","status":"accepted","via":"friend","created_at":"2026-11-03T10:00:00Z"}]}
+        """#
+        let model = SocialAppModel(backend: BackendClient(configuration: nil, loadCredential: { nil }, saveCredential: { _ in }))
+        model.userID = "me-id"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(json.utf8))
+        let runtime = LiveMatMindRuntime(model: model, ui: AppModel(live: true))
+        func rows(_ text: String) throws -> [SocialRow] { try JSONDecoder().decode([SocialRow].self, from: Data(text.utf8)) }
+
+        XCTAssertFalse(runtime.sharedGoalsChanged(try rows(#"[{"id":"cloud-1","owner":"sarah-id","version":2},{"id":"cloud-2","owner":"me-id","version":5}]"#)))
+        XCTAssertFalse(runtime.sharedGoalsChanged(try rows(#"[{"id":"cloud-1","owner":"sarah-id","version":2},{"id":"cloud-2","owner":"me-id","version":6}]"#)),
+                       "Your own saves don't reload")
+        XCTAssertTrue(runtime.sharedGoalsChanged(try rows(#"[{"id":"cloud-1","owner":"sarah-id","version":3}]"#)), "The owner saved an edit")
+        XCTAssertTrue(runtime.sharedGoalsChanged(try rows("[]")), "The owner stopped sharing it")
+        XCTAssertTrue(runtime.sharedGoalsChanged(try rows(#"[{"id":"cloud-1","owner":"sarah-id","version":2},{"id":"cloud-3","owner":"sarah-id","version":1}]"#)),
+                      "A new goal was shared")
+    }
+
+    @MainActor
     func testGoalLinksAreAcceptedLikeOtherInvitations() {
         let model = SocialAppModel(backend: BackendClient(configuration: nil, loadCredential: { nil }, saveCredential: { _ in }))
         let token = String(repeating: "a", count: 64)

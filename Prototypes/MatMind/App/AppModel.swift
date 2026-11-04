@@ -23,8 +23,12 @@ protocol AppRuntime: AnyObject {
     /// Creates or updates the shared copy of one of your goals (photos included) and
     /// returns its id. Recipients see whatever was published last.
     func publishGoal(_ goal: MatGoal) async -> String?
+    /// Same as `publishGoal`, without an alert when it fails: used to retry saves that didn't reach recipients.
+    func republishGoal(_ goal: MatGoal) async -> String?
     /// Copies a link to a shared goal. Anyone with an account who opens it gets an invitation.
     func copyGoalLink(_ sharedID: String) async -> Bool
+    /// Reloads if a goal someone shared with you changed since the last refresh.
+    func refreshSharedGoalsIfChanged() async
     func scannerView(found: @escaping (String) -> Void) -> AnyView
     func exportView() -> AnyView
 }
@@ -66,7 +70,7 @@ final class AppModel {
         people = [:]; friends = []; posts = []; upcoming = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
-        sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
+        sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]; unpublishedGoals = []
     }
 
     private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
@@ -99,6 +103,12 @@ final class AppModel {
     var goalRecipients: [String: [String: String]] = [:]
     /// Publishes of each goal, run one after another so the latest save always lands last.
     @ObservationIgnored private var goalPublishes: [String: Task<String?, Never>] = [:]
+    /// Shared goals whose latest save hasn't reached recipients yet (offline, upload failed).
+    /// Kept on this device and retried, so an edit is never silently lost to the people you shared with.
+    private(set) var unpublishedGoals: Set<String> = []
+    /// Counts publishes per goal, so only the newest one decides whether the goal is up to date.
+    @ObservationIgnored private var publishGeneration: [String: Int] = [:]
+    @ObservationIgnored private var retryingGoals: Set<String> = []
     /// The signed-in account whose goals are loaded (installed app only).
     @ObservationIgnored private var goalAccount: String?
     /// Reads an old-notebook export into goals. Supplied by the installed app, which
@@ -674,6 +684,7 @@ final class AppModel {
     func deleteGoal(_ id: String) {
         // People it was shared with lose it too.
         let publishing = goalPublishes.removeValue(forKey: id)
+        unpublishedGoals.remove(id)
         if let shared = sharedGoalIDs.removeValue(forKey: id) {
             goalRecipients[shared] = nil
             if isLive, let runtime {
@@ -769,18 +780,44 @@ final class AppModel {
     }
 
     /// Publishes the goal as it is when the publish runs, after any earlier one finishes.
-    private func publishLatest(_ goalID: String) -> Task<String?, Never>? {
+    /// A publish that fails is remembered and retried by `republishUnpublishedGoals`.
+    private func publishLatest(_ goalID: String, quietly: Bool = false) -> Task<String?, Never>? {
         guard let runtime else { return nil }
         let previous = goalPublishes[goalID]
+        let generation = (publishGeneration[goalID] ?? 0) + 1
+        publishGeneration[goalID] = generation
         let task = Task { @MainActor [weak self] () -> String? in
             _ = await previous?.value
             guard !Task.isCancelled, let self, let goal = self.goal(goalID) else { return nil }
-            let shared = await runtime.publishGoal(goal)
-            if let shared, self.goal(goalID) != nil { self.sharedGoalIDs[goalID] = shared }
+            let shared = quietly ? await runtime.republishGoal(goal) : await runtime.publishGoal(goal)
+            guard self.goal(goalID) != nil else { return shared }
+            let wasUnpublished = self.unpublishedGoals.contains(goalID)
+            if let shared {
+                self.sharedGoalIDs[goalID] = shared
+                // A newer save queued behind this one decides for itself.
+                if self.publishGeneration[goalID] == generation { self.unpublishedGoals.remove(goalID) }
+            } else if self.sharedGoalIDs[goalID] != nil {
+                self.unpublishedGoals.insert(goalID)
+            }
+            if wasUnpublished != self.unpublishedGoals.contains(goalID) { self.persistGoals() }
             return shared
         }
         goalPublishes[goalID] = task
         return task
+    }
+
+    /// Sends shared goals whose last save didn't get through. Called when the app comes back
+    /// to the foreground and while it's open, so recipients catch up without another edit.
+    func republishUnpublishedGoals() {
+        for id in unpublishedGoals where !retryingGoals.contains(id) {
+            guard goal(id) != nil, sharedGoalIDs[id] != nil else { unpublishedGoals.remove(id); persistGoals(); continue }
+            retryingGoals.insert(id)
+            let task = publishLatest(id, quietly: true)
+            Task { @MainActor [weak self] in
+                _ = await task?.value
+                self?.retryingGoals.remove(id)
+            }
+        }
     }
 
     /// The shared copy's id. A goal that's already shared is republished on every save, so
@@ -900,6 +937,8 @@ final class AppModel {
     private struct StoredGoals: Codable {
         var goals: [MatGoal]
         var sessionGoals: [String: String]
+        /// Optional so goals saved by earlier versions still load.
+        var unpublished: [String]?
     }
 
     private static func goalsKey(_ account: String) -> String { "matmonkeys.goals.\(account)" }
@@ -912,11 +951,12 @@ final class AppModel {
             .flatMap { try? JSONDecoder().decode(StoredGoals.self, from: $0) }
         goals = stored?.goals ?? []
         sessionGoals = stored?.sessionGoals ?? [:]
+        unpublishedGoals = Set(stored?.unpublished ?? [])
     }
 
     private func persistGoals() {
         guard isLive, let goalAccount else { return }
-        if let data = try? JSONEncoder().encode(StoredGoals(goals: goals, sessionGoals: sessionGoals)) {
+        if let data = try? JSONEncoder().encode(StoredGoals(goals: goals, sessionGoals: sessionGoals, unpublished: unpublishedGoals.sorted())) {
             UserDefaults.standard.set(data, forKey: Self.goalsKey(goalAccount))
         }
     }

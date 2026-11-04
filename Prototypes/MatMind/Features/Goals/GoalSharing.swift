@@ -352,6 +352,12 @@ struct SharedGoalScreen: View {
     @State private var working = false
 
     var body: some View {
+        screen
+            // Opening it shows the owner's latest saved version.
+            .task(id: id) { await mm.runtime?.refreshSharedGoalsIfChanged() }
+    }
+
+    @ViewBuilder private var screen: some View {
         if let shared = mm.sharedGoal(id) {
             detail(shared)
         } else {

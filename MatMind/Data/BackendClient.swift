@@ -169,6 +169,10 @@ actor BackendClient {
         let data = try await request(path:"rest/v1/rpc/command", body:["operation":operation,"payload":payload,"idempotency_key":key.uuidString])
         return try JSONDecoder().decode([String: ArchiveValue].self, from:data)
     }
+    /// Each shared goal you can see with its version: a tiny read to tell whether anything changed.
+    func sharedGoalVersions() async throws -> [SocialRow] {
+        try JSONDecoder().decode([SocialRow].self, from: await request(path:"rest/v1/shared_goals?select=id,owner,version&deleted_at=is.null", body:nil))
+    }
     func feed(before: SocialRow) async throws -> [SocialRow] {
         let data = try await request(path:"rest/v1/rpc/feed_page",body:["before_time":before.text("published_at"),"before_id":before.id])
         return try JSONDecoder().decode([SocialRow].self,from:data)

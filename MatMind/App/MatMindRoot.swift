@@ -75,7 +75,17 @@ struct MatMindRoot: View {
             }
             .onChange(of: model.userID) { _, _ in runtime?.sync() }
             .onChange(of: phase) { _, phase in
-                if phase == .active { Task { await model.refresh(); await runtime?.loadPhotos() } }
+                if phase == .active { Task { await model.refresh(); await runtime?.loadPhotos(); ui.republishUnpublishedGoals() } }
+            }
+            // Goals shared with you follow the owner's saves while the app is open.
+            .task(id: phase) {
+                guard phase == .active else { return }
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(LiveMatMindRuntime.sharedGoalCheckInterval))
+                    guard !Task.isCancelled else { return }
+                    await runtime?.refreshSharedGoalsIfChanged()
+                    ui.republishUnpublishedGoals()
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushOpen"))) { _ in
                 Task { await model.refresh(); runtime?.sync(); openNotification() }
@@ -674,8 +684,32 @@ final class LiveMatMindRuntime: AppRuntime {
                                                        "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: old.focus)])
         sync(); return result != nil
     }
-    func publishGoal(_ goal: MatGoal) async -> String? {
-        guard let owner = model.userID else { model.error = "Sign in to share goals."; return nil }
+    /// How often an open app checks whether goals shared with you were updated.
+    static let sharedGoalCheckInterval: Double = 15
+
+    /// Reloads when someone updated (or stopped sharing) a goal shared with you. The check
+    /// reads only ids and versions, so it's cheap enough to run every few seconds.
+    func refreshSharedGoalsIfChanged() async {
+        guard let userID = model.userID, !ui.sharedGoals.isEmpty else { return }
+        guard let latest = try? await model.backend.sharedGoalVersions(), model.userID == userID,
+              sharedGoalsChanged(latest) else { return }
+        await model.refresh()
+        await loadPhotos()
+    }
+    /// Whether the goals others shared with you differ from the last snapshot: new versions,
+    /// new goals, or goals you can no longer see.
+    func sharedGoalsChanged(_ latest: [SocialRow]) -> Bool {
+        guard let userID = model.userID else { return false }
+        func versions(_ rows: [SocialRow]) -> [String: Int] {
+            Dictionary(rows.filter { $0.text("owner") != userID }.map { ($0.id, $0.number("version")) }, uniquingKeysWith: max)
+        }
+        return versions(latest) != versions(model.snapshot.shared_goals ?? [])
+    }
+
+    func republishGoal(_ goal: MatGoal) async -> String? { await publishGoal(goal, quietly: true) }
+    func publishGoal(_ goal: MatGoal) async -> String? { await publishGoal(goal, quietly: false) }
+    private func publishGoal(_ goal: MatGoal, quietly: Bool) async -> String? {
+        guard let owner = model.userID else { if !quietly { model.error = "Sign in to share goals." }; return nil }
         do {
             // Upload every photo at once rather than one after another, keeping their order.
             let keys = try await uploadGoalPhotos(goal.photos + goal.parts.flatMap(\.photos), owner: owner)
@@ -693,7 +727,7 @@ final class LiveMatMindRuntime: AppRuntime {
             Task { await model.refresh(force: true); sync() }
             return id
         } catch {
-            if model.userID == owner { model.error = "Couldn't share \(goal.title): \(error.localizedDescription)" }
+            if model.userID == owner, !quietly { model.error = "Couldn't share \(goal.title): \(error.localizedDescription)" }
             return nil
         }
     }
