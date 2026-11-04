@@ -21,7 +21,8 @@ protocol AppRuntime: AnyObject {
     func connect(_ value: String) async -> String?
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
-    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool
     /// Creates or updates the shared copy of one of your goals (photos included) and
     /// returns its id. Recipients see whatever was published last.
     func publishGoal(_ goal: MatGoal) async -> String?
@@ -65,7 +66,7 @@ final class AppModel {
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
-        people = [:]; friends = []; circle = []; following = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; toComplete = nil
+        people = [:]; friends = []; circle = []; following = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; completedSessions = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
@@ -92,6 +93,7 @@ final class AppModel {
     var listedPeople: [String: Person] = [:]
     var posts: [Post] = []
     var upcoming: [Session] = []
+    var completedSessions: [Session] = []
     var toComplete: Session?
     var notifications: [AppNotification] = []
     var drafts: [Session] = []
@@ -146,7 +148,7 @@ final class AppModel {
     func findSession(_ id: String) -> Session? {
         if let s = upcoming.first(where: { $0.id == id }) { return s }
         if let s = toComplete, s.id == id { return s }
-        return drafts.first(where: { $0.id == id })
+        return drafts.first(where: { $0.id == id }) ?? completedSessions.first(where: { $0.id == id })
     }
 
     func friendship(_ id: String) -> Friendship? { friends.first { $0.id == id } }
@@ -230,14 +232,41 @@ final class AppModel {
         plannedSessions.first { sessionGoals[$0.id] == goalID }
     }
 
-    /// Invitations and accepted plans, soonest first; declined sessions do not fill the schedule.
-    var plannedSessions: [Session] {
-        upcoming.filter { ($0.status(of: "me") == .going || $0.status(of: "me") == .invited) && (!isLive || $0.id != toComplete?.id) }
-            .sorted {
-                let first = startDate(of: $0), second = startDate(of: $1)
-                return first == second ? $0.id < $1.id : first < second
-            }
+    /// Sessions you organized that have already happened but aren't shared yet, newest first.
+    /// Every one of them can be completed, not just the most recent, so a logged past
+    /// session always has a way into Activity.
+    var readyToShare: [Session] {
+        guard isLive else { return toComplete.map { [$0] } ?? [] }
+        let now = Date()
+        return upcoming.filter { $0.organizer == "me" && startDate(of: $0) <= now }
+            .sorted { startDate(of: $0) > startDate(of: $1) }
     }
+
+    func isReadyToShare(_ sessionID: String) -> Bool { readyToShare.contains { $0.id == sessionID } }
+
+    /// Invitations and accepted future plans, soonest first.
+    var plannedSessions: [Session] { trainingSessions(past: false) }
+
+    /// Date, not publication or photo state, determines which Training tab owns a session.
+    /// Label-only sample plans remain upcoming; draft and completion samples remain past.
+    func trainingSessions(past: Bool, relativeTo now: Date = Date()) -> [Session] {
+        let completedIDs = Set(completedSessions.map(\.id))
+        let draftIDs = Set(drafts.map(\.id))
+        var seen: Set<String> = []
+        let sessions = upcoming + drafts + (toComplete.map { [$0] } ?? []) + completedSessions
+        return sessions.filter { session in
+            guard seen.insert(session.id).inserted,
+                  session.status(of: "me") == .going || session.status(of: "me") == .invited else { return false }
+            let elapsed = completedIDs.contains(session.id) || (session.startsAt.map { $0 <= now }
+                ?? (draftIDs.contains(session.id) || session.id == toComplete?.id))
+            return elapsed == past
+        }.sorted {
+            let first = startDate(of: $0), second = startDate(of: $1)
+            return first == second ? $0.id < $1.id : (past ? first > second : first < second)
+        }
+    }
+
+    func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
 
     var unreadCount: Int { notifications.filter(\.unread).count }
 
@@ -341,6 +370,11 @@ final class AppModel {
 
     private func updateSession(_ id: String, _ change: (inout Session) -> Void) {
         if let i = upcoming.firstIndex(where: { $0.id == id }) { change(&upcoming[i]) }
+        if let i = drafts.firstIndex(where: { $0.id == id }) { change(&drafts[i]) }
+        if var session = toComplete, session.id == id {
+            change(&session)
+            toComplete = session
+        }
     }
 
     func like(_ id: String) {
@@ -353,6 +387,22 @@ final class AppModel {
     func comment(_ id: String, _ text: String) {
         if isLive { send("add_comment", ["post_id": id, "body": text]); return }
         updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true)) }
+    }
+
+    /// Your own comments, and any comment on a post you organized, can be deleted.
+    func canDelete(_ comment: Comment, on postID: String) -> Bool {
+        comment.who == "me" || post(postID)?.organizer == "me"
+    }
+
+    /// Deletes a comment. Live, the runtime hides it right away and brings it back if the delete fails.
+    func deleteComment(_ comment: Comment, on postID: String) {
+        if isLive {
+            guard let cloudID = comment.cloudID else { return }
+            send("delete_comment", ["comment_id": cloudID], success: { self.showToast("Comment deleted") })
+            return
+        }
+        updatePost(postID) { $0.comments.removeAll { $0.id == comment.id } }
+        showToast("Comment deleted")
     }
 
     /// Reasons offered when reporting a post or comment (sent as the report's text).
@@ -548,6 +598,7 @@ final class AppModel {
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }
         posts.insert(post, at: 0)
+        completedSessions.append(s)
         upcoming.removeAll { $0.id == sessionID }
         drafts.removeAll { $0.id == sessionID }
         if toComplete?.id == sessionID { toComplete = nil }
@@ -635,14 +686,23 @@ final class AppModel {
 
     // MARK: Hosting
 
-    /// Host only: change a planned session's name, time, gym or note. People and focus plan stay.
-    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+    /// Host only. Omitted focus/guests keep their current values; retained guests keep their RSVPs.
+    func editSession(_ id: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus]? = nil, guestIDs: Set<String>? = nil) async -> Bool {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let gym = gym.trimmingCharacters(in: .whitespacesAndNewlines)
         let note = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, !gym.isEmpty, findSession(id)?.organizer == "me" else { return false }
+        guard !title.isEmpty, !gym.isEmpty, let session = findSession(id), session.organizer == "me" else { return false }
+        let focus = focusItems ?? session.focusItems
+        guard TrainingFocusTree.isValid(focus) else { return false }
+        let existing = Set(session.people.map(\.id).filter { $0 != session.organizer })
+        let guests = (guestIDs ?? existing).subtracting([session.organizer])
+        let added = guests.subtracting(existing).sorted()
+        let removed = existing.subtracting(guests).sorted()
+        guard added.allSatisfy({ id in friends.contains { $0.id == id } }) else { return false }
         if let runtime {
-            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note) else { return false }
+            guard await runtime.editSession(id, title: title, startsAt: startsAt, gym: gym, note: note,
+                                            focusItems: focus, addedGuests: added, removedGuests: removed) else { return false }
             showToast("Session updated", .success)
             return true
         }
@@ -651,6 +711,9 @@ final class AppModel {
             s.title = title
             s.gym = gym
             s.note = note.isEmpty ? nil : note
+            s.focusItems = TrainingFocusTree.normalized(focus)
+            s.people.removeAll { removed.contains($0.id) }
+            added.forEach { s.set($0, startsAt > Date() ? .invited : .going) }
             s.startsAt = startsAt
             s.day = Self.sessionText(startsAt, "EEE")
             s.date = Int(Self.sessionText(startsAt, "d")) ?? s.date
@@ -672,6 +735,8 @@ final class AppModel {
             return
         }
         upcoming.removeAll { $0.id == id }
+        drafts.removeAll { $0.id == id }
+        if toComplete?.id == id { toComplete = nil }
         forgetGoal(forSession: id)
         showToast("Session deleted")
     }
@@ -1026,6 +1091,7 @@ final class AppModel {
         goalRecipients = [:]
 #endif
         drafts = []
+        completedSessions = []
         path = []
         toast = nil
         highlight = nil

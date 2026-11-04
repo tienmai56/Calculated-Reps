@@ -23,6 +23,7 @@ struct ActivityScreen: View {
             .padding(.bottom, 10)
             .frame(minHeight: MMLayout.headerHeight)
         } content: {
+            // Only your latest training asks for a photo; older ones are shared from their session page.
             if let session = mm.toComplete {
                 ReadyToShare(session: session)
                     .padding(.vertical, 12)
@@ -56,6 +57,7 @@ struct ActivityScreen: View {
 private struct ReadyToShare: View {
     @Environment(AppModel.self) private var mm
     let session: Session
+    @State private var confirmingSkip = false
 
     /// Solo sessions share with the crew; never "the 1 of you".
     private var shareLine: String {
@@ -77,11 +79,21 @@ private struct ReadyToShare: View {
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
                 Text("How was \(shortTitle)?").mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
+                // Say which session this is: an older one can still be waiting here.
+                Text("\(session.day), \(session.month) \(session.date) · \(session.time)")
+                    .mmFont(.body, 12, .semibold, lineHeight: 1.3).foregroundStyle(MMColor.ink200)
+                    .padding(.top, 2)
                 Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
                     .padding(.top, 4)
-                MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
-                    .padding(.top, 10)
+                HStack(spacing: 14) {
+                    MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
+                    Button("Didn't train") { confirmingSkip = true }
+                        .mmFont(.body, 13, .semibold, lineHeight: 1.2)
+                        .foregroundStyle(MMColor.ink200)
+                        .frame(minHeight: 36)
+                }
+                .padding(.top, 10)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -89,6 +101,12 @@ private struct ReadyToShare: View {
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
         .padding(.horizontal, 16)
         .padding(.top, 4)
+        .confirmationDialog("Didn't train at \(session.title)?", isPresented: $confirmingSkip, titleVisibility: .visible) {
+            Button("Delete session", role: .destructive) { mm.deleteSession(session.id) }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text(session.people.count > 1 ? "It comes off everyone's schedule and won't be shared." : "It comes off your schedule and won't be shared.")
+        }
     }
 }
 
@@ -190,7 +208,7 @@ struct PostCard: View {
                         .body(others.isEmpty ? " trained" : " trained with \(mmNames(others))", 14, color: MMColor.textSecondary),
                     ])
                     .lineSpacing(1)
-                    Text("\(post.date) · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                    Text("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · \(post.ago)").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 MMIconButton("ellipsis", size: 36, label: "Post options") { showMenu = true }
@@ -625,10 +643,18 @@ private struct CommentRow: View {
     var postID: String?
     @State private var shown = false
     @State private var reporting = false
+    @State private var confirmingDelete = false
 
-    /// Someone else's comment that can be reported (live comments need their cloud ID).
-    private var reportable: Bool {
-        comment.who != "me" && postID != nil && (!mm.isLive || comment.cloudID != nil)
+    /// Live comments need their cloud ID before they can be reported or deleted.
+    private var actionable: Bool { postID != nil && (!mm.isLive || comment.cloudID != nil) }
+
+    /// Someone else's comment that can be reported.
+    private var reportable: Bool { actionable && comment.who != "me" }
+
+    /// Your own comment, or any comment on a post you organized.
+    private var deletable: Bool {
+        guard actionable, let postID else { return false }
+        return mm.canDelete(comment, on: postID)
     }
 
     var body: some View {
@@ -647,9 +673,14 @@ private struct CommentRow: View {
                 shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
             }
             Spacer(minLength: 0)
-            if reportable {
+            if reportable || deletable {
                 Menu {
-                    Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                    if deletable {
+                        Button(role: .destructive) { confirmingDelete = true } label: { Label("Delete comment", image: "trash-2") }
+                    }
+                    if reportable {
+                        Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                    }
                 } label: {
                     MMIcon("ellipsis", size: 18, color: MMColor.ink500)
                         .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
@@ -665,10 +696,23 @@ private struct CommentRow: View {
             withAnimation(MMMotion.easeOut(0.35)) { shown = true }
         }
         .contextMenu {
+            if deletable { Button("Delete comment", role: .destructive) { confirmingDelete = true } }
             if reportable { Button("Report comment", role: .destructive) { reporting = true } }
         }
         .accessibilityActions {
+            if deletable { Button("Delete comment") { confirmingDelete = true } }
             if reportable { Button("Report comment") { reporting = true } }
+        }
+        .mmSheet(isPresented: $confirmingDelete, title: "Delete this comment?",
+                 description: comment.who == "me" ? "It's gone for everyone on this post." : "It's your post, so you can clear it. \(mm.person(comment.who).name) won't be told.") {
+            VStack(spacing: 8) {
+                MMButton("Keep it", variant: .secondary, fullWidth: true) { confirmingDelete = false }
+                MMButton("Delete", variant: .danger, iconLeft: "trash-2", fullWidth: true) {
+                    confirmingDelete = false
+                    guard let postID else { return }
+                    withAnimation(MMMotion.easeOut(MMMotion.base)) { mm.deleteComment(comment, on: postID) }
+                }
+            }
         }
         .mmSheet(isPresented: $reporting, title: "Report this comment?", description: ReportReasonList.note) {
             ReportReasonList { reason in
