@@ -164,9 +164,11 @@ struct MMMonkeyLook: Hashable {
         }
     }
 
-    /// Dark tokens only: the features are drawn in the fur color, so light furs would wash out.
+    /// Dark tokens only (3:1 or more on white): the features are drawn in the fur color, so
+    /// light furs would wash out. The friend-hue 700s are allowed here and never mean a friendship.
     enum Fur: String, CaseIterable, Identifiable {
         case midnight = "ink-900", charcoal = "ink-700", smoke = "ink-500", ginger = "coral-700"
+        case navy = "sky-700", grape = "plum-700", moss = "mint-700"
         var id: String { rawValue }
         var title: String {
             switch self {
@@ -174,6 +176,9 @@ struct MMMonkeyLook: Hashable {
             case .charcoal: return "Charcoal"
             case .smoke: return "Smoke"
             case .ginger: return "Ginger"
+            case .navy: return "Navy"
+            case .grape: return "Grape"
+            case .moss: return "Moss"
             }
         }
         var color: Color {
@@ -182,6 +187,9 @@ struct MMMonkeyLook: Hashable {
             case .charcoal: return MMColor.ink700
             case .smoke: return MMColor.ink500
             case .ginger: return MMColor.coral700
+            case .navy: return MMColor.sky700
+            case .grape: return MMColor.plum700
+            case .moss: return MMColor.mint700
             }
         }
     }

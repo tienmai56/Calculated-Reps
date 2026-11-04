@@ -22,6 +22,9 @@ select pg_temp.assert_true((select monkey='grin.coral-700.topknot' from public.p
 -- Only known moods, fur colors and haircuts are accepted.
 select pg_temp.assert_true(pg_temp.fails($q$select public.command('set_monkey','{"monkey":"angry.ink-900.tuft"}',gen_random_uuid())$q$),'unknown mood rejected');
 select pg_temp.assert_true(pg_temp.fails($q$select public.command('set_monkey','{"monkey":"happy.sun-600.tuft"}',gen_random_uuid())$q$),'unknown fur rejected');
+select public.command('set_monkey','{"monkey":"tapped.plum-700.curls"}',gen_random_uuid());
+select pg_temp.assert_true((select monkey='tapped.plum-700.curls' from public.profiles where id=auth.uid()),'friend-hue 700 furs accepted');
+select public.command('set_monkey','{"monkey":"grin.coral-700.topknot"}',gen_random_uuid());
 select pg_temp.assert_true(pg_temp.fails($q$select public.command('set_monkey','{"monkey":"happy.ink-900.afro"}',gen_random_uuid())$q$),'unknown haircut rejected');
 select pg_temp.assert_true(pg_temp.fails($q$select public.command('set_monkey','{"monkey":"happy.ink-900"}',gen_random_uuid())$q$),'incomplete monkey rejected');
 select pg_temp.assert_true(pg_temp.fails($q$update public.profiles set monkey='happy.ink-900.tuft' where id=auth.uid()$q$),'profiles cannot be written directly');

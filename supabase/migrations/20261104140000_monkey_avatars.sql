@@ -3,7 +3,7 @@
 -- client through the existing snapshot (profiles are returned whole); null means
 -- the member hasn't built one yet. set_monkey is the only way to change it.
 -- Everything else in command() matches 20261104130000_notify_added_participants.sql.
-alter table public.profiles add column monkey text check(monkey is null or monkey ~ '^(happy|grin|focused|tired|side|tapped)\.(ink-900|ink-700|ink-500|coral-700)\.(clean|tuft|fringe|mohawk|topknot|curls)$');
+alter table public.profiles add column monkey text check(monkey is null or monkey ~ '^(happy|grin|focused|tired|side|tapped)\.(ink-900|ink-700|ink-500|coral-700|sky-700|plum-700|mint-700)\.(clean|tuft|fringe|mohawk|topknot|curls)$');
 
 create or replace function public.command(operation text,payload jsonb,idempotency_key uuid) returns jsonb language plpgsql security definer set search_path='' as $$
 
@@ -39,7 +39,7 @@ create or replace function public.command(operation text,payload jsonb,idempoten
  elsif operation='set_monkey' then
  -- The monkey shown after a member's name: mood.fur.haircut, or empty to remove it.
  token:=nullif(trim(coalesce(payload->>'monkey','')),'');
- if token is not null and token !~ '^(happy|grin|focused|tired|side|tapped)\.(ink-900|ink-700|ink-500|coral-700)\.(clean|tuft|fringe|mohawk|topknot|curls)$' then raise exception 'Invalid monkey'; end if;
+ if token is not null and token !~ '^(happy|grin|focused|tired|side|tapped)\.(ink-900|ink-700|ink-500|coral-700|sky-700|plum-700|mint-700)\.(clean|tuft|fringe|mohawk|topknot|curls)$' then raise exception 'Invalid monkey'; end if;
  update public.profiles set monkey=token where id=actor;
  result:=jsonb_build_object('monkey',coalesce(token,''));
  elsif operation='create_session' then

@@ -538,9 +538,13 @@
           "ink-900",
           "ink-700",
           "ink-500",
-          "coral-700"
+          "coral-700",
+          "sky-700",
+          "plum-700",
+          "mint-700"
         ],
-        "face": "white"
+        "face": "white",
+        "note": "friend-hue 700s allowed as fur; never signals a friendship"
       },
       "moods": [
         "happy",

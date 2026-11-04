@@ -1505,7 +1505,7 @@ final class GoalSharingTests: XCTestCase {
 final class MonkeyTests: XCTestCase {
     func testMonkeyCodesRoundTripAndMatchTheServerFormat() throws {
         // Mirrors the profiles.monkey check in 20261104140000_monkey_avatars.sql.
-        let server = try NSRegularExpression(pattern: "^(happy|grin|focused|tired|side|tapped)\\.(ink-900|ink-700|ink-500|coral-700)\\.(clean|tuft|fringe|mohawk|topknot|curls)$")
+        let server = try NSRegularExpression(pattern: "^(happy|grin|focused|tired|side|tapped)\\.(ink-900|ink-700|ink-500|coral-700|sky-700|plum-700|mint-700)\\.(clean|tuft|fringe|mohawk|topknot|curls)$")
         for mood in MMMonkeyLook.Mood.allCases {
             for fur in MMMonkeyLook.Fur.allCases {
                 for haircut in MMMonkeyLook.Haircut.allCases {
