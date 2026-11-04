@@ -606,7 +606,7 @@ final class MatMindLiveUITests: XCTestCase {
           "profiles":[{"id":"owner","name":"Alex","belt":"blue","stripes":2,"gym":"Home gym"},{"id":"friend","name":"Lena","belt":"white","stripes":0,"gym":"Home gym"}],
           "sessions":[{"id":"session","organizer":"owner","title":"Open mat","starts_at":"2026-10-01T10:00:00Z","venue":"Home gym","status":"planned","join_mode":"friends","note":"Work on passing"}],
           "participants":[{"session_id":"session","user_id":"owner","rsvp":"going"},{"session_id":"session","user_id":"friend","rsvp":"invited"}],
-          "posts":[{"id":"post","author":"owner","title":"Rounds","venue":"Home gym","occurred_at":"2026-10-01T10:00:00Z","caption":"Good rounds"}],
+          "posts":[{"id":"post","author":"owner","title":"Rounds","venue":"Home gym","occurred_at":"2026-09-28T10:00:00Z","caption":"Good rounds"}],
           "tags":[{"post_id":"post","user_id":"owner","visible":true},{"post_id":"post","user_id":"friend","visible":false}],
           "friendships":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]
         }
@@ -641,6 +641,35 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.friends.isEmpty)
         XCTAssertNil(ui.toComplete)
         XCTAssertTrue(ui.cameraRoll.isEmpty)
+    }
+
+    func testPhotoPromptFollowsLatestStartedTrainingUntilItIsShared() {
+        let iso = ISO8601DateFormatter()
+        let now = iso.date(from: "2026-11-04T12:00:00Z")!
+        func session(_ id: String, _ start: String, organizer: String = "me") -> Session {
+            Session(id: id, title: id, day: "Wed", date: 4, month: "Nov", time: "8:00 AM", gym: "Home gym",
+                    organizer: organizer, people: [Attendee(id: "me", status: .going)], startsAt: iso.date(from: start)!)
+        }
+        func post(_ at: String, organizer: String = "me", participants: [String] = ["me"]) -> Post {
+            Post(id: at, organizer: organizer, title: "Rolls", gym: "Home gym", date: "Wed, Nov 4", ago: "now", photo: nil,
+                 participants: participants, caption: "", likes: [], extraLikes: 0, comments: [], occurredAt: iso.date(from: at)!)
+        }
+        let older = session("older", "2026-11-02T08:00:00Z")
+        let latest = session("latest", "2026-11-04T08:00:00Z")
+        let future = session("future", "2026-11-05T08:00:00Z")
+        let theirs = session("theirs", "2026-11-04T09:00:00Z", organizer: "friend")
+
+        // The card picks the most recent training that has started, never a future or someone else's one.
+        XCTAssertEqual(LiveMatMindRuntime.photoPrompt(upcoming: [older, future, latest, theirs], posts: [], now: now)?.id, "latest")
+        // A photo shared for that training (yours, or one you're tagged in) clears the card.
+        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [older, latest], posts: [post("2026-11-04T08:00:00Z")], now: now))
+        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [latest], posts: [post("2026-11-04T10:00:00Z", organizer: "friend")], now: now))
+        // Older unshared plans don't come back once a newer training is shared.
+        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [older], posts: [post("2026-11-03T18:00:00Z")], now: now))
+        // A post from before the training, or one you're not in, doesn't count.
+        XCTAssertEqual(LiveMatMindRuntime.photoPrompt(upcoming: [latest], posts: [post("2026-11-03T18:00:00Z")], now: now)?.id, "latest")
+        XCTAssertEqual(LiveMatMindRuntime.photoPrompt(upcoming: [latest], posts: [post("2026-11-04T10:00:00Z", organizer: "friend", participants: ["friend"])], now: now)?.id, "latest")
+        XCTAssertNil(LiveMatMindRuntime.photoPrompt(upcoming: [future], posts: [], now: now))
     }
 
     func testFocusOutlineRoundTripsWithoutLosingPlainNotes() {

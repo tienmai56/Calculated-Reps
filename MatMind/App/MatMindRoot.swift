@@ -426,9 +426,6 @@ final class LiveMatMindRuntime: AppRuntime {
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
-        ui.toComplete = ui.upcoming.first { session in
-            session.organizer == "me" && (model.session(session.id)?.date("starts_at") ?? .distantFuture) <= Date()
-        }
         ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
             return Post(id: row.id, organizer: localID(row.text("author")), title: row.text("title"), gym: row.text("venue"),
@@ -439,12 +436,25 @@ final class LiveMatMindRuntime: AppRuntime {
                         focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
                         occurredAt: date)
         }
+        ui.toComplete = Self.photoPrompt(upcoming: ui.upcoming, posts: ui.posts)
         syncSharedGoals(userID)
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
                             who: localID(row.text("actor")), session: row.text("entity_id"), text: row.text("message"),
                             time: RelativeDateTimeFormatter().localizedString(for: row.date("created_at") ?? Date(), relativeTo: Date()), unread: row.text("read_at").isEmpty)
         }
+    }
+    /// The "How was …?" card follows your most recent training that has started: the latest
+    /// planned session you organize. Once a post of yours (or one you're tagged in) covers that
+    /// training — it happened at or after the session's start — the card goes away, so a training
+    /// you already shared a photo for never keeps asking, and older unshared plans don't resurface.
+    nonisolated static func photoPrompt(upcoming: [Session], posts: [Post], now: Date = Date()) -> Session? {
+        guard let latest = upcoming
+            .filter({ $0.organizer == "me" && ($0.startsAt ?? .distantFuture) <= now })
+            .max(by: { ($0.startsAt ?? .distantPast) < ($1.startsAt ?? .distantPast) }),
+              let start = latest.startsAt else { return nil }
+        let shared = posts.contains { ($0.organizer == "me" || $0.participants.contains("me")) && ($0.occurredAt ?? .distantPast) >= start }
+        return shared ? nil : latest
     }
     func loadPhotos() async {
         sync()
