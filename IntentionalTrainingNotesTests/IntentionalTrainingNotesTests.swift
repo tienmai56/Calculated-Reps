@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import CoreImage.CIFilterBuiltins
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
@@ -1498,5 +1499,31 @@ final class GoalSharingTests: XCTestCase {
         XCTAssertNil(model.pendingLink)
         XCTAssertEqual(InvitationLinks.make(kind: "goal", token: token, host: "matmindbjj.lovable.app", httpsEnabled: true).absoluteString,
                        "https://matmindbjj.lovable.app/goal/" + token)
+    }
+}
+
+final class QRImageReaderTests: XCTestCase {
+    func testReadsCodeFromScreenshotLikeImage() throws {
+        let link = "https://example.com/friend/" + String(repeating: "ab", count: 32)
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(link.utf8)
+        let qr = try XCTUnwrap(filter.outputImage).transformed(by: CGAffineTransform(scaleX: 8, y: 8))
+        let cg = try XCTUnwrap(CIContext().createCGImage(qr, from: qr.extent))
+        // Place the code off-centre on a larger coral card, like a phone screenshot.
+        let canvas = CGSize(width: 1170, height: 2532)
+        let png = UIGraphicsImageRenderer(size: canvas).pngData { ctx in
+            UIColor(red: 0.98, green: 0.96, blue: 0.94, alpha: 1).setFill(); ctx.fill(CGRect(origin: .zero, size: canvas))
+            UIColor(red: 1, green: 0.36, blue: 0.22, alpha: 1).setFill(); ctx.fill(CGRect(x: 80, y: 700, width: 1010, height: 1100))
+            UIColor.white.setFill(); ctx.fill(CGRect(x: 260, y: 900, width: 650, height: 650))
+            UIImage(cgImage: cg).draw(in: CGRect(x: 300, y: 940, width: 570, height: 570))
+        }
+        XCTAssertEqual(QRImageReader.payload(in: png), link)
+    }
+
+    func testReturnsNilWithoutCode() {
+        let png = UIGraphicsImageRenderer(size: CGSize(width: 200, height: 200)).pngData { ctx in
+            UIColor.white.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 200, height: 200))
+        }
+        XCTAssertNil(QRImageReader.payload(in: png))
     }
 }

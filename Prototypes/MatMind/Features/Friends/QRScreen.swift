@@ -1,7 +1,9 @@
 import SwiftUI
+import PhotosUI
 import CoreImage.CIFilterBuiltins
 
-/// Add friends: show my code, or scan someone's. No requests, no approvals.
+/// Add friends: show my code, or scan someone's (live, or from a screenshot they sent).
+/// No requests, no approvals.
 struct QRScreen: View {
     @Environment(AppModel.self) private var mm
     @State private var tab: String
@@ -9,6 +11,9 @@ struct QRScreen: View {
     @State private var sweep = false
     @State private var liveCode: String?
     @State private var invitation = ""
+    @State private var choosingScreenshot = false
+    @State private var screenshot: PhotosPickerItem?
+    @State private var readingScreenshot = false
 
     init(startOnScan: Bool = false) {
         _tab = State(initialValue: startOnScan ? "scan" : "code")
@@ -127,8 +132,48 @@ struct QRScreen: View {
             MMButton("Open invitation", variant: .secondary, fullWidth: true) { connect(invitation) }
                 .disabled(invitation.isEmpty || mm.busy)
         }
+        if found == nil {
+            MMButton(readingScreenshot ? "Reading code…" : "Upload a screenshot", variant: .secondary,
+                     iconLeft: "image", fullWidth: true) { choosingScreenshot = true }
+                .disabled(readingScreenshot || mm.busy)
+                .padding(.horizontal, 16)
+                .accessibilityHint("Choose a screenshot of a friend's code from your photos")
+            Text("Got a friend's code in a message? Pick the screenshot from your photos.")
+                .mmFont(.body, 13).foregroundStyle(MMColor.ink300)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+        }
         }
         .padding(.bottom, 16)
+        .photosPicker(isPresented: $choosingScreenshot, selection: $screenshot, matching: .images, photoLibrary: .shared())
+        .onChange(of: screenshot) { _, item in
+            guard let item else { return }
+            readScreenshot(item)
+        }
+    }
+
+    /// Reads a friend's code out of a screenshot, then connects just like a live scan.
+    private func readScreenshot(_ item: PhotosPickerItem) {
+        readingScreenshot = true
+        Task {
+            defer { readingScreenshot = false; screenshot = nil }
+            guard let data = try? await item.loadTransferable(type: Data.self) else {
+                mm.showToast("That photo couldn't be opened")
+                return
+            }
+            let payload = await Task.detached(priority: .userInitiated) { QRImageReader.payload(in: data) }.value
+            guard let payload else {
+                mm.showToast("No Mat Monkey code in that photo. Try a sharper screenshot.")
+                return
+            }
+            if mm.runtime != nil {
+                connect(payload)
+            } else if !mm.isLive {
+                // Preview: any readable code connects to the sample friend.
+                withAnimation(MMMotion.easeOut(0.25)) { found = "lena" }
+                mm.addFriend("lena")
+            }
+        }
     }
 
     private func connect(_ value: String) {
@@ -320,6 +365,25 @@ private struct ConnectedView: View {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) { joined = true }
             withAnimation(MMMotion.bounce(0.5).delay(0.55)) { textShown = true }
         }
+    }
+}
+
+/// Finds a QR code in a still image (e.g. a screenshot of someone's "My code" tab).
+enum QRImageReader {
+
+    static func payload(in data: Data) -> String? {
+        guard let image = CIImage(data: data, options: [.applyOrientationProperty: true]) else { return nil }
+        return payload(in: image)
+    }
+
+    static func payload(in image: CIImage) -> String? {
+        // A detector per call: CIDetector isn't safe to share across threads.
+        let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil,
+                                  options: [CIDetectorAccuracy: CIDetectorAccuracyHigh])
+        let features = detector?.features(in: image) ?? []
+        return features.lazy
+            .compactMap { ($0 as? CIQRCodeFeature)?.messageString }
+            .first { !$0.isEmpty }
     }
 }
 
