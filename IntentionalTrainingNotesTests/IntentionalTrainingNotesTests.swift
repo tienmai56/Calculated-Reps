@@ -563,6 +563,43 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: files[0].path), "Deleting a goal deletes its part photos")
     }
 
+    func testSessionEditSavesFocusAndGuestChangesWithoutResettingRSVPs() async throws {
+        let ui = AppModel(live: false)
+        let original = try XCTUnwrap(ui.findSession("s1"))
+        let start = Date().addingTimeInterval(86400)
+        let focus = [TrainingFocus(title: "  Mount attacks ", children: [TrainingFocus(title: " Armbar ")])]
+        let guests: Set<String> = ["sarah", "kenji", "lena", "priya"]
+
+        let edited = await ui.editSession("s1", title: original.title, startsAt: start, gym: original.gym,
+                                          note: "Bring a gi", focusItems: focus, guestIDs: guests)
+        XCTAssertTrue(edited)
+        let saved = try XCTUnwrap(ui.findSession("s1"))
+        XCTAssertEqual(saved.focusItems.first?.title, "Mount attacks")
+        XCTAssertEqual(saved.focusItems.first?.children.first?.title, "Armbar")
+        XCTAssertEqual(saved.note, "Bring a gi")
+        XCTAssertNil(saved.status(of: "alex"))
+        XCTAssertEqual(saved.status(of: "priya"), .invited)
+        XCTAssertEqual(saved.status(of: "me"), .going, "The organizer stays even though guests excludes them")
+        for id in ["sarah", "kenji", "lena"] {
+            XCTAssertEqual(saved.status(of: id), original.status(of: id), "Retained guests keep their RSVP")
+        }
+
+        let invalid = await ui.editSession("s1", title: "Unsaved name", startsAt: start, gym: original.gym,
+                                           note: "Unsaved note", focusItems: [TrainingFocus()], guestIDs: [])
+        XCTAssertFalse(invalid)
+        XCTAssertEqual(ui.findSession("s1"), saved, "Invalid focus prevents every change")
+        let stranger = await ui.editSession("s1", title: "Unsaved name", startsAt: start, gym: original.gym,
+                                            note: "", focusItems: [], guestIDs: ["stranger"])
+        XCTAssertFalse(stranger)
+        XCTAssertEqual(ui.findSession("s1"), saved)
+
+        let cleared = await ui.editSession("s1", title: saved.title, startsAt: start, gym: saved.gym,
+                                           note: "", focusItems: [], guestIDs: [])
+        XCTAssertTrue(cleared)
+        XCTAssertEqual(ui.findSession("s1")?.focusItems, [])
+        XCTAssertEqual(ui.findSession("s1")?.people.map(\.id), ["me"])
+    }
+
     func testHostCanEditAndDeleteOnlyTheirOwnSessions() async {
         let ui = AppModel(live: false)
         let start = ISO8601DateFormatter().date(from: "2026-11-08T18:30:00Z")!

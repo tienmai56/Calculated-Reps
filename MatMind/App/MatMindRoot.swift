@@ -667,13 +667,13 @@ final class LiveMatMindRuntime: AppRuntime {
                                                        "note": SessionNoteCodec.encode(note: old.note, focus: items)])
         sync(); return result != nil
     }
-    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String) async -> Bool {
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
+                     focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool {
         guard let row = model.session(sessionID) else { return false }
-        // Keep the focus plan that shares the note field.
-        let old = SessionNoteCodec.decode(row.text("note"))
-        let result = await model.perform("edit_session", ["session_id": sessionID, "version": row.number("version"), "title": title,
+        let result = await model.perform("edit_session_details", ["session_id": sessionID, "version": row.number("version"), "title": title,
                                                        "starts_at": ISO8601DateFormatter().string(from: startsAt), "timezone": row.text("timezone"),
-                                                       "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: old.focus)])
+                                                       "venue": gym, "note": SessionNoteCodec.encode(note: note, focus: focusItems),
+                                                       "added_guests": addedGuests, "removed_guests": removedGuests])
         sync(); return result != nil
     }
     func publishGoal(_ goal: MatGoal) async -> String? {
