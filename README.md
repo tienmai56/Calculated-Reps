@@ -71,3 +71,7 @@ module.exports = { presets: [require('./design-system/tailwind.config.js')], con
 
 ## Credits
 Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsplash (Unsplash License). Logo: the Silverback mark (`assets/brand/`), paired with the "mat monkey." wordmark; see `DESIGN.md` §5.1.
+
+## Regression tests
+
+Changes to Activity logging, Training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native and database test commands, protected invariants and the current boards A–E acceptance checklist.

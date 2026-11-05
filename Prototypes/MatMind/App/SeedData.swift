@@ -183,4 +183,38 @@ enum SeedData {
     static let cameraRoll = ["roll-gi-2", "team-lineup", "floor-drill", "grapple-match", "bw-sweep", "roll-gi"]
 }
 
+// Calendar fixtures are preview-only. Live AppModel starts with no records.
+extension SeedData {
+    static var quickLogs: [QuickLog] {
+        let c = TrainingCalendar.calendar, now = Date(), week = TrainingCalendar.week(now)
+        var dates = [week[0]]
+        for w in 1...16 {
+            let monday = c.date(byAdding: .weekOfYear, value: -w, to: week[0])!
+            dates += [monday, c.date(byAdding: .day, value: w % 5 + 1, to: monday)!]
+        }
+        return dates.enumerated().map { i, date in
+            QuickLog(id: "sample-log-\(i)", loggedOn: TrainingCalendar.key(date),
+                     loggedAt: c.date(bySettingHour: 7, minute: 10, second: 0, of: date)!, timezone: c.timeZone.identifier)
+        }
+    }
+    static var calendarPlans: [Session] {
+        let c = TrainingCalendar.calendar, today = c.startOfDay(for: Date())
+        func plan(_ id: String, offset: Int, host: String) -> Session {
+            let start = c.date(bySettingHour: 19, minute: 0, second: 0, of: c.date(byAdding: .day, value: offset, to: today)!)!
+            return Session(id: id, title: "\(start.formatted(.dateTime.weekday(.wide))) no-gi", day: start.formatted(.dateTime.weekday(.abbreviated)),
+                           date: c.component(.day, from: start), month: start.formatted(.dateTime.month(.abbreviated)), time: "19:00", gym: "Tidewater BJJ",
+                           organizer: host, privacy: .link, people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: start)
+        }
+        return [plan("calendar-today", offset: 0, host: "me"), plan("calendar-future", offset: 2, host: "me"),
+                plan("calendar-guest", offset: -1, host: "kenji"), plan("calendar-second-plan", offset: -1, host: "me")]
+    }
+    static var calendarCompleted: [Session] {
+        var s = calendarPlans[0]
+        s = Session(id: "calendar-unshared", title: "Morning rolls", day: s.day, date: s.date, month: s.month,
+                    time: "07:00", gym: s.gym, organizer: "me", people: s.people,
+                    startsAt: TrainingCalendar.calendar.date(byAdding: .day, value: -2, to: Date()))
+        for i in s.people.indices { s.people[i].attended = true }
+        return [s]
+    }
+}
 #endif

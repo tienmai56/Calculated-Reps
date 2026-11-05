@@ -431,6 +431,7 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     func sync(now: Date = Date()) {
         if photoOwner != model.userID {
+            ui.trainingUndo = nil; ui.trainingUndoToastID = nil; ui.trainingShareID = nil
             ui.resetSessionCreation()
             for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) + Array(listAvatars.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
@@ -442,6 +443,13 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.isSignedIn = true
+        if ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
+            let title = model.session(match.text("session_id"))?.text("title") ?? "your session"
+            ui.trainingToast("We matched your log to \(title)") { [weak self] in
+                _ = await self?.perform("restore_matched_log", ["id": match.id])
+            }
+            Task { [weak self] in _ = await self?.perform("acknowledge_log_match", ["id": match.id]) }
+        }
         ui.loadGoals(account: userID)
         ui.loadMonkeyPrompt(account: userID)
         ui.me = model.me.map(person) ?? Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
@@ -461,20 +469,34 @@ final class LiveMatMindRuntime: AppRuntime {
             return Friendship(id: other, weeks: weeks, thisWeek: buckets.contains(formatter.string(from: week)) ? .done : .pending,
                               best: model.streak(row).best, together: credits.count, currentStreak: model.streak(row).current)
         }
-        let sessions = model.snapshot.sessions.filter { row in
-            ["planned", "completed"].contains(row.text("status")) &&
-            (row.text("organizer") == userID || model.attendees(row.id).contains { $0.text("user_id") == userID && $0.text("rsvp") == "going" })
-        }.map { row in
+        let historical: [SocialRow] = (model.snapshot.training_days ?? []).flatMap { row in
+            guard let value = row.values["sessions"], let data = try? JSONEncoder().encode(value),
+                  let rows = try? JSONDecoder().decode([SocialRow].self, from: data) else { return [SocialRow]() }
+            return rows
+        }
+        var seenSessions = Set<String>()
+        let sessions = (model.snapshot.sessions + historical)
+            .filter { seenSessions.insert($0.id).inserted }.filter { row in
+                ["planned", "completed"].contains(row.text("status")) &&
+                (row.text("organizer") == userID || model.attendees(row.id).contains { $0.text("user_id") == userID && $0.text("rsvp") == "going" })
+            }.map { row in
             let date = row.date("starts_at") ?? Date()
             let content = SessionNoteCodec.decode(row.text("note"))
             return Session(id: row.id, title: row.text("title"), day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
                            month: dateText(date, "MMM"), time: dateText(date, "h:mm a"), gym: row.text("venue"), organizer: localID(row.text("organizer")),
                            privacy: Privacy(rawValue: row.text("join_mode")) ?? .friends,
-                           people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
+                           people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited, attended: $0.flag("attended")) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
-        ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" && ($0.organizer == "me" || $0.status(of: "me") != nil) }
-        ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
+        let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))
+        let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
+        ui.upcoming = sessions.filter { plannedIDs.contains($0.id) && ($0.organizer == "me" || $0.status(of: "me") != nil) }
+        ui.sharedSessionIDs = Set(model.snapshot.shared_session_ids ?? model.snapshot.posts.map { $0.text("session_id") })
+        ui.quickLogs = (model.snapshot.quick_logs ?? []).compactMap { row in
+            guard let at = row.date("logged_at") else { return nil }
+            return QuickLog(id: row.id, loggedOn: row.text("logged_on"), loggedAt: at, timezone: row.text("timezone"))
+        }
+        ui.completedSessions = sessions.filter { completedIDs.contains($0.id) }
         ui.discoverableSessions = sessions.filter { model.session($0.id)?.text("status") == "planned" && $0.organizer != "me" && $0.status(of: "me") == nil && $0.privacy == .link }
         ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
@@ -621,7 +643,10 @@ final class LiveMatMindRuntime: AppRuntime {
         // A delete is already applied on screen, so it doesn't lock the app while it runs.
         // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either,
         // and Follow has already flipped its button.
-        let result = await model.perform(operation, body, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow"].contains(operation))
+        let receiptKey = (body["action_id"] as? String).flatMap(UUID.init(uuidString:))
+            ?? (operation == "create_quick_log" ? (body["id"] as? String).flatMap(UUID.init(uuidString:)) : nil)
+            ?? UUID()
+        let result = await model.perform(operation, body, key: receiptKey, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow"].contains(operation))
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -655,6 +680,7 @@ final class LiveMatMindRuntime: AppRuntime {
         sync(); return result?["id"]?.string
     }
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? {
+        guard ui.findSession(sessionID)?.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
         let before = ui.friends
         do {
             var payload: [String: Any] = ["session_id": sessionID, "caption": caption, "attendees": people.map(cloudID)]

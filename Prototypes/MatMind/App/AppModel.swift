@@ -64,6 +64,8 @@ final class AppModel {
     }
 
     func clearLiveData() {
+        quickLogs = []; sharedSessionIDs = []; trainingUndo = nil; trainingUndoToastID = nil; trainingShareID = nil
+
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
@@ -106,6 +108,12 @@ final class AppModel {
     var posts: [Post] = []
     var upcoming: [Session] = []
     var completedSessions: [Session] = []
+    var sharedSessionIDs: Set<String> = []
+    var quickLogs: [QuickLog] = []
+    var trainingUndo: (() async -> Void)?
+    var trainingUndoToastID: UUID?
+    var trainingShareID: String?
+
     /// Friends' open plans from Activity. They enter Training only after joining.
     var discoverableSessions: [Session] = []
     var toComplete: Session?
@@ -286,7 +294,7 @@ final class AppModel {
     /// Link-visible plans appear immediately in Activity, without creating a completed post.
     func activityPlans(at now: Date = Date()) -> [Session] {
         (upcoming + discoverableSessions)
-            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && startDate(of: $0) > now }
+            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && !$0.people.contains(where: { $0.id == "me" && $0.attended }) && startDate(of: $0) > now }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
                 return first == second ? $0.id < $1.id : first < second
@@ -470,6 +478,7 @@ final class AppModel {
     private func updateSession(_ id: String, _ change: (inout Session) -> Void) {
         if let i = upcoming.firstIndex(where: { $0.id == id }) { change(&upcoming[i]) }
         if let i = drafts.firstIndex(where: { $0.id == id }) { change(&drafts[i]) }
+        if let i = completedSessions.firstIndex(where: { $0.id == id }) { change(&completedSessions[i]) }
         if var session = toComplete, session.id == id {
             change(&session)
             toComplete = session
@@ -691,7 +700,7 @@ final class AppModel {
 
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
         if isLive { return nil }
-        guard let s = findSession(sessionID) else { return nil }
+        guard let s = findSession(sessionID), s.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
                         caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems,
@@ -700,7 +709,11 @@ final class AppModel {
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }
         posts.insert(post, at: 0)
-        completedSessions.append(s)
+        sharedSessionIDs.insert(s.id)
+        completedSessions.removeAll { $0.id == s.id }
+        var attended = s
+        for i in attended.people.indices { attended.people[i].attended = people.contains(attended.people[i].id) }
+        completedSessions.append(attended)
         upcoming.removeAll { $0.id == sessionID }
         drafts.removeAll { $0.id == sessionID }
         if toComplete?.id == sessionID { toComplete = nil }
@@ -1173,6 +1186,8 @@ final class AppModel {
         resetSessionCreation()
         timers.forEach { $0.cancel() }
         timers = []
+        completedSessions = []
+        trainingUndo = nil; trainingUndoToastID = nil; trainingShareID = nil
 #if DEBUG || MAT_MIND_PROTOTYPE
         me = SeedData.me
         people = SeedData.people
@@ -1183,7 +1198,10 @@ final class AppModel {
         listedPeople = [:]
         posts = SeedData.posts
         trainingInvitations = []
-        upcoming = SeedData.upcoming
+        upcoming = SeedData.upcoming + SeedData.calendarPlans
+        quickLogs = SeedData.quickLogs
+        completedSessions = SeedData.calendarCompleted
+        sharedSessionIDs = []
         discoverableSessions = []
         toComplete = SeedData.toComplete
         notifications = SeedData.notifications
@@ -1198,7 +1216,6 @@ final class AppModel {
         monkeyPromptAnswered = false
 #endif
         drafts = []
-        completedSessions = []
         path = []
         toast = nil
         highlight = nil
@@ -1253,6 +1270,100 @@ final class AppModel {
         case .invite: setTab(.training); go(.session(id: "s2"))
         case .broken: setTab(.profile); go(.friends); go(.friend(id: "jamie"))
         case .active: setTab(.profile); go(.friends); go(.friend(id: "sarah"))
+        }
+    }
+}
+
+
+extension AppModel {
+    var calendarSessions: [Session] {
+        var seen = Set<String>()
+        return (upcoming + completedSessions + drafts + (toComplete.map { [$0] } ?? []))
+            .filter { seen.insert($0.id).inserted }
+    }
+    func dayLogs(_ date: Date) -> [QuickLog] { quickLogs.filter { $0.loggedOn == TrainingCalendar.key(date) } }
+    func daySessions(_ date: Date) -> [Session] {
+        calendarSessions.filter { s in
+            s.startsAt.map { TrainingCalendar.calendar.isDate($0, inSameDayAs: date) } == true
+                && s.people.contains { $0.id == "me" && $0.attended }
+        }
+    }
+    func openPlans(_ date: Date) -> [Session] {
+        calendarSessions.filter { s in
+            s.startsAt.map { TrainingCalendar.calendar.isDate($0, inSameDayAs: date) } == true
+                && (s.organizer == "me" || s.status(of: "me") == .going)
+                && !s.people.contains { $0.id == "me" && $0.attended }
+                && !isCompleted(s)
+        }.sorted { startDate(of: $0) < startDate(of: $1) }
+    }
+    func entryCount(_ date: Date) -> Int { dayLogs(date).count + daySessions(date).count }
+    func trainedDays(_ week: [Date]) -> Int { week.filter { entryCount($0) > 0 }.count }
+    func trainingTap(_ date: Date, now: Date = Date()) -> TrainingTap {
+        if TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: now) { return .disabled }
+        if !openPlans(date).isEmpty { return .choose }
+        return entryCount(date) > 0 ? .entries : .quickLog
+    }
+    var trainingPrompt: Session? {
+        completedSessions.filter { $0.organizer == "me" }
+            .filter { !sharedSessionIDs.contains($0.id) }
+            .sorted { startDate(of: $0) > startDate(of: $1) }.first
+    }
+    func trainingToast(_ text: String, undo: @escaping () async -> Void) {
+        let data = MMToastData(message: text)
+        toast = data; trainingUndo = undo; trainingUndoToastID = data.id
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let self, self.trainingUndoToastID == data.id else { return }
+            if self.toast?.id == data.id { self.toast = nil }
+            self.trainingUndo = nil; self.trainingUndoToastID = nil
+        }
+    }
+    func undoTrainingToast(_ id: UUID) async {
+        guard trainingUndoToastID == id, let undo = trainingUndo else { return }
+        trainingUndo = nil
+        await undo()
+        if toast?.id == id { toast = nil }
+        if trainingUndoToastID == id { trainingUndoToastID = nil }
+    }
+    func addQuickLog(_ date: Date) async {
+        guard !isLive || runtime != nil else { return }
+        guard trainingTap(date) != .disabled else { return }
+        let log = QuickLog(id: UUID().uuidString, loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
+        if let runtime {
+            guard await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone]) else { return }
+        } else { quickLogs.append(log) }
+        trainingToast("Training logged") { [weak self] in _ = await self?.deleteQuickLog(log.id) }
+    }
+    @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
+        if let runtime { return await runtime.perform("delete_quick_log", ["id": id]) }
+        quickLogs.removeAll { $0.id == id }; return true
+    }
+    func markTrainingDone(_ session: Session) async {
+        guard !isLive || runtime != nil,
+              session.organizer == "me" || session.status(of: "me") == .going,
+              let start = session.startsAt, trainingTap(start) == .choose else { return }
+        let actionID = UUID().uuidString
+        if let runtime {
+            guard await runtime.perform("mark_training_done", ["session_id": session.id, "action_id": actionID, "timezone": TimeZone.current.identifier]) else { return }
+        } else {
+            var done = session
+            for i in done.people.indices where done.people[i].status == .going && (session.organizer == "me" || done.people[i].id == "me") { done.people[i].attended = true }
+            if session.organizer == "me" {
+                completedSessions.removeAll { $0.id == session.id }; completedSessions.append(done)
+                upcoming.removeAll { $0.id == session.id }
+                if toComplete?.id == session.id { toComplete = nil }
+            } else if let i = upcoming.firstIndex(where: { $0.id == session.id }) { upcoming[i] = done }
+        }
+        if session.organizer == "me" { trainingShareID = session.id }
+        trainingToast(session.organizer == "me" ? "\(session.title) marked done" : "Marked done for you") { [weak self] in
+            guard let self else { return }
+            if let runtime = self.runtime {
+                guard await runtime.perform("undo_training_done", ["action_id": actionID]) else { return }
+            } else {
+                self.completedSessions.removeAll { $0.id == session.id }
+                self.upcoming.removeAll { $0.id == session.id }; self.upcoming.append(session)
+            }
+            self.trainingShareID = nil
         }
     }
 }

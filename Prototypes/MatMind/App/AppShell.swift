@@ -22,7 +22,9 @@ struct MMAppShell: View {
         }
         .overlay(alignment: .top) {
             if let toast = mm.toast {
-                MMToast(message: toast.message, variant: toast.variant)
+                MMToast(message: toast.message, variant: toast.variant,
+                        actionLabel: mm.trainingUndoToastID == toast.id ? "Undo" : nil,
+                        action: mm.trainingUndoToastID == toast.id ? { Task { await mm.undoTrainingToast(toast.id) } } : nil)
                     .padding(.horizontal, 12)
                     .padding(.top, 6)
                     .id(toast.id)

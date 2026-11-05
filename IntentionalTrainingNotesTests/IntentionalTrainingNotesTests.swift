@@ -2152,3 +2152,114 @@ final class MonkeyTests: XCTestCase {
     }
 #endif
 }
+
+final class TrainingCalendarTests: XCTestCase {
+    @MainActor func testTapPriorityAndCountsDaysNotEntries() {
+        let ui = AppModel(live: true)
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        let key = TrainingCalendar.key(day)
+        ui.quickLogs = [QuickLog(id: "a", loggedOn: key, loggedAt: day, timezone: "UTC"),
+                        QuickLog(id: "b", loggedOn: key, loggedAt: day, timezone: "UTC")]
+        XCTAssertEqual(ui.entryCount(day), 2)
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 1)
+        XCTAssertEqual(ui.trainingTap(day), .entries)
+        let plan = Session(id: "p", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: day)
+        ui.upcoming = [plan]
+        XCTAssertEqual(ui.trainingTap(day), .choose, "An open plan wins even when the day is filled")
+        ui.quickLogs = []
+        XCTAssertEqual(ui.entryCount(day), 0, "Scheduled plans never count")
+        let future = TrainingCalendar.calendar.date(byAdding: .day, value: 1, to: day)!
+        ui.upcoming[0].startsAt = future
+        XCTAssertEqual(ui.trainingTap(future), .disabled, "A future plan cannot be logged")
+        XCTAssertEqual(ui.trainingTap(day), .quickLog)
+    }
+    func testMergeWindowIncludesExactlyThreeHoursAndRequiresSameLocalDay() {
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        let start = day.addingTimeInterval(12 * 3600)
+        let s = Session(id: "p", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "12:00", gym: "Gym", organizer: "me", people: [], startsAt: start)
+        var log = QuickLog(id: "a", loggedOn: TrainingCalendar.key(start), loggedAt: start.addingTimeInterval(-10800), timezone: TimeZone.current.identifier)
+        XCTAssertTrue(TrainingCalendar.matches(log, session: s))
+        log.loggedAt = start.addingTimeInterval(10801)
+        XCTAssertFalse(TrainingCalendar.matches(log, session: s))
+        log.loggedAt = start; log.loggedOn = "1999-01-01"
+        XCTAssertFalse(TrainingCalendar.matches(log, session: s))
+    }
+    @MainActor func testHostCompletionAndUndoAffectJoinedParticipantsOnly() async {
+        let ui = AppModel(live: false)
+        let now = Date()
+        let s = Session(id: "host", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                        people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going), Attendee(id: "sarah", status: .invited)], startsAt: now)
+        ui.upcoming = [s]; ui.completedSessions = []; ui.quickLogs = []; ui.posts = []; ui.toComplete = nil; ui.drafts = []
+        await ui.markTrainingDone(s)
+        XCTAssertEqual(ui.daySessions(now).count, 1)
+        XCTAssertEqual(ui.completedSessions.first?.people.filter(\.attended).map(\.id), ["me", "kenji"])
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertEqual(ui.trainingShareID, s.id)
+        await ui.trainingUndo?()
+        XCTAssertTrue(ui.completedSessions.isEmpty)
+        XCTAssertEqual(ui.upcoming.first, s)
+    }
+    @MainActor func testGuestCompletionHasNoSharePromptAndCannotPublish() async {
+        let ui = AppModel(live: false)
+        let s = Session(id: "guest", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "kenji",
+                        people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: Date())
+        ui.upcoming = [s]; ui.completedSessions = []; ui.trainingShareID = nil; ui.posts = []
+        await ui.markTrainingDone(s)
+        XCTAssertEqual(ui.upcoming.first?.people.filter(\.attended).map(\.id), ["me"])
+        XCTAssertNil(ui.trainingShareID)
+        XCTAssertNil(ui.publish(s.id, photo: "photo", caption: "", people: s.going))
+        await ui.trainingUndo?()
+        XCTAssertEqual(ui.upcoming.first, s)
+    }
+}
+
+extension TrainingCalendarTests {
+    @MainActor func testQuickLogUndoNeverCreatesSessionOrPost() async {
+        let ui = AppModel(live: false)
+        ui.quickLogs = []; ui.upcoming = []; ui.completedSessions = []; ui.posts = []; ui.drafts = []; ui.toComplete = nil
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        await ui.addQuickLog(day)
+        XCTAssertEqual(ui.entryCount(day), 1)
+        XCTAssertTrue(ui.trainingSessions(past: true).isEmpty)
+        XCTAssertTrue(ui.trainingSessions(past: false).isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        let toastID = ui.toast!.id
+        await ui.undoTrainingToast(toastID)
+        XCTAssertEqual(ui.entryCount(day), 0)
+        XCTAssertNil(ui.toast)
+        XCTAssertNil(ui.trainingUndo)
+    }
+    @MainActor func testLiveHistorySurvivesSchedulePaginationAndAccountClearing() throws {
+        let model = SocialAppModel(); model.userID = "owner"
+        model.snapshot.training_days = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"day":"2026-11-04","quick_log_count":0,"sessions":[{"id":"older","organizer":"owner","title":"Older rolls","starts_at":"2026-11-04T12:00:00Z","venue":"Gym","status":"completed"}]}]
+        """#.utf8))
+        model.snapshot.participants = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"session_id":"older","user_id":"owner","rsvp":"going","attended":true}]
+        """#.utf8))
+        model.snapshot.shared_session_ids = ["older"]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        let start = try XCTUnwrap(ui.findSession("older")?.startsAt)
+        XCTAssertEqual(ui.entryCount(start), 1, "History must not depend on the schedule's 100-session page")
+        XCTAssertNil(ui.trainingPrompt, "Previously shared sessions must not reappear after feed pagination or post deletion")
+        ui.clearLiveData()
+        XCTAssertTrue(ui.calendarSessions.isEmpty)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.sharedSessionIDs.isEmpty)
+        XCTAssertNil(ui.trainingUndo)
+    }
+}
+
+#if DEBUG
+extension TrainingCalendarTests {
+    @MainActor func testPreviewIncludesCompletedUnsharedPlanAndQuickLogs() {
+        let ui = AppModel.uiReviewPreview()
+        XCTAssertFalse(ui.quickLogs.isEmpty)
+        XCTAssertNotNil(ui.trainingPrompt, "Reset must preserve the completed preview plan for board E")
+        XCTAssertFalse(ui.openPlans(Date()).isEmpty, "Today must offer the planned-session chooser")
+    }
+}
+#endif

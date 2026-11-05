@@ -352,7 +352,7 @@ Streak rule: a week counts when two friends both participate in ≥1 **completed
 
 **Rule: a photo or a note, at least one.** Photos are optional, but a post is never blank. Publish to Activity unlocks once there is a photo, a note, or both. The session focus ("What we worked on") is copied from the plan and never counts on its own. A note that is only whitespace or only `@tags` counts as empty (trim before checking).
 
-- **Remember the session.** The Activity prompt and the white details card above the photo area use "How was {session title}?", preserving the full session title. The details card shows the gym, host, session access and saved session note when present; omit the date and time. Allow long text to wrap. Show the full "What we worked on" outline immediately below the details, before the photo area; "Who trained" remains below the caption. Keep the saved session note separate from the new post's caption.
+- **Remember the session.** The Training catch-up prompt and the white details card above the photo area use "How was {session title}?", preserving the full session title. The details card shows the gym, host, session access and saved session note when present; omit the date and time. Allow long text to wrap. Show the full "What we worked on" outline immediately below the details, before the photo area; "Who trained" remains below the caption. Keep the saved session note separate from the new post's caption.
 - **Say the rule up front.** One hint line sits centered above Publish (13px Archivo with a 16px Lucide icon). Neither field is labeled required or optional.
 - **Nothing yet:** Publish uses the standard disabled button (no shade edge). Hint: info icon, ink-700, “Add a photo, a few words, or both to share.”
 - **Publish tapped while empty:** no banner, toast or dialog. The hint turns coral-700 with a circle-alert icon, “Add a photo or a few words first”, and the note field takes focus (`--ring-focus`, keyboard up), since typing is the fastest fix. Announce the hint to VoiceOver.
@@ -377,7 +377,27 @@ Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Br
 
 ### Activity feed
 
-Activity shows the latest-training photo prompt, when applicable, followed directly by completed-session posts. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
+Activity shows the private This week strip, Coming up and completed-session posts. The ink How was…? catch-up prompt lives in Training. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
+
+### Week strip and quick logs
+
+Activity starts with a white **This week** card: days trained (not entries), a chevron to Training, “Tap a day to quickly log your training.”, Mon–Sun buttons and the calendar-icon **Planned session** legend. Day tiles are 56pt tall, paper-2 when empty, coral-500 with a white check when trained, and a white ×2 pill for multiple entries. Today has a 2pt coral ring and dot; an open plan replaces the dot with a calendar. Future dates are disabled, outlined and empty; future plans use a dashed outline. Filling a tile and changing its count uses the bounce motion; Reduce Motion skips it.
+
+Tap rules, in order: future → disabled; open joined/hosted plan → **What are you logging?**; filled day without an open plan → entries sheet; otherwise → immediate quick log. Each open plan has its own option card above **A quick log**. Both choices commit immediately; dismissing the sheet saves nothing. The plan option explains who is marked done. Quick logs say “Separate from the plan, which stays open.” and “Just marks the day. Nothing is posted.” Show the time of an existing quick log below the choices.
+
+Quick logs are private date/time/timezone records. They never have photos, details or posts, never affect friendship streaks, and never appear in Training’s Upcoming or Past. An attended planned session also fills its day; a scheduled plan alone does not. Two records on one date still count as one trained day. A filled day always opens its entries; **Log another session** adds a quick log. Removing a quick log requires confirmation.
+
+An ink toast offers **Undo** for about five seconds. Undo removes exactly the new quick log or restores the attendance affected by that action, including logs merged into it. Host completion marks joined participants attended; guest completion changes only that guest. Only hosts can publish. A completed host plan can be published later with the existing photo-or-note rule.
+
+After completing a plan on Activity, the host alone sees a session-specific soft coral share card inside the strip. It includes “Your photo gets posted to Activity for {names} and your training partners.” at body size and **Add a photo to post**. Close dismisses it; navigating away clears it. Training retains the catch-up prompt. Guest completion has no photo prompt.
+
+When a host completes a plan, a guest quick log on its local day within three hours of the start is matched to the plan; more distant logs remain separate. The guest sees “We matched your log to {session}” with Undo on their next refresh/open. Restoring a matched log leaves attendance intact. Attendance undo refuses to overwrite a newer session edit or publication.
+
+### Your rhythm
+
+Training has no week strip. Under its host catch-up card, **Your rhythm** shows the last 17 Monday–Sunday weeks, oldest on the left. Each column has seven 14pt squares, 4pt gaps and 4pt radii. Trained days use coral-500; no-entry days use paper-3; future days are outlined and empty. One color only: plans and multiple sessions never change intensity. Month labels sit above; M / W / F / S labels sit to the left. Show **Since {first Monday}**, “Quick taps and planned sessions both fill a day. Rest is part of training.” and the **Trained**, **No entry**, **Tap a week to open its days** legend. A week opens the same day buttons in a sheet, allowing earlier logging. VoiceOver describes the date, planned titles, entries and grid summary. Upcoming/Past remain planned-session lists.
+
+**Regression testing:** [Quick training log regression guide](docs/quick-training-log-regression.md) contains automated commands, invariants, database coverage and the boards A–E manual checklist. Run it when changing sessions, attendance, publishing, calendar dates, snapshot pagination, or account switching.
 
 ### Empty Activity and Training
 
@@ -385,12 +405,12 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 
 - Activity artwork (all Activity empty states: a first-time user, someone who deleted their only post, and a planned first session still awaiting its photo): **Peek-a-boo**. A Silverback hides behind the photo-memory frame, springs out past its edge with `--ease-bounce`, the camera "clicks" (a white flash over the photo slot as the icon squeezes to .86), nods, then ducks back; about a 5s loop. The mark only moves as a whole and is never redrawn. Reduce Motion shows it still, peeking.
 - No completed posts or plans: “Good memories start on the mat.” Plan a training session; add existing friends by QR as the secondary action when needed.
-- A friends-only plan exists but no shared post or open link-visible plan: “Your first photo is on its way.” View the plan or invitation. An upcoming link-visible plan renders its Activity ticket even without any memories. A pending completion uses “Proof you showed up.” · “Share a post-roll photo and your crew sees it here.” with no button, since the Complete & share card above holds the primary action.
+- A friends-only plan exists but no shared post or open link-visible plan: “Your first photo is on its way.” View the plan or invitation. An upcoming link-visible plan renders its Activity ticket even without any memories. Completed, unshared plans have their catch-up prompt in Training.
 - No upcoming sessions/invitations: “Summon your crew” Plan a training session; Already trained? Log it is secondary.
 - No personal past sessions: offer Log a past session.
 - No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
 - An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
-- Activity's ink session prompt follows the unshared session closest to now among sessions you host or have joined. Past sessions read “How was …?” and let the host Complete & share; upcoming sessions show the plan's date, time and gym with View session. Invitations and declined sessions do not displace it. The prompt updates as time passes; equal-distance ties prefer the past session.
+- Training’s ink “How was {session title}?” prompt shows the most recent completed, unshared planned session you host. Complete & share opens that session’s composer. It never appears for guests or quick logs.
 
 Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
 

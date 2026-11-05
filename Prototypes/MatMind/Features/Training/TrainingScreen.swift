@@ -60,10 +60,15 @@ struct TrainingScreen: View {
             MMHeader(title: "Training", large: true, trailing: {
                 MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
             })
+
+        } content: {
+            if let session = mm.trainingPrompt {
+                TrainingCatchUp(session: session).padding(MMSpace.s6)
+            }
+            TrainingRhythm().padding(MMSpace.s6)
             MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
                 .padding(.horizontal, MMSpace.s6)
                 .padding(.bottom, MMSpace.s4)
-        } content: {
             if !past && !mm.pendingTrainingInvitations.isEmpty {
                 MMEyebrow("Invites", topPadding: 8)
                 VStack(spacing: 16) {
@@ -73,7 +78,7 @@ struct TrainingScreen: View {
                 }
                 .padding(.horizontal, 16)
             }
-            if list.isEmpty && (past || mm.pendingTrainingInvitations.isEmpty) {
+            if list.isEmpty && mm.trainingPrompt == nil && (past || mm.pendingTrainingInvitations.isEmpty) {
                 if past {
                     MMEmptyState(artwork: .plan, title: "Your past training",
                                  message: "Sessions show up here once their start time has passed. No photo needed.",
@@ -485,7 +490,7 @@ struct SessionDetailScreen: View {
                     .padding(.bottom, 10)
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { i, row in
-                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && !completed && row.id != "me", divider: i < rows.count - 1)
+                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && row.id != "me", divider: i < rows.count - 1)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -497,7 +502,16 @@ struct SessionDetailScreen: View {
             .padding(.horizontal, 16)
         } footer: {
             if completed {
-                MMBadge("Completed", variant: .success, dot: true)
+                VStack(spacing: 8) {
+                    MMBadge("Completed", variant: .success, dot: true)
+                    if isOrganizer && !mm.sharedSessionIDs.contains(s.id) {
+                        MMButton("Complete & share", iconLeft: "camera", fullWidth: true) { mm.go(.complete(id: s.id)) }
+                    } else if !isOrganizer && s.people.contains(where: { $0.id == "me" && $0.attended }) {
+                        MMButton("I didn't attend", variant: .secondary) {
+                            Task { _ = await mm.runtime?.perform("correct_attendance", ["session_id": s.id, "user_id": "me", "attended": false]) }
+                        }
+                    }
+                }
             } else if isOrganizer {
                 VStack(spacing: 10) {
                     let photoReady = mm.isReadyToShare(s.id)
