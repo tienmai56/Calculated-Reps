@@ -216,6 +216,7 @@ struct CreateScreen: View {
         .mmSheet(isPresented: $customTime, title: "Choose a time") {
             DatePicker("Time", selection: $chosenTime, displayedComponents: .hourAndMinute)
                 .datePickerStyle(.wheel)
+                .labelsHidden()
         } actions: {
             MMButton("Use this time", fullWidth: true) {
                 let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = calendar.timeZone; formatter.dateFormat = "h:mm a"
