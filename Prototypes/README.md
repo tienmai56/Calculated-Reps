@@ -18,6 +18,27 @@ For visual review without Xcode, run `python3 Prototypes/WelcomePreview/serve.py
 
 All data is sample data held in memory (`App/SeedData.swift`, from `ui_kits/app/data.js`). Nothing is saved or sent anywhere.
 
+## Quick training log UI mock
+
+Choose the **QuickTrainingLogMock** Xcode scheme and run on an iPhone simulator.
+It builds the separate MatMindPrototype app and opens Activity directly; sign-in,
+Supabase setup and the opt-in database bundle are unnecessary. Nothing is sent to
+or read from a backend.
+
+The sample-data bar has four states and **Reset**:
+
+- **Host plan:** today’s plan has started, so its calendar opens the chooser and
+  completion opens session details with Complete & share.
+- **Guest plan:** confirm only your own attendance; the host keeps sharing control.
+- **Starts later:** the planned option is disabled, while a separate quick log works.
+- **Quick logs:** today starts with ×2; tap the date to add and its count to remove.
+
+Dates follow the device’s current day. A future open mat, completed unshared
+training, sample posts and 17 weeks of rhythm history are also seeded. Sharing
+creates only a local post; Undo and attendance correction are simulated in memory.
+Reset restores the selected state. The normal **MatMindPrototype** scheme retains
+its welcome flow, and the production app’s scheme/backend settings are unchanged.
+
 ## Empty states
 
 The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity shows upcoming link-visible plans as well as completed memories: an empty schedule alone never clears existing posts.

@@ -184,9 +184,69 @@ enum SeedData {
 }
 
 // Calendar fixtures are preview-only. Live AppModel starts with no records.
+enum QuickLogMockScenario: String, CaseIterable, Identifiable {
+    case quickLogs, hostPlan, guestPlan, startsLater
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .quickLogs: "Quick logs"
+        case .hostPlan: "Host plan"
+        case .guestPlan: "Guest plan"
+        case .startsLater: "Starts later"
+        }
+    }
+}
+
 extension SeedData {
-    static var quickLogs: [QuickLog] {
-        let c = TrainingCalendar.calendar, now = Date(), week = TrainingCalendar.week(now)
+    static func quickLogMockPlans(_ scenario: QuickLogMockScenario, now: Date) -> [Session] {
+        let c = TrainingCalendar.calendar, today = c.startOfDay(for: now)
+        let tomorrow = c.date(byAdding: .day, value: 1, to: today)!
+        let future = c.date(bySettingHour: 19, minute: 0, second: 0, of: c.date(byAdding: .day, value: 2, to: today)!)!
+        var plans = [mockSession("mock-future", title: "Open mat", start: future, host: "me")]
+        if scenario != .quickLogs {
+            let start = scenario == .startsLater
+                ? min(now.addingTimeInterval(3600), tomorrow.addingTimeInterval(-0.001))
+                : max(today, now.addingTimeInterval(-3600))
+            plans.insert(mockSession("mock-today", title: scenario == .guestPlan ? "Rolls with Kenji" : "No-gi training",
+                                     start: start, host: scenario == .guestPlan ? "kenji" : "me"), at: 0)
+        }
+        return plans
+    }
+
+    static func quickLogMockLogs(_ scenario: QuickLogMockScenario, now: Date) -> [QuickLog] {
+        let key = TrainingCalendar.key(now)
+        var logs = calendarQuickLogs(now: now).filter { $0.loggedOn != key }
+        if scenario == .quickLogs {
+            logs += (0..<2).map { i in
+                QuickLog(id: "mock-today-log-\(i)", loggedOn: key, loggedAt: now.addingTimeInterval(Double(i - 2) * 60),
+                         timezone: TimeZone.current.identifier)
+            }
+        }
+        return logs
+    }
+
+    static func quickLogMockCompleted(now: Date) -> [Session] {
+        let c = TrainingCalendar.calendar
+        let day = c.date(byAdding: .day, value: -2, to: now)!
+        let start = c.date(bySettingHour: 7, minute: 0, second: 0, of: day)!
+        var session = mockSession("mock-completed", title: "Morning rolls", start: start, host: "me")
+        for i in session.people.indices { session.people[i].attended = true }
+        return [session]
+    }
+
+    private static func mockSession(_ id: String, title: String, start: Date, host: String) -> Session {
+        let c = TrainingCalendar.calendar
+        return Session(id: id, title: title, day: start.formatted(.dateTime.weekday(.abbreviated)),
+                       date: c.component(.day, from: start), month: start.formatted(.dateTime.month(.abbreviated)),
+                       time: start.formatted(.dateTime.hour().minute()), gym: "Tidewater BJJ", organizer: host, privacy: .link,
+                       people: [Attendee(id: host, status: .going), Attendee(id: host == "me" ? "kenji" : "me", status: .going)],
+                       startsAt: start)
+    }
+
+    static var quickLogs: [QuickLog] { calendarQuickLogs(now: Date()) }
+
+    private static func calendarQuickLogs(now: Date) -> [QuickLog] {
+        let c = TrainingCalendar.calendar, week = TrainingCalendar.week(now)
         var dates = [week[0]]
         for w in 1...16 {
             let monday = c.date(byAdding: .weekOfYear, value: -w, to: week[0])!

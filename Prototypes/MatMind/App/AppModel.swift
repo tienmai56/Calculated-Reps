@@ -48,6 +48,38 @@ final class AppModel {
         return preview
     }
 #endif
+#if DEBUG || MAT_MIND_PROTOTYPE
+    private(set) var quickLogMockScenario: QuickLogMockScenario = .hostPlan
+
+    static func quickTrainingLogMock(_ scenario: QuickLogMockScenario = .hostPlan) -> AppModel {
+        let model = AppModel(live: false)
+        model.loadQuickLogMock(scenario)
+        return model
+    }
+
+    /// UI-only fixtures can never replace or use a live account/runtime.
+    func loadQuickLogMock(_ scenario: QuickLogMockScenario, now: Date = Date()) {
+        guard !isLive, runtime == nil else { return }
+        reset()
+        quickLogMockScenario = scenario
+        upcoming = SeedData.quickLogMockPlans(scenario, now: now)
+        quickLogs = SeedData.quickLogMockLogs(scenario, now: now)
+        completedSessions = SeedData.quickLogMockCompleted(now: now)
+        toComplete = nil
+        notifications = []
+        posts = SeedData.posts.enumerated().map { index, source in
+            var post = source
+            let date = TrainingCalendar.calendar.date(byAdding: .day, value: -(index + 1), to: now)!
+            post.date = date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+            post.ago = index == 0 ? "Yesterday" : "\(index + 1)d"
+            post.occurredAt = date
+            return post
+        }
+        monkeyPromptAnswered = true
+        isSignedIn = true
+        setTab(.activity)
+    }
+#endif
     let isLive: Bool
     var busy: Bool { creatingSessions || savingTraining || (runtime?.busy ?? false) }
     private(set) var creatingSessions = false
@@ -1369,6 +1401,19 @@ extension AppModel {
         if let runtime { return await runtime.perform("delete_quick_log", ["id": id]) }
         guard !isLive else { return false }
         quickLogs.removeAll { $0.id == id }; return true
+    }
+    @discardableResult func removeOwnTrainingAttendance(_ session: Session) async -> Bool {
+        guard !busy, let current = findSession(session.id),
+              current.people.contains(where: { $0.id == "me" && $0.attended }) else { return false }
+        if let runtime {
+            return await runtime.perform("correct_attendance", ["session_id": session.id, "user_id": "me", "attended": false])
+        }
+        guard !isLive else { return false }
+        updateSession(session.id) { session in
+            for i in session.people.indices where session.people[i].id == "me" { session.people[i].attended = false }
+        }
+        showToast("Attendance removed")
+        return true
     }
     func canRemoveQuickLog(on date: Date) -> Bool {
         trainingTap(date) != .disabled && openPlans(date).isEmpty && daySessions(date).isEmpty && !dayLogs(date).isEmpty

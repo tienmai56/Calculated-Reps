@@ -2491,3 +2491,75 @@ extension TrainingCalendarTests {
         XCTAssertFalse(ui.savingTraining)
     }
 }
+
+#if DEBUG
+extension TrainingCalendarTests {
+    @MainActor func testQuickLogMockRunsLocallyAndResetRestoresFixtures() async {
+        let mock = AppModel.quickTrainingLogMock(.quickLogs)
+        let day = Date(), posts = mock.posts
+        XCTAssertFalse(mock.isLive)
+        XCTAssertNil(mock.runtime)
+        XCTAssertTrue(mock.isSignedIn)
+        XCTAssertEqual(mock.tab, .activity)
+        XCTAssertFalse(mock.shouldAskForMonkey)
+        XCTAssertEqual(mock.entryCount(day), 2)
+        XCTAssertTrue(mock.canRemoveQuickLog(on: day))
+        await mock.addQuickLog(day)
+        XCTAssertEqual(mock.entryCount(day), 3)
+        await mock.removeLatestQuickLog(on: day)
+        XCTAssertEqual(mock.entryCount(day), 2)
+        XCTAssertEqual(mock.posts, posts)
+        mock.go(.session(id: "mock-completed"))
+        mock.loadQuickLogMock(.quickLogs)
+        XCTAssertEqual(mock.entryCount(Date()), 2)
+        XCTAssertEqual(mock.posts.count, posts.count)
+        XCTAssertTrue(mock.path.isEmpty)
+        XCTAssertNil(mock.toast)
+        XCTAssertNil(mock.runtime)
+    }
+
+    @MainActor func testQuickLogMockHostAndGuestCompletionAreLocal() async throws {
+        for scenario in [QuickLogMockScenario.hostPlan, .guestPlan] {
+            let mock = AppModel.quickTrainingLogMock(scenario)
+            let plan = try XCTUnwrap(mock.openPlans(Date()).first)
+            let before = mock.posts.count
+            XCTAssertNil(mock.runtime)
+            XCTAssertTrue(mock.canMarkTrainingDone(plan))
+            let saved = await mock.markTrainingDone(plan)
+            XCTAssertTrue(saved)
+            XCTAssertEqual(mock.posts.count, before, "Attendance never auto-publishes")
+            let done = try XCTUnwrap(mock.findSession(plan.id))
+            XCTAssertTrue(done.people.first { $0.id == "me" }!.attended)
+            if scenario == .hostPlan {
+                XCTAssertTrue(done.people.allSatisfy(\.attended))
+                XCTAssertNotNil(mock.publish(plan.id, photo: nil, caption: "Good rolls", people: plan.going))
+                XCTAssertEqual(mock.posts.count, before + 1)
+            } else {
+                XCTAssertFalse(done.people.first { $0.id == "kenji" }!.attended)
+                XCTAssertNil(mock.publish(plan.id, photo: nil, caption: "Good rolls", people: plan.going))
+                let removed = await mock.removeOwnTrainingAttendance(done)
+                XCTAssertTrue(removed)
+                XCTAssertTrue(mock.daySessions(Date()).isEmpty)
+            }
+            mock.loadQuickLogMock(scenario)
+            XCTAssertEqual(mock.posts.count, before)
+            XCTAssertTrue(mock.canMarkTrainingDone(try XCTUnwrap(mock.openPlans(Date()).first)))
+        }
+    }
+
+    @MainActor func testQuickLogMockStartsLaterAndCannotLoadIntoLiveModel() throws {
+        let mock = AppModel.quickTrainingLogMock(.startsLater)
+        let plan = try XCTUnwrap(mock.openPlans(Date()).first)
+        XCTAssertFalse(mock.canMarkTrainingDone(plan))
+        XCTAssertGreaterThan(try XCTUnwrap(plan.startsAt), Date())
+        let live = AppModel(live: true)
+        live.me.name = "Live account"
+        live.loadQuickLogMock(.quickLogs)
+        XCTAssertTrue(live.isLive)
+        XCTAssertEqual(live.me.name, "Live account")
+        XCTAssertTrue(live.posts.isEmpty)
+        XCTAssertTrue(live.quickLogs.isEmpty)
+        XCTAssertFalse(live.isSignedIn)
+    }
+}
+#endif

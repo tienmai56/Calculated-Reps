@@ -510,7 +510,7 @@ struct SessionDetailScreen: View {
                             .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
                             .multilineTextAlignment(.center)
                         MMButton("I didn't attend", variant: .secondary) {
-                            Task { _ = await mm.runtime?.perform("correct_attendance", ["session_id": s.id, "user_id": "me", "attended": false]) }
+                            Task { await mm.removeOwnTrainingAttendance(s) }
                         }
                     }
                 }

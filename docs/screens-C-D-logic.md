@@ -1,5 +1,7 @@
 # Quick training log: screens C and D
 
+Database deployment is paused. Use the **QuickTrainingLogMock** Xcode scheme for an in-memory seeded UI with host, guest, unstarted-plan and quick-log states.
+
 Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular strip and simplified chooser remain in place. The supplied scratchpad path belonged to another workspace; this document records the implementation here.
 
 ## Screen files

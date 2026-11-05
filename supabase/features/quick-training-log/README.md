@@ -11,8 +11,11 @@ for live branch testing. Do not install it on the shared production project.
 
 ## UI preview
 
-Run this branch in Debug and select **Preview without signing in**. Sample-data
-quick logs and completion work without installing any database feature.
+Database deployment is paused. Choose the **QuickTrainingLogMock** Xcode scheme
+to open Activity directly with sample data, a state selector and Reset. It uses
+the separate prototype app with no live runtime or sign-in. You can also use
+**Preview without signing in** in the regular Debug app. Neither route installs
+or calls the database feature. See `Prototypes/README.md` for mock instructions.
 
 ## Disposable database tests
 
