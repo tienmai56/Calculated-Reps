@@ -890,6 +890,7 @@ struct TrainingWeekCard: View {
     var isActivity = false
     @State private var selected: Date?
     @State private var choice = false
+    @State private var loggingTechniques = false
     @State private var removing: QuickLog?
     @State private var trainingSaveFailed = false
     @State private var daySheetHeight: CGFloat = 280
@@ -928,7 +929,13 @@ struct TrainingWeekCard: View {
         .mmCardSurface(radius: isActivity ? 24 : MMRadius.lg, fill: isActivity ? MMColor.ink900 : MMColor.surfaceCard, shadow: !isActivity)
         .animation(reduceMotion ? nil : .timingCurve(0.34, 1.56, 0.64, 1, duration: MMMotion.slow), value: days.map { mm.entryCount($0) })
         .sheet(isPresented: Binding(get: { selected != nil }, set: { if !$0 { selected = nil } })) {
-            if let date = selected { daySheet(date) }
+            if let date = selected {
+                if loggingTechniques {
+                    QuickLogSheet(date: date) { selected = nil }
+                } else {
+                    daySheet(date)
+                }
+            }
         }
         .overlay(alignment: .top) {
             // A system sheet covers the shell toast; older-week logging needs its own presentation.
@@ -1115,11 +1122,12 @@ struct TrainingWeekCard: View {
     }
 
     private func tap(_ date: Date) {
+        loggingTechniques = false
         switch mm.trainingTap(date, isActivity: isActivity) {
         case .disabled: break
         case .choose: choice = true; selected = date
         case .entries: choice = false; selected = date
-        case .quickLog: Task { await mm.addQuickLog(date) }
+        case .quickLog: loggingTechniques = true; selected = date
         }
     }
     private func daySheet(_ date: Date) -> some View {
@@ -1195,10 +1203,7 @@ struct TrainingWeekCard: View {
                 }
                 Button {
                     trainingSaveFailed = false
-                    Task {
-                        if await mm.addQuickLog(date) { selected = nil }
-                        else { trainingSaveFailed = true }
-                    }
+                    loggingTechniques = true
                 } label: {
                     HStack(spacing: 12) {
                         MMIcon("check", size: 24, weight: .bold, color: MMColor.white)
@@ -1206,7 +1211,7 @@ struct TrainingWeekCard: View {
                             .background(MMColor.coral500, in: RoundedRectangle(cornerRadius: MMRadius.md))
                         VStack(alignment: .leading, spacing: 3) {
                             Text("A quick log").mmFont(.display, 17, tracking: -0.015, lineHeight: 1.2)
-                            Text("Just marks the day. Nothing is posted.")
+                            Text("Log the techniques you hit. Nothing is posted.")
                                 .mmFont(.body, 13, .medium, lineHeight: 1.3)
                                 .foregroundStyle(MMColor.ink700)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1238,7 +1243,14 @@ struct TrainingWeekCard: View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(mm.dayLogs(date)) { log in
                 HStack {
-                    Text("Quick log · Logged \(clock(log.loggedAt))").mmFont(.body, 15)
+                    VStack(alignment: .leading, spacing: MMSpace.s2) {
+                        Text("Quick log · Logged \(clock(log.loggedAt))").mmFont(.body, 15)
+                        if let hits = mm.quickLogHitsByID[log.id], !hits.isEmpty {
+                            Text(hits.map { "\($0.name) ×\($0.count)" }.joined(separator: " · "))
+                                .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                     Spacer(); MMIconButton("trash-2", label: "Remove quick log") { removing = log }
                 }
             }
@@ -1255,10 +1267,7 @@ struct TrainingWeekCard: View {
             }
             MMButton("Log another session", variant: .secondary, fullWidth: true) {
                 trainingSaveFailed = false
-                Task {
-                    if await mm.addQuickLog(date) { selected = nil }
-                    else if !mm.savingTraining { trainingSaveFailed = true }
-                }
+                loggingTechniques = true
             }
             .disabled(mm.busy)
         }

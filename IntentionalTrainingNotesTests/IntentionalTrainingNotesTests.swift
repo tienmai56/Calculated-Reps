@@ -2743,6 +2743,151 @@ private final class TrainingRuntimeStub: AppRuntime {
     func exportView() -> AnyView { AnyView(EmptyView()) }
 }
 
+final class QuickLogTechniqueTests: XCTestCase {
+    @MainActor func testLatestListPersistsIncludingAnIntentionallyEmptyList() throws {
+        let suite = "quick-log-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let ui = AppModel(live: false)
+        ui.loadQuickLogTechniques(account: "owner", defaults: defaults)
+        let triangle = try XCTUnwrap(ui.addQuickLogTechnique("  Triangle\n"))
+        ui.removeQuickLogTechnique("back-take")
+        ui.loadQuickLogTechniques(account: "owner", defaults: defaults)
+        XCTAssertEqual(ui.quickLogTechniques.map(\.name), ["Heel hook", "Armbar", "Triangle"], "Refresh must not replace the latest list")
+        let reopened = AppModel(live: false)
+        reopened.loadQuickLogTechniques(account: "owner", defaults: defaults)
+        XCTAssertEqual(reopened.quickLogTechniques.last, triangle)
+        for technique in reopened.quickLogTechniques { reopened.removeQuickLogTechnique(technique.id) }
+        let empty = AppModel(live: false)
+        empty.loadQuickLogTechniques(account: "owner", defaults: defaults)
+        XCTAssertTrue(empty.quickLogTechniques.isEmpty, "An empty saved list must not resurrect the defaults")
+    }
+
+    @MainActor func testCustomNamesRejectBlanksAndCaseInsensitiveDuplicates() throws {
+        let ui = AppModel(live: false)
+        XCTAssertNil(ui.addQuickLogTechnique(" \n "))
+        XCTAssertNil(ui.addQuickLogTechnique(" HEEL HOOK "))
+        let custom = try XCTUnwrap(ui.addQuickLogTechnique("D’Arce from half guard"))
+        XCTAssertEqual(custom.name, "D’Arce from half guard")
+        XCTAssertEqual(ui.quickLogTechniques.count, 4)
+    }
+
+    @MainActor func testRemovingAndUndoingDoesNotChangeSavedReps() async throws {
+        let ui = AppModel(live: false)
+        ui.quickLogs = []
+        let saved = await ui.addQuickLog(Date(), counts: ["heel-hook": 2, "back-take": 1])
+        XCTAssertTrue(saved)
+        let log = try XCTUnwrap(ui.quickLogs.first)
+        let backTake = try XCTUnwrap(ui.quickLogTechniques.first { $0.id == "back-take" })
+        ui.removeQuickLogTechnique(backTake.id)
+        XCTAssertEqual(ui.quickLogHitsByID[log.id]?.map(\.name), ["Heel hook", "Back take"])
+        XCTAssertEqual(ui.quickLogHitsByID[log.id]?.map(\.count), [2, 1])
+        ui.restoreQuickLogTechnique(backTake, at: 1)
+        ui.restoreQuickLogTechnique(backTake, at: 1)
+        XCTAssertEqual(ui.quickLogTechniques, QuickLogTechnique.defaults, "Undo restores order without duplicates")
+        XCTAssertEqual(ui.quickLogs, [log])
+    }
+
+    @MainActor func testOlderDayUsesLatestListAndSavesOnlyItsOwnPositiveCounts() async throws {
+        let ui = AppModel(live: false)
+        ui.quickLogs = []
+        let yesterday = try XCTUnwrap(TrainingCalendar.calendar.date(byAdding: .day, value: -1, to: Date()))
+        let todaySaved = await ui.addQuickLog(Date(), counts: ["heel-hook": 5])
+        XCTAssertTrue(todaySaved)
+        let today = try XCTUnwrap(ui.quickLogs.first)
+        let triangle = try XCTUnwrap(ui.addQuickLogTechnique("Triangle"))
+        ui.removeQuickLogTechnique("back-take")
+        let olderSaved = await ui.addQuickLog(yesterday, counts: [triangle.id: 2, "heel-hook": 0, "armbar": -1, "back-take": 9, "unknown": 4])
+        XCTAssertTrue(olderSaved)
+        let older = try XCTUnwrap(ui.dayLogs(yesterday).first)
+        XCTAssertEqual(ui.quickLogHitsByID[older.id], [QuickLogHit(id: triangle.id, name: "Triangle", count: 2)])
+        XCTAssertEqual(ui.quickLogHitsByID[today.id]?.map(\.count), [5])
+        XCTAssertEqual(ui.quickLogTechniques.map(\.name), ["Heel hook", "Armbar", "Triangle"])
+        XCTAssertTrue(ui.quickLogHits(counts: [:]).isEmpty, "Opening again starts fresh, without copying earlier counts")
+        XCTAssertTrue(ui.posts.allSatisfy { $0.id != older.id })
+    }
+
+    @MainActor func testCountsAndPresetsRemainIsolatedBetweenAccountsAndRelaunches() async throws {
+        let suite = "quick-log-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let ui = AppModel(live: false)
+        ui.loadQuickLogTechniques(account: "alice", defaults: defaults)
+        ui.quickLogs = []
+        let triangle = try XCTUnwrap(ui.addQuickLogTechnique("Triangle"))
+        let saved = await ui.addQuickLog(Date(), counts: [triangle.id: 3])
+        XCTAssertTrue(saved)
+        let log = try XCTUnwrap(ui.quickLogs.first)
+        let reopened = AppModel(live: false)
+        reopened.loadQuickLogTechniques(account: "alice", defaults: defaults)
+        XCTAssertEqual(reopened.quickLogHitsByID[log.id]?.first?.count, 3)
+        reopened.clearLiveData()
+        XCTAssertEqual(reopened.quickLogTechniques, QuickLogTechnique.defaults)
+        XCTAssertTrue(reopened.quickLogHitsByID.isEmpty)
+        reopened.loadQuickLogTechniques(account: "bob", defaults: defaults)
+        XCTAssertEqual(reopened.quickLogTechniques, QuickLogTechnique.defaults)
+        XCTAssertTrue(reopened.quickLogHitsByID.isEmpty)
+        reopened.loadQuickLogTechniques(account: "alice", defaults: defaults)
+        XCTAssertEqual(reopened.quickLogTechniques.last, triangle)
+        XCTAssertEqual(reopened.quickLogHitsByID[log.id]?.first?.count, 3)
+    }
+
+    @MainActor func testEmptyCountsCannotCreateATrainingEntry() async {
+        let ui = AppModel(live: false)
+        ui.quickLogs = []
+        let saved = await ui.addQuickLog(Date(), counts: ["heel-hook": 0])
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.quickLogHitsByID.isEmpty)
+        XCTAssertNil(ui.trainingUndo)
+    }
+
+    @MainActor func testFailedSaveRetainsListAndDoesNotPersistCounts() async throws {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        let triangle = try XCTUnwrap(ui.addQuickLogTechnique("Triangle"))
+        let saved = await ui.addQuickLog(Date(), counts: [triangle.id: 2])
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.quickLogHitsByID.isEmpty)
+        XCTAssertEqual(ui.quickLogTechniques.last, triangle, "List changes survive a log save failure")
+    }
+
+    @MainActor func testUndoLogRemovesCountsButKeepsTheLatestTechniqueList() async throws {
+        let ui = AppModel(live: false)
+        ui.quickLogs = []
+        let triangle = try XCTUnwrap(ui.addQuickLogTechnique("Triangle"))
+        let saved = await ui.addQuickLog(Date(), counts: [triangle.id: 1])
+        XCTAssertTrue(saved)
+        let toast = try XCTUnwrap(ui.toast)
+        await ui.undoTrainingToast(toast.id)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.quickLogHitsByID.isEmpty)
+        XCTAssertEqual(ui.quickLogTechniques.last, triangle)
+    }
+
+    @MainActor func testPendingSaveCannotWriteCountsIntoANewAccount() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        let started = expectation(description: "Technique log started")
+        var resume: CheckedContinuation<Bool, Never>?
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let save = Task { await ui.addQuickLog(Date(), counts: ["heel-hook": 2]) }
+        await fulfillment(of: [started], timeout: 1)
+        ui.clearLiveData()
+        resume?.resume(returning: true)
+        let saved = await save.value
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.quickLogHitsByID.isEmpty)
+        XCTAssertNil(ui.quickLogAccount)
+    }
+}
+
 extension TrainingCalendarTests {
     @MainActor func testUnstartedPlanIsDisabledButSeparateQuickLogStillWorks() async {
         let ui = AppModel(live: false)
