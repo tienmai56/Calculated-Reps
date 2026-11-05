@@ -19,6 +19,8 @@ struct SessionTicket: View {
     var notchColor: Color = MMColor.bgApp
     /// Leaves room at the top right for an overlaid options ("…") button.
     var reservesMenuSpace = false
+    /// Optional completion action used by tickets in the Training tabs.
+    var onComplete: (() -> Void)?
     var onTap: (() -> Void)?
 
     var body: some View {
@@ -84,6 +86,11 @@ struct SessionTicket: View {
                     }
                 }
                 .padding(.top, 4)
+                if let onComplete {
+                    MMButton("Complete & share", variant: .soft, iconLeft: "camera", fullWidth: true, action: onComplete)
+                        .accessibilityHint("Share \(session.title)")
+                        .padding(.top, MMSpace.s4)
+                }
             }
             .padding(.vertical, 14)
             .padding(.leading, 16)
