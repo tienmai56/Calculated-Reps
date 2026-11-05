@@ -42,7 +42,9 @@ its welcome flow, and the production app’s scheme/backend settings are unchang
 In **Training → Past**, unlogged sessions you host have a **Complete & share**
 button in place of **You host**, opening that session’s composer. Sessions already
 marked done or published with a photo or note have no completion button in the
-list. Training has no standalone share prompter.
+list. The compact button is right-aligned beside the avatars when it fits; ticket
+cards show avatars without a going-count label. Training has no standalone share
+prompter.
 
 ## Empty states
 

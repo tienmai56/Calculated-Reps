@@ -81,20 +81,21 @@ struct SessionTicket: View {
                     if let onComplete {
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: MMSpace.s4) {
-                                MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
+                                MMAvatarStack(people: going, size: 28, ring: .white)
                                     .fixedSize()
                                 Spacer(minLength: MMSpace.s2)
                                 completionButton(onComplete)
                             }
                             VStack(alignment: .trailing, spacing: MMSpace.s4) {
-                                MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
+                                MMAvatarStack(people: going, size: 28, ring: .white)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 completionButton(onComplete)
                             }
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                         }
                     } else {
                         HStack {
-                            MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
+                            MMAvatarStack(people: going, size: 28, ring: .white)
                             Spacer(minLength: 4)
                             PersonProfileButton(person: organizer) {
                                 Text(session.organizer == "me" ? "You host" : "by \(organizer.firstName)")
@@ -122,9 +123,13 @@ struct SessionTicket: View {
     }
 
     private func completionButton(_ action: @escaping () -> Void) -> some View {
-        MMButton("Complete & share", size: .sm, action: action)
-            .fixedSize(horizontal: true, vertical: false)
-            .disabled(mm.busy)
-            .accessibilityLabel("Complete and share \(session.title)")
+        Button(action: action) {
+            Text("Complete & share")
+                .mmFont(.display, 12, .bold, tracking: -0.01, lineHeight: 1)
+        }
+        .buttonStyle(MMButtonStyle(variant: .primary, size: .sm, fullWidth: false))
+        .fixedSize(horizontal: true, vertical: false)
+        .disabled(mm.busy)
+        .accessibilityLabel("Complete and share \(session.title)")
     }
 }
