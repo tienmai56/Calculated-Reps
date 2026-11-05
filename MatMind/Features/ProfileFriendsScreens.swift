@@ -43,7 +43,7 @@ struct SocialFriendCodeScreen: View {
                 ShareLink(item:url) { Text("Share friend code") }
                 Text("This code connects a partner instantly and expires after one day. Generating a new code revokes the old one.").font(.caption)
             }
-            Button("Generate my code") { Task { if let r = await app.perform("friend_token",[:]),let token = r["token"]?.string { url = app.link(kind:"friend",token:token) } } }.disabled(app.userID == nil || app.busy)
+            Button("Generate my code") { Task { if let r = await app.perform("friend_token",[:]),let token = r["token"]?.string { url = InvitationLinks.friendCode(token:token) } } }.disabled(app.userID == nil || app.busy)
             Button("Scan a partner’s code") { Task { cameraAllowed = await AVCaptureDevice.requestAccess(for:.video); if cameraAllowed && DataScannerViewController.isSupported && DataScannerViewController.isAvailable { scanning = true } else { app.error = "Camera scanning is unavailable. Paste the partner’s invitation link below." } } }
             TextField("Paste invitation link",text:$input).textInputAutocapitalization(.never).autocorrectionDisabled()
             Button("Open invitation") { if let url = URL(string:input) { app.handle(url); Task { await app.redeemPendingLink() } } }.disabled(input.isEmpty || app.userID == nil)

@@ -400,7 +400,13 @@ enum InvitationLinks {
         let token: String
         switch components.scheme?.lowercased() {
         case "https":
-            guard let host, components.host?.lowercased() == host.lowercased(), parts.count == 2 else { return nil }
+            guard let host, let incomingHost = components.host?.lowercased(), parts.count == 2 else { return nil }
+            // Codes already displayed by older builds retain the former web host.
+            // Redeem their capability locally; never open or fetch the retired site.
+            let productionHosts: Set<String> = ["matmonkey.lovable.app", "matmindbjj.lovable.app"]
+            let configuredHost = host.lowercased()
+            guard incomingHost == configuredHost ||
+                    (productionHosts.contains(configuredHost) && productionHosts.contains(incomingHost)) else { return nil }
             kind = parts[0]; token = parts[1]
             guard url.path == "/\(kind)/\(token)" else { return nil }
         case "matmind":
@@ -426,5 +432,11 @@ enum InvitationLinks {
             components.path = "/" + token
         }
         return components.url!
+    }
+
+    /// In-app QR codes must work across builds with different website hosts.
+    /// Shared invitations still use HTTPS for previews and the install page.
+    static func friendCode(token: String) -> URL {
+        make(kind: "friend", token: token, host: nil, httpsEnabled: false)
     }
 }

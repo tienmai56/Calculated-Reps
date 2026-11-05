@@ -746,13 +746,13 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     func friendCode() async -> String? {
         guard let result = await model.perform("friend_token", [:]), let token = result["token"]?.string else { return nil }
-        return model.link(kind: "friend", token: token).absoluteString
+        return InvitationLinks.friendCode(token: token).absoluteString
     }
     func connect(_ value: String) async -> String? {
         guard !connecting, !model.busy else { return nil }
         connecting = true
         defer { connecting = false }
-        guard let url = URL(string: value) else { model.error = "Invalid invitation link."; return nil }
+        guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else { model.error = "Invalid invitation link."; return nil }
         model.handle(url)
         guard model.pendingLink == url else { model.error = "Invalid invitation link."; return nil }
         guard model.userID != nil, let destination = InvitationLinks.parse(url, host: Bundle.main.object(forInfoDictionaryKey: "AppLinkHost") as? String) else {
