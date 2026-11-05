@@ -1,24 +1,41 @@
 import SwiftUI
 import Charts
 
-/// Personal technique counts only: shown after the first saved technique log.
+/// Invites the first technique log, then shows personal hit counts.
 /// The same cards work below the interactive and read-only rhythm heatmaps.
 struct TechniqueStatsSection: View {
     @Environment(AppModel.self) private var mm
+    @State private var loggingDate: Date?
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             let history = TechniqueTrendHistory(logs: mm.quickLogs, hitsByID: mm.quickLogHitsByID, now: context.date)
-            if !history.trends.isEmpty {
+            if !history.trends.isEmpty || mm.quickTrainingLogEnabled {
                 VStack(alignment: .leading, spacing: MMSpace.s5) {
                     Text("Techniques").mmFont(.display, 18).foregroundStyle(MMColor.textPrimary)
-                    legend
-                    ForEach(history.trends) { trend in
-                        TechniqueTrendCard(trend: trend, currentDayIndex: history.currentDayIndex)
+                    if history.trends.isEmpty {
+                        MMEmptyState(artwork: .techniques,
+                                     title: "What did you hit?",
+                                     message: "Your technique charts start with one log.",
+                                     actionTitle: "Log hits", actionIcon: "plus") {
+                            loggingDate = Date()
+                        }
+                        .disabled(mm.busy)
+                        .accessibilityIdentifier("technique-empty-state")
+                    } else {
+                        legend
+                        ForEach(history.trends) { trend in
+                            TechniqueTrendCard(trend: trend, currentDayIndex: history.currentDayIndex)
+                        }
                     }
                 }
                 .padding(.horizontal, MMSpace.s6)
                 .padding(.top, MMSpace.s6)
+            }
+        }
+        .sheet(isPresented: Binding(get: { loggingDate != nil }, set: { if !$0 { loggingDate = nil } })) {
+            if let date = loggingDate {
+                QuickLogSheet(date: date) { loggingDate = nil }
             }
         }
     }
