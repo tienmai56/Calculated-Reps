@@ -26,7 +26,7 @@ Open `IntentionalTrainingNotes.xcodeproj`, select `IntentionalTrainingNotes`, an
 
 **UI-only quick-log mock:** choose the **QuickTrainingLogMock** Xcode scheme to open Activity immediately with seeded data. Its state selector and Reset let you try quick logs, host/guest completion and an unstarted plan without sign-in or database calls. See [mock instructions](Prototypes/README.md#quick-training-log-ui-mock).
 
-**Database work is deferred.** The quick-log migration and SQL tests remain on [`feat/activity-quick-log-db-deferred`](https://github.com/tienmai56/Calculated-Reps/tree/feat/activity-quick-log-db-deferred/supabase/features/quick-training-log), outside this UI merge. Live accounts keep the existing Activity flow and read-only Profile heatmap until the backend explicitly supplies the quick-log snapshot fields. The mock remains fully interactive without a database.
+**Quick training logging is deployed.** Migration [`20261105212524_quick_training_log.sql`](supabase/migrations/20261105212524_quick_training_log.sql) was applied to the Mat Mind project. Live accounts enable the strip, chooser and private quick logs when their next snapshot includes the feature fields. Use the regular **IntentionalTrainingNotes** scheme and refresh/restart the app for real data; **QuickTrainingLogMock** continues to use isolated seeded data.
 
 Google sign-in setup is described in [Google sign-in setup](docs/google-sign-in-setup.md). Apple sign-in is hidden for now. Backend migrations and functions are deployed; see [deployment and validation](docs/mat-mind-v2-deployment.md) for configuration and acceptance checks.
 
@@ -90,7 +90,7 @@ Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsp
 
 ## Regression tests
 
-Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native checks, protected invariants and the current UI acceptance checklist. Database work is documented on the deferred branch.
+Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native checks, protected invariants and the current UI acceptance checklist. The SQL suite is included in `scripts/test-database.sh`.
 ## Profile training heatmap
 
 Profile → Progress combines a static 17-week **Your rhythm** heatmap with the existing Weekly/Monthly chart in one card. Past hosted/joined sessions fill a day even without a shared photo. The heatmap is read-only and introduces no quick logging or backend migration. See the [regression guide](docs/profile-heatmap-regression.md).

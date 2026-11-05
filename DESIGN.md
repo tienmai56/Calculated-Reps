@@ -383,7 +383,7 @@ Activity shows the private This week strip, Coming up and completed-session post
 
 ### Week strip and quick logs (UI preview)
 
-The quick-log flow is available in the **QuickTrainingLogMock** scheme with isolated seeded data. Its database implementation is deferred on `feat/activity-quick-log-db-deferred` and is excluded from this UI merge. Live accounts keep the current Activity prompt and read-only Profile heatmap until the server supplies all quick-log snapshot fields; unsupported logging operations remain disabled.
+The quick-log database is deployed through `20261105212524_quick_training_log.sql`. Live accounts enable the shared quick-log UI when their snapshot exposes all four feature fields. The **QuickTrainingLogMock** scheme continues to use isolated seeded data without a runtime. Older backend snapshots keep the existing Activity flow and read-only Profile heatmap; unsupported operations remain disabled.
 
 In the mock, the dark quick-log strip appears first. The calendar prompter sits
 below on paper-2, with ink-900 title, ink-700 metadata, a white calendar tile and
@@ -404,7 +404,7 @@ Training has Upcoming/Past lists and no standalone share prompter or Coming up h
 
 ### Your rhythm (quick-log preview)
 
-In the mock or after explicit backend support, Profile Progress can show the interactive 17-week quick-log calendar, including older-week editing. Until deployment, live accounts use the read-only Profile rhythm described below. No quick-log SQL is included in normal migrations by this UI merge.
+In the mock or after explicit backend support, Profile Progress can show the interactive 17-week quick-log calendar, including older-week editing. Older backends without quick-log snapshot fields use the read-only Profile rhythm described below; the deployed backend enables the interactive quick-log calendar.
 
 Regression commands and acceptance checks: [Quick training log UI guide](docs/quick-training-log-regression.md).
 
