@@ -485,7 +485,7 @@ final class AppModel {
 
     func comment(_ id: String, _ text: String) {
         if isLive { send("add_comment", ["post_id": id, "body": text]); return }
-        updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true)) }
+        updatePost(id) { $0.comments.append(Comment(who: "me", text: text, fresh: true, createdAt: Date())) }
     }
 
     /// Your own comments, and any comment on a post you organized, can be deleted.
@@ -722,7 +722,7 @@ final class AppModel {
         later(3.8) { [weak self] in
             self?.updatePost(id) {
                 $0.likes.append("alex")
-                $0.comments.append(Comment(who: "alex", text: "Great rounds today. Same time next week?", fresh: true))
+                $0.comments.append(Comment(who: "alex", text: "Great rounds today. Same time next week?", fresh: true, createdAt: Date()))
             }
             self?.showToast("Alex commented on your post")
         }

@@ -53,6 +53,8 @@ struct Comment: Identifiable, Hashable {
     var fresh = false
     /// The cloud comment's ID (live only), used for reporting.
     var cloudID: String?
+    /// The recorded posting time; nil for older comments without a timestamp.
+    var createdAt: Date? = nil
 }
 
 struct Post: Identifiable, Hashable {

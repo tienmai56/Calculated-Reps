@@ -692,6 +692,12 @@ private struct CommentRow: View {
                 }
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let createdAt = comment.createdAt {
+                    Text(createdAt.formatted(date: .abbreviated, time: .shortened))
+                        .mmFont(.body, 11, lineHeight: 1.3)
+                        .foregroundStyle(MMColor.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(.horizontal, 13)
             .padding(.vertical, 9)
