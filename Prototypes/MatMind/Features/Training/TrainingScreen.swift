@@ -96,9 +96,11 @@ struct TrainingScreen: View {
     }
 
     private func sessionCard(_ s: Session) -> some View {
-        let showsMenu = s.organizer == "me" && !mm.isCompleted(s)
+        let completed = mm.isCompleted(s)
+        let showsMenu = s.organizer == "me" && !completed
+        let onComplete: (() -> Void)? = completed ? nil : { mm.go(.complete(id: s.id)) }
         return VStack(alignment: .leading, spacing: 8) {
-            SessionTicket(session: s, reservesMenuSpace: showsMenu) { mm.go(.session(id: s.id)) }
+            SessionTicket(session: s, reservesMenuSpace: showsMenu, onComplete: onComplete) { mm.go(.session(id: s.id)) }
                 .overlay(alignment: .topTrailing) {
                     if showsMenu { sessionMenu(s) }
                 }
