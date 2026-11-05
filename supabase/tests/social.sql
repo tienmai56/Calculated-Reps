@@ -16,6 +16,8 @@ insert into public.friendships(a,b,timezone,connected_at) values
 ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','America/Los_Angeles',now()-interval '1 month'),
 ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000003','UTC',now()-interval '1 month'),
 ('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','UTC',now()-interval '1 month');
+insert into public.follows(follower,followee) select a,b from public.friendships where active
+union select b,a from public.friendships where active on conflict do nothing;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
 select public.command('create_session',jsonb_build_object('title','Open mat','venue','Gym','timezone','America/Los_Angeles','starts_at',now()-interval '1 hour','invited',jsonb_build_array('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003')),'20000000-0000-0000-0000-000000000001')->>'id' as sid \gset

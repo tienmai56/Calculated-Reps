@@ -25,6 +25,13 @@ Export uses a streaming ZIP32 writer and the native iOS share sheet. Each export
 
 ## Backend deployment status
 
+**Following and private session invitations (deployed November 5, 2026):** Migration `20261105084849_follows_and_private_invitations.sql` is applied to `cmiqavyrazypmulrfezj`. Scanning follows the code owner immediately; following grants completed activity visibility and permission to invite that person to training. Existing active, unblocked training connections were carried over to follows in both directions. New scans follow one way and notify the code owner with “started following you,” using the existing in-app and push pipeline; repeat scans of an active connection stay quiet.
+
+Session invitations return only the host and invitation ID until the recipient accepts. Session details and guest lists require the host or an accepted, unblocked participant. Opening a session link creates a pending invitation and preserves existing responses. Link previews and invite notification messages contain no session details. The updated invitation UI is merged in PR #65; clients need that UI to display the new pending invitation payload.
+
+The migration preserves the newer session-link RSVP, goal-update notification, saved-photo, and comment-thread notification changes. Validation: the complete current SQL suite and username concurrency checks passed locally; live read-only checks verified session authorization, invitation snapshot availability, following permissions, existing-connection backfill, anonymous access restrictions, and preserved operations. No live pending invitations were present; the pending payload and acceptance transitions were verified in the local regression suite. Security advisory categories and counts were unchanged by deployment.
+
+
 **Session link RSVP preservation deployed (November 5, 2026):** `20261105053014_preserve_session_link_rsvp.sql` preserves existing participants' saved responses when an invitation link is reopened. The filename matches the hosted migration service's assigned version; the SQL is unchanged from PR #67. Hosted readback matches the tested command source exactly, function permissions are unchanged, and security advisory findings match the pre-deployment baseline. No new iOS build or Edge Function deployment is needed. Earlier overwritten responses are not inferred or repaired; affected members can decline again. See the [investigation and validation](session-link-rsvp-investigation.md).
 
 The CLI is linked to `cmiqavyrazypmulrfezj`. On November 1, 2026 (Pacific), the five app migrations were applied and the `delete-account` and `notification-worker` Edge Functions were deployed. No seed data, legacy notebooks or local archive attachments were uploaded.
