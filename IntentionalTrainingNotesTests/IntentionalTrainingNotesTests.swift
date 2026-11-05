@@ -2889,6 +2889,90 @@ extension TechniqueTrendTests {
 #endif
 
 final class QuickLogTechniqueTests: XCTestCase {
+    @MainActor func testLiveSaveMatchesLowercaseServerIDsAndUndoRemovesItsHitDetails() async throws {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        runtime.command = { operation, payload in
+            guard let id = payload["id"] as? String else { return false }
+            let serverID = UUID(uuidString: id)!.uuidString.lowercased()
+            if operation == "create_quick_log" {
+                XCTAssertEqual(id, serverID, "Local hit keys must use Postgres's UUID representation")
+                ui.quickLogs = [QuickLog(id: serverID, loggedOn: payload["logged_on"] as! String,
+                                        loggedAt: Date(), timezone: payload["timezone"] as! String)]
+                return true
+            }
+            if operation == "delete_quick_log" {
+                ui.quickLogs.removeAll { $0.id == serverID }
+                return true
+            }
+            return false
+        }
+        let saved = await ui.addQuickLog(Date(), counts: ["heel-hook": 3])
+        XCTAssertTrue(saved)
+        let log = try XCTUnwrap(ui.quickLogs.first)
+        XCTAssertEqual(ui.quickLogHitsByID[log.id]?.first?.count, 3)
+        XCTAssertEqual(TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID).trends.first?.thisWeekTotal, 3)
+        let toast = try XCTUnwrap(ui.toast)
+        await ui.undoTrainingToast(toast.id)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.quickLogHitsByID.isEmpty)
+    }
+
+    @MainActor func testLiveSnapshotRecoversAndPersistsLegacyUppercaseHitKeys() throws {
+        let owner = UUID().uuidString.lowercased()
+        let key = "matmonkeys.quickLogTechniques.\(owner)"
+        let upper = "ABCDEFAB-1234-4567-89AB-ABCDEFABCDEF"
+        let lower = upper.lowercased()
+        let cache: [String: Any] = [
+            "techniques": [["id": "heel-hook", "name": "Heel hook"]],
+            "hitsByID": [upper: [["id": "heel-hook", "name": "Heel hook", "count": 5]]]
+        ]
+        UserDefaults.standard.set(try JSONSerialization.data(withJSONObject: cache), forKey: key)
+        defer { UserDefaults.standard.removeObject(forKey: key) }
+        let model = SocialAppModel()
+        model.userID = owner
+        let rows: [[String: Any]] = [["id": lower, "logged_on": TrainingCalendar.key(Date()),
+                                    "logged_at": ISO8601DateFormatter().string(from: Date()), "timezone": TimeZone.current.identifier]]
+        model.snapshot.quick_logs = try JSONDecoder().decode([SocialRow].self, from: JSONSerialization.data(withJSONObject: rows))
+        model.snapshot.training_days = []; model.snapshot.log_matches = []; model.snapshot.shared_session_ids = []
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        XCTAssertNil(ui.quickLogHitsByID[upper])
+        XCTAssertEqual(ui.quickLogHitsByID[lower]?.first?.count, 5)
+        XCTAssertEqual(TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID).trends.first?.thisWeekTotal, 5)
+        runtime.sync()
+        XCTAssertEqual(ui.quickLogHitsByID[lower]?.first?.count, 5, "A refresh keeps the recovered chart data")
+        let migrated = try XCTUnwrap(UserDefaults.standard.data(forKey: key))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: migrated) as? [String: Any])
+        let hits = try XCTUnwrap(object["hitsByID"] as? [String: Any])
+        XCTAssertNil(hits[upper])
+        XCTAssertNotNil(hits[lower], "Migration must persist for the next launch")
+        let reopened = AppModel(live: true)
+        reopened.loadQuickLogTechniques(account: owner)
+        XCTAssertEqual(reopened.quickLogHitsByID[lower]?.first?.count, 5)
+    }
+
+    @MainActor func testLegacyKeyCollisionsPreferCanonicalDataAndKeepPreviewIDs() throws {
+        let suite = "quick-log-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let upper = "ABCDEFAB-1234-4567-89AB-ABCDEFABCDEF", lower = upper.lowercased()
+        let cache: [String: Any] = ["techniques": [], "hitsByID": [
+            upper: [["id": "heel-hook", "name": "Heel hook", "count": 5]],
+            lower: [["id": "heel-hook", "name": "Heel hook", "count": 2]],
+            "Mock-Log": [["id": "armbar", "name": "Armbar", "count": 1]]
+        ]]
+        defaults.set(try JSONSerialization.data(withJSONObject: cache), forKey: "matmonkeys.quickLogTechniques.owner")
+        let ui = AppModel(live: false)
+        ui.loadQuickLogTechniques(account: "owner", defaults: defaults)
+        XCTAssertEqual(ui.quickLogHitsByID.count, 2)
+        XCTAssertEqual(ui.quickLogHitsByID[lower]?.first?.count, 2, "The same log must never be counted twice")
+        XCTAssertEqual(ui.quickLogHitsByID["Mock-Log"]?.first?.count, 1)
+        XCTAssertTrue(ui.quickLogTechniques.isEmpty, "An empty saved preset list stays empty")
+    }
+
     @MainActor func testLatestListPersistsIncludingAnIntentionallyEmptyList() throws {
         let suite = "quick-log-tests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

@@ -576,6 +576,12 @@ struct QuickLog: Identifiable, Hashable {
     var loggedOn: String
     var loggedAt: Date
     var timezone: String
+
+    /// Postgres serializes UUIDs in lowercase; local details use the same key.
+    /// Keep non-UUID preview identifiers unchanged.
+    static func canonicalID(_ id: String) -> String {
+        UUID(uuidString: id)?.uuidString.lowercased() ?? id
+    }
 }
 
 enum TrainingCalendar {

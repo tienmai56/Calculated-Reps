@@ -1549,7 +1549,16 @@ extension AppModel {
         let stored = defaults.data(forKey: Self.quickLogKey(account))
             .flatMap { try? JSONDecoder().decode(StoredQuickLogTechniques.self, from: $0) }
         quickLogTechniques = stored?.techniques ?? QuickLogTechnique.defaults
-        quickLogHitsByID = stored?.hitsByID ?? [:]
+        let savedHits = stored?.hitsByID ?? [:]
+        quickLogHitsByID = [:]
+        for id in savedHits.keys.sorted() {
+            let canonical = QuickLog.canonicalID(id)
+            // Prefer a canonical entry if an older cache contains both spellings.
+            if id == canonical || quickLogHitsByID[canonical] == nil {
+                quickLogHitsByID[canonical] = savedHits[id]
+            }
+        }
+        if quickLogHitsByID != savedHits { persistQuickLogTechniques() }
     }
 
     private func persistQuickLogTechniques() {
@@ -1593,7 +1602,7 @@ extension AppModel {
         let generation = trainingGeneration
         savingTraining = true
         defer { if generation == trainingGeneration { savingTraining = false } }
-        let log = QuickLog(id: UUID().uuidString, loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
+        let log = QuickLog(id: UUID().uuidString.lowercased(), loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
         if let runtime {
             let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
             guard generation == trainingGeneration else { return false }
