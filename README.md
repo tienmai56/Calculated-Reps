@@ -24,6 +24,8 @@ Previous local training data is available only through **Settings → Export →
 
 After accepting a shared goal, you receive an in-app notification and a push when its owner changes the title, notes, links, photos or parts. Tapping either opens that shared goal. Unchanged saves stay quiet; pending, declined and blocked recipients receive no update alerts. Push follows your notification settings. The `goal_update_notifications` backend migration is deployed; the updated iOS client still needs to ship for goal notification display and navigation.
 
+After commenting on a memory, you receive an in-app notification and a queued push for every new comment from someone else on that memory, including its author and people you do not follow. Each comment produces one alert per recipient; an @mention takes the place of the ordinary comment alert. Blocks and current post access still apply, and push follows your notification settings and iOS permission. The `comment_thread_notifications` backend migration is deployed and works with the existing app.
+
 The Silverback app icon and logo come from `assets/brand/`. The production bundle identifier, existing sign-in callbacks, and stored-data identifiers retain their original values for compatibility. The `MatMindPrototype` scheme installs a separate **Mat Monkey Proto** app for reviewing the shared design.
 
 The next production build is **1.1 (4)**. The Xcode project, schemes and source module identifiers keep their existing names; both installed app labels and wordmarks use **Mat Monkey**. Store/TestFlight listing names and Google's OAuth consent name are managed separately in App Store Connect and Google Auth Platform; set those display names to **Mat Monkey** while retaining the existing app and OAuth client IDs.
