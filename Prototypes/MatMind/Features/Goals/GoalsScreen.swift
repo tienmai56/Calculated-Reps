@@ -17,7 +17,7 @@ struct GoalsScreen: View {
         let goals = mm.goals
         MMScreen(tabPadding: true) {
             MMHeader(title: "Goals", large: true, trailing: {
-                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                MMHeaderActions()
             })
         } content: {
             let invites = mm.goalInvites.count

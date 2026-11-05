@@ -30,7 +30,7 @@ struct ProfileScreen: View {
         let history = ProfileHistory(posts: mm.posts.filter { $0.participants.contains("me") })
         MMScreen(tabPadding: true) {
             MMHeader(title: "Profile", large: true, trailing: {
-                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                MMHeaderActions()
                 MMIconButton("settings", variant: .filled, label: "Settings") { openSettings() }
             })
         } content: {

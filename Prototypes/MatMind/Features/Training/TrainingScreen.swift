@@ -58,7 +58,7 @@ struct TrainingScreen: View {
         let rest = list
         return MMScreen(tabPadding: true) {
             MMHeader(title: "Training", large: true, trailing: {
-                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                MMHeaderActions()
             })
             MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
                 .padding(.horizontal, MMSpace.s6)
