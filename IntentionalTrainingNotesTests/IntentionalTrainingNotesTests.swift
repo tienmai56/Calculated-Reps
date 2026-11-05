@@ -2083,8 +2083,8 @@ final class GoalSharingTests: XCTestCase {
         model.pendingLink = nil
         model.handle(URL(string: "matmind://elsewhere/" + token)!)
         XCTAssertNil(model.pendingLink)
-        XCTAssertEqual(InvitationLinks.make(kind: "goal", token: token, host: "matmindbjj.lovable.app", httpsEnabled: true).absoluteString,
-                       "https://matmindbjj.lovable.app/goal/" + token)
+        XCTAssertEqual(InvitationLinks.make(kind: "goal", token: token, host: "matmonkey.lovable.app", httpsEnabled: true).absoluteString,
+                       "https://matmonkey.lovable.app/goal/" + token)
     }
 }
 
