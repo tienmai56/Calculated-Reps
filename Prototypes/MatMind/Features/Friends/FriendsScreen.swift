@@ -158,19 +158,27 @@ private struct FriendStreakCard: View {
 
 // MARK: - Search & discover people
 
-/// Opened from any tab's header. Before typing: people who train with your training partners,
-/// most shared partners first. Typing searches your partners and those people by name.
-/// There is no public directory: strangers outside your circle never appear.
+/// Name search in your circle, plus explicit username lookup beyond your circle.
 struct PeopleSearchScreen: View {
     @Environment(AppModel.self) private var mm
     @State private var query = ""
+    @State private var usernameMatches: [Person] = []
+    @State private var loadedQuery = ""
+    @State private var searchingUsernames = false
+    @State private var searchFailed = false
+    @State private var retry = 0
+
+    private var normalizedQuery: String { AppModel.usernameQuery(query) }
 
     var body: some View {
         let searching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         MMScreen {
             HStack(spacing: 6) {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }
-                MMTextField(placeholder: "Search people by name", text: $query, iconLeft: "search")
+                MMTextField(placeholder: "Search name or @username", text: $query, iconLeft: "search")
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .accessibilityLabel("Search people by name or username")
             }
             .padding(.leading, 6)
             .padding(.trailing, 16)
@@ -181,6 +189,26 @@ struct PeopleSearchScreen: View {
                 results
             } else {
                 suggestions
+            }
+        }
+        .task(id: "\(normalizedQuery)|\(retry)") {
+            let value = normalizedQuery
+            loadedQuery = value
+            usernameMatches = []
+            searchFailed = false
+            searchingUsernames = AppModel.canSearchUsername(value)
+            guard searchingUsernames else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(300))
+                let found = try await mm.searchUsernames(value)
+                try Task.checkCancellation()
+                guard normalizedQuery == value else { return }
+                usernameMatches = found
+                searchingUsernames = false
+            } catch {
+                guard !Task.isCancelled, normalizedQuery == value else { return }
+                searchingUsernames = false
+                searchFailed = true
             }
         }
     }
@@ -209,7 +237,7 @@ struct PeopleSearchScreen: View {
             LazyVStack(spacing: 0) {
                 ForEach(people) { PersonSearchRow(person: $0, showsBelt: false) }
             }
-            Text("That's everyone your partners train with. Rolled with someone new? Scan each other's code.")
+            Text("Know someone's username? Search it above, or scan their code to follow them.")
                 .mmFont(.body, 13, lineHeight: 1.45).foregroundStyle(MMColor.textTertiary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
@@ -220,18 +248,35 @@ struct PeopleSearchScreen: View {
 
     @ViewBuilder
     private var results: some View {
-        let found = mm.searchPeople(query)
-        if found.isEmpty {
+        let remote = loadedQuery == normalizedQuery ? usernameMatches : []
+        let local = mm.searchPeople(query).filter { p in !remote.contains { $0.id == p.id } }
+        let found = remote + local
+        let loading = AppModel.canSearchUsername(query) && (loadedQuery != normalizedQuery || searchingUsernames)
+        if loading {
+            ProgressView("Searching usernames…")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                .frame(maxWidth: .infinity).padding(.vertical, 18)
+        } else if searchFailed && loadedQuery == normalizedQuery {
+            VStack(spacing: 12) {
+                Text("Couldn't search usernames. Try again.")
+                    .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+                MMButton("Try again", variant: .secondary, size: .sm) { retry += 1 }
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 18)
+        }
+        if found.isEmpty && !loading && !searchFailed {
             VStack(spacing: 6) {
-                Text("No one by that name in your circle").mmFont(.display, 18, tracking: -0.02, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
-                Text("Search covers your training partners and the people they train with.")
+                Text("No people found").mmFont(.display, 18, tracking: -0.02, lineHeight: 1.2).foregroundStyle(MMColor.ink900)
+                Text(AppModel.canSearchUsername(query)
+                     ? "Check their @username, or scan their code to follow them."
+                     : "Search a name in your circle, or enter at least 3 letters, numbers or underscores from their username.")
                     .mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.textSecondary)
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 32)
             .padding(.top, 48)
-        } else {
+        } else if !found.isEmpty {
             Text(found.count == 1 ? "1 PERSON" : "\(found.count) PEOPLE")
                 .mmFont(.body, 11, .semibold, tracking: 0.1, lineHeight: 1.2).foregroundStyle(MMColor.textTertiary)
                 .padding(.horizontal, 20)
@@ -240,6 +285,11 @@ struct PeopleSearchScreen: View {
                 .accessibilityLabel(found.count == 1 ? "1 person found" : "\(found.count) people found")
             LazyVStack(spacing: 0) {
                 ForEach(found) { PersonSearchRow(person: $0, query: query) }
+            }
+            if remote.count == 20 {
+                Text("Keep typing to narrow down the username matches.")
+                    .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    .padding(20)
             }
         }
     }
@@ -301,6 +351,9 @@ private struct PersonSearchRow: View {
                     MMAvatar(name: p.name, photo: p.photo, size: 48, belt: p.belt)
                     VStack(alignment: .leading, spacing: 4) {
                         name(p.name)
+                        if !p.username.isEmpty {
+                            Text("@" + p.username).mmFont(.body, 13).foregroundStyle(MMColor.textSecondary).lineLimit(1)
+                        }
                         if showsBelt {
                             HStack(spacing: 6) {
                                 MMBelt(rank: p.belt, stripes: p.stripes, size: .xs, width: 30)
@@ -330,14 +383,17 @@ private struct PersonSearchRow: View {
             .accessibilityHint("Opens \(p.firstName)'s profile")
 
             if (!partner || followsPartners) && mm.canFollow(p.id) {
-                if mm.isFollowing(p.id) {
-                    MMButton("Following", variant: .secondary, size: .sm, iconLeft: "check") { mm.setFollowing(p.id, false) }
-                        .accessibilityLabel("Following \(p.name)")
-                        .accessibilityHint("Unfollows")
-                } else {
-                    MMButton("Follow", variant: .inverse, size: .sm, iconLeft: "user-plus") { mm.setFollowing(p.id, true) }
-                        .accessibilityLabel("Follow \(p.name)")
+                Group {
+                    if mm.isFollowing(p.id) {
+                        MMButton("Following", variant: .secondary, size: .sm, iconLeft: "check") { mm.setFollowing(p.id, false) }
+                            .accessibilityLabel("Following \(p.name)")
+                            .accessibilityHint("Unfollows")
+                    } else {
+                        MMButton("Follow", variant: .inverse, size: .sm, iconLeft: "user-plus") { mm.setFollowing(p.id, true) }
+                            .accessibilityLabel("Follow \(p.name)")
+                    }
                 }
+                .disabled(mm.pendingFollows.contains(p.id))
             }
         }
         .padding(.horizontal, 16)

@@ -433,6 +433,7 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     func sync(now: Date = Date()) {
         if photoOwner != model.userID {
+            ui.resetPeopleLookup()
             ui.resetSessionCreation()
             for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) + Array(listAvatars.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
@@ -638,7 +639,7 @@ final class LiveMatMindRuntime: AppRuntime {
         // A delete is already applied on screen, so it doesn't lock the app while it runs.
         // Sharing a goal runs after its sheet has closed, so it doesn't lock the app either,
         // and Follow has already flipped its button.
-        let result = await model.perform(operation, body, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow"].contains(operation))
+        let result = await model.perform(operation, body, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow", "follow_username"].contains(operation))
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -870,6 +871,13 @@ final class LiveMatMindRuntime: AppRuntime {
             if found.photo == nil { found.photo = listAvatars[row.text("avatar_key")] }
             return found
         }
+    }
+    func searchUsernames(_ query: String) async throws -> [Person] {
+        guard let owner = model.userID else { throw CancellationError() }
+        let rows = try await model.backend.searchUsernames(query)
+        try Task.checkCancellation()
+        guard model.userID == owner else { throw CancellationError() }
+        return rows.map(person)
     }
     func scannerView(found: @escaping (String) -> Void) -> AnyView { AnyView(LiveScannerView(found: found)) }
     func exportView() -> AnyView {

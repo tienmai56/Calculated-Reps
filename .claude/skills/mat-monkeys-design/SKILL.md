@@ -38,7 +38,7 @@ Your favorite training partner: warm, a little cheeky, mat-literate. Sentence ca
 
 ## Guardrails (never)
 - Free-form posts: posts come only from completed sessions.
-- Public discovery or matching with strangers. Friends may join upcoming link-visible sessions from Activity.
+- Public browsing or matching with strangers. Explicit username lookup is supported: follow someone by @username with the same behavior as scanning their code. Suggestions and name search stay within your training circle.
 - Group chat or DMs.
 - Daily streaks, leaderboards, badges, milestones, rankings, performance analytics.
 - Avatar options beyond the monkey's mood, fur and haircut (see `DESIGN.md` › Monkeys).
