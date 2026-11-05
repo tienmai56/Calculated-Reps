@@ -817,16 +817,9 @@ struct TrainingWeekCard: View {
     private var header: some View {
         if isActivity {
             VStack(alignment: .leading, spacing: MMSpace.s2) {
-                HStack(alignment: .firstTextBaseline, spacing: MMSpace.s4) {
-                    Text("This week")
-                        .mmFont(.display, 18)
-                        .foregroundStyle(MMColor.paper)
-                    Text("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days")")
-                        .mmFont(.body, 13, .semibold, lineHeight: 1)
-                        .foregroundStyle(MMColor.ink300)
-                        .contentTransition(.numericText())
-                        .accessibilityLabel("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained this week")
-                }
+                Text("This week")
+                    .mmFont(.display, 18)
+                    .foregroundStyle(MMColor.paper)
                 if days.contains(where: { !mm.openPlans($0).isEmpty }) {
                     HStack(spacing: MMSpace.s2) {
                         MMIcon("calendar", size: 12, color: MMColor.ink300)
