@@ -25,6 +25,8 @@ Export uses a streaming ZIP32 writer and the native iOS share sheet. Each export
 
 ## Backend deployment status
 
+**Session link RSVP preservation deployed (November 5, 2026):** `20261105053014_preserve_session_link_rsvp.sql` preserves existing participants' saved responses when an invitation link is reopened. The filename matches the hosted migration service's assigned version; the SQL is unchanged from PR #67. Hosted readback matches the tested command source exactly, function permissions are unchanged, and security advisory findings match the pre-deployment baseline. No new iOS build or Edge Function deployment is needed. Earlier overwritten responses are not inferred or repaired; affected members can decline again. See the [investigation and validation](session-link-rsvp-investigation.md).
+
 The CLI is linked to `cmiqavyrazypmulrfezj`. On November 1, 2026 (Pacific), the five app migrations were applied and the `delete-account` and `notification-worker` Edge Functions were deployed. No seed data, legacy notebooks or local archive attachments were uploaded.
 
 Hosted validation identified a device-token column/variable collision, fixed in `202611020004_device_registration.sql`. It also confirmed that hosted Supabase default privileges explicitly granted anonymous execution; `202611020005_function_permissions.sql` removes those grants from app RPCs and internal helpers. The original applied migrations are retained unchanged. Local regression fixtures now reproduce the hosted function defaults and test both fixes.
