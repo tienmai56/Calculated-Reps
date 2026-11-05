@@ -928,7 +928,7 @@ private struct NotificationRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if let photo = note.photo {
-                Button { mm.go(.post(id: "p1")) } label: {
+                Button { openNotification() } label: {
                     MMPhotoTile(photo: photo, height: 48, radius: 10).frame(width: 48)
                 }
                 .buttonStyle(MMPressStyle(scale: 0.95))
@@ -938,20 +938,12 @@ private struct NotificationRow: View {
         .padding(.vertical, 14)
         .background(note.unread ? MMColor.coral500.opacity(0.06) : Color.clear)
         .contentShape(Rectangle())
-        .onTapGesture {
-            // Goal notifications open in previews too; removed goals show the unavailable state.
-            if note.kind == .goalShare || note.kind == .goalUpdate, let entity = note.session {
-                mm.go(.sharedGoal(id: entity))
-                return
-            }
-            guard mm.isLive else { return }
-            switch note.kind {
-            case .friend: mm.go(.friend(id: note.who))
-            case .invite, .joined: if let entity = note.session { mm.go(.session(id: entity)) }
-            case .comment, .published, .like, .mention: if let entity = note.session { mm.go(.post(id: entity)) }
-            case .goalShare, .goalUpdate: break
-            }
-        }
+        .onTapGesture { openNotification() }
+    }
+
+    private func openNotification() {
+        guard let destination = note.destination else { return }
+        mm.go(destination)
     }
 }
 
@@ -1164,3 +1156,4 @@ private struct ProfileTrainingHeatmap: View {
         }
     }
 }
+

@@ -120,14 +120,11 @@ struct MatMindRoot: View {
     private func openNotification() {
         guard model.userID != nil, let info = SocialPushCoordinator.pending,
               let id = info["entity_id"] as? String else { return }
-        let kind = info["kind"] as? String
-        switch kind {
-        case "invite", "joined": ui.go(.session(id: id))
-        case "friend": ui.go(.friend(id: id))
-        case "goal_share", "goal_update": ui.go(.sharedGoal(id: id))
-        default: ui.go(.post(id: id))
-        }
         SocialPushCoordinator.pending = nil
+        guard let rawKind = info["kind"] as? String,
+              let kind = AppNotification.Kind(rawValue: rawKind),
+              let destination = AppNotification.destination(kind: kind, entityID: id) else { return }
+        ui.go(destination)
     }
 }
 
@@ -884,3 +881,4 @@ final class LiveMatMindRuntime: AppRuntime {
         AnyView(NavigationStack { PreviousTrainingDataScreen(model: model.archive, exportOnly: true) })
     }
 }
+

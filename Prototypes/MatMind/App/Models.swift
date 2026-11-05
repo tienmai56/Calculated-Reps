@@ -160,6 +160,22 @@ struct AppNotification: Identifiable, Hashable {
     var photo: String?
     var time: String
     var unread = false
+
+    /// `session` stores the entity id: a session, post, or shared goal depending on kind.
+    var destination: Route? {
+        Self.destination(kind: kind, entityID: kind == .friend ? who : session)
+    }
+
+    /// Shared by in-app rows, their thumbnails, and push notifications.
+    static func destination(kind: Kind, entityID: String?) -> Route? {
+        guard let id = entityID, !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        switch kind {
+        case .invite, .joined: return .session(id: id)
+        case .comment, .published, .like, .mention: return .post(id: id)
+        case .friend: return .friend(id: id)
+        case .goalShare, .goalUpdate: return .sharedGoal(id: id)
+        }
+    }
 }
 
 enum AppTab: String, CaseIterable {
@@ -578,3 +594,4 @@ struct ProfileRhythmHistory {
     func isFuture(_ date: Date) -> Bool { calendar.startOfDay(for: date) > calendar.startOfDay(for: now) }
     var visibleCount: Int { weeks.flatMap { $0 }.filter(isTrained).count }
 }
+
