@@ -2,6 +2,8 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
+Taking or uploading a post-training photo saves it to the training session immediately, even before publishing to Activity. Training detail shows a Photos section for the host and accepted guests, and the share screen labels its text box **Caption**. The backend migration `20261105075631_save_session_photos.sql` is deployed; the updated iOS client still needs to be built and installed.
+
 Planning and logging a session start with **Jiu-Jitsu training** filled in as the title. The small X on the right clears it and focuses the field for a custom title. Keeping the default needs no typing; submitting a cleared title also uses **Jiu-Jitsu training**.
 
 Session links preserve existing participants' latest RSVPs when reopened. This backend fix was deployed on November 5, 2026 as `supabase/migrations/20261105053014_preserve_session_link_rsvp.sql`; see the [investigation](docs/session-link-rsvp-investigation.md).

@@ -14,6 +14,7 @@ protocol AppRuntime: AnyObject {
     /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
     func enableNotifications() async -> String?
     func create(_ draft: SessionDraft, key: UUID) async -> String?
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
     /// Uploads a square JPEG (from `AppModel.avatarJPEG`) and makes it the signed-in member's profile photo.
     func saveAvatar(_ jpeg: Data) async -> Bool
@@ -689,9 +690,21 @@ final class AppModel {
         return true
     }
 
+    @discardableResult
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool {
+        guard let session = findSession(sessionID), session.organizer == "me", !isCompleted(session) else { return false }
+        if let runtime { return await runtime.saveSessionPhoto(sessionID, photo: photo) }
+        guard !isLive else { return false }
+        updateSession(sessionID) { session in
+            if !session.photos.contains(photo) { session.photos.insert(photo, at: 0) }
+        }
+        return true
+    }
+
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
         if isLive { return nil }
-        guard let s = findSession(sessionID) else { return nil }
+        guard var s = findSession(sessionID) else { return nil }
+        if let photo, !s.photos.contains(photo) { s.photos.insert(photo, at: 0) }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
                         caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems,

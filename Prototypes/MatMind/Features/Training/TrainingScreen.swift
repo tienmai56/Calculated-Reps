@@ -456,6 +456,8 @@ struct SessionDetailScreen: View {
                         .padding(.horizontal, 4)
                         .padding(.top, 14)
                 }
+                sessionPhotos(s)
+                    .padding(.top, MMLayout.sectionGap)
                 if !s.focusItems.isEmpty || (isOrganizer && !completed) {
                     HStack {
                         Text("What we're working on").mmFont(.display, 18)
@@ -600,6 +602,55 @@ struct SessionDetailScreen: View {
                 mm.addParticipants(s.id, ids)
             }
             .disabled(picked.isEmpty)
+        }
+    }
+
+    private func sessionPhotos(_ session: Session) -> some View {
+        let organizer = session.organizer == "me"
+        return VStack(alignment: .leading, spacing: MMSpace.s4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Photos").mmFont(.display, 18)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                MMMeta(session.photos.isEmpty ? "None yet" : session.photos.count == 1 ? "1 photo" : "\(session.photos.count) photos")
+            }
+            MMCard(padding: MMSpace.s4) {
+                VStack(alignment: .leading, spacing: MMSpace.s4) {
+                    if session.photos.isEmpty {
+                        Button {
+                            mm.go(.complete(id: session.id))
+                        } label: {
+                            VStack(spacing: MMSpace.s4) {
+                                MMIcon("camera", size: 22)
+                                    .frame(width: 44, height: 44)
+                                    .background(.white, in: Circle())
+                                Text("Proof the crew showed up")
+                                    .mmFont(.display, 16)
+                            }
+                            .foregroundStyle(MMColor.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 160)
+                            .background {
+                                let shape = RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
+                                shape.fill(MMColor.paper2)
+                                MMHatch(color: MMColor.ink900.opacity(0.06), spacing: 12, lineWidth: 1).clipShape(shape)
+                            }
+                        }
+                        .buttonStyle(MMPressStyle(scale: 0.98))
+                        .disabled(!organizer || !mm.isReadyToShare(session.id))
+                        .accessibilityLabel(organizer ? "Add a session photo" : "No session photos yet")
+                        Text(organizer ? "You're the organizer, so the photos are yours to share. Your training partners will see them here." : "Photos from the organizer will show up here.")
+                            .mmFont(.body, 13, lineHeight: 1.3)
+                            .foregroundStyle(MMColor.textSecondary)
+                            .padding(.horizontal, MMSpace.s2)
+                    } else {
+                        ForEach(session.photos, id: \.self) { photo in
+                            MMPhotoTile(photo: photo, height: 240, radius: MMRadius.md) { EmptyView() }
+                                .accessibilityLabel("Session photo")
+                        }
+                    }
+                }
+            }
         }
     }
 
