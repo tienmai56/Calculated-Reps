@@ -1004,7 +1004,7 @@ struct PersonProfileScreen: View {
                 if let f = mm.friendship(id) { streakLine(f) }
                 partnersRow
                 HStack(spacing: 10) {
-                    if mm.canFollow(id) { followButton(p) }
+                    if mm.canFollow(id) { followButton(p).disabled(mm.pendingFollows.contains(id)) }
                     if mm.canInvite(id) {
                         MMButton("Invite to train", variant: .secondary, iconLeft: "calendar-plus", fullWidth: true) {
                             mm.go(.create(friend: id))

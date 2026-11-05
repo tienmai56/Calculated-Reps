@@ -231,6 +231,11 @@ actor BackendClient {
         let data = try await request(path:"rest/v1/rpc/feed_page",body:["before_time":before.text("published_at"),"before_id":before.id])
         return try JSONDecoder().decode([SocialRow].self,from:data)
     }
+    /// Explicit username prefix lookup, including people outside the caller's circle.
+    func searchUsernames(_ query: String) async throws -> [SocialRow] {
+        try JSONDecoder().decode([SocialRow].self, from: await request(path:"rest/v1/rpc/search_usernames", body:["query":query]))
+    }
+
     /// Someone's training partners (profile rows), or nil when you can't see their list.
     func partners(of person: String) async throws -> [SocialRow]? {
         try JSONDecoder().decode([SocialRow]?.self, from: await request(path:"rest/v1/rpc/partners_of", body:["person":person]))

@@ -1153,6 +1153,42 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.searchPeople("owen").isEmpty, "a partner list doesn't widen search")
     }
 
+    func testUsernameLookupFindsPeopleOutsideCircleAndFollowsLikeScanning() async throws {
+        let ui = AppModel(live: false)
+        XCTAssertTrue(ui.searchPeople("lena").isEmpty)
+        XCTAssertFalse(ui.canFollow("lena"))
+        let matches = try await ui.searchUsernames("  @LENA  ")
+        XCTAssertEqual(matches.map(\.id), ["lena"])
+        XCTAssertTrue(ui.canFollow("lena"))
+        XCTAssertTrue(ui.searchPeople("lena").isEmpty, "Looking up a username doesn't add it to circle name search")
+        ui.setFollowing("lena", true)
+        XCTAssertTrue(ui.isFollowing("lena"))
+        XCTAssertTrue(ui.canInvite("lena"))
+        XCTAssertNotNil(ui.friendship("lena"), "Username follow uses the same connection path as scanning")
+        ui.setFollowing("lena", false)
+        XCTAssertFalse(ui.canInvite("lena"))
+        ui.clearLiveData()
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+        XCTAssertFalse(ui.canFollow("lena"))
+    }
+
+    func testUsernameQueriesRequireLiteralValidPrefixes() async throws {
+        XCTAssertEqual(AppModel.usernameQuery("  @RaFaM  "), "rafam")
+        for query in ["", " ", "@", "@@lena", "le", "len%", "len a", "lén", String(repeating: "a", count: 41)] {
+            XCTAssertFalse(AppModel.canSearchUsername(query), query)
+        }
+        XCTAssertTrue(AppModel.canSearchUsername("@len_a1"))
+        let ui = AppModel(live: false)
+        let found = try await ui.searchUsernames("le")
+        XCTAssertTrue(found.isEmpty)
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+        let task = Task { try await ui.searchUsernames("lena") }
+        task.cancel()
+        do { _ = try await task.value; XCTFail("Cancelled lookups must not cache stale results") }
+        catch is CancellationError { }
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+    }
+
     func testLiveSnapshotMapsCircleAndFollows() throws {
         let data = Data(#"""
         {
@@ -1863,6 +1899,44 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertTrue(ui.path.isEmpty)
     }
 
+    @MainActor
+    func testUsernameLookupUsesRPCAndFailedFollowRestoresButton() async throws {
+        let rows = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"stranger","name":"Lena Park","username":"lena_park","belt":"white","stripes":1,"gym":"Home gym"}]"#.utf8))
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), usernameRows: rows, followUsernameStatus: 409)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        let found = try await ui.searchUsernames(" @LENA_ ")
+        XCTAssertEqual(found.map(\.id), ["stranger"])
+        XCTAssertTrue(ui.canFollow("stranger"))
+        runtime.sync()
+        XCTAssertEqual(ui.person("stranger").username, "lena_park", "A snapshot refresh retains lookup profile details")
+        ui.setFollowing("stranger", true)
+        ui.setFollowing("stranger", false)
+        XCTAssertTrue(ui.isFollowing("stranger"), "A second tap is ignored while saving")
+        let deadline = Date().addingTimeInterval(5)
+        while ui.pendingFollows.contains("stranger"), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(ui.pendingFollows.isEmpty)
+        XCTAssertFalse(ui.isFollowing("stranger"), "Rejected follows restore the prior state")
+        let requests = await fixture.requests
+        let lookup = try XCTUnwrap(requests.first { $0.url?.path == "/rest/v1/rpc/search_usernames" })
+        let searchBody = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(lookup.httpBody)) as? [String: String])
+        XCTAssertEqual(searchBody, ["query": "lena_"])
+        let commands = requests.filter { $0.url?.path == "/rest/v1/rpc/command" }
+        XCTAssertEqual(commands.count, 1)
+        let command = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(commands.first?.httpBody)) as? [String: Any])
+        XCTAssertEqual(command["operation"] as? String, "follow_username")
+        XCTAssertEqual(command["payload"] as? [String: String], ["username": "lena_park", "user_id": "stranger"])
+        model.userID = nil
+        runtime.sync()
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+    }
+
     private func creationRequests() -> [SessionCreationRequest] {
         let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
                                  note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
@@ -1912,13 +1986,15 @@ private actor BackendHTTPFixture {
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
     private var profileSaved = false
     private let rhythmRows: [RhythmSession]
+    private let usernameRows: [SocialRow]
+    private let followUsernameStatus: Int
     private let loseCreateResponseAt: Int?
     private var createAttempts = 0
     private var createReceipts: [String: (payload: Data, id: String)] = [:]
     var createdSessionCount: Int { createReceipts.count }
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
-         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = []) {
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -1929,6 +2005,8 @@ private actor BackendHTTPFixture {
         self.holdSnapshots = holdSnapshots
         self.loseCreateResponseAt = loseCreateResponseAt
         self.rhythmRows = rhythmRows
+        self.usernameRows = usernameRows
+        self.followUsernameStatus = followUsernameStatus
     }
 
     func releaseSnapshots() {
@@ -1969,6 +2047,14 @@ private actor BackendHTTPFixture {
             let offset = Int(items.first { $0.name == "offset" }?.value ?? "0") ?? 0
             let limit = Int(items.first { $0.name == "limit" }?.value ?? "200") ?? 200
             return (200, try JSONEncoder().encode(Array(rhythmRows.dropFirst(offset).prefix(limit))))
+        }
+        if request.url?.path == "/rest/v1/rpc/search_usernames" {
+            return (200, try JSONEncoder().encode(usernameRows))
+        }
+        if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
+           let command = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+           command["operation"] as? String == "follow_username" {
+            return (followUsernameStatus, Data(#"{"message":"Username unavailable. Search again"}"#.utf8))
         }
         if request.url?.path == "/rest/v1/rpc/command",
            let body = request.httpBody,

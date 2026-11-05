@@ -10,6 +10,7 @@ protocol AppRuntime: AnyObject {
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
     /// Someone's training partners, or nil when you can't see their list.
     func partners(of personID: String) async -> [Person]?
+    func searchUsernames(_ query: String) async throws -> [Person]
     /// Asks for push permission and registers this device. Returns nil on success, or the
     /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
     func enableNotifications() async -> String?
@@ -65,6 +66,7 @@ final class AppModel {
     }
 
     func clearLiveData() {
+        resetPeopleLookup()
         rhythmSessionDates = nil
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
@@ -85,8 +87,7 @@ final class AppModel {
     var me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
     var people: [String: Person] = [:]
     var friends: [Friendship] = []
-    /// People who train with your training partners, with the partners you share. Suggestions and
-    /// search come only from here and your partners: there is no public directory.
+    /// People who train with your training partners, with the partners you share.
     var circle: [CirclePerson] = []
     /// Following grants activity visibility and permission to invite, never session details.
     var following: Set<String> = []
@@ -105,6 +106,14 @@ final class AppModel {
     var partnerLists: [String: [String]] = [:]
     /// People known only from a partner list (not your partners or in your circle).
     var listedPeople: [String: Person] = [:]
+    /// Minimal profiles returned by an explicit username search, retained while opening a profile.
+    private(set) var usernamePeople: [String: Person] = [:]
+    private(set) var pendingFollows: Set<String> = []
+    private var followGeneration = UUID()
+
+    func resetPeopleLookup() {
+        usernamePeople = [:]; pendingFollows = []; followGeneration = UUID()
+    }
     var posts: [Post] = []
     var upcoming: [Session] = []
     var completedSessions: [Session] = []
@@ -158,7 +167,7 @@ final class AppModel {
 
     func person(_ id: String) -> Person {
         if id == "me" { return me }
-        return people[id] ?? listedPeople[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
+        return people[id] ?? listedPeople[id] ?? usernamePeople[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
     }
 
     func post(_ id: String) -> Post? { posts.first { $0.id == id } }
@@ -177,9 +186,39 @@ final class AppModel {
 
     func isFollowing(_ id: String) -> Bool { following.contains(id) }
 
-    /// You can follow your training partners, the people they train with, and anyone on a partner list you've opened.
+    /// Username lookup lets you follow someone just as you would by scanning their code.
     func canFollow(_ id: String) -> Bool {
-        id != "me" && (isFollowing(id) || friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
+        id != "me" && (usernamePeople[id] != nil || isFollowing(id) || friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
+    }
+
+    static func usernameQuery(_ query: String) -> String {
+        var value = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if value.hasPrefix("@") { value.removeFirst() }
+        return value
+    }
+
+    static func canSearchUsername(_ query: String) -> Bool {
+        let value = usernameQuery(query)
+        return (3...40).contains(value.count) && value.utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 95 }
+    }
+
+    func searchUsernames(_ query: String) async throws -> [Person] {
+        guard Self.canSearchUsername(query) else { return [] }
+        let value = Self.usernameQuery(query)
+        let generation = followGeneration
+        let found: [Person]
+        if let runtime {
+            found = try await runtime.searchUsernames(value)
+        } else {
+            guard !isLive else { return [] }
+            found = people.values.filter { $0.id != "me" && $0.username.hasPrefix(value) }
+                .sorted { $0.username < $1.username }
+        }
+        try Task.checkCancellation()
+        guard generation == followGeneration else { throw CancellationError() }
+        let matches = Array(found.filter { $0.id != "me" }.prefix(20))
+        for p in matches { usernamePeople[p.id] = p }
+        return matches
     }
 
     /// Loads (or refreshes) someone's training partner list into `partnerLists`.
@@ -216,7 +255,7 @@ final class AppModel {
         guard !q.isEmpty else { return [] }
         let ids = Set(friends.map(\.id)).union(following).union(circle.filter { !$0.mutual.isEmpty }.map(\.id))
         func rank(_ p: Person) -> Int { friendship(p.id) != nil ? 1000 : mutualPartners(p.id).count }
-        return ids.compactMap { people[$0] }
+        return ids.map(person)
             .filter { p in
                 let name = p.name.lowercased()
                 return name.hasPrefix(q) || name.split(separator: " ").contains { $0.hasPrefix(q) } || p.username.lowercased().hasPrefix(q)
@@ -363,9 +402,30 @@ final class AppModel {
 
     /// Follow or unfollow. The button flips right away; live, the next refresh confirms it.
     func setFollowing(_ id: String, _ follow: Bool) {
-        guard id != "me" else { return }
+        guard id != "me", !pendingFollows.contains(id) else { return }
+        let previous = following.contains(id)
         if follow { following.insert(id) } else { following.remove(id) }
-        if isLive { send("set_follow", ["user_id": id, "follow": follow]) }
+        if isLive, let runtime {
+            let generation = followGeneration
+            let username = follow ? usernamePeople[id]?.username : nil
+            pendingFollows.insert(id)
+            Task {
+                guard generation == followGeneration else { return }
+                let saved: Bool
+                if let username {
+                    saved = await runtime.perform("follow_username", ["username": username, "user_id": id])
+                } else {
+                    saved = await runtime.perform("set_follow", ["user_id": id, "follow": follow])
+                }
+                guard generation == followGeneration else { return }
+                if !saved {
+                    if previous { following.insert(id) } else { following.remove(id) }
+                }
+                pendingFollows.remove(id)
+            }
+        } else if !isLive, follow, usernamePeople[id] != nil {
+            addFriend(id)
+        }
     }
 
     func back() {
@@ -1186,6 +1246,7 @@ final class AppModel {
 
     func reset() {
         if isLive { return }
+        resetPeopleLookup()
         resetSessionCreation()
         timers.forEach { $0.cancel() }
         timers = []
