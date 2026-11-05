@@ -367,17 +367,7 @@ struct PostCard: View {
                     .mmFont(.body, 14)
                     .foregroundStyle(MMColor.textTertiary)
             }
-            MentionSuggestions(text: $commentText, people: mm.mentionCandidates(for: post))
-            HStack(spacing: 8) {
-                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 34)
-                MMTextField(placeholder: "Say something nice… @tag a partner", text: $commentText) {
-                    sendComment()
-                }
-                MMIconButton("send", variant: .accent, label: "Send comment") {
-                    sendComment()
-                }
-                .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+            CommentComposer(post: post, text: $commentText, onSend: sendComment)
             Button("Hide comments") { toggleComments() }
                 .mmFont(.body, 13, .medium, lineHeight: 1)
                 .foregroundStyle(MMColor.textTertiary)
@@ -535,15 +525,7 @@ struct PostDetailScreen: View {
             }
             .padding(.horizontal, 12)
         } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                MentionSuggestions(text: $text, people: mm.mentionCandidates(for: post))
-                HStack(spacing: 8) {
-                    MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 36)
-                    MMTextField(placeholder: "Say something nice… @tag a partner", text: $text, autoFocus: focusComment) { send(post) }
-                    MMIconButton("send", variant: .accent, label: "Send") { send(post) }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
+            CommentComposer(post: post, text: $text, autoFocus: focusComment) { send(post) }
         }
         .modifier(PostOptionsModifier(postID: post.id, isPresented: $showMenu))
     }
@@ -687,6 +669,34 @@ private struct ReportReasonList: View {
     }
 }
 
+/// Give writing the full row; identity and send controls sit below the field.
+private struct CommentComposer: View {
+    @Environment(AppModel.self) private var mm
+    let post: Post
+    @Binding var text: String
+    var autoFocus = false
+    var onSend: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s4) {
+            MentionSuggestions(text: $text, people: mm.mentionCandidates(for: post))
+            MMTextField(placeholder: "Say something nice…", text: $text,
+                        multiline: true, rows: 3, autoFocus: autoFocus)
+                .accessibilityLabel("Add a comment")
+            HStack(spacing: MMSpace.s4) {
+                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 28)
+                Text("Tag a partner with @")
+                    .mmText(.bodyS)
+                    .foregroundStyle(MMColor.textTertiary)
+                Spacer(minLength: 0)
+                MMIconButton("send", variant: .accent, label: "Send comment", action: onSend)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct CommentRow: View {
     @Environment(AppModel.self) private var mm
     let comment: Comment
@@ -709,17 +719,36 @@ private struct CommentRow: View {
 
     var body: some View {
         let p = mm.person(comment.who)
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: MMSpace.s4) {
             PersonProfileButton(person: p) {
                 MMAvatar(name: p.name, photo: p.photo, size: 34)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                PersonProfileButton(person: p) {
-                    Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
-                        .mmMonkey(p.monkey, size: 16)
+            VStack(alignment: .leading, spacing: MMSpace.s4) {
+                HStack(spacing: MMSpace.s4) {
+                    PersonProfileButton(person: p) {
+                        Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
+                            .mmMonkey(p.monkey, size: 16)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if reportable || deletable {
+                        Menu {
+                            if deletable {
+                                Button(role: .destructive) { confirmingDelete = true } label: { Label("Delete comment", image: "trash-2") }
+                            }
+                            if reportable {
+                                Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                            }
+                        } label: {
+                            MMIcon("ellipsis", size: 18, color: MMColor.ink500)
+                                .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("Comment options")
+                    }
                 }
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if let createdAt = comment.createdAt {
                     Text(createdAt.formatted(date: .abbreviated, time: .shortened))
                         .mmFont(.body, 11, lineHeight: 1.3)
@@ -727,28 +756,12 @@ private struct CommentRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, MMSpace.s6)
+            .padding(.vertical, MMSpace.s5)
             .background {
-                let shape = UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
+                let shape = UnevenRoundedRectangle(topLeadingRadius: MMRadius.xs, bottomLeadingRadius: MMRadius.lg, bottomTrailingRadius: MMRadius.lg, topTrailingRadius: MMRadius.lg, style: .continuous)
                 shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
-            }
-            Spacer(minLength: 0)
-            if reportable || deletable {
-                Menu {
-                    if deletable {
-                        Button(role: .destructive) { confirmingDelete = true } label: { Label("Delete comment", image: "trash-2") }
-                    }
-                    if reportable {
-                        Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
-                    }
-                } label: {
-                    MMIcon("ellipsis", size: 18, color: MMColor.ink500)
-                        .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Comment options")
-                .padding(.trailing, -10)
             }
         }
         .opacity(comment.fresh && !shown ? 0 : 1)
@@ -852,3 +865,4 @@ struct MentionText: View {
             })
     }
 }
+
