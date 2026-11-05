@@ -1339,10 +1339,13 @@ extension AppModel {
     }
     func entryCount(_ date: Date) -> Int { dayLogs(date).count + daySessions(date).count }
     func trainedDays(_ week: [Date]) -> Int { week.filter { entryCount($0) > 0 }.count }
-    func trainingTap(_ date: Date, now: Date = Date()) -> TrainingTap {
-        if TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: now) { return .disabled }
-        if !openPlans(date).isEmpty { return .choose }
-        return entryCount(date) > 0 ? .entries : .quickLog
+    func trainingTap(_ date: Date, now: Date = Date(), isActivity: Bool = false) -> TrainingTap {
+        let planned = !openPlans(date).isEmpty
+        let future = TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: now)
+        // Activity can show a future plan's chooser without allowing an early log.
+        if future && !(isActivity && planned) { return .disabled }
+        if planned { return .choose }
+        return isActivity || entryCount(date) == 0 ? .quickLog : .entries
     }
     var trainingPrompt: Session? {
         completedSessions.filter { $0.organizer == "me" }

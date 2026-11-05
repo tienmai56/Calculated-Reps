@@ -2164,16 +2164,23 @@ final class TrainingCalendarTests: XCTestCase {
         XCTAssertEqual(ui.entryCount(day), 2)
         XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 1)
         XCTAssertEqual(ui.trainingTap(day), .entries)
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .quickLog, "Filled dates without plans add directly from Activity")
         let plan = Session(id: "p", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
                            people: [Attendee(id: "me", status: .going)], startsAt: day)
         ui.upcoming = [plan]
         XCTAssertEqual(ui.trainingTap(day), .choose, "The calendar/history chooser keeps the open plan available")
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .choose, "The whole Activity day opens the chooser even with multiple quick logs")
         ui.quickLogs = []
         XCTAssertEqual(ui.entryCount(day), 0, "Scheduled plans never count")
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .choose, "An empty planned day also opens the chooser")
         let future = TrainingCalendar.calendar.date(byAdding: .day, value: 1, to: day)!
         ui.upcoming[0].startsAt = future
         XCTAssertEqual(ui.trainingTap(future), .disabled, "A future plan cannot be logged")
+        XCTAssertEqual(ui.trainingTap(future, isActivity: true), .choose, "Future planned days can show options without logging early")
         XCTAssertEqual(ui.trainingTap(day), .quickLog)
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .quickLog)
+        ui.upcoming = []
+        XCTAssertEqual(ui.trainingTap(future, isActivity: true), .disabled, "Future dates without a plan stay disabled")
     }
     func testMergeWindowIncludesExactlyThreeHoursAndRequiresSameLocalDay() {
         let day = TrainingCalendar.calendar.startOfDay(for: Date())
@@ -2394,6 +2401,7 @@ extension TrainingCalendarTests {
                            people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
         ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.posts = []; ui.quickLogs = []; ui.drafts = []; ui.discoverableSessions = []
         ui.setTab(.activity)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .choose)
         await ui.addQuickLog(Date())
         await ui.addQuickLog(Date())
         XCTAssertEqual(ui.tab, .activity)
@@ -2402,6 +2410,7 @@ extension TrainingCalendarTests {
         XCTAssertEqual(ui.entryCount(Date()), 2)
         XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(Date())), 1)
         XCTAssertEqual(ui.trainingTap(Date()), .choose)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .choose, "Adding quick logs must not bypass the planned-day chooser")
         XCTAssertEqual(ui.activityPlans().map(\.id), [plan.id])
         await ui.undoTrainingToast(ui.toast!.id)
         XCTAssertEqual(ui.entryCount(Date()), 1)
@@ -2409,6 +2418,7 @@ extension TrainingCalendarTests {
         await ui.markTrainingDone(plan)
         XCTAssertTrue(ui.activityPlans().isEmpty)
         XCTAssertEqual(ui.trainingTap(Date()), .entries)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .quickLog, "After the plan closes, Activity returns to direct quick logging")
     }
 }
 

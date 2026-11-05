@@ -27,8 +27,8 @@ or read from a backend.
 
 The sample-data bar has four states and **Reset**:
 
-- **Host plan:** today’s plan has started, so its calendar opens the chooser and
-  completion opens session details with Complete & share.
+- **Host plan:** tap anywhere on today’s planned day to open the chooser, even
+  after adding quick logs; completion opens session details with Complete & share.
 - **Guest plan:** confirm only your own attendance; the host keeps sharing control.
 - **Starts later:** the planned option is disabled, while a separate quick log works.
 - **Quick logs:** today starts with ×2; tap the date to add and its count to remove.

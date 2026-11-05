@@ -913,7 +913,7 @@ struct TrainingWeekCard: View {
         let showsCount = count > 1 || hasQuickLog
         let removable = mm.canRemoveQuickLog(on: date)
         return ZStack {
-            Button { Task { await mm.addQuickLog(date) } } label: {
+            Button { tap(date) } label: {
                 VStack(spacing: 7) {
                     weekday
                     Text(date.formatted(.dateTime.day()))
@@ -932,14 +932,14 @@ struct TrainingWeekCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(count) training entries")
-            .accessibilityHint(future ? "Future day" : "Add a quick log")
+            .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(count) training entries\(planned ? ", planned session" : "")")
+            .accessibilityHint(planned ? "Choose a planned session or a quick log" : future ? "Future day" : "Add a quick log")
             .accessibilityActions {
                 if removable {
                     Button("Remove one quick log") { Task { await mm.removeLatestQuickLog(on: date) } }
                 }
             }
-            // Sibling controls keep badge taps from also adding a log.
+            // Sibling controls keep badge taps from also triggering the date button.
             // The hidden weekday keeps their circle aligned at larger text sizes.
             VStack(spacing: 7) {
                 weekday.hidden().accessibilityHidden(true).allowsHitTesting(false)
@@ -956,8 +956,8 @@ struct TrainingWeekCard: View {
                                 .accessibilityValue("\(count) training entries")
                                 .offset(x: 6, y: -6)
                             } else {
-                                // Consume the counter tap without changing a planned/confirmed date.
-                                Button {} label: {
+                                // A planned date always opens the chooser; confirmed-only counts stay read-only.
+                                Button { if planned { tap(date) } } label: {
                                     quickLogCountBadge(count)
                                         .frame(width: 24, height: 24).contentShape(Circle())
                                 }
@@ -969,9 +969,7 @@ struct TrainingWeekCard: View {
                     }
                     .overlay(alignment: showsCount ? .bottomTrailing : .topTrailing) {
                         if planned {
-                            Button {
-                                choice = true; selected = date
-                            } label: {
+                            Button { tap(date) } label: {
                                 MMIcon("calendar", size: 11, color: MMColor.paper)
                                     .frame(width: 18, height: 18)
                                     .background(MMColor.ink700, in: Circle())
@@ -987,7 +985,7 @@ struct TrainingWeekCard: View {
             }
             .frame(maxWidth: .infinity, minHeight: 66)
         }
-        .disabled(future || mm.busy)
+        .disabled(mm.busy || mm.trainingTap(date, isActivity: true) == .disabled)
         .modifier(TrainingPop(trigger: count))
     }
 
@@ -1003,7 +1001,7 @@ struct TrainingWeekCard: View {
     }
 
     private func tap(_ date: Date) {
-        switch mm.trainingTap(date) {
+        switch mm.trainingTap(date, isActivity: isActivity) {
         case .disabled: break
         case .choose: choice = true; selected = date
         case .entries: choice = false; selected = date
@@ -1066,6 +1064,7 @@ struct TrainingWeekCard: View {
 
     private func loggingOptions(_ date: Date) -> some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
+            let canQuickLog = mm.trainingTap(date, now: context.date) != .disabled
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(mm.openPlans(date)) { session in
                     Button {
@@ -1107,7 +1106,8 @@ struct TrainingWeekCard: View {
                     .contentShape(RoundedRectangle(cornerRadius: MMRadius.lg))
                 }
                 .buttonStyle(.plain)
-                .disabled(mm.busy)
+                .disabled(mm.busy || !canQuickLog)
+                .opacity(canQuickLog ? 1 : 0.5)
                 if trainingSaveFailed {
                     Text("Couldn't save. Nothing changed. Try again.")
                         .mmFont(.body, 13).foregroundStyle(MMColor.danger500)
