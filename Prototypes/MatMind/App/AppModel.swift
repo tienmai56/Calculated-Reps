@@ -1370,6 +1370,25 @@ extension AppModel {
         guard !isLive else { return false }
         quickLogs.removeAll { $0.id == id }; return true
     }
+    func canRemoveQuickLog(on date: Date) -> Bool {
+        trainingTap(date) != .disabled && openPlans(date).isEmpty && daySessions(date).isEmpty && !dayLogs(date).isEmpty
+    }
+    /// The strip removes one private log, never confirmed session attendance.
+    @discardableResult func removeLatestQuickLog(on date: Date) async -> Bool {
+        guard !busy, !isLive || runtime != nil, canRemoveQuickLog(on: date),
+              let log = dayLogs(date).max(by: {
+                  $0.loggedAt == $1.loggedAt ? $0.id < $1.id : $0.loggedAt < $1.loggedAt
+              }) else { return false }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
+        let saved = await deleteQuickLog(log.id)
+        guard generation == trainingGeneration else { return false }
+        guard saved else { showToast("Couldn't remove the quick log. Try again.", .danger); return false }
+        trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+        showToast("Quick log removed")
+        return true
+    }
     @discardableResult func markTrainingDone(_ session: Session) async -> Bool {
         guard !busy, !isLive || runtime != nil, canMarkTrainingDone(session),
               let current = findSession(session.id) else { return false }

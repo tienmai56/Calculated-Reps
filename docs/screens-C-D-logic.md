@@ -14,10 +14,10 @@ Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular str
 ## C: A quick log
 
 1. Save one owner-private log with its date, timestamp and timezone. Disable repeated actions until the request finishes.
-2. On success, dismiss the chooser and stay on Activity. The day and Profile rhythm update; multiple entries change ×N without increasing the trained-day count.
+2. Tapping any non-future Activity date saves directly, including an already filled date. Do not open the day-entries / Log another session popup. On success, stay on Activity (or dismiss the chooser if its optional quick-log row was used). The day and Profile rhythm update; multiple entries change ×N without increasing the trained-day count.
 3. Show **Training logged** with an **Undo** action. No photo, composer, post, session completion or friendship credit is created.
-4. Keep the hosted/joined plan open in Coming up, including after its start time. Tapping its day again opens the chooser with **Already logged today**. Once the plan is closed, the day opens its entries instead.
-5. Undo removes only the new log. After the toast expires, removing that log requires confirmation. Other logs or attendance still keep the day filled.
+4. Keep the hosted/joined plan open in Coming up, including after its start time. Date taps keep adding logs. The separate calendar badge opens the chooser with **Already logged today**. A calendar icon below the week explains **You have a planned session** when a plan exists.
+5. Undo removes only the new log. On quick-log-only dates, tapping the count badge immediately removes the latest log and decrements ×N, without confirmation; removing the last log clears the day. Dates with an open plan or confirmed attendance ignore removal taps. Never change session attendance or posts. The older-week entries sheet retains its confirmation flow.
 6. A failed save changes no local training state and does not dismiss the chooser. Show a retry message. A result received after account clearing must not create feedback or Undo in the new account.
 
 ## D: The planned session

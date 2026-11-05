@@ -2155,7 +2155,7 @@ final class MonkeyTests: XCTestCase {
 }
 
 final class TrainingCalendarTests: XCTestCase {
-    @MainActor func testTapPriorityAndCountsDaysNotEntries() {
+    @MainActor func testDaySheetClassificationAndCountsDaysNotEntries() {
         let ui = AppModel(live: true)
         let day = TrainingCalendar.calendar.startOfDay(for: Date())
         let key = TrainingCalendar.key(day)
@@ -2167,7 +2167,7 @@ final class TrainingCalendarTests: XCTestCase {
         let plan = Session(id: "p", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
                            people: [Attendee(id: "me", status: .going)], startsAt: day)
         ui.upcoming = [plan]
-        XCTAssertEqual(ui.trainingTap(day), .choose, "An open plan wins even when the day is filled")
+        XCTAssertEqual(ui.trainingTap(day), .choose, "The calendar/history chooser keeps the open plan available")
         ui.quickLogs = []
         XCTAssertEqual(ui.entryCount(day), 0, "Scheduled plans never count")
         let future = TrainingCalendar.calendar.date(byAdding: .day, value: 1, to: day)!
@@ -2305,7 +2305,7 @@ extension TrainingCalendarTests {
         let logged = await ui.addQuickLog(day)
         XCTAssertTrue(logged)
         XCTAssertEqual(ui.entryCount(day), 1)
-        XCTAssertEqual(ui.trainingTap(day), .choose, "The open plan takes precedence after a separate quick log")
+        XCTAssertEqual(ui.trainingTap(day), .choose, "The calendar action still offers the open plan after a separate quick log")
         XCTAssertEqual(ui.upcoming.first, plan)
     }
 
@@ -2409,5 +2409,85 @@ extension TrainingCalendarTests {
         await ui.markTrainingDone(plan)
         XCTAssertTrue(ui.activityPlans().isEmpty)
         XCTAssertEqual(ui.trainingTap(Date()), .entries)
+    }
+}
+
+extension TrainingCalendarTests {
+    @MainActor func testStripAddsToConfirmedDayWithoutAllowingUntap() async {
+        let ui = AppModel(live: false)
+        let day = Date()
+        let session = Session(id: "confirmed", title: "Night training", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                              people: [Attendee(id: "me", status: .going, attended: true)], startsAt: day.addingTimeInterval(-60))
+        ui.upcoming = []; ui.completedSessions = [session]; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = []; ui.posts = []
+        XCTAssertNotNil(ui.publish(session.id, photo: nil, caption: "Good rolls", people: ["me"]))
+        await ui.addQuickLog(day)
+        await ui.addQuickLog(day)
+        XCTAssertEqual(ui.entryCount(day), 3)
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 1)
+        XCTAssertFalse(ui.canRemoveQuickLog(on: day))
+        let removed = await ui.removeLatestQuickLog(on: day)
+        XCTAssertFalse(removed, "A planned-session date is protected even when it also has quick logs")
+        XCTAssertEqual(ui.entryCount(day), 3)
+        XCTAssertEqual(ui.dayLogs(day).count, 2)
+        XCTAssertEqual(ui.daySessions(day).map(\.id), [session.id])
+        XCTAssertEqual(ui.posts.count, 1)
+        XCTAssertTrue(ui.sharedSessionIDs.contains(session.id))
+        XCTAssertTrue(ui.path.isEmpty)
+    }
+
+    @MainActor func testStripRemovalDoesNothingOnPlannedDate() async {
+        let ui = AppModel(live: false)
+        let day = Date()
+        let session = Session(id: "planned", title: "Planned rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                              people: [Attendee(id: "me", status: .going)], startsAt: day.addingTimeInterval(-60))
+        let log = QuickLog(id: "private-log", loggedOn: TrainingCalendar.key(day), loggedAt: day, timezone: TimeZone.current.identifier)
+        ui.upcoming = [session]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = [log]
+        XCTAssertFalse(ui.canRemoveQuickLog(on: day))
+        let removed = await ui.removeLatestQuickLog(on: day)
+        XCTAssertFalse(removed)
+        XCTAssertEqual(ui.quickLogs, [log])
+        XCTAssertEqual(ui.upcoming.first, session)
+        XCTAssertEqual(ui.entryCount(day), 1)
+    }
+
+    @MainActor func testStripRemovesNewestLogAndClearsOnlyAnEmptyDay() async {
+        let ui = AppModel(live: false)
+        let day = Date(), key = TrainingCalendar.key(Date())
+        let earlier = QuickLog(id: "earlier", loggedOn: key, loggedAt: day.addingTimeInterval(-1), timezone: TimeZone.current.identifier)
+        let latest = QuickLog(id: "latest", loggedOn: key, loggedAt: day, timezone: TimeZone.current.identifier)
+        ui.upcoming = []; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = [earlier, latest]
+        await ui.removeLatestQuickLog(on: day)
+        XCTAssertEqual(ui.quickLogs, [earlier])
+        XCTAssertEqual(ui.entryCount(day), 1)
+        await ui.removeLatestQuickLog(on: day)
+        XCTAssertEqual(ui.entryCount(day), 0)
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 0)
+    }
+
+    @MainActor func testFailedStripRemovalPreservesCounterAndBlocksDuplicateTaps() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        let day = Date()
+        let log = QuickLog(id: "log", loggedOn: TrainingCalendar.key(day), loggedAt: day, timezone: TimeZone.current.identifier)
+        ui.quickLogs = [log]
+        let started = expectation(description: "Removal started")
+        var resume: CheckedContinuation<Bool, Never>?
+        var requests = 0
+        runtime.command = { operation, _ in
+            XCTAssertEqual(operation, "delete_quick_log")
+            requests += 1; started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let first = Task { await ui.removeLatestQuickLog(on: day) }
+        await fulfillment(of: [started], timeout: 1)
+        let duplicate = await ui.removeLatestQuickLog(on: day)
+        XCTAssertFalse(duplicate)
+        XCTAssertEqual(requests, 1)
+        resume?.resume(returning: false)
+        let removed = await first.value
+        XCTAssertFalse(removed)
+        XCTAssertEqual(ui.quickLogs, [log])
+        XCTAssertEqual(ui.entryCount(day), 1)
+        XCTAssertFalse(ui.savingTraining)
     }
 }

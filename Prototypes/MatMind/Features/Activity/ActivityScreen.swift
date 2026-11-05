@@ -789,11 +789,14 @@ struct TrainingWeekCard: View {
             } else {
                 HStack(spacing: 4) { ForEach(days, id: \.self) { day in tile(day) } }
             }
-            if !isActivity {
-                HStack(spacing: 4) {
-                    MMIcon("calendar", size: 12, color: MMColor.textTertiary)
-                    Text("Planned session").mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
+            if !isActivity || days.contains(where: { !mm.openPlans($0).isEmpty }) {
+                HStack(spacing: MMSpace.s2) {
+                    MMIcon("calendar", size: 12, color: isActivity ? MMColor.ink300 : MMColor.textTertiary)
+                    Text(isActivity ? "You have a planned session" : "Planned session")
+                        .mmFont(.body, 12)
+                        .foregroundStyle(isActivity ? MMColor.ink300 : MMColor.textTertiary)
                 }
+                .padding(.horizontal, isActivity ? MMSpace.s2 : 0)
             }
         }
         .padding(EdgeInsets(top: isActivity ? 16 : 12, leading: isActivity ? 14 : 12, bottom: 12, trailing: isActivity ? 14 : 12))
@@ -827,7 +830,7 @@ struct TrainingWeekCard: View {
                         .contentTransition(.numericText())
                         .accessibilityLabel("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained this week")
                 }
-                Text("Tap a day to quickly log your training.")
+                Text("Tap a day to add a log; tap its count to remove one.")
                     .mmFont(.body, 13, .medium, lineHeight: 1.3)
                     .foregroundStyle(MMColor.ink200)
                     .fixedSize(horizontal: false, vertical: true)
@@ -862,15 +865,16 @@ struct TrainingWeekCard: View {
         }
     }
 
+    @ViewBuilder
     private func tile(_ date: Date) -> some View {
         let count = mm.entryCount(date), planTitles = mm.openPlans(date).map(\.title)
         let planned = !planTitles.isEmpty
         let today = TrainingCalendar.calendar.isDateInToday(date)
         let future = TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: Date())
-        return Button { tap(date) } label: {
-            if isActivity {
-                activityTile(date, count: count, planned: planned, today: today, future: future)
-            } else {
+        if isActivity {
+            activityTile(date, count: count, planned: planned, today: today, future: future)
+        } else {
+            Button { tap(date) } label: {
                 VStack(spacing: MMSpace.s2) {
                     Text(date.formatted(.dateTime.weekday(.narrow)))
                         .mmFont(.body, 11, .semibold)
@@ -893,52 +897,108 @@ struct TrainingWeekCard: View {
                         RoundedRectangle(cornerRadius: MMRadius.md).strokeBorder(today && count == 0 ? MMColor.accent : future ? MMColor.borderDefault : .clear,
                             style: StrokeStyle(lineWidth: today ? 2 : 1, dash: future && planned ? [3, 3] : []))
                     }.modifier(TrainingPop(trigger: count))
-            }
-        }.buttonStyle(.plain).disabled(future || mm.busy)
-        .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(count > 0 ? "trained, \(count) entries" : "no entry")\(planned ? ", " + planTitles.joined(separator: ", ") + " planned" : ""), \(future ? "future day" : "tap to log training")")
+            }.buttonStyle(.plain).disabled(future || mm.busy)
+            .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(count > 0 ? "trained, \(count) entries" : "no entry")\(planned ? ", " + planTitles.joined(separator: ", ") + " planned" : ""), \(future ? "future day" : "tap to log training")")
+        }
     }
 
     private func activityTile(_ date: Date, count: Int, planned: Bool, today: Bool, future: Bool) -> some View {
-        VStack(spacing: 7) {
-            Text(date.formatted(.dateTime.weekday(.narrow)))
-                .mmFont(.body, 11, .semibold, lineHeight: 1)
-                .foregroundStyle(today ? MMColor.coral300 : future ? MMColor.ink400 : MMColor.ink300)
-            Text(date.formatted(.dateTime.day()))
-                .mmFont(.display, 16, lineHeight: 1)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .foregroundStyle(count > 0 ? MMColor.white : future ? MMColor.ink400 : MMColor.paper)
-                .frame(width: 40, height: 40)
-                .background(count > 0 ? MMColor.coral500 : future ? .clear : MMColor.paper.opacity(0.10), in: Circle())
-                .overlay {
-                    Circle().strokeBorder(today ? MMColor.coral500 : future ? MMColor.paper.opacity(planned ? 0.50 : 0.14) : .clear,
-                                          style: StrokeStyle(lineWidth: today ? 2 : 1.5, dash: future && planned ? [3, 3] : []))
+        let weekday = Text(date.formatted(.dateTime.weekday(.narrow)))
+            .mmFont(.body, 11, .semibold, lineHeight: 1)
+            .foregroundStyle(today ? MMColor.coral300 : future ? MMColor.ink400 : MMColor.ink300)
+        let hasQuickLog = !mm.dayLogs(date).isEmpty
+        let showsCount = count > 1 || hasQuickLog
+        let removable = mm.canRemoveQuickLog(on: date)
+        return ZStack {
+            Button { Task { await mm.addQuickLog(date) } } label: {
+                VStack(spacing: 7) {
+                    weekday
+                    Text(date.formatted(.dateTime.day()))
+                        .mmFont(.display, 16, lineHeight: 1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .foregroundStyle(count > 0 ? MMColor.white : future ? MMColor.ink400 : MMColor.paper)
+                        .frame(width: 40, height: 40)
+                        .background(count > 0 ? MMColor.coral500 : future ? .clear : MMColor.paper.opacity(0.10), in: Circle())
+                        .overlay {
+                            Circle().strokeBorder(today ? MMColor.coral500 : future ? MMColor.paper.opacity(planned ? 0.50 : 0.14) : .clear,
+                                                  style: StrokeStyle(lineWidth: today ? 2 : 1.5, dash: future && planned ? [3, 3] : []))
+                        }
                 }
-                .overlay(alignment: .topTrailing) {
-                    if count > 1 || planned {
-                        Group {
-                            if count > 1 {
-                                Text("×\(count)").mmFont(.body, 9, .bold, lineHeight: 1)
-                                    .foregroundStyle(MMColor.ink900)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity, minHeight: 66)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(count) training entries")
+            .accessibilityHint(future ? "Future day" : "Add a quick log")
+            .accessibilityActions {
+                if removable {
+                    Button("Remove one quick log") { Task { await mm.removeLatestQuickLog(on: date) } }
+                }
+            }
+            // Sibling controls keep badge taps from also adding a log.
+            // The hidden weekday keeps their circle aligned at larger text sizes.
+            VStack(spacing: 7) {
+                weekday.hidden().accessibilityHidden(true).allowsHitTesting(false)
+                Color.clear.frame(width: 40, height: 40).allowsHitTesting(false)
+                    .overlay(alignment: .topTrailing) {
+                        if showsCount {
+                            if removable {
+                                Button { Task { await mm.removeLatestQuickLog(on: date) } } label: {
+                                    quickLogCountBadge(count)
+                                        .frame(width: 24, height: 24).contentShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remove one quick log from \(date.formatted(.dateTime.month(.wide).day()))")
+                                .accessibilityValue("\(count) training entries")
+                                .offset(x: 6, y: -6)
                             } else {
-                                MMIcon("calendar", size: 11, color: MMColor.paper)
+                                // Consume the counter tap without changing a planned/confirmed date.
+                                Button {} label: {
+                                    quickLogCountBadge(count)
+                                        .frame(width: 24, height: 24).contentShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                                .offset(x: 6, y: -6)
+                                .accessibilityHidden(true)
                             }
                         }
-                        .frame(width: 18, height: 18)
-                        .background(count > 1 ? MMColor.paper : MMColor.ink700, in: Circle())
-                        .background { Circle().fill(MMColor.ink900).padding(-2) }
-                        .offset(x: 3, y: -3)
-                        .accessibilityHidden(true)
-                        .allowsHitTesting(false)
                     }
-                }
+                    .overlay(alignment: showsCount ? .bottomTrailing : .topTrailing) {
+                        if planned {
+                            Button {
+                                choice = true; selected = date
+                            } label: {
+                                MMIcon("calendar", size: 11, color: MMColor.paper)
+                                    .frame(width: 18, height: 18)
+                                    .background(MMColor.ink700, in: Circle())
+                                    .background { Circle().fill(MMColor.ink900).padding(-2) }
+                                    .frame(width: 24, height: 24).contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Planned session on \(date.formatted(.dateTime.month(.wide).day()))")
+                            .accessibilityHint("Choose a planned session or a quick log")
+                            .offset(x: 6, y: showsCount ? 6 : -6)
+                        }
+                    }
+            }
+            .frame(maxWidth: .infinity, minHeight: 66)
         }
-        .frame(maxWidth: .infinity, minHeight: 66)
-        .contentShape(Rectangle())
+        .disabled(future || mm.busy)
         .modifier(TrainingPop(trigger: count))
     }
+
+    private func quickLogCountBadge(_ count: Int) -> some View {
+        Text("×\(count)")
+            .mmFont(.body, 9, .bold, lineHeight: 1)
+            .foregroundStyle(MMColor.ink900)
+            .lineLimit(1).minimumScaleFactor(0.5)
+            .contentTransition(.numericText())
+            .frame(width: 18, height: 18)
+            .background(MMColor.paper, in: Circle())
+            .background { Circle().fill(MMColor.ink900).padding(-2) }
+    }
+
     private func tap(_ date: Date) {
         switch mm.trainingTap(date) {
         case .disabled: break
