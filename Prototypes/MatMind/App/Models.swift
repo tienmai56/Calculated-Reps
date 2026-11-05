@@ -108,7 +108,6 @@ struct Attendee: Hashable {
 
 enum TrainingCompletionStatus: String {
     case completed = "Completed"
-    case shared = "Completed & shared"
 }
 
 struct Session: Identifiable, Hashable {

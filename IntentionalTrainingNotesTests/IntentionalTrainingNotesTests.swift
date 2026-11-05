@@ -2197,7 +2197,7 @@ final class TrainingCalendarTests: XCTestCase {
         XCTAssertTrue(marked)
         XCTAssertTrue(ui.posts.isEmpty)
         XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Attendance logged without a photo removes the card CTA")
-        XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Private attendance must not claim the session was shared")
+        XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Attendance without a photo shows Completed")
         await ui.undoTrainingToast(try XCTUnwrap(ui.toast?.id))
         XCTAssertTrue(ui.canCompleteTraining(session, now: now), "Undo makes the unlogged session actionable again")
         XCTAssertNil(ui.trainingCompletionStatus(session))
@@ -2218,11 +2218,11 @@ final class TrainingCalendarTests: XCTestCase {
             XCTAssertTrue(ui.canCompleteTraining(session, now: now))
             XCTAssertNotNil(ui.publish(session.id, photo: photo, caption: photo == nil ? "Good rounds" : "", people: session.going))
             XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Photo and note-only posts both remove the CTA")
-            XCTAssertEqual(ui.trainingCompletionStatus(session), .shared, "Photo and note-only posts both show Completed & shared")
+            XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Photo and note-only posts both show Completed")
             ui.completedSessions = []; ui.upcoming = [session]
             XCTAssertFalse(ui.canCompleteTraining(session, now: now), "A published session stays logged even when completion history is not loaded")
             ui.posts = []
-            XCTAssertEqual(ui.trainingCompletionStatus(session), .shared, "Shared status survives feed pagination or post removal")
+            XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Completed status survives feed pagination or post removal")
         }
     }
 
@@ -2560,13 +2560,13 @@ extension TrainingCalendarTests {
         XCTAssertFalse(mock.canCompleteTraining(completed))
         XCTAssertEqual(mock.trainingCompletionStatus(completed), .completed)
         XCTAssertFalse(mock.canCompleteTraining(shared))
-        XCTAssertEqual(mock.trainingCompletionStatus(shared), .shared)
+        XCTAssertEqual(mock.trainingCompletionStatus(shared), .completed)
         XCTAssertEqual(post.title, shared.title)
         XCTAssertEqual(post.occurredAt, shared.startsAt)
         XCTAssertEqual(post.participants, shared.going)
         mock.sharedSessionIDs = []
         mock.loadQuickLogMock(.hostPlan)
-        XCTAssertEqual(mock.trainingCompletionStatus(shared), .shared, "Reset restores the seeded shared session and its post")
+        XCTAssertEqual(mock.trainingCompletionStatus(shared), .completed, "Reset restores the completed state for a shared session")
         XCTAssertEqual(mock.posts.filter { $0.id == "mock-shared-post" }.count, 1)
     }
 

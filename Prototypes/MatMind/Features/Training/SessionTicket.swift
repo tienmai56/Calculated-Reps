@@ -127,11 +127,11 @@ struct SessionTicket: View {
     @ViewBuilder
     private var completionAccessory: some View {
         if let completionStatus {
-            MMBadge(completionStatus.rawValue, variant: completionStatus == .shared ? .success : .neutral)
+            MMBadge(completionStatus.rawValue, variant: .success)
                 .fixedSize()
         } else if let onComplete {
             Button(action: onComplete) {
-                Text("Complete & share")
+                Text("Complete & Share")
                     .mmFont(.display, 12, .bold, tracking: -0.01, lineHeight: 1)
             }
             .buttonStyle(MMButtonStyle(variant: .primary, size: .sm, fullWidth: false))

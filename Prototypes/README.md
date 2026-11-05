@@ -40,11 +40,12 @@ creates only a local post; Undo and attendance correction are simulated in memor
 Reset restores the selected state. The normal **MatMindPrototype** scheme retains
 its welcome flow, and the production app’s scheme/backend settings are unchanged.
 
-In **Training → Past**, unlogged sessions you host have a **Complete & share**
+In **Training → Past**, unlogged sessions you host have a **Complete & Share**
 button in place of **You host**, opening that session’s composer. Sessions already
 marked done or published with a photo or note have no completion button in the
-list: they show **Completed** or **Completed & shared** in place of **You host**.
-The Host plan mock includes all three states. The compact button is right-aligned
+list: they all show **Completed** in place of **You host**, whether logged with
+a photo or without one. The Host plan mock includes both private and published
+completed sessions alongside the unlogged plan. The compact button is right-aligned
 beside the avatars when it fits; ticket
 cards show avatars without a going-count label. Training has no standalone share
 prompter.

@@ -335,9 +335,9 @@ final class AppModel {
     func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
 
     func trainingCompletionStatus(_ session: Session) -> TrainingCompletionStatus? {
-        if sharedSessionIDs.contains(session.id) { return .shared }
         let current = findSession(session.id) ?? session
-        if isCompleted(current) || current.people.contains(where: { $0.id == "me" && $0.attended }) { return .completed }
+        if sharedSessionIDs.contains(current.id) || isCompleted(current)
+            || current.people.contains(where: { $0.id == "me" && $0.attended }) { return .completed }
         return nil
     }
 
