@@ -361,6 +361,11 @@ struct MatGoal: Identifiable, Hashable, Codable {
 
     /// Every photo file the goal owns, its own and its parts'.
     var allPhotos: [String] { photos + parts.flatMap(\.photos) }
+
+    var hasReferenceContent: Bool {
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !links.isEmpty || !photos.isEmpty || parts.contains { !$0.isBlank }
+    }
 }
 
 extension MatGoal {

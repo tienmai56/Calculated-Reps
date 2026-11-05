@@ -6,6 +6,18 @@ struct TrainingFocus: Identifiable, Hashable, Codable {
     var id = UUID()
     var title = ""
     var children: [TrainingFocus] = []
+    /// Reference only: private goal notes are never copied into a session or post.
+    var goalID: String? = nil
+
+    func linkedGoal(in goals: [MatGoal]) -> MatGoal? {
+        if let goalID { return goals.first { $0.id == goalID } }
+        // Older sessions stored only the name. Avoid guessing between duplicate names.
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matches = goals.filter {
+            $0.title.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(name) == .orderedSame
+        }
+        return matches.count == 1 ? matches[0] : nil
+    }
 }
 
 enum TrainingFocusTree {

@@ -520,6 +520,38 @@ struct SharedGoalScreen: View {
     }
 }
 
+/// Read-only references for a goal picked in a session, including part-only goals.
+struct GoalReferenceContent: View {
+    let goal: MatGoal
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if !goal.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(goal.notes)
+                    .mmFont(.body, 14, lineHeight: 1.45)
+                    .foregroundStyle(MMColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+            ForEach(goal.parts.filter { !$0.isBlank }) { part in
+                SharedGoalPartCard(part: localPart(part))
+            }
+            ForEach(Array(goal.links.enumerated()), id: \.offset) { _, link in
+                SharedLinkRow(link: link, divider: false)
+            }
+            if !goal.photos.isEmpty {
+                SharedPhotoStrip(photos: goal.photos.map(MatGoal.photoSource), size: 72)
+            }
+        }
+    }
+
+    private func localPart(_ part: GoalPart) -> GoalPart {
+        var part = part
+        part.photos = part.photos.map(MatGoal.photoSource)
+        return part
+    }
+}
+
 /// One part of a shared goal: name, notes, the video and photos. Nothing to edit.
 private struct SharedGoalPartCard: View {
     let part: GoalPart
