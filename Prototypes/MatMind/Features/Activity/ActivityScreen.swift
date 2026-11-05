@@ -713,51 +713,51 @@ private struct CommentRow: View {
         return mm.canDelete(comment, on: postID)
     }
 
+    private func authorLine(for person: Person) -> [MMRun] {
+        var name = MMRun.person(person, 13, .bold)
+        name.monkeySize = 16
+        var runs = [name]
+        if let createdAt = comment.createdAt {
+            let time = createdAt.formatted(.relative(presentation: .numeric, unitsStyle: .narrow))
+            runs.append(.body(" · \(time)", 12, color: MMColor.textTertiary))
+        }
+        return runs
+    }
+
     var body: some View {
         let p = mm.person(comment.who)
         HStack(alignment: .top, spacing: MMSpace.s4) {
             PersonProfileButton(person: p) {
                 MMAvatar(name: p.name, photo: p.photo, size: 34)
+                    .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
             }
-            VStack(alignment: .leading, spacing: MMSpace.s4) {
-                HStack(spacing: MMSpace.s4) {
-                    PersonProfileButton(person: p) {
-                        Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
-                            .mmMonkey(p.monkey, size: 16)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if reportable || deletable {
-                        Menu {
-                            if deletable {
-                                Button(role: .destructive) { confirmingDelete = true } label: { Label("Delete comment", image: "trash-2") }
-                            }
-                            if reportable {
-                                Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
-                            }
-                        } label: {
-                            MMIcon("ellipsis", size: 18, color: MMColor.ink500)
-                                .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
-                                .contentShape(Rectangle())
-                        }
-                        .accessibilityLabel("Comment options")
-                    }
-                }
+            // Inline profile links keep the author at text height. The avatar
+            // retains a separate 44pt target without stretching the header.
+            VStack(alignment: .leading, spacing: MMSpace.s1) {
+                PersonText(authorLine(for: p))
+                    .mmFont(.body, 13, .bold, lineHeight: 1.3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityValue(comment.createdAt?.formatted(date: .abbreviated, time: .shortened) ?? "")
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if let createdAt = comment.createdAt {
-                    Text(createdAt.formatted(date: .abbreviated, time: .shortened))
-                        .mmFont(.body, 11, lineHeight: 1.3)
-                        .foregroundStyle(MMColor.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, MMSpace.s6)
-            .padding(.vertical, MMSpace.s5)
-            .background {
-                let shape = UnevenRoundedRectangle(topLeadingRadius: MMRadius.xs, bottomLeadingRadius: MMRadius.lg, bottomTrailingRadius: MMRadius.lg, topTrailingRadius: MMRadius.lg, style: .continuous)
-                shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
+            .padding(.top, MMSpace.s2)
+            if reportable || deletable {
+                Menu {
+                    if deletable {
+                        Button(role: .destructive) { confirmingDelete = true } label: { Label("Delete comment", image: "trash-2") }
+                    }
+                    if reportable {
+                        Button(role: .destructive) { reporting = true } label: { Label("Report comment", image: "triangle-alert") }
+                    }
+                } label: {
+                    MMIcon("ellipsis", size: 18, color: MMColor.ink500)
+                        .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Comment options")
             }
         }
         .opacity(comment.fresh && !shown ? 0 : 1)
