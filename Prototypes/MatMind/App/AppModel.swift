@@ -332,6 +332,15 @@ final class AppModel {
 
     func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
 
+    /// The Training card action applies only to hosted past sessions with no attendance log or post.
+    func canCompleteTraining(_ session: Session, now: Date = Date()) -> Bool {
+        guard let current = findSession(session.id), current.organizer == "me",
+              current.status(of: "me") == .going, !isCompleted(current),
+              !sharedSessionIDs.contains(current.id),
+              !current.people.contains(where: { $0.id == "me" && $0.attended }) else { return false }
+        return trainingSessions(past: true, relativeTo: now).contains { $0.id == current.id }
+    }
+
     /// Personal open plans remain in Activity until attendance is confirmed, including after their start.
     func activityPlans(at _: Date = Date()) -> [Session] {
         (upcoming + discoverableSessions)
@@ -1346,11 +1355,6 @@ extension AppModel {
         if future && !(isActivity && planned) { return .disabled }
         if planned { return .choose }
         return isActivity || entryCount(date) == 0 ? .quickLog : .entries
-    }
-    var trainingPrompt: Session? {
-        completedSessions.filter { $0.organizer == "me" }
-            .filter { !sharedSessionIDs.contains($0.id) }
-            .sorted { startDate(of: $0) > startDate(of: $1) }.first
     }
     func canMarkTrainingDone(_ session: Session, now: Date = Date()) -> Bool {
         guard let current = findSession(session.id), let start = current.startsAt else { return false }

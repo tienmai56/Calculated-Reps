@@ -7,7 +7,7 @@ Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular str
 ## Screen files
 
 - `Prototypes/MatMind/Features/Activity/ActivityScreen.swift`: week strip, chooser, successful-save dismissal and session navigation, retry message, disabled unstarted plans, later log removal.
-- `Prototypes/MatMind/Features/Training/TrainingScreen.swift`: existing session detail page; host publishing action and guest sharing explanation.
+- `Prototypes/MatMind/Features/Training/TrainingScreen.swift`: Training lists with completion actions on eligible past tickets; existing session detail page, host publishing action and guest sharing explanation.
 - `Prototypes/MatMind/Features/Profile/ProfileScreen.swift`: personal Progress tab, using the shared rhythm component in ActivityScreen.
 - `Prototypes/MatMind/App/AppModel.swift`: quick logs, attendance confirmation, save serialization, account-generation checks and Undo.
 - `Prototypes/MatMind/App/AppShell.swift`: app-wide toast and conditional Undo action, including on session details.
@@ -30,6 +30,7 @@ Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular str
 4. The host sees **Complete & share**. An attended guest sees **{Host} can share a photo from this session.** Guests cannot publish through either UI or API.
 5. Completion Undo restores only that action's changes and merged logs. Hide it once a post exists; the server also rejects Undo after publication or an intervening session edit/removal.
 6. A failed completion keeps the chooser open, with unchanged attendance and no navigation or success toast. Repeat actions are blocked while saving.
+7. Training has no standalone share prompter. In Past, an unlogged session you host replaces **You host** with **Complete & share**, opening the existing composer for that session. Hide this card action for guests, future sessions, confirmed attendance without a post, and published sessions with or without a photo. A separate date-only quick log leaves the plan open and does not suppress its completion action.
 
 ## Existing backend implementation
 

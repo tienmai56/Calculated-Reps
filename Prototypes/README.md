@@ -39,6 +39,11 @@ creates only a local post; Undo and attendance correction are simulated in memor
 Reset restores the selected state. The normal **MatMindPrototype** scheme retains
 its welcome flow, and the production app’s scheme/backend settings are unchanged.
 
+In **Training → Past**, unlogged sessions you host have a **Complete & share**
+button in place of **You host**, opening that session’s composer. Sessions already
+marked done or published with a photo or note have no completion button in the
+list. Training has no standalone share prompter.
+
 ## Empty states
 
 The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity shows upcoming link-visible plans as well as completed memories: an empty schedule alone never clears existing posts.

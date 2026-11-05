@@ -19,6 +19,8 @@ struct SessionTicket: View {
     var notchColor: Color = MMColor.bgApp
     /// Leaves room at the top right for an overlaid options ("…") button.
     var reservesMenuSpace = false
+    /// Training can replace the host label with a session-specific completion action.
+    var onComplete: (() -> Void)? = nil
     var onTap: (() -> Void)?
 
     var body: some View {
@@ -75,12 +77,30 @@ struct SessionTicket: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
-                HStack {
-                    MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
-                    Spacer(minLength: 4)
-                    PersonProfileButton(person: organizer) {
-                        Text(session.organizer == "me" ? "You host" : "by \(organizer.firstName)")
-                            .mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                Group {
+                    if let onComplete {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: MMSpace.s4) {
+                                MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
+                                    .fixedSize()
+                                Spacer(minLength: MMSpace.s2)
+                                completionButton(onComplete)
+                            }
+                            VStack(alignment: .trailing, spacing: MMSpace.s4) {
+                                MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                completionButton(onComplete)
+                            }
+                        }
+                    } else {
+                        HStack {
+                            MMAvatarStack(people: going, size: 28, ring: .white, label: "\(going.count) going")
+                            Spacer(minLength: 4)
+                            PersonProfileButton(person: organizer) {
+                                Text(session.organizer == "me" ? "You host" : "by \(organizer.firstName)")
+                                    .mmFont(.body, 12, .semibold, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                            }
+                        }
                     }
                 }
                 .padding(.top, 4)
@@ -99,5 +119,12 @@ struct SessionTicket: View {
             Circle().fill(notchColor).frame(width: 18, height: 18).offset(x: stubWidth - 8, y: 9)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private func completionButton(_ action: @escaping () -> Void) -> some View {
+        MMButton("Complete & share", size: .sm, action: action)
+            .fixedSize(horizontal: true, vertical: false)
+            .disabled(mm.busy)
+            .accessibilityLabel("Complete and share \(session.title)")
     }
 }

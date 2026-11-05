@@ -2182,6 +2182,43 @@ final class TrainingCalendarTests: XCTestCase {
         ui.upcoming = []
         XCTAssertEqual(ui.trainingTap(future, isActivity: true), .disabled, "Future dates without a plan stay disabled")
     }
+    @MainActor func testTrainingCompletionCTAExcludesFutureGuestAndAlreadyLoggedSessions() async throws {
+        let ui = AppModel(live: false), now = Date()
+        let session = Session(id: "needs-log", title: "Past rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                              people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: now.addingTimeInterval(-60))
+        ui.upcoming = [session]; ui.completedSessions = []; ui.drafts = []; ui.toComplete = nil
+        ui.quickLogs = []; ui.sharedSessionIDs = []; ui.posts = []
+        XCTAssertTrue(ui.canCompleteTraining(session, now: now))
+
+        await ui.addQuickLog(now)
+        XCTAssertTrue(ui.canCompleteTraining(session, now: now), "A separate date-only quick log does not complete the plan")
+        let marked = await ui.markTrainingDone(session)
+        XCTAssertTrue(marked)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Attendance logged without a photo removes the card CTA")
+        await ui.undoTrainingToast(try XCTUnwrap(ui.toast?.id))
+        XCTAssertTrue(ui.canCompleteTraining(session, now: now), "Undo makes the unlogged session actionable again")
+
+        ui.upcoming[0].startsAt = now.addingTimeInterval(60)
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Use the current schedule after an edit, even with a stale card")
+        ui.upcoming = [session]
+        ui.upcoming[0].organizer = "kenji"
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Guests cannot share a host's session")
+        ui.upcoming = [session]
+        ui.upcoming[0].people[0].attended = true
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "A logged participant does not need another completion")
+
+        let photos: [String?] = [nil, "sample-photo"]
+        for photo in photos {
+            ui.upcoming = [session]; ui.completedSessions = []; ui.sharedSessionIDs = []; ui.posts = []
+            XCTAssertTrue(ui.canCompleteTraining(session, now: now))
+            XCTAssertNotNil(ui.publish(session.id, photo: photo, caption: photo == nil ? "Good rounds" : "", people: session.going))
+            XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Photo and note-only posts both remove the CTA")
+            ui.completedSessions = []; ui.upcoming = [session]
+            XCTAssertFalse(ui.canCompleteTraining(session, now: now), "A published session stays logged even when completion history is not loaded")
+        }
+    }
+
     func testMergeWindowIncludesExactlyThreeHoursAndRequiresSameLocalDay() {
         let day = TrainingCalendar.calendar.startOfDay(for: Date())
         let start = day.addingTimeInterval(12 * 3600)
@@ -2252,7 +2289,7 @@ extension TrainingCalendarTests {
         runtime.sync()
         let start = try XCTUnwrap(ui.findSession("older")?.startsAt)
         XCTAssertEqual(ui.entryCount(start), 1, "History must not depend on the schedule's 100-session page")
-        XCTAssertNil(ui.trainingPrompt, "Previously shared sessions must not reappear after feed pagination or post deletion")
+        XCTAssertFalse(ui.canCompleteTraining(try XCTUnwrap(ui.findSession("older"))), "Previously shared sessions must not get a completion CTA after feed pagination or post deletion")
         ui.clearLiveData()
         XCTAssertTrue(ui.calendarSessions.isEmpty)
         XCTAssertTrue(ui.quickLogs.isEmpty)
@@ -2263,10 +2300,11 @@ extension TrainingCalendarTests {
 
 #if DEBUG
 extension TrainingCalendarTests {
-    @MainActor func testPreviewIncludesCompletedUnsharedPlanAndQuickLogs() {
+    @MainActor func testPreviewIncludesCompletedUnsharedPlanAndQuickLogs() throws {
         let ui = AppModel.uiReviewPreview()
         XCTAssertFalse(ui.quickLogs.isEmpty)
-        XCTAssertNotNil(ui.trainingPrompt, "Reset must preserve the completed preview plan for board E")
+        let completed = try XCTUnwrap(ui.completedSessions.first)
+        XCTAssertFalse(ui.canCompleteTraining(completed), "A session already logged without a photo must not get a completion CTA")
         XCTAssertFalse(ui.openPlans(Date()).isEmpty, "Today must offer the planned-session chooser")
     }
 }

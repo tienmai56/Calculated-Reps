@@ -64,11 +64,6 @@ struct TrainingScreen: View {
         } content: {
             MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
                 .padding(MMSpace.s6)
-            if let session = mm.trainingPrompt {
-                TrainingCatchUp(session: session)
-                    .padding(.horizontal, MMSpace.s6)
-                    .padding(.bottom, MMSpace.s6)
-            }
             if !past && !mm.pendingTrainingInvitations.isEmpty {
                 MMEyebrow("Invites", topPadding: 8)
                 VStack(spacing: 16) {
@@ -78,7 +73,7 @@ struct TrainingScreen: View {
                 }
                 .padding(.horizontal, 16)
             }
-            if list.isEmpty && mm.trainingPrompt == nil && (past || mm.pendingTrainingInvitations.isEmpty) {
+            if list.isEmpty && (past || mm.pendingTrainingInvitations.isEmpty) {
                 if past {
                     MMEmptyState(artwork: .plan, title: "Your past training",
                                  message: "Sessions show up here once their start time has passed. No photo needed.",
@@ -94,7 +89,7 @@ struct TrainingScreen: View {
                     MMEyebrow("Past training", topPadding: MMSpace.s4)
                 }
                 VStack(spacing: 16) {
-                    ForEach(rest) { s in sessionCard(s) }
+                    ForEach(rest) { s in sessionCard(s, now: now) }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, !past && !invites.isEmpty ? MMLayout.sectionGap : MMSpace.s0)
@@ -103,10 +98,13 @@ struct TrainingScreen: View {
         .animation(MMMotion.easeOut(), value: list.map(\.id))
     }
 
-    private func sessionCard(_ s: Session) -> some View {
+    private func sessionCard(_ s: Session, now: Date) -> some View {
         let showsMenu = s.organizer == "me" && !mm.isCompleted(s)
+        let canComplete = section == "past" && mm.canCompleteTraining(s, now: now)
         return VStack(alignment: .leading, spacing: 8) {
-            SessionTicket(session: s, reservesMenuSpace: showsMenu) { mm.go(.session(id: s.id)) }
+            SessionTicket(session: s, reservesMenuSpace: showsMenu,
+                          onComplete: canComplete ? { mm.go(.complete(id: s.id)) } : nil,
+                          onTap: { mm.go(.session(id: s.id)) })
                 .overlay(alignment: .topTrailing) {
                     if showsMenu { sessionMenu(s) }
                 }
