@@ -97,6 +97,6 @@ Stats → Progress shows the 17-week **Your rhythm** heatmap followed by techniq
 
 ### Technique stats
 
-The **Stats** tab retains the person icon. Below **Your rhythm**, each technique with saved Quick Log hits gets a daily line chart: this week in coral through today, last week dashed, plus both weekly totals. Unused presets stay hidden. Hits use the selected log date and remain private, account-scoped data on this device.
+The **Stats** tab retains the person icon. Below **Your rhythm**, each technique with saved Quick Log hits gets a daily line chart: this week in coral through today, last week dashed, plus both weekly totals. Unused presets stay hidden. Hits use the selected log date and remain private, account-scoped data on this device. Without saved technique hits, the existing monkey peeks behind an index card with a **Log hits** action that opens today’s Quick Log sheet. The first saved hit replaces it with the charts.
 
 To preview: run **QuickTrainingLogMock**, then choose **Mock data → Technique stats**. This opens Stats with two weeks of sample technique hits. Choose Quick logs to test real counting in the preview, save a technique, and open Stats → Progress.

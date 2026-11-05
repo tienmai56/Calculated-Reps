@@ -2,7 +2,7 @@ import SwiftUI
 
 /// An invitation on the paper canvas, never a placeholder post or a loading skeleton.
 struct MMEmptyState: View {
-    enum Artwork { case memory, plan, goals }
+    enum Artwork { case memory, plan, goals, techniques }
 
     var artwork: Artwork
     var title: String
@@ -50,22 +50,23 @@ struct MMEmptyState: View {
     private var illustration: some View {
         switch artwork {
         case .memory:
-            PeekABooMemoryArtwork()
+            PeekABooCardArtwork()
         case .plan:
             TiedInPlanArtwork()
         case .goals:
             GoalTapesArtwork()
+        case .techniques:
+            PeekABooCardArtwork(techniques: true)
         }
     }
 }
 
-/// The photo-memory frame with a Silverback hiding behind it. The mark springs
-/// out past the card's edge, the camera "clicks" (a white flash over the photo
-/// slot while the icon squeezes), it nods, then ducks back behind the card and
-/// goes again. Still (peeking) when Reduce Motion is on. The mark only moves as
-/// a whole; it is never redrawn.
-private struct PeekABooMemoryArtwork: View {
+/// Shared peek-and-nod motion for a memory frame or technique index card.
+/// The existing Silverback moves as a whole, never changing its artwork.
+/// Reduce Motion holds the still peeking pose.
+private struct PeekABooCardArtwork: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var techniques = false
 
     private enum Phase: CaseIterable { case hidden, peek, click, nod, hold }
 
@@ -97,9 +98,35 @@ private struct PeekABooMemoryArtwork: View {
                 .frame(width: 64, height: 72)
                 .rotationEffect(.degrees(out ? (phase == .nod ? 6 : 16) : 0), anchor: .bottomLeading)
                 .offset(x: out ? 0 : -52, y: out ? -2 : 26)
-            card(click: phase == .click)
+            if techniques {
+                techniqueCard(pulse: phase == .click)
+            } else {
+                card(click: phase == .click)
+            }
         }
         .frame(width: 280)
+    }
+
+    private func techniqueCard(pulse: Bool) -> some View {
+        VStack(alignment: .leading, spacing: MMSpace.s6) {
+            HStack(spacing: MMSpace.s6) {
+                ruledLine
+                MMIcon("plus", size: 24, color: MMColor.accent)
+                    .scaleEffect(pulse ? 0.86 : 1)
+            }
+            ruledLine
+            ruledLine.frame(width: MMSpace.s11 + MMSpace.s10)
+        }
+        .padding(MMSpace.s6)
+        .frame(width: 200, height: 120)
+        .mmCardSurface(radius: MMRadius.lg)
+        .rotationEffect(.degrees(pulse ? -7 : -6))
+        .padding(.top, MMSpace.s5)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var ruledLine: some View {
+        Capsule().fill(MMColor.paper3).frame(height: MMSpace.s1)
     }
 
     private func card(click: Bool) -> some View {
