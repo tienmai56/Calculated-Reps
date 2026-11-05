@@ -27,8 +27,9 @@ or read from a backend.
 
 The sample-data bar has five states and **Reset**:
 
-- **Upcoming prompt** (default): the nearest upcoming session appears above the
-  quick-log strip, using the existing calendar prompter and **View session** action.
+- **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
+  upcoming session appears below on warm paper-2, with ink text, a white calendar
+  tile and a secondary **View session** button.
   A quick log leaves that session open. Use **Start plan** to simulate its start,
   then tap its date and choose the planned session to mark it done. Returning to
   Activity shows the next open session in the prompter. It stays on the selected

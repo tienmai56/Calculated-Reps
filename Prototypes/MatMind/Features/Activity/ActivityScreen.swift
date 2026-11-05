@@ -24,15 +24,16 @@ struct ActivityScreen: View {
                 MMHeaderActions()
             })
         } content: {
-            if let session = prompt {
-                ReadyToShare(session: session, now: now, keepsUpcomingStyle: mm.quickTrainingLogEnabled)
-                    .padding(.vertical, 12)
-            }
             if mm.quickTrainingLogEnabled {
                 TrainingWeekCard(anchor: now, isActivity: true)
                     .padding(.horizontal, MMSpace.s6)
                     .padding(.top, MMSpace.s2)
                     .padding(.bottom, MMSpace.s6)
+            }
+            if let session = prompt {
+                ReadyToShare(session: session, now: now, keepsUpcomingStyle: mm.quickTrainingLogEnabled)
+                    .padding(.top, mm.quickTrainingLogEnabled ? MMSpace.s0 : MMSpace.s5)
+                    .padding(.bottom, MMSpace.s5)
             }
             if mm.feedPosts.isEmpty && plans.isEmpty {
                 EmptyActivity(prompt: prompt, now: now)
@@ -125,18 +126,21 @@ private struct ReadyToShare: View {
         HStack(spacing: 14) {
             MMIcon(showsPastPrompt ? "camera" : "calendar", size: 28, color: MMColor.ink500)
                 .frame(width: 64, height: 64)
-                .background(MMColor.paper2)
+                .background(keepsUpcomingStyle ? MMColor.white : MMColor.paper2)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
                 Text(showsPastPrompt ? "How was \(session.title)?" : "Coming up: \(session.title)")
-                    .mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
+                    .mmFont(.display, 17, lineHeight: 1.2)
+                    .foregroundStyle(keepsUpcomingStyle ? MMColor.ink900 : MMColor.paper)
                 Text(shareLine)
-                    .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
+                    .mmFont(.body, 13, .medium, lineHeight: 1.35)
+                    .foregroundStyle(keepsUpcomingStyle ? MMColor.ink700 : MMColor.ink200)
                     .padding(.top, 4)
                 HStack(spacing: 14) {
-                    MMButton(canShare ? "Complete & share" : "View session", size: .sm, iconLeft: canShare ? "camera" : "calendar") {
+                    MMButton(canShare ? "Complete & share" : "View session", variant: keepsUpcomingStyle ? .secondary : .primary,
+                             size: .sm, iconLeft: canShare ? "camera" : "calendar") {
                         mm.go(canShare ? .complete(id: session.id) : .session(id: session.id))
                     }
                     if canShare {
@@ -151,7 +155,7 @@ private struct ReadyToShare: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
+        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(keepsUpcomingStyle ? MMColor.paper2 : MMColor.ink900))
         .padding(.horizontal, 16)
         .padding(.top, 4)
         .confirmationDialog("Didn't train at \(session.title)?", isPresented: $confirmingSkip, titleVisibility: .visible) {
