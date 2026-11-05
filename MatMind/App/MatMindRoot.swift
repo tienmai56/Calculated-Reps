@@ -475,6 +475,14 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" && ($0.organizer == "me" || $0.status(of: "me") != nil) }
         ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
+        let rhythm = model.snapshot.rhythm_sessions ?? model.snapshot.sessions.compactMap { row -> RhythmSession? in
+            guard let start = row.date("starts_at") else { return nil }
+            return RhythmSession(id: row.id, starts_at: ISO8601DateFormatter().string(from: start), status: row.text("status"),
+                                 organizer: row.text("organizer"), session_participants: model.attendees(row.id).map {
+                RhythmSession.Participation(user_id: $0.text("user_id"), rsvp: $0.text("rsvp"), attended: $0.flag("attended"))
+            })
+        }
+        ui.rhythmSessionDates = rhythm.compactMap { $0.loggedDate(for: userID, now: now) }
         ui.discoverableSessions = sessions.filter { model.session($0.id)?.text("status") == "planned" && $0.organizer != "me" && $0.status(of: "me") == nil && $0.privacy == .link }
         ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()

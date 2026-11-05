@@ -64,6 +64,7 @@ final class AppModel {
     }
 
     func clearLiveData() {
+        rhythmSessionDates = nil
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
@@ -106,6 +107,8 @@ final class AppModel {
     var posts: [Post] = []
     var upcoming: [Session] = []
     var completedSessions: [Session] = []
+    /// Full 17-week read, separate from the bounded Training list. nil uses the loaded session page.
+    var rhythmSessionDates: [Date]? = nil
     /// Friends' open plans from Activity. They enter Training only after joining.
     var discoverableSessions: [Session] = []
     var toComplete: Session?
@@ -1254,5 +1257,20 @@ final class AppModel {
         case .broken: setTab(.profile); go(.friends); go(.friend(id: "jamie"))
         case .active: setTab(.profile); go(.friends); go(.friend(id: "sarah"))
         }
+    }
+}
+
+
+extension AppModel {
+    func trainingRhythm(now: Date = Date(), calendar: Calendar = .current) -> ProfileRhythmHistory {
+        if isLive, let rhythmSessionDates {
+            return ProfileRhythmHistory(dates: rhythmSessionDates, now: now, calendar: calendar)
+        }
+        let dates = trainingSessions(past: true, relativeTo: now)
+            .filter { $0.organizer == "me" || $0.status(of: "me") == .going }
+            .map { startDate(of: $0) }
+        // Preview posts have no backing server session rows. Live history never depends on feed pagination.
+        let previewDates = isLive ? [] : ProfileHistory(posts: posts.filter { $0.organizer == "me" || $0.participants.contains("me") }, now: now).items.map(\.day)
+        return ProfileRhythmHistory(dates: dates + previewDates, now: now, calendar: calendar)
     }
 }

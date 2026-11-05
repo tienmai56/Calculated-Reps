@@ -1856,13 +1856,14 @@ private actor BackendHTTPFixture {
     private var holdSnapshots: Bool
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
     private var profileSaved = false
+    private let rhythmRows: [RhythmSession]
     private let loseCreateResponseAt: Int?
     private var createAttempts = 0
     private var createReceipts: [String: (payload: Data, id: String)] = [:]
     var createdSessionCount: Int { createReceipts.count }
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
-         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil) {
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = []) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -1872,6 +1873,7 @@ private actor BackendHTTPFixture {
         self.snapshotStarted = snapshotStarted
         self.holdSnapshots = holdSnapshots
         self.loseCreateResponseAt = loseCreateResponseAt
+        self.rhythmRows = rhythmRows
     }
 
     func releaseSnapshots() {
@@ -1906,6 +1908,12 @@ private actor BackendHTTPFixture {
         }
         if request.value(forHTTPHeaderField: "Authorization") != "Bearer fresh-token" || rejectFreshToken {
             return (failureStatus, failureBody)
+        }
+        if request.url?.path == "/rest/v1/sessions" {
+            let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let offset = Int(items.first { $0.name == "offset" }?.value ?? "0") ?? 0
+            let limit = Int(items.first { $0.name == "limit" }?.value ?? "200") ?? 200
+            return (200, try JSONEncoder().encode(Array(rhythmRows.dropFirst(offset).prefix(limit))))
         }
         if request.url?.path == "/rest/v1/rpc/command",
            let body = request.httpBody,
@@ -2199,4 +2207,93 @@ final class MonkeyTests: XCTestCase {
         XCTAssertFalse(ui.shouldAskForMonkey, "Maybe later: the Account row is the way back in")
     }
 #endif
+}
+
+
+final class ProfileHeatmapTests: XCTestCase {
+    private var calendar: Calendar {
+        var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return c
+    }
+    private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
+
+    func testGridHasSeventeenMondayWeeksAndCountsDaysOnce() {
+        let now = date("2026-11-05T04:00:00Z") // Wednesday evening in Los Angeles.
+        let history = ProfileRhythmHistory(dates: [date("2026-11-04T16:00:00Z"), date("2026-11-05T02:00:00Z"), date("2026-11-03T16:00:00Z")], now: now, calendar: calendar)
+        XCTAssertEqual(history.weeks.count, 17)
+        XCTAssertEqual(history.weeks.flatMap { $0 }.count, 119)
+        XCTAssertEqual(history.weeks.first?.first, date("2026-07-13T07:00:00Z"))
+        XCTAssertEqual(history.visibleCount, 2, "Multiple sessions on the same local day fill only one square")
+        XCTAssertTrue(history.isFuture(date("2026-11-05T20:00:00Z")))
+        XCTAssertFalse(history.isFuture(date("2026-11-04T23:00:00Z")))
+    }
+    func testCalendarDaysSurviveDaylightSavingAndYearBoundary() {
+        let history = ProfileRhythmHistory(dates: [date("2026-11-01T08:30:00Z"), date("2026-11-01T09:30:00Z")], now: date("2026-11-03T20:00:00Z"), calendar: calendar)
+        XCTAssertEqual(history.visibleCount, 1, "The repeated DST hour is still one local day")
+        XCTAssertTrue(history.weeks.allSatisfy { $0.count == 7 })
+        let newYear = ProfileRhythmHistory(dates: [], now: date("2027-01-01T20:00:00Z"), calendar: calendar)
+        XCTAssertEqual(newYear.weeks.last?.first, date("2026-12-28T08:00:00Z"))
+    }
+    func testUnsharedAndPhotoFreeSessionsCountButExcludedAttendanceDoesNot() {
+        let now = date("2026-11-05T20:00:00Z")
+        var record = RhythmSession(id: "log", starts_at: "2026-11-04T19:00:00Z", status: "planned", organizer: "me",
+                                   session_participants: [.init(user_id: "me", rsvp: "going", attended: false)])
+        XCTAssertNotNil(record.loggedDate(for: "me", now: now), "A past session log does not require completion, a post or a photo")
+        record.status = "completed"
+        XCTAssertNil(record.loggedDate(for: "me", now: now), "A correction removes an unattended completed session")
+        record.session_participants[0].attended = true
+        XCTAssertNotNil(record.loggedDate(for: "me", now: now))
+        for rsvp in ["invited", "declined"] {
+            record.session_participants[0].rsvp = rsvp
+            XCTAssertNil(record.loggedDate(for: "me", now: now))
+        }
+        record.session_participants[0].rsvp = "going"; record.status = "cancelled"
+        XCTAssertNil(record.loggedDate(for: "me", now: now))
+        record.status = "planned"; record.starts_at = "2026-11-06T19:00:00Z"
+        XCTAssertNil(record.loggedDate(for: "me", now: now), "Future plans do not count")
+        XCTAssertNil(record.loggedDate(for: "someone-else", now: now))
+    }
+    @MainActor func testRuntimeUsesFullHistoryOutsideTheScheduleAndFeedPages() throws {
+        let model = SocialAppModel(); model.userID = "owner"
+        let now = date("2026-11-05T20:00:00Z")
+        model.snapshot.rhythm_sessions = [RhythmSession(id: "unshared", starts_at: "2026-11-04T19:00:00Z", status: "planned", organizer: "owner",
+                                                       session_participants: [.init(user_id: "owner", rsvp: "going", attended: false)])]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync(now: now)
+        XCTAssertTrue(ui.posts.isEmpty); XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertEqual(ui.trainingRhythm(now: now, calendar: calendar).visibleCount, 1)
+        ui.clearLiveData()
+        XCTAssertEqual(ui.trainingRhythm(now: now, calendar: calendar).visibleCount, 0)
+    }
+    func testReadQueryIsOwnerScopedAndBounded() throws {
+        let path = BackendClient.rhythmPath(owner: "owner", from: date("2026-07-13T07:00:00Z"), through: date("2026-11-05T20:00:00Z"), offset: 200, pageSize: 200)
+        let parts = try XCTUnwrap(URLComponents(string: "https://example.com/" + path))
+        let items = parts.queryItems ?? []
+        XCTAssertEqual(parts.path, "/rest/v1/sessions")
+        XCTAssertEqual(items.first { $0.name == "session_participants.user_id" }?.value, "eq.owner")
+        XCTAssertEqual(items.first { $0.name == "session_participants.rsvp" }?.value, "eq.going")
+        XCTAssertEqual(items.filter { $0.name == "starts_at" }.count, 2)
+        XCTAssertEqual(items.first { $0.name == "offset" }?.value, "200")
+        XCTAssertFalse(path.contains("posts")); XCTAssertFalse(path.contains("media"))
+    }
+}
+
+extension BackendSessionTests {
+    func testHeatmapReadPaginatesBeyondTheScheduleLimitWithoutWrites() async throws {
+        let rows = (0..<205).map { index in
+            RhythmSession(id: "s\(index)", starts_at: "2026-11-04T12:00:00Z", status: "planned", organizer: "owner",
+                          session_participants: [.init(user_id: "owner", rsvp: "going", attended: false)])
+        }
+        let fixture = BackendHTTPFixture(failureStatus: 401, failureBody: Data(), rhythmRows: rows)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"), expires_at: Date().timeIntervalSince1970 + 3600)
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let result = try await client.rhythmSessions(owner: "owner")
+        XCTAssertEqual(result.count, 205)
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertTrue(requests.allSatisfy { $0.httpMethod == "GET" && $0.url?.path == "/rest/v1/sessions" })
+        let offsets = requests.map { URLComponents(url: $0.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "offset" }?.value }
+        XCTAssertEqual(offsets, ["0", "200"])
+    }
 }

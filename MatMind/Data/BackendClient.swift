@@ -55,6 +55,7 @@ struct SocialRow: Codable, Identifiable, Equatable {
     }
 }
 struct SocialSnapshot: Codable, Equatable {
+    var rhythm_sessions: [RhythmSession]? = nil
     var server_time: String?
     var profiles: [SocialRow] = [], friendships: [SocialRow] = [], sessions: [SocialRow] = []
     var participants: [SocialRow] = [], posts: [SocialRow] = [], tags: [SocialRow] = []
@@ -184,7 +185,44 @@ actor BackendClient {
         credential = nil
         SecItemDelete(Self.keychainQuery() as CFDictionary)
     }
-    func snapshot() async throws -> SocialSnapshot { try JSONDecoder().decode(SocialSnapshot.self, from: await request(path:"rest/v1/rpc/snapshot",body:[:])) }
+    func snapshot() async throws -> SocialSnapshot {
+        var latest = try JSONDecoder().decode(SocialSnapshot.self, from: await request(path:"rest/v1/rpc/snapshot",body:[:]))
+        if let owner = credential?.user.id, latest.profiles.contains(where: { $0.id == owner }) {
+            // Fetch minimal metadata through existing RLS. No migration, new table, or write operation.
+            latest.rhythm_sessions = try await rhythmSessions(owner: owner)
+        }
+        return latest
+    }
+    static func rhythmPath(owner: String, from: Date, through: Date, offset: Int, pageSize: Int) -> String {
+        let f = ISO8601DateFormatter()
+        var parts = URLComponents()
+        parts.path = "rest/v1/sessions"
+        parts.queryItems = [
+            URLQueryItem(name: "select", value: "id,starts_at,status,organizer,session_participants!inner(user_id,rsvp,attended)"),
+            URLQueryItem(name: "session_participants.user_id", value: "eq." + owner),
+            URLQueryItem(name: "session_participants.rsvp", value: "eq.going"),
+            URLQueryItem(name: "status", value: "in.(planned,completed)"),
+            URLQueryItem(name: "starts_at", value: "gte." + f.string(from: from)),
+            URLQueryItem(name: "starts_at", value: "lte." + f.string(from: through)),
+            URLQueryItem(name: "order", value: "starts_at.asc,id.asc"),
+            URLQueryItem(name: "limit", value: String(pageSize)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+        return parts.string!
+    }
+    func rhythmSessions(owner: String, now: Date = Date(), pageSize: Int = 200) async throws -> [RhythmSession] {
+        precondition(pageSize > 0)
+        let firstDay = ProfileRhythmHistory(dates: [], now: now).weeks[0][0]
+        var rows: [RhythmSession] = [], offset = 0
+        while true {
+            try Task.checkCancellation()
+            let path = Self.rhythmPath(owner: owner, from: firstDay, through: now, offset: offset, pageSize: pageSize)
+            let page = try JSONDecoder().decode([RhythmSession].self, from: await request(path: path, body: nil))
+            rows += page
+            if page.count < pageSize { return rows }
+            offset += page.count
+        }
+    }
     func command(_ operation: String, payload: [String: Any], key: UUID = UUID()) async throws -> [String: ArchiveValue] {
         let data = try await request(path:"rest/v1/rpc/command", body:["operation":operation,"payload":payload,"idempotency_key":key.uuidString])
         return try JSONDecoder().decode([String: ArchiveValue].self, from:data)

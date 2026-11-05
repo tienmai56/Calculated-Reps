@@ -379,6 +379,16 @@ Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Br
 
 Activity shows the latest-training photo prompt, when applicable, followed directly by completed-session posts. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
 
+### Profile training rhythm
+
+On your own **Profile → Progress**, the static **Your rhythm** heatmap sits below the Profile tabs and above the Weekly/Monthly controls, in the **same white card** as the existing chart. A subtle divider separates the two views. Weekly/Monthly changes only the existing summary and bar chart; the heatmap always shows the last 17 Monday–Sunday weeks, oldest on the left. It is private to your own Progress tab.
+
+Each day is a 14pt square, with 4pt gaps and a 4pt radius. A logged training day is coral-500; no entry is paper-3; future days are outlined and empty. Month labels appear above and M / W / F / S labels to the left. The heading has **Since {first Monday}** and the legend reads **Trained** / **No entry**. There is no explanatory paragraph, tap hint, button, day sheet or interaction on the heatmap. VoiceOver announces a single chart summary and trained-day count.
+
+A day fills for any past session you host or joined, including an unshared past-session log with no photo or note. This follows the existing Training/Past definition: an elapsed joined/hosted plan is also past history. Completed sessions only count when your attendance remains confirmed. Invitations, declined/cancelled sessions and future sessions do not count. Multiple sessions on one local calendar date fill one square at one intensity. The source is session history, independently of feed posts, post deletion and photos; a paginated, owner-filtered read covers the whole 17-week range beyond the schedule's 100-row limit. No quick-log records, logging controls, attendance writes or backend migrations are introduced.
+
+Regression commands and acceptance checks: [Profile heatmap regression guide](docs/profile-heatmap-regression.md).
+
 ### Empty Activity and Training
 
 Use the paper canvas with a small photo-memory frame for Activity and an undated ticket for Training, reusing existing typography, surfaces, icons, and pill actions. No placeholder people, fake dates, zero-stat dashboards, or loading skeletons.
