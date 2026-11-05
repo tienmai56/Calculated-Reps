@@ -468,6 +468,22 @@ Every member can have a **monkey**: a minimal two-color face that sits **right a
 
 Native: `DesignSystem/Components/Display.swift` (`MMMonkey`, `MMMonkeyLook`, `mmMonkey`, `mmMonkeyText`), `Features/Profile/MonkeyScreens.swift`, profile setup in `MatMind/App/MatMindRoot.swift`. Backend: `supabase/migrations/20261104170000_monkey_avatars.sql`.
 
+### Phone number & contacts suggestions (proposed)
+
+> **Status: proposal, not adopted.** Two parts conflict with current rules and need sign-off before build: contact-matched friendships use a **request + accept** (§9 says friends connect instantly via QR with no requests), and contact matching is a narrow form of **discovery** (§9 says never public discovery). Proposed amendment: QR stays instant; requests exist only for contact matches; suggestions only ever show people whose number is already in your contacts. Until adopted, §9 wins.
+
+**Sign-up.** On "First, who's rolling?" the phone number becomes required (coral asterisk, like Name, Home gym and Belt). Helper with the lock icon: "Private, never on your profile. Partners who already have your number can find you here." The footer action becomes **Text me a code** → **Verify your number** ("Check your texts", six 60pt code boxes on 14 radius inputs, Change number, "No code? Resend in 0:24", **Verify & continue**). Numbers are stored in E.164 and stay in account settings, readable only by their owner.
+
+**Contacts primer.** Before the system permission prompt: the Silverback mark (the brand file, unchanged) peeks over an ink-outlined phone while a contact list scrolls; matched rows get a success check with `--ease-bounce` and a float-shadow "Found one" pill pops in, then it loops (~5s). Only the whole mark moves, never its expression; Reduce Motion shows one still frame. "Your crew might already be here" · three promises (Matched privately · Nobody gets texted · Friends only with a yes) · **Check my contacts** / Not now. "Matched privately" requires numbers to be hashed on device before matching; change the copy if the implementation differs.
+
+**Activity.** "Already on the mat · N people from your contacts" heads the feed: a horizontal row of 156pt white suggestion cards (60pt avatar, name, belt + gym, "In your contacts", secondary sm **Add friend**, × to hide, **See all**). Suggestions use neutral paper-2 avatars; a friend hue is assigned only once the friendship exists. Sending turns the button into a paper-2 **Requested** (tap to cancel) with an ink toast "Request sent to Sarah". The recipient sees "Tien wants to train with you · gym · Has your number" with **Not now** / **Accept**. Accepting turns the card into the new friend's hue-100 with tied avatars: "You & Tien are friends · Roll together by Sunday to start your first week" and **Invite Tien to train**. Suggestions never appear inside posts and never let anyone join a session.
+
+**Existing accounts.** Accounts without a number get a non-dismissable sheet: "Add your number to keep rolling", the phone field, **Text me a code**, and a "Why a number?" link.
+
+**Open:** one-way vs mutual matching (and whether to show "Has your number"); grace period for existing accounts; code-error, contacts-denied and no-matches states; the incoming-request push.
+
+Browser companion: `Prototypes/ContactsPreview/`.
+
 ## 9. Guardrails
 **Always**
 - One primary button per screen.
