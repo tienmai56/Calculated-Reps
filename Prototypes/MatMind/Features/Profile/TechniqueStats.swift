@@ -5,7 +5,6 @@ import Charts
 /// The same cards work below the interactive and read-only rhythm heatmaps.
 struct TechniqueStatsSection: View {
     @Environment(AppModel.self) private var mm
-    var inCard = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -18,8 +17,8 @@ struct TechniqueStatsSection: View {
                         TechniqueTrendCard(trend: trend, currentDayIndex: history.currentDayIndex)
                     }
                 }
-                .padding(.horizontal, inCard ? 0 : MMSpace.s6)
-                .padding(.top, inCard ? 0 : MMSpace.s6)
+                .padding(.horizontal, MMSpace.s6)
+                .padding(.top, MMSpace.s6)
             }
         }
     }

@@ -59,7 +59,7 @@ struct ProfileScreen: View {
                 .padding(.top, 18)
 
             switch section {
-            case .progress: ProfileProgressSection(history: history)
+            case .progress: ProfileProgressSection()
             case .activity: ProfileActivitySection(history: history)
             case .gallery: ProfileGallerySection(history: history)
             }
@@ -369,13 +369,6 @@ struct ProfileHistory {
         var id: String { title }
     }
 
-    struct Bar: Identifiable {
-        let id: Int
-        let label: String
-        let count: Int
-        let isCurrent: Bool
-    }
-
     let items: [Item]
     let calendar: Calendar
     let now: Date
@@ -409,24 +402,14 @@ struct ProfileHistory {
     }
 
     var thisWeek: DateInterval { calendar.dateInterval(of: .weekOfYear, for: now)! }
-    var thisMonth: DateInterval { calendar.dateInterval(of: .month, for: now)! }
 
     func sessions(in interval: DateInterval) -> [Item] {
         items.filter { $0.day >= interval.start && $0.day < interval.end }
     }
 
-    func partners(in items: [Item]) -> Set<String> {
-        Set(items.flatMap(\.post.participants).filter { $0 != "me" })
-    }
-
     private func week(_ offset: Int) -> DateInterval {
         let start = calendar.date(byAdding: .weekOfYear, value: offset, to: thisWeek.start)!
         return calendar.dateInterval(of: .weekOfYear, for: start)!
-    }
-
-    private func month(_ offset: Int) -> DateInterval {
-        let start = calendar.date(byAdding: .month, value: offset, to: thisMonth.start)!
-        return calendar.dateInterval(of: .month, for: start)!
     }
 
     private func monthName(_ date: Date, _ format: String = "MMM") -> String {
@@ -435,26 +418,6 @@ struct ProfileHistory {
         formatter.calendar = calendar
         formatter.dateFormat = format
         return formatter.string(from: date)
-    }
-
-    /// Sessions per week, oldest first; a month label sits under the first week of each month.
-    func weeklyBars(_ count: Int) -> [Bar] {
-        var lastMonth: Int?
-        return (0..<count).map { i in
-            let interval = week(i - (count - 1))
-            let month = calendar.component(.month, from: interval.start)
-            let label = month == lastMonth ? "" : monthName(interval.start)
-            lastMonth = month
-            return Bar(id: i, label: label, count: sessions(in: interval).count, isCurrent: i == count - 1)
-        }
-    }
-
-    /// Sessions per calendar month, oldest first.
-    func monthlyBars(_ count: Int) -> [Bar] {
-        (0..<count).map { i in
-            let interval = month(i - (count - 1))
-            return Bar(id: i, label: monthName(interval.start), count: sessions(in: interval).count, isCurrent: i == count - 1)
-        }
     }
 
     /// The last `count` completed weeks, oldest first: did I train?
@@ -530,125 +493,22 @@ struct ProfileHistory {
 
 private struct ProfileProgressSection: View {
     @Environment(AppModel.self) private var mm
-    let history: ProfileHistory
-    @State private var range = "week"
 
     var body: some View {
-        let weekly = range == "week"
-        let period = history.sessions(in: weekly ? history.thisWeek : history.thisMonth)
         VStack(alignment: .leading, spacing: 0) {
             if mm.quickTrainingLogEnabled {
                 TrainingRhythm()
                     .padding(.horizontal, MMSpace.s6)
                     .padding(.top, MMSpace.s6)
-                TechniqueStatsSection()
-            }
-
-            VStack(alignment: .leading, spacing: MMSpace.s6) {
-                if !mm.quickTrainingLogEnabled {
-                    ProfileTrainingHeatmap()
-                    TechniqueStatsSection(inCard: true)
-                    Rectangle().fill(MMColor.borderDefault).frame(height: 1)
-                        .padding(.vertical, MMSpace.s2)
-                }
-                MMTabs(items: [MMTabItem("week", "Weekly"), MMTabItem("month", "Monthly")], selection: $range)
-                Text(weekly ? "This week" : "This month")
-                    .mmFont(.display, 22, tracking: -0.015, lineHeight: 1.15)
-                    .foregroundStyle(MMColor.textPrimary)
-                HStack(alignment: .top, spacing: 12) {
-                    stat("Sessions", period.count)
-                    stat("Partners", history.partners(in: period).count)
-                    stat("Photos", period.filter { $0.post.photo != nil }.count)
-                }
-                ProfileSessionBars(
-                    bars: weekly ? history.weeklyBars(12) : history.monthlyBars(6),
-                    caption: weekly ? "Past 12 weeks" : "Past 6 months"
-                )
-            }
-            .padding(MMSpace.s6)
-            .mmCardSurface(radius: MMRadius.lg)
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-
-        }
-    }
-
-    private func stat(_ label: String, _ value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
-            Text("\(value)").mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05).foregroundStyle(MMColor.textPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Sessions per period as columns; the current period is hatched while it's still in progress.
-private struct ProfileSessionBars: View {
-    let bars: [ProfileHistory.Bar]
-    let caption: String
-
-    private let plotHeight: CGFloat = 96
-
-    var body: some View {
-        let top = max(bars.map(\.count).max() ?? 0, 1)
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(caption).mmFont(.body, 13, .semibold).foregroundStyle(MMColor.textSecondary)
-                Spacer()
-                Text("Sessions").mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
-            }
-            HStack(alignment: .bottom, spacing: 6) {
-                ForEach(bars) { bar in
-                    VStack(spacing: 4) {
-                        Text(bar.count == 0 ? "–" : "\(bar.count)")
-                            .mmFont(.body, 11, .semibold, lineHeight: 1)
-                            .foregroundStyle(MMColor.textSecondary)
-                        column(bar, height: bar.count == 0 ? 4 : max(8, plotHeight * CGFloat(bar.count) / CGFloat(top)))
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(height: plotHeight + 20, alignment: .bottom)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(MMColor.borderDefault).frame(height: 1)
-            }
-            HStack(spacing: 6) {
-                ForEach(bars) { bar in
-                    Text(bar.label)
-                        .mmFont(.body, 11, lineHeight: 1)
-                        .foregroundStyle(MMColor.textTertiary)
-                        .fixedSize()
-                        .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .accessibilityElement()
-        .accessibilityLabel(accessibilitySummary)
-    }
-
-    private var accessibilitySummary: String {
-        let counts = bars.map { bar -> String in
-            bar.label.isEmpty ? String(bar.count) : bar.label + " " + String(bar.count)
-        }
-        return caption + " sessions: " + counts.joined(separator: ", ")
-    }
-
-    @ViewBuilder
-    private func column(_ bar: ProfileHistory.Bar, height: CGFloat) -> some View {
-        let shape = UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 3, bottomTrailingRadius: 3, topTrailingRadius: 6, style: .continuous)
-        Group {
-            if bar.isCurrent {
-                MMHatch(color: MMColor.ink300, spacing: 6, lineWidth: 2)
-                    .background(MMColor.paper3)
-                    .clipShape(shape)
-            } else if bar.count == 0 {
-                shape.fill(MMColor.paper3)
             } else {
-                shape.fill(MMColor.ink800)
+                ProfileTrainingHeatmap()
+                    .padding(MMSpace.s6)
+                    .mmCardSurface(radius: MMRadius.lg)
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.top, MMSpace.s6)
             }
+            TechniqueStatsSection()
         }
-        .frame(height: height)
     }
 }
 
@@ -1104,7 +964,7 @@ struct PersonProfileScreen: View {
 }
 
 
-/// A static picture of trained days. Weekly/Monthly below controls only the existing chart.
+/// A static picture of trained days for backends without quick-log support.
 private struct ProfileTrainingHeatmap: View {
     @Environment(AppModel.self) private var mm
     var body: some View {
