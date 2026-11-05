@@ -2,7 +2,7 @@
 
 Run these checks when changing Profile, session history, attendance corrections, session deletion, snapshot loading, authentication/account switching, or date/timezone logic.
 
-This feature is independent of the quick-training-log PR. It adds a static calendar to the same card as the existing Weekly/Monthly chart on your own Profile’s Progress tab. It introduces no Activity strip, quick logs, day sheets, attendance commands, database migration, or publishing-flow changes.
+This feature is independent of the quick-training-log PR. The static calendar appears in its own card on Stats → Progress when quick logging is unavailable; technique hit charts follow when data exists. The Weekly/Monthly session chart and period summary have been removed. It introduces no Activity strip, quick logs, day sheets, attendance commands, database migration, or publishing-flow changes.
 
 ## Automated tests
 
@@ -33,15 +33,15 @@ xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator
 
 ## Manual UI checks
 
-1. Open Debug → **Preview without signing in**. Navigate to **Profile → Progress**. Your rhythm is inside the same white card as Weekly/Monthly, above a divider and those controls.
+1. Open Debug → **Preview without signing in**. Navigate to **Stats → Progress** with quick logging disabled. Your rhythm has its own white card, followed by technique charts if saved hit data is present.
 2. Check 17 week columns, Monday–Sunday row ordering, month labels, correct Since date, Trained/No entry legend, coral/paper colors, and outlined future dates. Empty accounts show an empty grid without fabricated sessions.
 3. Tap any square or week: nothing opens or changes. There is no explanatory paragraph, tap instruction, quick-log action or day sheet.
-4. Switch Weekly/Monthly. Only the existing summary and bar chart change; the heatmap stays visible and retains the same date range.
-5. Log a past session through the existing flow. Leave its composer without posting a photo or note. Return to Profile: its local day fills. Add another session that day: it stays one square and one trained day.
+4. Confirm there is no Weekly/Monthly selector, period summary (Sessions, Partners, Photos), session bar chart or empty wrapper card. Your rhythm retains its 17-week date range. With quick logging enabled, its interactive rhythm card and technique charts remain visible.
+5. Log a past session through the existing flow. Leave its composer without posting a photo or note. Return to Stats: its local day fills. Add another session that day: it stays one square and one trained day.
 6. Verify hosted and joined past sessions, a declined/invited session, a future plan and a cancelled session. On an attended completed session, correct your attendance and confirm the day clears when no other counted session remains.
 7. Test more than 100 sessions in the last 17 weeks, including many future plans. The oldest visible logged days must still be filled. Delete a shared post: its session still fills the day.
 8. Check a timezone crossing midnight, daylight-saving boundary and December/January week. Confirm full-date bucketing and 17 complete week columns.
-9. Switch to Profile → Activity/Gallery or another person’s profile: no private heatmap there. Sign out/switch accounts: no previous account’s trained days appear.
+9. Switch to Stats → Activity/Gallery or another person’s profile: no private heatmap there. Sign out/switch accounts: no previous account’s trained days appear.
 10. With VoiceOver, the heatmap is one static image summary with a trained-day count, not 119 buttons. Check default/large Dynamic Type and a smaller iPhone for clipping. Confirm the existing Activity, Training and Complete & share screens remain unchanged.
 
 ## Environment note

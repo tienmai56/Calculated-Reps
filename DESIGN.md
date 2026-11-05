@@ -418,7 +418,7 @@ Use each log’s selected `loggedOn` date, sum multiple logs per day, and combin
 
 ### Profile training rhythm
 
-On your own **Stats → Progress**, the static **Your rhythm** heatmap sits below the Stats section tabs and above the Weekly/Monthly controls, in the **same white card** as the existing chart. A subtle divider separates the two views. Weekly/Monthly changes only the existing summary and bar chart; the heatmap always shows the last 17 Monday–Sunday weeks, oldest on the left. It is private to your own Progress tab.
+On your own **Stats → Progress**, **Your rhythm** sits below the section tabs, followed by the technique hit charts when saved hits exist. The Weekly/Monthly selector, period summary counts (Sessions, Partners, Photos) and session bar chart are removed. Backends without quick-log support show the static heatmap in its own white card; supported backends use the interactive rhythm card. The heatmap always shows the last 17 Monday–Sunday weeks, oldest on the left. It is private to your own Progress tab.
 
 Each day is a 14pt square, with 4pt gaps and a 4pt radius. A logged training day is coral-500; no entry is paper-3; future days are outlined and empty. Month labels appear above and M / W / F / S labels to the left. The heading has **Since {first Monday}** and the legend reads **Trained** / **No entry**. There is no explanatory paragraph, tap hint, button, day sheet or interaction on the heatmap. VoiceOver announces a single chart summary and trained-day count.
 

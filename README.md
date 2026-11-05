@@ -93,7 +93,7 @@ Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsp
 Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native checks, protected invariants and the current UI acceptance checklist. The SQL suite is included in `scripts/test-database.sh`.
 ## Profile training heatmap
 
-Stats → Progress combines a static 17-week **Your rhythm** heatmap with the existing Weekly/Monthly chart in one card. Past hosted/joined sessions fill a day even without a shared photo. The heatmap is read-only and introduces no quick logging or backend migration. See the [regression guide](docs/profile-heatmap-regression.md).
+Stats → Progress shows the 17-week **Your rhythm** heatmap followed by technique hit charts when hits have been logged. The Weekly/Monthly session chart and period summary card are removed. Past hosted/joined sessions fill a day even without a shared photo. Older backends use the read-only heatmap; quick-log-enabled backends use the interactive rhythm card. See the [regression guide](docs/profile-heatmap-regression.md).
 
 ### Technique stats
 
