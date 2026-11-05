@@ -188,12 +188,14 @@ private struct EmptyActivity: View {
 
 struct PostCard: View {
     @Environment(AppModel.self) private var mm
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let post: Post
     var highlight = false
 
     @State private var showMenu = false
     @State private var burst = false
     @State private var commentsExpanded = false
+    @State private var commentPreviewVisible = true
     @State private var commentText = ""
 
     var body: some View {
@@ -286,40 +288,25 @@ struct PostCard: View {
             .padding(.top, 8)
             .padding(.leading, -4)
 
-            if commentsExpanded {
+            ZStack(alignment: .topLeading) {
+                commentPreview
+                    .opacity(commentPreviewVisible ? 1 : 0)
+                    .animation(nil, value: commentPreviewVisible)
+                    .allowsHitTesting(!commentsExpanded && commentPreviewVisible)
+                    .accessibilityHidden(commentsExpanded || !commentPreviewVisible)
+
+                // Keep rows at their natural height and reveal them from the top.
+                // Animating the viewport avoids reflowing/fading two comment layouts.
                 inlineComments
                     .padding(.horizontal, 4)
                     .padding(.top, 12)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(height: commentsExpanded ? nil : 0, alignment: .top)
+                    .clipped()
+                    .allowsHitTesting(commentsExpanded)
+                    .disabled(!commentsExpanded)
+                    .accessibilityHidden(!commentsExpanded)
                     .accessibilityIdentifier("inline-comments-\(post.id)")
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            } else if let first = post.comments.first {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        PersonProfileButton(person: mm.person(first.who)) {
-                            Text(first.who == "me" ? "You" : mm.person(first.who).firstName)
-                                .mmFont(.body, 14, .bold).foregroundStyle(MMColor.textPrimary)
-                                .mmMonkey(mm.person(first.who).monkey, size: 16)
-                        }
-                        Button { toggleComments() } label: {
-                            Text(" \(first.text)").mmFont(.body, 14).foregroundStyle(MMColor.textPrimary)
-                                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Expand comments in the feed")
-                    }
-                    if post.comments.count > 1 {
-                        Button { toggleComments() } label: {
-                            Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
-                                .frame(minHeight: MMLayout.tapTarget)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-                .padding(.top, 2)
-                .padding(.bottom, 4)
             }
         }
         .padding(12)
@@ -335,6 +322,39 @@ struct PostCard: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 14)
         .modifier(PostOptionsModifier(postID: post.id, isPresented: $showMenu))
+    }
+
+    @ViewBuilder
+    private var commentPreview: some View {
+        if let first = post.comments.first {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    PersonProfileButton(person: mm.person(first.who)) {
+                        Text(first.who == "me" ? "You" : mm.person(first.who).firstName)
+                            .mmFont(.body, 14, .bold).foregroundStyle(MMColor.textPrimary)
+                            .mmMonkey(mm.person(first.who).monkey, size: 16)
+                    }
+                    Button { toggleComments() } label: {
+                        Text(" \(first.text)").mmFont(.body, 14).foregroundStyle(MMColor.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Expand comments in the feed")
+                }
+                if post.comments.count > 1 {
+                    Button { toggleComments() } label: {
+                        Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                            .frame(minHeight: MMLayout.tapTarget)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.top, 2)
+            .padding(.bottom, 4)
+        }
     }
 
     private var inlineComments: some View {
@@ -367,8 +387,16 @@ struct PostCard: View {
     }
 
     private func toggleComments() {
-        withAnimation(MMMotion.easeOut(MMMotion.base)) {
+        commentPreviewVisible = false
+        if commentsExpanded {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+        withAnimation(reduceMotion ? nil : MMMotion.easeOut(MMMotion.base)) {
             commentsExpanded.toggle()
+        } completion: {
+            // Wait until the rows have retracted before restoring the compact preview.
+            // Checking the current state also handles a second tap mid-animation.
+            if !commentsExpanded { commentPreviewVisible = true }
         }
     }
 
