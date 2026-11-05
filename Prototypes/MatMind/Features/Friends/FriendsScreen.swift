@@ -41,11 +41,11 @@ struct FriendsScreen: View {
                 MMHeader(title: "Friends", leading: {
                     MMIconButton("chevron-left", label: "Back") { mm.back() }
                 }, trailing: {
-                    MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                    MMHeaderActions()
                 })
             } else {
                 MMHeader(title: "Friends", large: true, trailing: {
-                    MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                    MMHeaderActions()
                 })
             }
         } content: {
@@ -158,7 +158,7 @@ private struct FriendStreakCard: View {
 
 // MARK: - Search & discover people
 
-/// Opened from the Activity header. Before typing: people who train with your training partners,
+/// Opened from any tab's header. Before typing: people who train with your training partners,
 /// most shared partners first. Typing searches your partners and those people by name.
 /// There is no public directory: strangers outside your circle never appear.
 struct PeopleSearchScreen: View {

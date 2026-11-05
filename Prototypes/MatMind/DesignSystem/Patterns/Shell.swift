@@ -75,6 +75,7 @@ struct MMHeader<Leading: View, Trailing: View>: View {
                     .mmFont(.display, large ? 32 : 18, tracking: large ? -0.035 : -0.015, lineHeight: 1)
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 if let sub {
                     Text(sub).mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary).lineLimit(1)
                 }
@@ -82,12 +83,26 @@ struct MMHeader<Leading: View, Trailing: View>: View {
             .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
             .padding(.trailing, centered && !hasTrailing ? 44 : 0)
             HStack(spacing: 4) { trailing }
+                .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.leading, large ? 20 : 10)
         .padding(.trailing, 10)
         .padding(.top, large ? 6 : 4)
         .padding(.bottom, large ? 10 : 8)
         .frame(minHeight: MMLayout.headerHeight)
+    }
+}
+
+/// The same navigation actions on every tab, backed by the shared unread count.
+struct MMHeaderActions: View {
+    @Environment(AppModel.self) private var mm
+
+    var body: some View {
+        MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
+        MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
+            mm.go(.notifications)
+        }
+        MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
     }
 }
 

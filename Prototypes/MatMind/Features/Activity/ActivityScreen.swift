@@ -19,11 +19,7 @@ struct ActivityScreen: View {
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
             }, trailing: {
-                MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
-                MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
-                    mm.go(.notifications)
-                }
-                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                MMHeaderActions()
             })
         } content: {
             if let session = prompt {
