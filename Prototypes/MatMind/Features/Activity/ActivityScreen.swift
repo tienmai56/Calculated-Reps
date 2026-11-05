@@ -786,6 +786,19 @@ struct TrainingWeekCard: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 0) {
                     ForEach(days, id: \.self) { day in tile(day) }
                 }
+                if days.contains(where: { !mm.openPlans($0).isEmpty }) {
+                    HStack(spacing: MMSpace.s2) {
+                        MMIcon("calendar", size: 12, color: MMColor.ink300)
+                        Text("=")
+                        Text("You have a planned session")
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .mmFont(.body, 12)
+                    .foregroundStyle(MMColor.ink300)
+                    .padding(.horizontal, MMSpace.s2)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("The calendar icon means you have a planned session")
+                }
             } else {
                 HStack(spacing: 4) { ForEach(days, id: \.self) { day in tile(day) } }
             }
@@ -824,17 +837,6 @@ struct TrainingWeekCard: View {
                     .mmFont(.body, 13)
                     .foregroundStyle(MMColor.ink200)
                     .fixedSize(horizontal: false, vertical: true)
-                if days.contains(where: { !mm.openPlans($0).isEmpty }) {
-                    HStack(spacing: MMSpace.s2) {
-                        MMIcon("calendar", size: 12, color: MMColor.ink300)
-                        Text("=")
-                        Text("You have a planned session")
-                    }
-                    .mmFont(.body, 12)
-                    .foregroundStyle(MMColor.ink300)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("The calendar icon means you have a planned session")
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, MMSpace.s2)
