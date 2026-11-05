@@ -665,7 +665,7 @@ private struct ReportReasonList: View {
     }
 }
 
-/// Give writing the full row; identity and send controls sit below the field.
+/// Compact shared composer for feed comments and post detail.
 private struct CommentComposer: View {
     @Environment(AppModel.self) private var mm
     let post: Post
@@ -676,15 +676,13 @@ private struct CommentComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MMSpace.s4) {
             MentionSuggestions(text: $text, people: mm.mentionCandidates(for: post))
-            MMTextField(placeholder: "Say something nice…", text: $text,
-                        multiline: true, rows: 3, autoFocus: autoFocus)
-                .accessibilityLabel("Add a comment")
             HStack(spacing: MMSpace.s4) {
-                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 28)
-                Text("Tag a partner with @")
-                    .mmText(.bodyS)
-                    .foregroundStyle(MMColor.textTertiary)
-                Spacer(minLength: 0)
+                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 34)
+                MMTextField(placeholder: "Say something nice…", text: $text,
+                            autoFocus: autoFocus, onSubmit: onSend)
+                    .submitLabel(.send)
+                    .accessibilityLabel("Add a comment")
+                    .accessibilityHint("Use @ to tag a partner.")
                 MMIconButton("send", variant: .accent, label: "Send comment", action: onSend)
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
