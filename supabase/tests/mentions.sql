@@ -16,6 +16,8 @@ insert into public.profiles(id,name) values('00000000-0000-0000-0000-00000000004
 select pg_temp.assert_true((select username='partner' from public.profiles where name='Partner'),'older clients receive a unique default username');
 insert into public.account_settings(user_id,push_enabled) select id,username<>'quiet' from public.profiles;
 insert into public.friendships(a,b,timezone) select '00000000-0000-0000-0000-000000000041',id,'UTC' from public.profiles where username in ('hippo','blocked','quiet') or name='Partner';
+insert into public.follows(follower,followee) select a,b from public.friendships where active
+union select b,a from public.friendships where active on conflict do nothing;
 insert into public.blocks values('00000000-0000-0000-0000-000000000044','00000000-0000-0000-0000-000000000041');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000041',true);

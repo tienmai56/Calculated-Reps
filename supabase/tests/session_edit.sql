@@ -9,6 +9,8 @@ insert into public.profiles(id,name) select id,'Editor '||right(id::text,1) from
 insert into public.friendships(a,b,timezone) values
  ('00000000-0000-0000-0000-000000000071','00000000-0000-0000-0000-000000000072','UTC'),
  ('00000000-0000-0000-0000-000000000071','00000000-0000-0000-0000-000000000073','UTC');
+insert into public.follows(follower,followee) select a,b from public.friendships where active
+union select b,a from public.friendships where active on conflict do nothing;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000071',true);
 select public.command('create_session',jsonb_build_object('title','Old title','venue','Gym','timezone','UTC','starts_at',now()+interval '1 day',

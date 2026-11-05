@@ -21,6 +21,8 @@ insert into public.profiles(id,name,username) values
 insert into public.account_settings(user_id) select id from public.profiles where username like 'thread%';
 -- Each reader knows the host, but the commenters are not friends with each other.
 insert into public.friendships(a,b,timezone) select '00000000-0000-0000-0000-000000000101',id,'UTC' from public.profiles where username like 'thread%' and username<>'threadhost';
+insert into public.follows(follower,followee) select a,b from public.friendships where active
+union select b,a from public.friendships where active on conflict do nothing;
 insert into public.sessions(organizer,title,starts_at,timezone,venue,status)
  values('00000000-0000-0000-0000-000000000101','Thread test',now(),'UTC','Gym','completed') returning id as sid \gset
 insert into public.posts(session_id,author,title,venue,occurred_at,caption)
@@ -67,6 +69,7 @@ select id as blocked_cid from public.comments where body='After block' \gset
 reset role;
 select pg_temp.assert_true(pg_temp.recipients(:'blocked_cid')=array['00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000103']::uuid[],'blocked commenters receive neither in-app alerts nor push jobs');
 update public.friendships set active=false where b='00000000-0000-0000-0000-000000000103';
+delete from public.follows where follower='00000000-0000-0000-0000-000000000103' and followee='00000000-0000-0000-0000-000000000101';
 set local role authenticated;
 select public.command('add_comment',jsonb_build_object('post_id',:'pid','body','After access removed'),gen_random_uuid());
 select id as inaccessible_cid from public.comments where body='After access removed' \gset

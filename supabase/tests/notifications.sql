@@ -20,6 +20,12 @@ select pg_temp.assert_true(pg_temp.notes('00000000-0000-0000-0000-000000000031',
 select pg_temp.assert_true((select entity_id='00000000-0000-0000-0000-000000000032' from public.notifications where kind='friend'),'friend notification points at the new partner');
 select pg_temp.assert_true(pg_temp.notes('00000000-0000-0000-0000-000000000032','friend')=0,'the person scanning is not notified');
 
+-- Following controls invitations, independently of the incoming scan.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000031',true);
+select public.command('set_follow','{"user_id":"00000000-0000-0000-0000-000000000032","follow":true}',gen_random_uuid());
+reset role;
+
 -- Host plans a past session with Guest and shares it.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000031',true);
