@@ -1,6 +1,6 @@
 # Quick training log: screens C and D
 
-Database deployment is paused. Use the **QuickTrainingLogMock** Xcode scheme for an in-memory seeded UI with host, guest, unstarted-plan and quick-log states.
+The database migration is deployed to Mat Mind. Use the **QuickTrainingLogMock** Xcode scheme for an in-memory seeded UI with host, guest, unstarted-plan and quick-log states.
 
 Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular strip and simplified chooser remain in place. The supplied scratchpad path belonged to another workspace; this document records the implementation here.
 
@@ -41,10 +41,10 @@ entire flow can be tried immediately without database access.
 7. Training has no standalone share prompter. In Past, an unlogged session you host replaces **You host** with **Complete & Share**, opening the existing composer for that session. Hide this card action for guests, future sessions, confirmed attendance without a post, and published sessions with or without a photo. A separate date-only quick log leaves the plan open and does not suppress its completion action.
 8. Past tickets show only two states: **Complete & Share** for an unlogged hosted session, or **Completed** once the session is logged, whether privately, with a photo or with a note. Known shared session IDs preserve Completed independently of feed pagination. The mock seeds an unlogged host plan, private completed training, and a shared completed session with its local post.
 
-## Deferred backend
+## Deployed backend
 
-This UI merge contains no quick-log migration or SQL test changes. The implementation is preserved on [`feat/activity-quick-log-db-deferred`](https://github.com/tienmai56/Calculated-Reps/tree/feat/activity-quick-log-db-deferred/supabase/features/quick-training-log). Deployment remains paused until explicitly requested.
+Migration `20261105212524_quick_training_log.sql` is deployed to Mat Mind (`cmiqavyrazypmulrfezj`). It adds owner-private quick logs, reversible attendance completion, guest-log matching, day summaries, and publication after separate completion. Session photo saving after completion and the existing username command remain supported.
 
-Live quick logging is disabled unless the server returns all four feature snapshot fields: `quick_logs`, `training_days`, `log_matches`, and `shared_session_ids`. Until then, production uses the existing Activity prompt and read-only Profile heatmap; quick-log save/delete, separate completion and their Undo actions cannot send unsupported requests. Training ticket styling and the existing photo/note composer work with the current backend.
+The app enables live quick logging when the server returns `quick_logs`, `training_days`, `log_matches`, and `shared_session_ids`. All four fields, authenticated snapshot access, owner isolation and grants were verified after deployment without creating production test records.
 
-Use **QuickTrainingLogMock** for the complete in-memory UI. See [acceptance checks](quick-training-log-regression.md).
+`sh scripts/test-database.sh` includes the quick-log authorization/completion/photo regression suite. The QuickTrainingLogMock scheme remains a local-only preview.
