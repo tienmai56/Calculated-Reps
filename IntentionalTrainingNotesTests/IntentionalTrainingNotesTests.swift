@@ -1632,6 +1632,38 @@ final class BackendSessionTests: XCTestCase {
     private let photo = Data([0xff, 0xd8, 0xff, 0xd9])
     private let expiryError = Data(#"{"statusCode":"400","error":"Unauthorized","message":"\"exp\" claim timestamp check failed"}"#.utf8)
 
+    @MainActor
+    func testLiveFriendCodeAndScansSurviveInvitationHostChanges() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data())
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        let token = String(repeating: "a1", count: 32)
+        let generatedCode = await runtime.friendCode()
+        let code = try XCTUnwrap(generatedCode)
+        XCTAssertEqual(code, "matmind://friend/" + token)
+        for value in [code, "https://matmindbjj.lovable.app/friend/" + token,
+                      " \nhttps://matmonkey.lovable.app/friend/" + token + "\n "] {
+            let friendID = await runtime.connect(value)
+            XCTAssertEqual(friendID, "partner")
+            XCTAssertNil(model.error)
+            XCTAssertNil(model.pendingLink)
+        }
+        let requests = await fixture.requests
+        let redemptions = try requests.filter { $0.url?.path == "/rest/v1/rpc/command" }.compactMap { request -> [String: Any]? in
+            let command = try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any]
+            return command?["operation"] as? String == "redeem_friend" ? command : nil
+        }
+        XCTAssertEqual(redemptions.count, 3)
+        for command in redemptions {
+            XCTAssertEqual((command["payload"] as? [String: String])?["token"], token)
+        }
+    }
+
     func testOldKeychainSessionRefreshesBeforeSendingPhoto() async throws {
         // Existing installations stored no expires_at; the JWT exp still works.
         let payload = Data(#"{"exp":1}"#.utf8).base64EncodedString()
@@ -2144,6 +2176,15 @@ private actor BackendHTTPFixture {
            let body = request.httpBody,
            let command = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
            command["operation"] as? String == "save_profile" { profileSaved = true }
+        if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
+           let command = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            if command["operation"] as? String == "friend_token" {
+                return (200, try JSONSerialization.data(withJSONObject: ["token": String(repeating: "a1", count: 32)]))
+            }
+            if command["operation"] as? String == "redeem_friend" {
+                return (200, Data(#"{"id":"partner"}"#.utf8))
+            }
+        }
         if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
            let command = try JSONSerialization.jsonObject(with: body) as? [String: Any],
            command["operation"] as? String == "create_session",

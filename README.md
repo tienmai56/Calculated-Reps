@@ -12,6 +12,8 @@ Session links preserve existing participants' latest RSVPs when reopened. This b
 
 Scanning someone's code follows them immediately. Scanning and the Follow button both grant activity visibility and permission to invite that person to train. Following remains one-way; existing training connections are migrated to follows in both directions.
 
+“My code” uses a stable `matmind://friend/…` QR so partners on builds with different website addresses can scan each other. The updated app also recognizes existing codes from both known invitation hosts. This compatibility fix requires a new iOS build; shared session and goal links continue using the current HTTPS website.
+
 People search accepts **name or @username**. Enter at least three username characters (with or without `@`) to find someone outside your training circle, then tap **Follow**. Username follows use the same backend connection flow as scanning their code. Search is case-insensitive, shows up to 20 username matches, and hides blocked accounts. The backend migration `20261105181902_username_people_search.sql` is deployed; the updated iOS client still needs to be built and installed.
 
 Session invitations show only who invited you, with Accept and Decline. Session title, time, location, notes, focus and guests are returned only after acceptance. Opening a shared session link creates a pending invitation; previews contain no session details. Upcoming plans are visible only to their host and accepted guests. Apply the `follows_and_private_invitations` migration together with the updated iOS client.
