@@ -92,6 +92,69 @@ private struct ActivityPlanCard: View {
     }
 }
 
+/// The nearest session: share a past roll, or open an upcoming plan.
+private struct ReadyToShare: View {
+    @Environment(AppModel.self) private var mm
+    let session: Session
+    let now: Date
+    @State private var confirmingSkip = false
+
+    private var hasStarted: Bool { mm.startDate(of: session) <= now }
+    private var canShare: Bool { hasStarted && session.organizer == "me" }
+
+    /// Solo sessions share with the crew; never "the 1 of you".
+    private var shareLine: String {
+        if !hasStarted { return "\(session.day) \(session.month) \(session.date) · \(session.time) · \(session.gym)" }
+        if !canShare { return "Your crew's post-roll memory starts here." }
+        switch session.people.count {
+        case ...1: return "Add a photo and share it with your crew."
+        case 2: return "Add a photo and share it with the two of you."
+        case let n: return "Add a photo and share it with the \(n) of you."
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            MMIcon(hasStarted ? "camera" : "calendar", size: 28, color: MMColor.ink500)
+                .frame(width: 64, height: 64)
+                .background(MMColor.paper2)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
+                .rotationEffect(.degrees(-4))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(hasStarted ? "How was \(session.title)?" : "Coming up: \(session.title)")
+                    .mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
+                Text(shareLine)
+                    .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)
+                    .padding(.top, 4)
+                HStack(spacing: 14) {
+                    MMButton(canShare ? "Complete & share" : "View session", size: .sm, iconLeft: canShare ? "camera" : "calendar") {
+                        mm.go(canShare ? .complete(id: session.id) : .session(id: session.id))
+                    }
+                    if canShare {
+                        Button("Didn't train") { confirmingSkip = true }
+                            .mmFont(.body, 13, .semibold, lineHeight: 1.2)
+                            .foregroundStyle(MMColor.ink200)
+                            .frame(minHeight: 36)
+                    }
+                }
+                .padding(.top, 10)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .confirmationDialog("Didn't train at \(session.title)?", isPresented: $confirmingSkip, titleVisibility: .visible) {
+            Button("Delete session", role: .destructive) { mm.deleteSession(session.id) }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text(session.people.count > 1 ? "It comes off everyone's schedule and won't be shared." : "It comes off your schedule and won't be shared.")
+        }
+    }
+}
+
 /// No open Activity plans or completed memories yet.
 private struct EmptyActivity: View {
     @Environment(AppModel.self) private var mm
