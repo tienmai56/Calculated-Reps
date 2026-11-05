@@ -82,7 +82,7 @@ Schedule the notification worker (for example once per minute) with its `x-worke
 
 Development links use `matmind://friend/<token>`, `matmind://session/<token>` and `matmind://goal/<token>`. Real QR images encode those actual links, and scanning redeems a server-issued expiring capability.
 
-The selected invitation host is **https://matmindbjj.lovable.app/**. It is configured as `AppLinkHost`, and `applinks:matmindbjj.lovable.app` is in the app's Associated Domains entitlement.
+The selected invitation host is **https://matmonkey.lovable.app/**. It is configured as `AppLinkHost`, and `applinks:matmonkey.lovable.app` is in the app's Associated Domains entitlement.
 
 The site is live, but the association file and invitation paths currently return HTTP 404. `AppLinksEnabled` remains false until the website is published with those files and routes. The iOS client continues generating `matmind://` links during this setup.
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const origin = "https://matmindbjj.lovable.app";
+const origin = "https://matmonkey.lovable.app";
 const token = process.env.SESSION_SHARE_TOKEN;
 if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
   console.error("Set SESSION_SHARE_TOKEN to a real active session invitation token. It will not be printed or redeemed.");
@@ -30,4 +30,4 @@ const png = Buffer.from(await image.arrayBuffer());
 assert.equal(png.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", "Response must be a real PNG");
 assert.equal(png.readUInt32BE(16), 1200);
 assert.equal(png.readUInt32BE(20), 630);
-console.log("Live association, session metadata, native destination, and 1200 × 630 PNG passed. Complete signed physical-device checks before enabling AppLinksEnabled.");
+console.log("Live association, session metadata, native destination, and 1200 × 630 PNG passed. Complete signed physical-device checks before shipping the iOS build.");

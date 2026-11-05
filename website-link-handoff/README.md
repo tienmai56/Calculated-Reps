@@ -1,6 +1,13 @@
 # Shared-link website implementation
 
-Target host: https://matmindbjj.lovable.app/
+Target host: https://matmonkey.lovable.app/
+
+The published site moved from `matmindbjj.lovable.app` to this host. The old host
+now returns "Project not found" rather than redirecting. Generated HTTPS links,
+preview metadata, the verification script and the signed app's Associated Domains
+must all use the current host. Existing `matmind://` links keep their native
+fallback behavior, but messaging apps cannot fetch rich previews for them. The
+App Store build needs an iOS update to start copying the new HTTPS invitation links.
 
 The actual website implementation is in
 [PR #1](https://github.com/tienmai56/your-note-haven/pull/1) in `your-note-haven`.

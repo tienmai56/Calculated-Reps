@@ -10,7 +10,7 @@
 	<string>$(APS_ENVIRONMENT)</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:matmindbjj.lovable.app</string>
+		<string>applinks:matmonkey.lovable.app</string>
 	</array>
 </dict>
 </plist>

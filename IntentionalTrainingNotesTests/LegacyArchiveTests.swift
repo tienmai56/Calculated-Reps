@@ -195,13 +195,25 @@ final class LegacyArchiveTests: XCTestCase {
 }
 
 final class InvitationLinkTests: XCTestCase {
+    func testProductionConfigurationGeneratesLinksOnThePublishedHost() throws {
+        let host = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "AppLinkHost") as? String)
+        let enabled = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "AppLinksEnabled") as? Bool)
+        XCTAssertEqual(host, "matmonkey.lovable.app")
+        XCTAssertTrue(enabled)
+        let token = String(repeating: "a", count: 64)
+        for kind in ["friend", "session", "goal"] {
+            let link = InvitationLinks.make(kind: kind, token: token, host: host, httpsEnabled: enabled)
+            XCTAssertEqual(link.absoluteString, "https://matmonkey.lovable.app/" + kind + "/" + token)
+        }
+    }
+
     func testWebsiteReadinessControlsHTTPSGeneration() {
         let token = String(repeating: "a", count: 64)
         for kind in ["friend", "session", "goal"] {
-            let development = InvitationLinks.make(kind: kind, token: token, host: "matmindbjj.lovable.app", httpsEnabled: false)
+            let development = InvitationLinks.make(kind: kind, token: token, host: "matmonkey.lovable.app", httpsEnabled: false)
             XCTAssertEqual(development.absoluteString, "matmind://" + kind + "/" + token)
-            let published = InvitationLinks.make(kind: kind, token: token, host: "matmindbjj.lovable.app", httpsEnabled: true)
-            XCTAssertEqual(published.absoluteString, "https://matmindbjj.lovable.app/" + kind + "/" + token)
+            let published = InvitationLinks.make(kind: kind, token: token, host: "matmonkey.lovable.app", httpsEnabled: true)
+            XCTAssertEqual(published.absoluteString, "https://matmonkey.lovable.app/" + kind + "/" + token)
         }
         XCTAssertEqual(InvitationLinks.make(kind: "friend", token: token, host: nil, httpsEnabled: true).scheme, "matmind")
     }
@@ -209,21 +221,22 @@ final class InvitationLinkTests: XCTestCase {
     func testInvitationParsingUsesExactRoutesAndNormalizesTokens() throws {
         let token = String(repeating: "a1", count: 32)
         for kind in ["friend", "session", "goal"] {
-            for prefix in ["matmind://", "https://matmindbjj.lovable.app/"] {
+            for prefix in ["matmind://", "https://matmonkey.lovable.app/"] {
                 let url = try XCTUnwrap(URL(string: prefix + kind + "/" + token.uppercased()))
-                XCTAssertEqual(InvitationLinks.parse(url, host: "matmindbjj.lovable.app"),
+                XCTAssertEqual(InvitationLinks.parse(url, host: "matmonkey.lovable.app"),
                                InvitationLinks.Destination(kind: kind, token: token))
             }
         }
         for value in ["https://example.com/session/" + token,
-                      "https://matmindbjj.lovable.app/session/extra/" + token,
-                      "https://matmindbjj.lovable.app/session//" + token,
-                      "https://attacker@matmindbjj.lovable.app/session/" + token,
+                      "https://matmindbjj.lovable.app/session/" + token,
+                      "https://matmonkey.lovable.app/session/extra/" + token,
+                      "https://matmonkey.lovable.app/session//" + token,
+                      "https://attacker@matmonkey.lovable.app/session/" + token,
                       "matmind://session/extra/" + token,
                       "matmind://auth/" + token,
                       "matmind://session/" + String(repeating: "１", count: 64),
                       "matmind://session/abc"] {
-            XCTAssertNil(InvitationLinks.parse(try XCTUnwrap(URL(string: value)), host: "matmindbjj.lovable.app"), value)
+            XCTAssertNil(InvitationLinks.parse(try XCTUnwrap(URL(string: value)), host: "matmonkey.lovable.app"), value)
         }
     }
 }
