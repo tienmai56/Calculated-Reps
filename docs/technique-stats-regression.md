@@ -17,6 +17,7 @@ This change builds on the Quick Log technique sheet in PR #90. The separate Stat
 - Log only last week: this week shows zero through today and last week's actual line. First-ever log this week: last week's line is zero. Older-only techniques retain a chart with zero recent totals. Future dates never add points.
 - At Monday midnight, this week starts fresh and the completed week becomes last week. Repeat across a daylight-saving change, timezone change and Dec/Jan boundary.
 - Sign out/switch accounts during a save: no list, rep totals or chart leaks into the next account. Hit details remain account-scoped device storage, without cross-device sync.
+- In the installed app, save hits against a live Quick Log and refresh: its lowercase server UUID must match the local hit key. Relaunch with an older uppercase-key cache: prior hits should appear without logging them again. Migration preserves counts and avoids counting a mixed-case duplicate twice; no backend deployment is required.
 - Check narrow screens, long technique names, large Dynamic Type, VoiceOver chart summaries and the live app's older-backend fallback heatmap. No technique chart appears on another person's profile.
 
 ## Verification
