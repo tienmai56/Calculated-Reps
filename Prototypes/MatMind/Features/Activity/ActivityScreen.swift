@@ -772,19 +772,34 @@ struct TrainingWeekCard: View {
     @State private var choice = false
     @State private var removing: QuickLog?
     @State private var shareSessionID: String?
+    @State private var logHighlightID: UUID?
     private var days: [Date] { TrainingCalendar.week(anchor) }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            HStack(spacing: 4) { ForEach(days, id: \.self) { day in tile(day) } }
-            HStack(spacing: 4) {
-                MMIcon("calendar", size: 12, color: MMColor.textTertiary)
-                Text("Planned session").mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
+            HStack(spacing: isActivity ? 5 : 4) { ForEach(days, id: \.self) { day in tile(day) } }
+            if !isActivity {
+                HStack(spacing: 4) {
+                    MMIcon("calendar", size: 12, color: MMColor.textTertiary)
+                    Text("Planned session").mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
+                }
             }
             if let id = shareSessionID, mm.trainingShareID == id, let s = mm.findSession(id), s.organizer == "me" {
                 shareCard(s)
             }
-        }.padding(12).mmCardSurface(radius: MMRadius.lg)
+        }
+        .padding(EdgeInsets(top: isActivity ? 14 : 12, leading: 12, bottom: 12, trailing: 12))
+        .mmCardSurface(radius: isActivity ? 24 : MMRadius.lg, fill: isActivity ? MMColor.ink900 : MMColor.surfaceCard, shadow: !isActivity)
+        .onChange(of: days.map { mm.entryCount($0) }) { old, new in
+            if isActivity && zip(old, new).contains(where: { $0.1 > $0.0 }) {
+                logHighlightID = UUID()
+            }
+        }
+        .task(id: logHighlightID) {
+            guard logHighlightID != nil else { return }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            logHighlightID = nil
+        }
         .animation(reduceMotion ? nil : .timingCurve(0.34, 1.56, 0.64, 1, duration: MMMotion.slow), value: days.map { mm.entryCount($0) })
         .sheet(isPresented: Binding(get: { selected != nil }, set: { if !$0 { selected = nil } })) {
             if let date = selected { daySheet(date) }
@@ -797,23 +812,45 @@ struct TrainingWeekCard: View {
                 }.offset(y: -12)
             }
         }
-        .onDisappear { shareSessionID = nil; mm.trainingShareID = nil }
+        .onDisappear { shareSessionID = nil; mm.trainingShareID = nil; logHighlightID = nil }
     }
 
     @ViewBuilder
     private var header: some View {
         if isActivity {
-            // The full heading is the tap target, so the chevron doesn't stretch
-            // the title row and push the helper text away from it.
-            Button { mm.tab = .profile } label: {
-                headerContent
-                    .frame(minHeight: MMLayout.tapTarget, alignment: .topLeading)
-                    .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: MMSpace.s2) {
+                HStack(spacing: MMSpace.s4) {
+                    Text("This week")
+                        .mmFont(.display, 18)
+                        .foregroundStyle(MMColor.paper)
+                    Spacer(minLength: MMSpace.s2)
+                    Button { mm.tab = .training } label: {
+                        HStack(spacing: MMSpace.s2) {
+                            Text("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days")")
+                                .mmFont(.display, 13)
+                                .contentTransition(.numericText())
+                            MMIcon("chevron-right", size: 12, color: logHighlightID == nil ? MMColor.paper : MMColor.white)
+                        }
+                        .foregroundStyle(logHighlightID == nil ? MMColor.paper : MMColor.white)
+                        .padding(.horizontal, MMSpace.s5)
+                        .padding(.vertical, MMSpace.s3)
+                        .background(logHighlightID == nil ? MMColor.paper.opacity(0.12) : MMColor.coral500, in: Capsule())
+                        .modifier(TrainingPop(trigger: mm.trainedDays(days)))
+                        .frame(minHeight: MMLayout.tapTarget)
+                        .contentShape(Rectangle())
+                        // Keep the pill's hit area from stretching the title row.
+                        .padding(.vertical, -MMSpace.s4)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained this week")
+                    .accessibilityHint("Open Training")
+                    .animation(reduceMotion ? nil : MMMotion.easeOut(), value: logHighlightID != nil)
+                }
+                Text("Tap a day to quickly log your training.")
+                    .mmFont(.body, 13)
+                    .foregroundStyle(MMColor.ink200)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("This week, \(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained")
-            .accessibilityHint("Open your rhythm in Profile")
         } else {
             headerContent
         }
@@ -822,7 +859,7 @@ struct TrainingWeekCard: View {
     private var headerContent: some View {
         VStack(alignment: .leading, spacing: MMSpace.s2) {
             HStack(spacing: MMSpace.s4) {
-                Text(isActivity ? "This week" : days[0].formatted(.dateTime.month(.abbreviated).day()))
+                Text(days[0].formatted(.dateTime.month(.abbreviated).day()))
                     .mmFont(.display, 16)
                     .foregroundStyle(MMColor.textPrimary)
                 Spacer(minLength: MMSpace.s2)
@@ -833,9 +870,6 @@ struct TrainingWeekCard: View {
                     .padding(.vertical, MMSpace.s3)
                     .background(MMColor.paper2, in: Capsule()).contentTransition(.numericText())
                     .modifier(TrainingPop(trigger: mm.trainedDays(days)))
-                if isActivity {
-                    MMIcon("chevron-right", size: 22, weight: .bold, color: MMColor.ink700)
-                }
             }
             Text("Tap a day to quickly log your training.")
                 .mmFont(.body, 13)
@@ -849,30 +883,67 @@ struct TrainingWeekCard: View {
         let today = TrainingCalendar.calendar.isDateInToday(date)
         let future = TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: Date())
         return Button { tap(date) } label: {
-            VStack(spacing: MMSpace.s2) {
-                Text(date.formatted(.dateTime.weekday(.narrow)))
-                    .mmFont(.body, 11, .semibold)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(date.formatted(.dateTime.day()))
-                    .mmFont(.display, 16)
-                    .fixedSize(horizontal: false, vertical: true)
-                Group {
-                    if count > 1 { Text("×\(count)").mmFont(.body, 10, .bold).padding(.horizontal, 4).background(.white, in: Capsule()).foregroundStyle(MMColor.accent) }
-                    else if count == 1 { MMIcon("check", size: 12, color: .white) }
-                    else if planned { MMIcon("calendar", size: 12, color: MMColor.textTertiary) }
-                    else { Circle().fill(today ? MMColor.accent : .clear).frame(width: 4, height: 4) }
-                }.frame(minHeight: 14)
+            if isActivity {
+                activityTile(date, count: count, planned: planned, today: today, future: future)
+            } else {
+                VStack(spacing: MMSpace.s2) {
+                    Text(date.formatted(.dateTime.weekday(.narrow)))
+                        .mmFont(.body, 11, .semibold)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(date.formatted(.dateTime.day()))
+                        .mmFont(.display, 16)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Group {
+                        if count > 1 { Text("×\(count)").mmFont(.body, 10, .bold).padding(.horizontal, 4).background(.white, in: Capsule()).foregroundStyle(MMColor.accent) }
+                        else if count == 1 { MMIcon("check", size: 12, color: .white) }
+                        else if planned { MMIcon("calendar", size: 12, color: MMColor.textTertiary) }
+                        else { Circle().fill(today ? MMColor.accent : .clear).frame(width: 4, height: 4) }
+                    }.frame(minHeight: 14)
+                }
+                    .padding(.vertical, MMSpace.s4)
+                    .frame(maxWidth: .infinity, minHeight: MMSpace.s11 + MMSpace.s6)
+                    .foregroundStyle(count > 0 ? .white : future ? MMColor.textDisabled : MMColor.textPrimary)
+                    .background(count > 0 ? MMColor.accent : future ? .clear : MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.md))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MMRadius.md).strokeBorder(today && count == 0 ? MMColor.accent : future ? MMColor.borderDefault : .clear,
+                            style: StrokeStyle(lineWidth: today ? 2 : 1, dash: future && planned ? [3, 3] : []))
+                    }.modifier(TrainingPop(trigger: count))
             }
-                .padding(.vertical, MMSpace.s4)
-                .frame(maxWidth: .infinity, minHeight: MMSpace.s11 + MMSpace.s6)
-                .foregroundStyle(count > 0 ? .white : future ? MMColor.textDisabled : MMColor.textPrimary)
-                .background(count > 0 ? MMColor.accent : future ? .clear : MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.md))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MMRadius.md).strokeBorder(today && count == 0 ? MMColor.accent : future ? MMColor.borderDefault : .clear,
-                        style: StrokeStyle(lineWidth: today ? 2 : 1, dash: future && planned ? [3, 3] : []))
-                }.modifier(TrainingPop(trigger: count))
         }.buttonStyle(.plain).disabled(future || mm.busy)
         .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(count > 0 ? "trained, \(count) entries" : planned ? mm.openPlans(date).map(\.title).joined(separator: ", ") + " planned" : "no entry"), \(future ? "future day" : "tap to log training")")
+    }
+
+    private func activityTile(_ date: Date, count: Int, planned: Bool, today: Bool, future: Bool) -> some View {
+        VStack(spacing: MMSpace.s1) {
+            Text(date.formatted(.dateTime.weekday(.narrow)))
+                .mmFont(.body, 10, .semibold, lineHeight: 1)
+            Text(date.formatted(.dateTime.day()))
+                .mmFont(.display, 16, lineHeight: 1)
+            Group {
+                if count > 1 {
+                    Text("×\(count)").mmFont(.body, 10, .bold, lineHeight: 1)
+                } else if count == 1 {
+                    MMIcon("check", size: 10, color: MMColor.white)
+                } else if planned {
+                    MMIcon("calendar", size: 10, color: future ? MMColor.paper.opacity(0.45) : MMColor.paper)
+                } else {
+                    Circle().fill(today ? MMColor.coral500 : .clear).frame(width: 4, height: 4)
+                }
+            }
+            .frame(minHeight: 10)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .padding(.vertical, MMSpace.s1)
+        .frame(maxWidth: .infinity, minHeight: 50)
+        .foregroundStyle(count > 0 ? MMColor.white : future ? MMColor.ink400 : MMColor.paper)
+        .background(count > 0 ? MMColor.coral500 : future ? .clear : MMColor.paper.opacity(0.10), in: RoundedRectangle(cornerRadius: MMRadius.md))
+        .overlay {
+            RoundedRectangle(cornerRadius: MMRadius.md)
+                .strokeBorder(today && count == 0 ? MMColor.coral500 : future ? MMColor.paper.opacity(planned ? 0.45 : 0.12) : .clear,
+                              style: StrokeStyle(lineWidth: today ? 2 : 1.5, dash: future && planned ? [3, 3] : []))
+        }
+        .modifier(TrainingPop(trigger: count))
     }
     private func tap(_ date: Date) {
         switch mm.trainingTap(date) {
@@ -962,7 +1033,10 @@ struct TrainingWeekCard: View {
             Text("\(s.title) · with \(names(s))").mmFont(.body, 13)
             TrainingAudience(session: s)
             MMButton("Add a photo to post", variant: .soft, iconLeft: "camera", fullWidth: true) { shareSessionID = nil; mm.trainingShareID = nil; mm.go(.complete(id: s.id)) }
-        }.padding(16).background(MMColor.accentTint, in: RoundedRectangle(cornerRadius: MMRadius.md))
+        }
+        .foregroundStyle(MMColor.ink900)
+        .padding(16)
+        .background(MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.md))
     }
 }
 struct TrainingAudience: View {
