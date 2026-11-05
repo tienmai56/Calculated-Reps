@@ -186,10 +186,11 @@ enum SeedData {
 
 // Calendar fixtures are preview-only. Live AppModel starts with no records.
 enum QuickLogMockScenario: String, CaseIterable, Identifiable {
-    case quickLogs, hostPlan, guestPlan, startsLater
+    case upcomingPrompt, quickLogs, hostPlan, guestPlan, startsLater
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .upcomingPrompt: "Upcoming prompt"
         case .quickLogs: "Quick logs"
         case .hostPlan: "Host plan"
         case .guestPlan: "Guest plan"
@@ -205,7 +206,7 @@ extension SeedData {
         let future = c.date(bySettingHour: 19, minute: 0, second: 0, of: c.date(byAdding: .day, value: 2, to: today)!)!
         var plans = [mockSession("mock-future", title: "Open mat", start: future, host: "me")]
         if scenario != .quickLogs {
-            let start = scenario == .startsLater
+            let start = scenario == .startsLater || scenario == .upcomingPrompt
                 ? min(now.addingTimeInterval(3600), tomorrow.addingTimeInterval(-0.001))
                 : max(today, now.addingTimeInterval(-3600))
             plans.insert(mockSession("mock-today", title: scenario == .guestPlan ? "Rolls with Kenji" : "No-gi training",

@@ -11,7 +11,9 @@ struct ActivityScreen: View {
     }
 
     private func feed(at now: Date) -> some View {
-        let prompt = mm.quickTrainingLogEnabled ? nil : mm.activityPrompt(at: now)
+        let prompt = mm.quickTrainingLogEnabled
+            ? mm.quickLogActivityPrompt(keeping: mm.activityQuickLogPromptID, now: now)
+            : mm.activityPrompt(at: now)
         let plans = mm.activityPlans(at: now)
         return MMScreen(tabPadding: true) {
             MMHeader(title: "Activity", large: true, leading: {
@@ -22,14 +24,15 @@ struct ActivityScreen: View {
                 MMHeaderActions()
             })
         } content: {
+            if let session = prompt {
+                ReadyToShare(session: session, now: now, keepsUpcomingStyle: mm.quickTrainingLogEnabled)
+                    .padding(.vertical, 12)
+            }
             if mm.quickTrainingLogEnabled {
                 TrainingWeekCard(anchor: now, isActivity: true)
                     .padding(.horizontal, MMSpace.s6)
                     .padding(.top, MMSpace.s2)
                     .padding(.bottom, MMSpace.s6)
-            } else if let session = prompt {
-                ReadyToShare(session: session, now: now)
-                    .padding(.vertical, 12)
             }
             if mm.feedPosts.isEmpty && plans.isEmpty {
                 EmptyActivity(prompt: prompt, now: now)
@@ -61,6 +64,9 @@ struct ActivityScreen: View {
                     .padding(.top, 10)
                     .padding(.bottom, 20)
             }
+        }
+        .onChange(of: prompt?.id, initial: true) { _, id in
+            if mm.quickTrainingLogEnabled { mm.activityQuickLogPromptID = id }
         }
     }
 }
@@ -97,14 +103,16 @@ private struct ReadyToShare: View {
     @Environment(AppModel.self) private var mm
     let session: Session
     let now: Date
+    var keepsUpcomingStyle = false
     @State private var confirmingSkip = false
 
     private var hasStarted: Bool { mm.startDate(of: session) <= now }
-    private var canShare: Bool { hasStarted && session.organizer == "me" }
+    private var showsPastPrompt: Bool { hasStarted && !keepsUpcomingStyle }
+    private var canShare: Bool { showsPastPrompt && session.organizer == "me" }
 
     /// Solo sessions share with the crew; never "the 1 of you".
     private var shareLine: String {
-        if !hasStarted { return "\(session.day) \(session.month) \(session.date) · \(session.time) · \(session.gym)" }
+        if !showsPastPrompt { return "\(session.day) \(session.month) \(session.date) · \(session.time) · \(session.gym)" }
         if !canShare { return "Your crew's post-roll memory starts here." }
         switch session.people.count {
         case ...1: return "Add a photo and share it with your crew."
@@ -115,14 +123,14 @@ private struct ReadyToShare: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            MMIcon(hasStarted ? "camera" : "calendar", size: 28, color: MMColor.ink500)
+            MMIcon(showsPastPrompt ? "camera" : "calendar", size: 28, color: MMColor.ink500)
                 .frame(width: 64, height: 64)
                 .background(MMColor.paper2)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
-                Text(hasStarted ? "How was \(session.title)?" : "Coming up: \(session.title)")
+                Text(showsPastPrompt ? "How was \(session.title)?" : "Coming up: \(session.title)")
                     .mmFont(.display, 17, lineHeight: 1.2).foregroundStyle(MMColor.paper)
                 Text(shareLine)
                     .mmFont(.body, 13, .medium, lineHeight: 1.35).foregroundStyle(MMColor.ink200)

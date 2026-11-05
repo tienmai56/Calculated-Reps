@@ -2976,6 +2976,39 @@ extension TrainingCalendarTests {
         XCTAssertEqual(mock.posts.filter { $0.id == "mock-shared-post" }.count, 1)
     }
 
+    @MainActor func testPromptAndQuickLogMockKeepsPlanUntilCompletion() async throws {
+        let mock = AppModel.quickTrainingLogMock(.upcomingPrompt)
+        let now = Date()
+        let first = try XCTUnwrap(mock.quickLogActivityPrompt(keeping: nil, now: now))
+        XCTAssertEqual(first.id, "mock-today", "Start with the closest upcoming training")
+        XCTAssertGreaterThan(mock.startDate(of: first), now)
+        mock.activityQuickLogPromptID = first.id
+        let before = mock.entryCount(now)
+        let logged = await mock.addQuickLog(now)
+        XCTAssertTrue(logged)
+        XCTAssertEqual(mock.entryCount(now), before + 1)
+        XCTAssertEqual(mock.quickLogActivityPrompt(keeping: mock.activityQuickLogPromptID)?.id, first.id)
+        XCTAssertNil(mock.trainingCompletionStatus(first), "A quick tap keeps the planned session open")
+
+        mock.startMockPromptPlan()
+        let started = try XCTUnwrap(mock.findSession(first.id))
+        XCTAssertTrue(mock.canMarkTrainingDone(started))
+        // Even much later, retain the current plan instead of jumping to a closer future one.
+        let later = mock.startDate(of: try XCTUnwrap(mock.findSession("mock-future"))).addingTimeInterval(-1)
+        XCTAssertEqual(mock.quickLogActivityPrompt(keeping: first.id, now: later)?.id, first.id)
+        let completed = await mock.markTrainingDone(started)
+        XCTAssertTrue(completed)
+        XCTAssertEqual(mock.quickLogActivityPrompt(keeping: first.id)?.id, "mock-future")
+        XCTAssertFalse(mock.isLive)
+        XCTAssertNil(mock.runtime)
+
+        let revision = mock.quickLogMockRevision
+        mock.loadQuickLogMock(.upcomingPrompt)
+        XCTAssertNotEqual(mock.quickLogMockRevision, revision)
+        XCTAssertNil(mock.activityQuickLogPromptID)
+        XCTAssertEqual(mock.quickLogActivityPrompt(keeping: nil)?.id, "mock-today")
+    }
+
     @MainActor func testQuickLogMockRunsLocallyAndResetRestoresFixtures() async {
         let mock = AppModel.quickTrainingLogMock(.quickLogs)
         let day = Date(), posts = mock.posts

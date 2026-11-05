@@ -52,8 +52,9 @@ final class AppModel {
 #endif
 #if DEBUG || MAT_MIND_PROTOTYPE
     private(set) var quickLogMockScenario: QuickLogMockScenario = .hostPlan
+    private(set) var quickLogMockRevision = UUID()
 
-    static func quickTrainingLogMock(_ scenario: QuickLogMockScenario = .hostPlan) -> AppModel {
+    static func quickTrainingLogMock(_ scenario: QuickLogMockScenario = .upcomingPrompt) -> AppModel {
         let model = AppModel(live: false)
         model.loadQuickLogMock(scenario)
         return model
@@ -63,6 +64,7 @@ final class AppModel {
     func loadQuickLogMock(_ scenario: QuickLogMockScenario, now: Date = Date()) {
         guard !isLive, runtime == nil else { return }
         reset()
+        quickLogMockRevision = UUID()
         quickLogMockScenario = scenario
         upcoming = SeedData.quickLogMockPlans(scenario, now: now)
         quickLogs = SeedData.quickLogMockLogs(scenario, now: now)
@@ -82,6 +84,21 @@ final class AppModel {
         monkeyPromptAnswered = true
         isSignedIn = true
         setTab(.activity)
+    }
+
+    /// Simulator-only time shortcut; no runtime or backend operation is used.
+    func startMockPromptPlan(now: Date = Date()) {
+        guard !isLive, runtime == nil, quickLogMockScenario == .upcomingPrompt,
+              let session = findSession("mock-today"), trainingCompletionStatus(session) == nil else { return }
+        let c = TrainingCalendar.calendar
+        let start = max(c.startOfDay(for: now), now.addingTimeInterval(-60))
+        updateSession(session.id) {
+            $0.startsAt = start
+            $0.day = start.formatted(.dateTime.weekday(.abbreviated))
+            $0.date = c.component(.day, from: start)
+            $0.month = start.formatted(.dateTime.month(.abbreviated))
+            $0.time = start.formatted(.dateTime.hour().minute())
+        }
     }
 #endif
     let isLive: Bool
@@ -159,6 +176,7 @@ final class AppModel {
     var completedSessions: [Session] = []
     var sharedSessionIDs: Set<String> = []
     var quickLogs: [QuickLog] = []
+    var activityQuickLogPromptID: String?
     var trainingUndo: (() async -> Bool)?
     var trainingUndoToastID: UUID?
     var trainingUndoSessionID: String?
@@ -166,6 +184,7 @@ final class AppModel {
     private var trainingGeneration = UUID()
 
     func resetTrainingActions() {
+        activityQuickLogPromptID = nil
         quickTrainingLogBackendAvailable = false
         trainingGeneration = UUID()
         savingTraining = false
@@ -422,6 +441,22 @@ final class AppModel {
                 // Prefer the past session on a tie, then keep equal-time rows stable.
                 return first == second ? $0.id < $1.id : first < second
             }
+    }
+
+    /// Keep the selected plan after its start; day-only quick logs never complete a session.
+    func quickLogActivityPrompt(keeping sessionID: String?, now: Date = Date()) -> Session? {
+        let candidates = calendarSessions.filter {
+            ($0.organizer == "me" || $0.status(of: "me") == .going)
+                && $0.status(of: "me") != .declined && $0.status(of: "me") != .invited
+                && trainingCompletionStatus($0) == nil
+        }
+        if let sessionID, let current = candidates.first(where: { $0.id == sessionID }) { return current }
+        let future = candidates.filter { startDate(of: $0) >= now }
+        return (future.isEmpty ? candidates : future).min {
+            let a = startDate(of: $0), b = startDate(of: $1)
+            let distanceA = abs(a.timeIntervalSince(now)), distanceB = abs(b.timeIntervalSince(now))
+            return distanceA == distanceB ? $0.id < $1.id : distanceA < distanceB
+        }
     }
 
     var unreadCount: Int { notifications.filter(\.unread).count }
