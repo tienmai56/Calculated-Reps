@@ -72,8 +72,8 @@ private struct ActivityPlanCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MMSpace.s4) {
             HStack(spacing: MMSpace.s3) {
-                MMIcon("link", size: 14, color: MMColor.textTertiary)
-                Text("Anyone with the link")
+                MMIcon(session.privacy == .link ? "link" : "lock", size: 14, color: MMColor.textTertiary)
+                Text(session.privacy == .link ? "Anyone with the link" : "Friends only")
                     .mmFont(.body, 13, .medium).foregroundStyle(MMColor.textSecondary)
                 Spacer()
                 if session.status(of: "me") == .going {
@@ -776,7 +776,7 @@ struct TrainingWeekCard: View {
     @State private var selected: Date?
     @State private var choice = false
     @State private var removing: QuickLog?
-    @State private var shareSessionID: String?
+    @State private var trainingSaveFailed = false
     @State private var daySheetHeight: CGFloat = 280
     private var days: [Date] { TrainingCalendar.week(anchor) }
     var body: some View {
@@ -795,9 +795,6 @@ struct TrainingWeekCard: View {
                     Text("Planned session").mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
                 }
             }
-            if let id = shareSessionID, mm.trainingShareID == id, let s = mm.findSession(id), s.organizer == "me" {
-                shareCard(s)
-            }
         }
         .padding(EdgeInsets(top: isActivity ? 16 : 12, leading: isActivity ? 14 : 12, bottom: 12, trailing: isActivity ? 14 : 12))
         .mmCardSurface(radius: isActivity ? 24 : MMRadius.lg, fill: isActivity ? MMColor.ink900 : MMColor.surfaceCard, shadow: !isActivity)
@@ -807,13 +804,13 @@ struct TrainingWeekCard: View {
         }
         .overlay(alignment: .top) {
             // A system sheet covers the shell toast; older-week logging needs its own presentation.
-            if !isActivity, let toast = mm.toast, mm.trainingUndoToastID == toast.id {
+            if !isActivity, let toast = mm.toast, mm.canUndoTrainingToast(toast.id) {
                 MMToast(message: toast.message, actionLabel: "Undo") {
                     Task { await mm.undoTrainingToast(toast.id) }
                 }.offset(y: -12)
             }
         }
-        .onDisappear { shareSessionID = nil; mm.trainingShareID = nil }
+        .onChange(of: selected) { _, _ in trainingSaveFailed = false }
     }
 
     @ViewBuilder
@@ -992,47 +989,70 @@ struct TrainingWeekCard: View {
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(MMRadius.xl)
         .confirmationDialog("Remove this quick log?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
-            if let log = removing { Button("Remove quick log", role: .destructive) { Task { await mm.deleteQuickLog(log.id); removing = nil } } }
+            if let log = removing {
+                Button("Remove quick log", role: .destructive) {
+                    Task {
+                        if await mm.deleteQuickLog(log.id) { removing = nil }
+                        else { trainingSaveFailed = true }
+                    }
+                }
+            }
             Button("Keep it", role: .cancel) { removing = nil }
         }
     }
 
     private func loggingOptions(_ date: Date) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(mm.openPlans(date)) { session in
-                Button {
-                    selected = nil
-                    Task {
-                        await mm.markTrainingDone(session)
-                        if mm.trainingShareID == session.id { shareSessionID = session.id }
-                    }
-                } label: { planOption(session) }
-                .buttonStyle(.plain)
-            }
-            Button { selected = nil; Task { await mm.addQuickLog(date) } } label: {
-                HStack(spacing: 12) {
-                    MMIcon("check", size: 24, weight: .bold, color: MMColor.white)
-                        .frame(width: 48, height: 52)
-                        .background(MMColor.coral500, in: RoundedRectangle(cornerRadius: MMRadius.md))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("A quick log").mmFont(.display, 17, tracking: -0.015, lineHeight: 1.2)
-                        Text("Just marks the day. Nothing is posted.")
-                            .mmFont(.body, 13, .medium, lineHeight: 1.3)
-                            .foregroundStyle(MMColor.ink700)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    MMIcon("chevron-right", size: 16, color: MMColor.ink500)
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(mm.openPlans(date)) { session in
+                    Button {
+                        trainingSaveFailed = false
+                        Task {
+                            if await mm.markTrainingDone(session) {
+                                selected = nil
+                                mm.go(.session(id: session.id))
+                            } else if !mm.savingTraining { trainingSaveFailed = true }
+                        }
+                    } label: { planOption(session, now: context.date) }
+                    .buttonStyle(.plain)
+                    .disabled(mm.busy || !mm.canMarkTrainingDone(session, now: context.date))
                 }
-                .foregroundStyle(MMColor.ink900)
-                .padding(14)
-                .background(MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.lg))
-                .contentShape(RoundedRectangle(cornerRadius: MMRadius.lg))
-            }
-            .buttonStyle(.plain)
-            if let log = mm.dayLogs(date).first {
-                Text("Already logged today: a quick log at \(clock(log.loggedAt))")
-                    .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                Button {
+                    trainingSaveFailed = false
+                    Task {
+                        if await mm.addQuickLog(date) { selected = nil }
+                        else { trainingSaveFailed = true }
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        MMIcon("check", size: 24, weight: .bold, color: MMColor.white)
+                            .frame(width: 48, height: 52)
+                            .background(MMColor.coral500, in: RoundedRectangle(cornerRadius: MMRadius.md))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("A quick log").mmFont(.display, 17, tracking: -0.015, lineHeight: 1.2)
+                            Text("Just marks the day. Nothing is posted.")
+                                .mmFont(.body, 13, .medium, lineHeight: 1.3)
+                                .foregroundStyle(MMColor.ink700)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        MMIcon("chevron-right", size: 16, color: MMColor.ink500)
+                    }
+                    .foregroundStyle(MMColor.ink900)
+                    .padding(14)
+                    .background(MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.lg))
+                    .contentShape(RoundedRectangle(cornerRadius: MMRadius.lg))
+                }
+                .buttonStyle(.plain)
+                .disabled(mm.busy)
+                if trainingSaveFailed {
+                    Text("Couldn't save. Nothing changed. Try again.")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.danger500)
+                }
+                if let log = mm.dayLogs(date).first {
+                    Text("Already logged today: a quick log at \(clock(log.loggedAt))")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                }
             }
         }
     }
@@ -1052,14 +1072,23 @@ struct TrainingWeekCard: View {
                         .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
             }
-            MMButton("Log another session", variant: .secondary, fullWidth: true) {
-                selected = nil; Task { await mm.addQuickLog(date) }
+            if trainingSaveFailed {
+                Text("Couldn't save. Nothing changed. Try again.")
+                    .mmFont(.body, 13).foregroundStyle(MMColor.danger500)
             }
+            MMButton("Log another session", variant: .secondary, fullWidth: true) {
+                trainingSaveFailed = false
+                Task {
+                    if await mm.addQuickLog(date) { selected = nil }
+                    else if !mm.savingTraining { trainingSaveFailed = true }
+                }
+            }
+            .disabled(mm.busy)
         }
     }
     private func clock(_ date: Date) -> String { date.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()) }
     private func names(_ s: Session) -> String { s.going.filter { $0 != "me" }.map { mm.person($0).firstName }.joined(separator: " and ") }
-    private func planOption(_ s: Session) -> some View {
+    private func planOption(_ s: Session, now: Date) -> some View {
         HStack(spacing: 12) {
             VStack(spacing: 2) {
                 Text(s.day.uppercased()).mmFont(.display, 10, tracking: 0.04, lineHeight: 1)
@@ -1074,10 +1103,15 @@ struct TrainingWeekCard: View {
                     .mmFont(.body, 13, .medium, lineHeight: 1.3)
                     .foregroundStyle(MMColor.ink700)
                     .fixedSize(horizontal: false, vertical: true)
+                if mm.startDate(of: s) > now {
+                    Text("Starts at \(s.time)")
+                        .mmFont(.body, 12, .medium).foregroundStyle(MMColor.textTertiary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             MMIcon("chevron-right", size: 16, color: MMColor.ink500)
         }
+        .opacity(mm.startDate(of: s) > now ? 0.5 : 1)
         .foregroundStyle(MMColor.ink900)
         .padding(14)
         .mmCardSurface(shadow: false)
@@ -1085,17 +1119,7 @@ struct TrainingWeekCard: View {
         .shadow(color: MMColor.ink900.opacity(0.06), radius: 0, x: 0, y: 2)
         .contentShape(RoundedRectangle(cornerRadius: MMRadius.lg))
     }
-    private func shareCard(_ s: Session) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack { Text("How was \(s.title)?").mmFont(.display, 18); Spacer(); MMIconButton("x", label: "Not now") { shareSessionID = nil; mm.trainingShareID = nil } }
-            Text("\(s.title) · with \(names(s))").mmFont(.body, 13)
-            TrainingAudience(session: s)
-            MMButton("Add a photo to post", variant: .soft, iconLeft: "camera", fullWidth: true) { shareSessionID = nil; mm.trainingShareID = nil; mm.go(.complete(id: s.id)) }
-        }
-        .foregroundStyle(MMColor.ink900)
-        .padding(16)
-        .background(MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.md))
-    }
+
 }
 struct TrainingAudience: View {
     @Environment(AppModel.self) private var mm

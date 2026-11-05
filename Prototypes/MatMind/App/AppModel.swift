@@ -49,7 +49,7 @@ final class AppModel {
     }
 #endif
     let isLive: Bool
-    var busy: Bool { creatingSessions || (runtime?.busy ?? false) }
+    var busy: Bool { creatingSessions || savingTraining || (runtime?.busy ?? false) }
     private(set) var creatingSessions = false
     private var createdSessions: [UUID: String] = [:]
     private var creationGeneration = UUID()
@@ -64,7 +64,8 @@ final class AppModel {
     }
 
     func clearLiveData() {
-        quickLogs = []; sharedSessionIDs = []; trainingUndo = nil; trainingUndoToastID = nil; trainingShareID = nil
+        resetTrainingActions()
+        quickLogs = []; sharedSessionIDs = []
 
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
@@ -110,9 +111,17 @@ final class AppModel {
     var completedSessions: [Session] = []
     var sharedSessionIDs: Set<String> = []
     var quickLogs: [QuickLog] = []
-    var trainingUndo: (() async -> Void)?
+    var trainingUndo: (() async -> Bool)?
     var trainingUndoToastID: UUID?
-    var trainingShareID: String?
+    var trainingUndoSessionID: String?
+    private(set) var savingTraining = false
+    private var trainingGeneration = UUID()
+
+    func resetTrainingActions() {
+        trainingGeneration = UUID()
+        savingTraining = false
+        trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+    }
 
     /// Friends' open plans from Activity. They enter Training only after joining.
     var discoverableSessions: [Session] = []
@@ -291,10 +300,10 @@ final class AppModel {
 
     func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
 
-    /// Link-visible plans appear immediately in Activity, without creating a completed post.
-    func activityPlans(at now: Date = Date()) -> [Session] {
+    /// Personal open plans remain in Activity until attendance is confirmed, including after their start.
+    func activityPlans(at _: Date = Date()) -> [Session] {
         (upcoming + discoverableSessions)
-            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && !$0.people.contains(where: { $0.id == "me" && $0.attended }) && startDate(of: $0) > now }
+            .filter { !isCompleted($0) && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && !$0.people.contains(where: { $0.id == "me" && $0.attended }) }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
                 return first == second ? $0.id < $1.id : first < second
@@ -1187,7 +1196,7 @@ final class AppModel {
         timers.forEach { $0.cancel() }
         timers = []
         completedSessions = []
-        trainingUndo = nil; trainingUndoToastID = nil; trainingShareID = nil
+        resetTrainingActions()
 #if DEBUG || MAT_MIND_PROTOTYPE
         me = SeedData.me
         people = SeedData.people
@@ -1308,62 +1317,91 @@ extension AppModel {
             .filter { !sharedSessionIDs.contains($0.id) }
             .sorted { startDate(of: $0) > startDate(of: $1) }.first
     }
-    func trainingToast(_ text: String, undo: @escaping () async -> Void) {
-        let data = MMToastData(message: text)
-        toast = data; trainingUndo = undo; trainingUndoToastID = data.id
+    func canMarkTrainingDone(_ session: Session, now: Date = Date()) -> Bool {
+        guard let current = findSession(session.id), let start = current.startsAt else { return false }
+        return start <= now && !isCompleted(current) && !sharedSessionIDs.contains(current.id)
+            && current.status(of: "me") == .going
+            && !current.people.contains { $0.id == "me" && $0.attended }
+    }
+    func canUndoTrainingToast(_ id: UUID) -> Bool {
+        trainingUndoToastID == id && trainingUndo != nil
+            && !savingTraining && !(trainingUndoSessionID.map { sharedSessionIDs.contains($0) } ?? false)
+    }
+    func trainingToast(_ text: String, sessionID: String? = nil, undo: @escaping () async -> Bool) {
+        let data = MMToastData(message: text, variant: .success)
+        toast = data; trainingUndo = undo; trainingUndoToastID = data.id; trainingUndoSessionID = sessionID
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(5))
             guard let self, self.trainingUndoToastID == data.id else { return }
             if self.toast?.id == data.id { self.toast = nil }
-            self.trainingUndo = nil; self.trainingUndoToastID = nil
+            self.trainingUndo = nil; self.trainingUndoToastID = nil; self.trainingUndoSessionID = nil
         }
     }
     func undoTrainingToast(_ id: UUID) async {
-        guard trainingUndoToastID == id, let undo = trainingUndo else { return }
-        trainingUndo = nil
-        await undo()
-        if toast?.id == id { toast = nil }
-        if trainingUndoToastID == id { trainingUndoToastID = nil }
+        guard !busy, canUndoTrainingToast(id), let undo = trainingUndo else { return }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
+        let saved = await undo()
+        guard generation == trainingGeneration else { return }
+        if saved {
+            if toast?.id == id { toast = nil }
+            if trainingUndoToastID == id { trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil }
+        } else if toast?.id == id {
+            toast?.message = "Couldn't undo. Try again."
+        }
     }
-    func addQuickLog(_ date: Date) async {
-        guard !isLive || runtime != nil else { return }
-        guard trainingTap(date) != .disabled else { return }
+    @discardableResult func addQuickLog(_ date: Date) async -> Bool {
+        guard !busy, !isLive || runtime != nil, trainingTap(date) != .disabled else { return false }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
         let log = QuickLog(id: UUID().uuidString, loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
         if let runtime {
-            guard await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone]) else { return }
+            let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
+            guard generation == trainingGeneration else { return false }
+            guard saved else { showToast("Couldn't save training. Try again.", .danger); return false }
         } else { quickLogs.append(log) }
-        trainingToast("Training logged") { [weak self] in _ = await self?.deleteQuickLog(log.id) }
+        trainingToast("Training logged") { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
+        return true
     }
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
         if let runtime { return await runtime.perform("delete_quick_log", ["id": id]) }
+        guard !isLive else { return false }
         quickLogs.removeAll { $0.id == id }; return true
     }
-    func markTrainingDone(_ session: Session) async {
-        guard !isLive || runtime != nil,
-              session.organizer == "me" || session.status(of: "me") == .going,
-              let start = session.startsAt, trainingTap(start) == .choose else { return }
+    @discardableResult func markTrainingDone(_ session: Session) async -> Bool {
+        guard !busy, !isLive || runtime != nil, canMarkTrainingDone(session),
+              let current = findSession(session.id) else { return false }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
         let actionID = UUID().uuidString
+        var done = current
+        let changed = current.people.filter { $0.status == .going && !$0.attended && (current.organizer == "me" || $0.id == "me") }.map(\.id)
+        for i in done.people.indices where changed.contains(done.people[i].id) { done.people[i].attended = true }
         if let runtime {
-            guard await runtime.perform("mark_training_done", ["session_id": session.id, "action_id": actionID, "timezone": TimeZone.current.identifier]) else { return }
-        } else {
-            var done = session
-            for i in done.people.indices where done.people[i].status == .going && (session.organizer == "me" || done.people[i].id == "me") { done.people[i].attended = true }
-            if session.organizer == "me" {
-                completedSessions.removeAll { $0.id == session.id }; completedSessions.append(done)
-                upcoming.removeAll { $0.id == session.id }
-                if toComplete?.id == session.id { toComplete = nil }
-            } else if let i = upcoming.firstIndex(where: { $0.id == session.id }) { upcoming[i] = done }
-        }
-        if session.organizer == "me" { trainingShareID = session.id }
-        trainingToast(session.organizer == "me" ? "\(session.title) marked done" : "Marked done for you") { [weak self] in
-            guard let self else { return }
+            let saved = await runtime.perform("mark_training_done", ["session_id": current.id, "action_id": actionID, "timezone": TimeZone.current.identifier])
+            guard generation == trainingGeneration else { return false }
+            guard saved else { showToast("Couldn't mark training done. Try again.", .danger); return false }
+        } else if current.organizer == "me" {
+            completedSessions.removeAll { $0.id == current.id }; completedSessions.append(done)
+            upcoming.removeAll { $0.id == current.id }
+            if toComplete?.id == current.id { toComplete = nil }
+        } else if let i = upcoming.firstIndex(where: { $0.id == current.id }) { upcoming[i] = done }
+        let others = current.going.filter { $0 != "me" }.map { person($0).firstName }.joined(separator: " and ")
+        let message = "Marked done for you" + (current.organizer == "me" && !others.isEmpty ? " and " + others : "")
+        let applied = done
+        trainingToast(message, sessionID: current.id) { [weak self] in
+            guard let self, !self.sharedSessionIDs.contains(current.id) else { return false }
             if let runtime = self.runtime {
-                guard await runtime.perform("undo_training_done", ["action_id": actionID]) else { return }
-            } else {
-                self.completedSessions.removeAll { $0.id == session.id }
-                self.upcoming.removeAll { $0.id == session.id }; self.upcoming.append(session)
+                return await runtime.perform("undo_training_done", ["action_id": actionID])
             }
-            self.trainingShareID = nil
+            guard !self.isLive, self.findSession(current.id) == applied else { return false }
+            self.completedSessions.removeAll { $0.id == current.id }
+            self.upcoming.removeAll { $0.id == current.id }; self.upcoming.append(current)
+            return true
         }
+        return true
     }
 }

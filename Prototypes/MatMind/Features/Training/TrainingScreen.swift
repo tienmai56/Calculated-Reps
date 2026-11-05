@@ -428,7 +428,7 @@ struct SessionDetailScreen: View {
 
     private func detail(_ s: Session) -> some View {
         let isOrganizer = s.organizer == "me"
-        let completed = mm.isCompleted(s)
+        let completed = mm.isCompleted(s) || s.people.contains { $0.id == "me" && $0.attended }
         let mine = s.status(of: "me")
         // Organizer first, everyone else in invite order.
         let rows = s.people.filter { $0.id == s.organizer } + s.people.filter { $0.id != s.organizer }
@@ -506,6 +506,9 @@ struct SessionDetailScreen: View {
                     if isOrganizer && !mm.sharedSessionIDs.contains(s.id) {
                         MMButton("Complete & share", iconLeft: "camera", fullWidth: true) { mm.go(.complete(id: s.id)) }
                     } else if !isOrganizer && s.people.contains(where: { $0.id == "me" && $0.attended }) {
+                        Text("\(mm.person(s.organizer).firstName) can share a photo from this session.")
+                            .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+                            .multilineTextAlignment(.center)
                         MMButton("I didn't attend", variant: .secondary) {
                             Task { _ = await mm.runtime?.perform("correct_attendance", ["session_id": s.id, "user_id": "me", "attended": false]) }
                         }

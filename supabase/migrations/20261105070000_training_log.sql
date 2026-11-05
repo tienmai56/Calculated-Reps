@@ -53,7 +53,7 @@ language plpgsql security definer set search_path='' as $$
  if not found or s.status<>'planned' or public.blocked(actor,s.organizer) then raise exception 'Open plan required'; end if;
  zone:=coalesce(payload->>'timezone',s.timezone);
  if not exists(select 1 from pg_timezone_names where name=zone) then raise exception 'Invalid timezone'; end if;
- if (s.starts_at at time zone zone)::date > (now() at time zone zone)::date then raise exception 'Future day'; end if;
+ if s.starts_at>now() then raise exception 'Session has not started'; end if;
  if not exists(select 1 from public.session_participants where session_id=s.id and user_id=actor and rsvp='going' and not attended) then raise exception 'Joined open plan required'; end if;
  select coalesce(array_agg(user_id),'{}') into changed from public.session_participants
  where session_id=s.id and rsvp='going' and not attended and (actor=s.organizer or user_id=actor);
@@ -115,7 +115,7 @@ begin
  $a$if operation not in ('complete_and_publish','prepare_media','manage_participant') and s.status<>'planned' then$a$);
  definition:=replace(definition,
  $a$if s.status<>'planned' or s.starts_at>now() then raise exception 'Session cannot be completed'; end if;$a$,
- $a$if s.status not in ('planned','completed') or (s.starts_at at time zone s.timezone)::date>(now() at time zone s.timezone)::date or exists(select 1 from public.posts where session_id=s.id) then raise exception 'Session cannot be completed'; end if;$a$);
+ $a$if s.status not in ('planned','completed') or s.starts_at>now() or exists(select 1 from public.posts where session_id=s.id) then raise exception 'Session cannot be completed'; end if;$a$);
  definition:=replace(definition,
  $a$if s.status<>'completed' then raise exception 'Completed session required'; end if;$a$,
  $a$if s.status not in ('planned','completed') then raise exception 'Active session required'; end if;
@@ -181,7 +181,9 @@ grant execute on function public.training_days(date,date,text) to authenticated;
 create function public.shared_training_sessions() returns jsonb
 language sql stable security definer set search_path='' as $$
  select coalesce(jsonb_agg(p.session_id),'[]') from public.posts p
- join public.sessions s on s.id=p.session_id where s.organizer=auth.uid();
+ join public.sessions s on s.id=p.session_id
+ where s.organizer=auth.uid() or exists(
+ select 1 from public.session_participants sp where sp.session_id=s.id and sp.user_id=auth.uid() and sp.rsvp='going');
 $$;
 revoke all on function public.shared_training_sessions() from public,anon;
 grant execute on function public.shared_training_sessions() to authenticated;

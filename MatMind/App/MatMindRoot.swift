@@ -431,7 +431,7 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     func sync(now: Date = Date()) {
         if photoOwner != model.userID {
-            ui.trainingUndo = nil; ui.trainingUndoToastID = nil; ui.trainingShareID = nil
+            ui.resetTrainingActions()
             ui.resetSessionCreation()
             for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) + Array(listAvatars.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
@@ -446,7 +446,7 @@ final class LiveMatMindRuntime: AppRuntime {
         if ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
             let title = model.session(match.text("session_id"))?.text("title") ?? "your session"
             ui.trainingToast("We matched your log to \(title)") { [weak self] in
-                _ = await self?.perform("restore_matched_log", ["id": match.id])
+                return await self?.perform("restore_matched_log", ["id": match.id]) ?? false
             }
             Task { [weak self] in _ = await self?.perform("acknowledge_log_match", ["id": match.id]) }
         }
@@ -491,7 +491,7 @@ final class LiveMatMindRuntime: AppRuntime {
         let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))
         let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
         ui.upcoming = sessions.filter { plannedIDs.contains($0.id) && ($0.organizer == "me" || $0.status(of: "me") != nil) }
-        ui.sharedSessionIDs = Set(model.snapshot.shared_session_ids ?? model.snapshot.posts.map { $0.text("session_id") })
+        ui.sharedSessionIDs = Set((model.snapshot.shared_session_ids ?? []) + model.snapshot.posts.map { $0.text("session_id") })
         ui.quickLogs = (model.snapshot.quick_logs ?? []).compactMap { row in
             guard let at = row.date("logged_at") else { return nil }
             return QuickLog(id: row.id, loggedOn: row.text("logged_on"), loggedAt: at, timezone: row.text("timezone"))

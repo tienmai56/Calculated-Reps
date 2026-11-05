@@ -8,6 +8,27 @@ insert into public.session_participants select '20000000-0000-0000-0000-00000000
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
 set local role authenticated;
 select public.command('create_quick_log',jsonb_build_object('id','30000000-0000-0000-0000-000000000001','logged_on',current_date,'timezone','UTC'),gen_random_uuid());
+-- A same-day plan must have started; timezone cannot bypass the timestamp guard.
+reset role;
+insert into public.sessions(id,organizer,title,starts_at,timezone,venue) values
+ ('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','Later today',now()+interval '1 minute','UTC','Gym');
+insert into public.session_participants values
+ ('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','going',false);
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+set local role authenticated;
+do $$declare refused boolean:=false; begin
+ begin
+ perform public.command('mark_training_done','{"session_id":"20000000-0000-0000-0000-000000000002","action_id":"40000000-0000-0000-0000-000000000099","timezone":"Pacific/Honolulu"}',gen_random_uuid());
+ exception when others then refused:=true; end;
+ if not refused then raise exception 'Unstarted plan accepted'; end if;
+ refused:=false;
+ begin
+ perform public.command('complete_and_publish','{"session_id":"20000000-0000-0000-0000-000000000002","caption":"Too early","attendees":["10000000-0000-0000-0000-000000000001"]}',gen_random_uuid());
+ exception when others then refused:=true; end;
+ if not refused then raise exception 'Unstarted plan published'; end if;
+ if exists(select 1 from public.session_participants where session_id='20000000-0000-0000-0000-000000000002' and attended) then raise exception 'Failed completion changed attendance'; end if;
+end$$;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
 select public.command('mark_training_done','{"session_id":"20000000-0000-0000-0000-000000000001","action_id":"40000000-0000-0000-0000-000000000001"}',gen_random_uuid());
 do $$begin
  if (select status from public.sessions where id='20000000-0000-0000-0000-000000000001')<>'planned' then raise exception 'Guest completed host plan'; end if;
@@ -40,6 +61,7 @@ select public.command('mark_training_done','{"session_id":"20000000-0000-0000-00
 do $$begin
  if (select count(*) from public.session_participants where attended)<>3 then raise exception 'Host did not fill joined days'; end if;
  if exists(select 1 from public.posts) then raise exception 'Mark done published'; end if;
+ if exists(select 1 from public.notifications) then raise exception 'Mark done created a notification'; end if;
 end$$;
 reset role;
 do $$begin
@@ -61,7 +83,19 @@ select public.command('prepare_media','{"session_id":"20000000-0000-0000-0000-00
 select public.command('complete_and_publish','{"session_id":"20000000-0000-0000-0000-000000000001","caption":"Good rolls","attendees":["10000000-0000-0000-0000-000000000001","10000000-0000-0000-0000-000000000002"]}',gen_random_uuid());
 do $$begin
  if (select count(*) from public.posts)<>1 then raise exception 'Completed session cannot publish'; end if;
+ begin
+ perform public.command('undo_training_done','{"action_id":"40000000-0000-0000-0000-000000000003"}',gen_random_uuid());
+ raise exception 'Published completion was undone';
+ exception when others then
+ if sqlerrm='Published completion was undone' then raise; end if;
+ end;
 end$$;
+-- Guests also need publication state to hide their completion Undo.
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
+do $$begin
+ if not public.shared_training_sessions() @> '["20000000-0000-0000-0000-000000000001"]'::jsonb then raise exception 'Guest publication state missing'; end if;
+end$$;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
 select public.command('manage_participant','{"session_id":"20000000-0000-0000-0000-000000000001","user_id":"10000000-0000-0000-0000-000000000002","remove":true}',gen_random_uuid());
 reset role;
 do $$begin
