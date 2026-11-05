@@ -20,6 +20,7 @@ test('worker rejects unauthenticated requests before reading notifications', asy
 });
 
 for (const note of [
+  { kind: 'comment', entity_id: 'post-id', message: 'commented on a memory you commented on' },
   { kind: 'mention', entity_id: 'post-id', message: 'mentioned you in a comment' },
   { kind: 'goal_update', entity_id: 'goal-id', message: 'updated Single leg finish' },
 ]) {
