@@ -599,8 +599,8 @@
       "items": [
         "Activity",
         "Training",
-        "Friends",
-        "Profile"
+        "Goals",
+        "Stats"
       ],
       "centerAction": "Plan a training (coral, 56×46 pill)"
     },

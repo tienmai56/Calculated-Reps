@@ -29,7 +29,7 @@ struct ProfileScreen: View {
         let me = mm.me
         let history = ProfileHistory(posts: mm.posts.filter { $0.participants.contains("me") })
         MMScreen(tabPadding: true) {
-            MMHeader(title: "Profile", large: true, showMark: false, trailing: {
+            MMHeader(title: "Stats", large: true, showMark: false, trailing: {
                 MMIconButton("settings", variant: .filled, label: "Settings") { openSettings() }
             })
         } content: {
@@ -541,11 +541,13 @@ private struct ProfileProgressSection: View {
                 TrainingRhythm()
                     .padding(.horizontal, MMSpace.s6)
                     .padding(.top, MMSpace.s6)
+                TechniqueStatsSection()
             }
 
             VStack(alignment: .leading, spacing: MMSpace.s6) {
                 if !mm.quickTrainingLogEnabled {
                     ProfileTrainingHeatmap()
+                    TechniqueStatsSection(inCard: true)
                     Rectangle().fill(MMColor.borderDefault).frame(height: 1)
                         .padding(.vertical, MMSpace.s2)
                 }

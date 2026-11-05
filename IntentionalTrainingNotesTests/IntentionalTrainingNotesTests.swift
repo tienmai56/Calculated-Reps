@@ -2743,6 +2743,151 @@ private final class TrainingRuntimeStub: AppRuntime {
     func exportView() -> AnyView { AnyView(EmptyView()) }
 }
 
+final class TechniqueTrendTests: XCTestCase {
+    private var calendar: Calendar {
+        var value = Calendar(identifier: .gregorian)
+        value.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return value
+    }
+
+    private func date(_ day: String, calendar: Calendar? = nil) -> Date {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar ?? self.calendar
+        formatter.timeZone = (calendar ?? self.calendar).timeZone
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.date(from: day + " 12:00")!
+    }
+
+    private func log(_ id: String, _ day: String) -> QuickLog {
+        QuickLog(id: id, loggedOn: day, loggedAt: date(day), timezone: calendar.timeZone.identifier)
+    }
+
+    func testFirstLogCreatesOnlyItsTechniqueAndNoDefaults() throws {
+        let entry = log("a", "2026-11-05")
+        let history = TechniqueTrendHistory(logs: [entry], hitsByID: ["a": [QuickLogHit(id: "heel-hook", name: "Heel hook", count: 2)]],
+                                            now: date("2026-11-05"), calendar: calendar)
+        let trend = try XCTUnwrap(history.trends.first)
+        XCTAssertEqual(history.trends.count, 1)
+        XCTAssertEqual(history.currentDayIndex, 3)
+        XCTAssertEqual(trend.thisWeek, [0, 0, 0, 2, 0, 0, 0])
+        XCTAssertEqual(trend.thisWeekTotal, 2)
+        XCTAssertEqual(trend.lastWeekTotal, 0)
+    }
+
+    func testMultipleLogsSumByDayAndComparePreviousMondayThroughSunday() throws {
+        let logs = [log("a", "2026-10-26"), log("b", "2026-11-01"), log("c", "2026-11-02"), log("d", "2026-11-02"), log("e", "2026-11-05")]
+        let counts = ["a": 4, "b": 7, "c": 2, "d": 3, "e": 1]
+        let hits = counts.mapValues { [QuickLogHit(id: "armbar", name: "Armbar", count: $0)] }
+        let history = TechniqueTrendHistory(logs: logs, hitsByID: hits, now: date("2026-11-05"), calendar: calendar)
+        let trend = try XCTUnwrap(history.trends.first)
+        XCTAssertEqual(trend.lastWeek, [4, 0, 0, 0, 0, 0, 7])
+        XCTAssertEqual(trend.thisWeek, [5, 0, 0, 1, 0, 0, 0])
+        XCTAssertEqual(trend.thisWeekTotal, 6)
+        XCTAssertEqual(trend.lastWeekTotal, 11)
+    }
+
+    func testDeletedLogsAndUnloggedPresetsDoNotCreateCharts() {
+        let orphaned = ["removed": [QuickLogHit(id: "heel-hook", name: "Heel hook", count: 4)]]
+        let history = TechniqueTrendHistory(logs: [log("date-only", "2026-11-05")], hitsByID: orphaned,
+                                            now: date("2026-11-05"), calendar: calendar)
+        XCTAssertTrue(history.trends.isEmpty)
+    }
+
+    func testReaddedTechniqueUsesItsSavedNameAcrossIDsAndNeverCountsALogTwice() throws {
+        let old = log("old", "2026-10-27"), recent = log("new", "2026-11-05")
+        let history = TechniqueTrendHistory(logs: [old, recent, recent], hitsByID: [
+            "old": [QuickLogHit(id: "old-id", name: " armbar ", count: 4)],
+            "new": [QuickLogHit(id: "new-id", name: "Armbar", count: 2)]
+        ], now: date("2026-11-05"), calendar: calendar)
+        XCTAssertEqual(history.trends.count, 1)
+        let trend = try XCTUnwrap(history.trends.first)
+        XCTAssertEqual(trend.name, "Armbar")
+        XCTAssertEqual(trend.lastWeekTotal, 4)
+        XCTAssertEqual(trend.thisWeekTotal, 2)
+    }
+
+    func testFutureInvalidAndNonpositiveRecordsCannotCreateOrDistortAChart() {
+        var invalid = log("invalid", "2026-11-05")
+        invalid.loggedOn = "not-a-day"
+        let logs = [invalid, log("future", "2026-11-06"), log("zero", "2026-11-05")]
+        let positive = [QuickLogHit(id: "heel-hook", name: "Heel hook", count: 5)]
+        let history = TechniqueTrendHistory(logs: logs, hitsByID: ["invalid": positive, "future": positive, "zero": [
+            QuickLogHit(id: "a", name: "Armbar", count: 0), QuickLogHit(id: "b", name: "Back take", count: -1), QuickLogHit(id: "c", name: " ", count: 3)
+        ]], now: date("2026-11-05"), calendar: calendar)
+        XCTAssertTrue(history.trends.isEmpty)
+    }
+
+    func testTechniqueWithOnlyOlderHistoryKeepsItsChartWithoutFabricatingRecentReps() throws {
+        let history = TechniqueTrendHistory(logs: [log("old", "2026-09-01")], hitsByID: [
+            "old": [QuickLogHit(id: "triangle", name: "Triangle", count: 8)]
+        ], now: date("2026-11-05"), calendar: calendar)
+        let trend = try XCTUnwrap(history.trends.first)
+        XCTAssertEqual(trend.name, "Triangle")
+        XCTAssertEqual(trend.thisWeekTotal, 0)
+        XCTAssertEqual(trend.lastWeekTotal, 0)
+    }
+
+    func testMondayStartsFreshAndMovesSundayIntoLastWeekAcrossDST() throws {
+        let hits = ["sunday": [QuickLogHit(id: "armbar", name: "Armbar", count: 3)]]
+        let logs = [log("sunday", "2026-11-01")]
+        let sunday = TechniqueTrendHistory(logs: logs, hitsByID: hits, now: date("2026-11-01"), calendar: calendar)
+        XCTAssertEqual(sunday.currentDayIndex, 6)
+        XCTAssertEqual(sunday.trends.first?.thisWeekTotal, 3)
+        let monday = TechniqueTrendHistory(logs: logs, hitsByID: hits, now: date("2026-11-02"), calendar: calendar)
+        XCTAssertEqual(monday.currentDayIndex, 0)
+        XCTAssertEqual(monday.trends.first?.lastWeek, [0, 0, 0, 0, 0, 0, 3])
+        XCTAssertEqual(monday.trends.first?.thisWeekTotal, 0)
+    }
+
+    func testLoggedDateControlsTheBucketRatherThanTheSaveTimestampOrDeviceTimezone() throws {
+        let backdated = QuickLog(id: "a", loggedOn: "2026-10-30", loggedAt: date("2026-11-05"), timezone: "Pacific/Auckland")
+        var auckland = calendar
+        auckland.timeZone = TimeZone(identifier: "Pacific/Auckland")!
+        let history = TechniqueTrendHistory(logs: [backdated], hitsByID: ["a": [QuickLogHit(id: "armbar", name: "Armbar", count: 2)]],
+                                            now: date("2026-11-05", calendar: auckland), calendar: auckland)
+        XCTAssertEqual(history.trends.first?.lastWeek, [0, 0, 0, 0, 2, 0, 0])
+        XCTAssertEqual(history.trends.first?.thisWeekTotal, 0)
+    }
+
+    @MainActor func testSavedCountsAppearImmediatelyAndUndoAndAccountClearingRemoveThem() async throws {
+        let ui = AppModel(live: false)
+        ui.quickLogs = []
+        let saved = await ui.addQuickLog(Date(), counts: ["heel-hook": 2])
+        XCTAssertTrue(saved)
+        var history = TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID)
+        XCTAssertEqual(history.trends.first?.thisWeekTotal, 2)
+        ui.removeQuickLogTechnique("heel-hook")
+        history = TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID)
+        XCTAssertEqual(history.trends.first?.thisWeekTotal, 2, "Removing a preset never erases logged history")
+        let toast = try XCTUnwrap(ui.toast)
+        await ui.undoTrainingToast(toast.id)
+        XCTAssertTrue(TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID).trends.isEmpty)
+        ui.clearLiveData()
+        XCTAssertTrue(TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID).trends.isEmpty)
+    }
+}
+
+#if DEBUG
+extension TechniqueTrendTests {
+    @MainActor func testExplicitStatsPreviewSeedsTwoWeeksWithoutLiveData() {
+        let now = date("2026-11-05")
+        let ui = AppModel(live: false)
+        ui.loadQuickLogMock(.techniqueStats, now: now)
+        let history = TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID, now: now)
+        XCTAssertEqual(ui.tab, .profile)
+        XCTAssertEqual(Set(history.trends.map(\.name)), Set(["Heel hook", "Armbar", "Back take"]))
+        XCTAssertTrue(history.trends.allSatisfy { $0.lastWeekTotal > 0 })
+        XCTAssertTrue(ui.quickLogs.allSatisfy { $0.loggedOn <= TrainingCalendar.key(now) })
+        XCTAssertNil(ui.runtime)
+        let live = AppModel(live: true)
+        live.loadQuickLogMock(.techniqueStats, now: now)
+        XCTAssertTrue(live.quickLogs.isEmpty)
+        XCTAssertTrue(live.quickLogHitsByID.isEmpty)
+    }
+}
+#endif
+
 final class QuickLogTechniqueTests: XCTestCase {
     @MainActor func testLatestListPersistsIncludingAnIntentionallyEmptyList() throws {
         let suite = "quick-log-tests-\(UUID().uuidString)"

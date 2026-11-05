@@ -93,4 +93,10 @@ Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsp
 Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native checks, protected invariants and the current UI acceptance checklist. The SQL suite is included in `scripts/test-database.sh`.
 ## Profile training heatmap
 
-Profile → Progress combines a static 17-week **Your rhythm** heatmap with the existing Weekly/Monthly chart in one card. Past hosted/joined sessions fill a day even without a shared photo. The heatmap is read-only and introduces no quick logging or backend migration. See the [regression guide](docs/profile-heatmap-regression.md).
+Stats → Progress combines a static 17-week **Your rhythm** heatmap with the existing Weekly/Monthly chart in one card. Past hosted/joined sessions fill a day even without a shared photo. The heatmap is read-only and introduces no quick logging or backend migration. See the [regression guide](docs/profile-heatmap-regression.md).
+
+### Technique stats
+
+The **Stats** tab retains the person icon. Below **Your rhythm**, each technique with saved Quick Log reps gets a daily line chart: this week in coral through today, last week dashed, plus both weekly totals. Unused presets stay hidden. Reps use the selected log date and remain private, account-scoped data on this device.
+
+To preview: run **QuickTrainingLogMock**, then choose **Mock data → Technique stats**. This opens Stats with two weeks of sample technique reps. Choose Quick logs to test real counting in the preview, save a technique, and open Stats → Progress.

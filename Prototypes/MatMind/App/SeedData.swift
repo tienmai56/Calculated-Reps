@@ -186,12 +186,13 @@ enum SeedData {
 
 // Calendar fixtures are preview-only. Live AppModel starts with no records.
 enum QuickLogMockScenario: String, CaseIterable, Identifiable {
-    case upcomingPrompt, quickLogs, hostPlan, guestPlan, startsLater
+    case upcomingPrompt, quickLogs, techniqueStats, hostPlan, guestPlan, startsLater
     var id: String { rawValue }
     var title: String {
         switch self {
         case .upcomingPrompt: "Upcoming prompt"
         case .quickLogs: "Quick logs"
+        case .techniqueStats: "Technique stats"
         case .hostPlan: "Host plan"
         case .guestPlan: "Guest plan"
         case .startsLater: "Starts later"
@@ -205,7 +206,7 @@ extension SeedData {
         let tomorrow = c.date(byAdding: .day, value: 1, to: today)!
         let future = c.date(bySettingHour: 19, minute: 0, second: 0, of: c.date(byAdding: .day, value: 2, to: today)!)!
         var plans = [mockSession("mock-future", title: "Open mat", start: future, host: "me")]
-        if scenario != .quickLogs {
+        if scenario != .quickLogs && scenario != .techniqueStats {
             let start = scenario == .startsLater || scenario == .upcomingPrompt
                 ? min(now.addingTimeInterval(3600), tomorrow.addingTimeInterval(-0.001))
                 : max(today, now.addingTimeInterval(-3600))
@@ -225,6 +226,35 @@ extension SeedData {
             }
         }
         return logs
+    }
+
+    /// Explicit review-only fixture; the installed app never calls this path.
+    static func quickLogMockTechniques(now: Date) -> (logs: [QuickLog], hits: [String: [QuickLogHit]]) {
+        let calendar = TrainingCalendar.calendar
+        let thisMonday = TrainingCalendar.week(now)[0]
+        let today = calendar.startOfDay(for: now)
+        let samples = [
+            ("heel-hook", "Heel hook", [1, 2, 0, 3, 1, 2, 2], [2, 0, 3, 1, 0, 2, 0]),
+            ("armbar", "Armbar", [0, 2, 1, 0, 1, 2, 0], [1, 0, 2, 0, 1, 0, 1]),
+            ("back-take", "Back take", [1, 0, 1, 2, 0, 1, 1], [0, 1, 0, 2, 0, 1, 0])
+        ]
+        var logs: [QuickLog] = []
+        var hits: [String: [QuickLogHit]] = [:]
+        for week in [-1, 0] {
+            for day in 0..<7 {
+                let date = calendar.date(byAdding: .day, value: week * 7 + day, to: thisMonday)!
+                guard date <= today else { continue }
+                let id = "mock-technique-\(week)-\(day)"
+                let counts = samples.compactMap { sample -> QuickLogHit? in
+                    let count = (week == -1 ? sample.2 : sample.3)[day]
+                    return count > 0 ? QuickLogHit(id: sample.0, name: sample.1, count: count) : nil
+                }
+                guard !counts.isEmpty else { continue }
+                logs.append(QuickLog(id: id, loggedOn: TrainingCalendar.key(date), loggedAt: date, timezone: calendar.timeZone.identifier))
+                hits[id] = counts
+            }
+        }
+        return (logs, hits)
     }
 
     static func quickLogMockCompleted(now: Date) -> [Session] {
