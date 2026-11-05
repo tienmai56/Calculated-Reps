@@ -28,20 +28,21 @@ investigation. No production account or session was inspected.
 
 ## Fix and rollout
 
-`20261105051905_preserve_session_link_rsvp.sql` changes only the `join_link`
+`20261105053014_preserve_session_link_rsvp.sql` changes only the `join_link`
 conflict action to `do nothing`. First-time recipients still join as before.
 Existing participants keep their saved RSVP, including pending invitations and
 declines. An explicit Join / Join session action uses `set_rsvp` to change a
 decline back to going. Capability validation, session locking, actor locking,
 command receipts and function grants are retained.
 
-Apply the migration to the hosted database to activate the fix for existing app
-builds. This change has only been applied to a disposable local PostgreSQL 17
-database during investigation. It does not infer or restore previously
-overwritten responses; affected members can explicitly decline again after
-deployment.
+Deployed to Supabase project `cmiqavyrazypmulrfezj` on November 5, 2026 at
+05:30 UTC. The repository migration filename matches the version assigned by
+Supabase's migration service (`20261105053014`); its SQL is unchanged from the
+migration originally merged in PR #67. The fix is active for existing app
+builds. It does not infer or restore previously overwritten responses; affected
+members can explicitly decline again.
 
-From an up-to-date checkout of `main`, deploy with the Supabase CLI:
+From an up-to-date checkout of `main`, check deployment with the Supabase CLI:
 
 ```sh
 git switch main
@@ -49,16 +50,20 @@ git pull --ff-only origin main
 supabase login
 supabase link --project-ref cmiqavyrazypmulrfezj
 supabase db push --dry-run
-supabase db push
 ```
 
-The hosted migration history was checked on November 5, 2026: all earlier
-repository migrations through `20261104170000_monkey_avatars.sql` are already
-applied. The dry run should list only
-`20261105051905_preserve_session_link_rsvp.sql`. After deployment, decline a
-session, reopen its invitation and confirm the participant is still declined;
-then explicitly join and verify Going persists. No Edge Function deployment or
-new iOS build is required for this fix.
+The hosted migration history includes all repository migrations through
+`20261105053014_preserve_session_link_rsvp.sql`. The dry run should find no
+pending migrations for this checkout. For device acceptance, decline a session
+and reopen its invitation to confirm the member is not marked Going again.
+No Edge Function deployment or new iOS build is required for this fix.
+
+Hosted readback confirms the deployed command source exactly matches the
+expected tested change (source MD5 `e076f419c97d22e6ddb27bcd3f320781`). Function
+grants, SECURITY DEFINER and empty search path are unchanged; anonymous command
+execution remains denied. Security advisor findings are unchanged from the
+pre-deployment baseline. Verification did not alter existing user responses or
+create test accounts in production; behavioral regression tests ran locally.
 
 ## Regression coverage
 
