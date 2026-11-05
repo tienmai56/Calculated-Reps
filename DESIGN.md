@@ -379,7 +379,23 @@ Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Br
 
 ### Activity feed
 
-Activity shows the latest-training photo prompt, when applicable, followed directly by completed-session posts. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
+Activity shows the private This week strip, Coming up and completed-session posts. Coming up contains hosted/joined personal open plans, including friends-only plans and started plans awaiting attendance; a separate quick log never closes or removes them. The ink How was…? catch-up prompt lives in Training. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
+
+### Week strip and quick logs (UI preview)
+
+The quick-log flow is available in the **QuickTrainingLogMock** scheme with isolated seeded data. Its database implementation is deferred on `feat/activity-quick-log-db-deferred` and is excluded from this UI merge. Live accounts keep the current Activity prompt and read-only Profile heatmap until the server supplies all quick-log snapshot fields; unsupported logging operations remain disabled.
+
+The preview Activity card uses ink-900, paper text, 24pt radius and no shadow. Its heading is **This week**, followed by **Tap a day to quickly log your training.** in 13pt ink-200. There is no trained-day count. Seven equal columns have an 11pt weekday and a 40pt date circle. Trained days are solid coral; today has a coral ring; future dates are outlined, with a dashed outline for plans. Corner badges show ×N and/or a calendar. Below the dates, show **[calendar] = You have a planned session** in 12pt ink-300 when a plan exists.
+
+Tapping a planned day or either badge always opens **What are you logging?** with the planned session and **A quick log** options, even when the day already has logs. Unstarted plans are disabled; future quick logs are disabled. Other elapsed dates add a private quick log directly. A count tap removes the latest log only on a date with no planned or confirmed session. Successful saves offer Undo and never publish automatically.
+
+Training has Upcoming/Past lists and no standalone share prompter or Coming up heading. In Past, an unlogged hosted session replaces **You host** with a compact, right-aligned **Complete & Share** action (12pt text), opening the existing photo/note composer. A session already logged privately or published, with or without a photo, shows the **Completed** tag. Ticket footers show avatars without a going-count label. On narrow screens, the action/tag moves below the avatars while staying right-aligned.
+
+### Your rhythm (quick-log preview)
+
+In the mock or after explicit backend support, Profile Progress can show the interactive 17-week quick-log calendar, including older-week editing. Until deployment, live accounts use the read-only Profile rhythm described below. No quick-log SQL is included in normal migrations by this UI merge.
+
+Regression commands and acceptance checks: [Quick training log UI guide](docs/quick-training-log-regression.md).
 
 ### Profile training rhythm
 
@@ -397,12 +413,12 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 
 - Activity artwork (all Activity empty states: a first-time user, someone who deleted their only post, and a planned first session still awaiting its photo): **Peek-a-boo**. A Silverback hides behind the photo-memory frame, springs out past its edge with `--ease-bounce`, the camera "clicks" (a white flash over the photo slot as the icon squeezes to .86), nods, then ducks back; about a 5s loop. The mark only moves as a whole and is never redrawn. Reduce Motion shows it still, peeking.
 - No completed posts or plans: “Good memories start on the mat.” Plan a training session; add existing friends by QR as the secondary action when needed.
-- A friends-only plan exists but no shared post or open link-visible plan: “Your first photo is on its way.” View the plan or invitation. An upcoming link-visible plan renders its Activity ticket even without any memories. A pending completion uses “Proof you showed up.” · “Share a post-roll photo and your crew sees it here.” with no button, since the Complete & share card above holds the primary action.
+- A friends-only plan exists but no shared post or open link-visible plan: “Your first photo is on its way.” View the plan or invitation. An upcoming link-visible plan renders its Activity ticket even without any memories. Training past cards show Complete & Share for an unlogged hosted session, or Completed once it is logged.
 - No upcoming sessions/invitations: “Summon your crew” Plan a training session; Already trained? Log it is secondary.
 - No personal past sessions: offer Log a past session.
 - No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
 - An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
-- Activity's ink session prompt follows the unshared session closest to now among sessions you host or have joined. Past sessions read “How was …?” and let the host Complete & share; upcoming sessions show the plan's date, time and gym with View session. Invitations and declined sessions do not displace it. The prompt updates as time passes; equal-distance ties prefer the past session.
+- Training’s ink “How was {session title}?” prompt shows the most recent completed, unshared planned session you host. Match main’s ReadyToShare prompt: 24pt card corners, 16pt padding, a 64pt paper-2 camera tile with a 3pt white rim rotated −4° on the left, and a text/action stack 14pt away. Use a 17pt Bricolage title, inline 13pt ink-200 audience copy 4pt below, and the small coral Complete & share button 10pt below that. The audience explanation sits directly on ink. Full titles and copy wrap. Complete & share opens that session’s composer. It never appears for guests or quick logs.
 
 Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
 

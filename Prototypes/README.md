@@ -18,6 +18,38 @@ For visual review without Xcode, run `python3 Prototypes/WelcomePreview/serve.py
 
 All data is sample data held in memory (`App/SeedData.swift`, from `ui_kits/app/data.js`). Nothing is saved or sent anywhere.
 
+## Quick training log UI mock
+
+Choose the **QuickTrainingLogMock** Xcode scheme and run on an iPhone simulator.
+It builds the separate MatMindPrototype app and opens Activity directly; sign-in,
+Supabase setup and the opt-in database bundle are unnecessary. Nothing is sent to
+or read from a backend.
+
+The sample-data bar has four states and **Reset**:
+
+- **Host plan:** tap anywhere on today’s planned day to open the chooser, even
+  after adding quick logs; completion opens session details with Complete & share.
+- **Guest plan:** confirm only your own attendance; the host keeps sharing control.
+- **Starts later:** the planned option is disabled, while a separate quick log works.
+- **Quick logs:** today starts with ×2; tap the date to add and its count to remove.
+
+Dates follow the device’s current day. A future open mat, completed unshared
+training, a completed-and-shared session with its sample post, and 17 weeks of
+rhythm history are also seeded. Sharing
+creates only a local post; Undo and attendance correction are simulated in memory.
+Reset restores the selected state. The normal **MatMindPrototype** scheme retains
+its welcome flow, and the production app’s scheme/backend settings are unchanged.
+
+In **Training → Past**, unlogged sessions you host have a **Complete & Share**
+button in place of **You host**, opening that session’s composer. Sessions already
+marked done or published with a photo or note have no completion button in the
+list: they all show **Completed** in place of **You host**, whether logged with
+a photo or without one. The Host plan mock includes both private and published
+completed sessions alongside the unlogged plan. The compact button is right-aligned
+beside the avatars when it fits; ticket
+cards show avatars without a going-count label. Training has no standalone share
+prompter.
+
 ## Empty states
 
 The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity shows upcoming link-visible plans as well as completed memories: an empty schedule alone never clears existing posts.

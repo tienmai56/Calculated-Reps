@@ -184,5 +184,112 @@ enum SeedData {
     static let cameraRoll = ["roll-gi-2", "team-lineup", "floor-drill", "grapple-match", "bw-sweep", "roll-gi"]
 }
 
-#endif
+// Calendar fixtures are preview-only. Live AppModel starts with no records.
+enum QuickLogMockScenario: String, CaseIterable, Identifiable {
+    case quickLogs, hostPlan, guestPlan, startsLater
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .quickLogs: "Quick logs"
+        case .hostPlan: "Host plan"
+        case .guestPlan: "Guest plan"
+        case .startsLater: "Starts later"
+        }
+    }
+}
 
+extension SeedData {
+    static func quickLogMockPlans(_ scenario: QuickLogMockScenario, now: Date) -> [Session] {
+        let c = TrainingCalendar.calendar, today = c.startOfDay(for: now)
+        let tomorrow = c.date(byAdding: .day, value: 1, to: today)!
+        let future = c.date(bySettingHour: 19, minute: 0, second: 0, of: c.date(byAdding: .day, value: 2, to: today)!)!
+        var plans = [mockSession("mock-future", title: "Open mat", start: future, host: "me")]
+        if scenario != .quickLogs {
+            let start = scenario == .startsLater
+                ? min(now.addingTimeInterval(3600), tomorrow.addingTimeInterval(-0.001))
+                : max(today, now.addingTimeInterval(-3600))
+            plans.insert(mockSession("mock-today", title: scenario == .guestPlan ? "Rolls with Kenji" : "No-gi training",
+                                     start: start, host: scenario == .guestPlan ? "kenji" : "me"), at: 0)
+        }
+        return plans
+    }
+
+    static func quickLogMockLogs(_ scenario: QuickLogMockScenario, now: Date) -> [QuickLog] {
+        let key = TrainingCalendar.key(now)
+        var logs = calendarQuickLogs(now: now).filter { $0.loggedOn != key }
+        if scenario == .quickLogs {
+            logs += (0..<2).map { i in
+                QuickLog(id: "mock-today-log-\(i)", loggedOn: key, loggedAt: now.addingTimeInterval(Double(i - 2) * 60),
+                         timezone: TimeZone.current.identifier)
+            }
+        }
+        return logs
+    }
+
+    static func quickLogMockCompleted(now: Date) -> [Session] {
+        let c = TrainingCalendar.calendar
+        let day = c.date(byAdding: .day, value: -2, to: now)!
+        let start = c.date(bySettingHour: 7, minute: 0, second: 0, of: day)!
+        var session = mockSession("mock-completed", title: "Morning rolls", start: start, host: "me")
+        for i in session.people.indices { session.people[i].attended = true }
+        return [session]
+    }
+
+    static func quickLogMockShared(now: Date) -> (session: Session, post: Post) {
+        let c = TrainingCalendar.calendar
+        let day = c.date(byAdding: .day, value: -1, to: now)!
+        let start = c.date(bySettingHour: 19, minute: 0, second: 0, of: day)!
+        var session = mockSession("mock-shared", title: "Evening rolls", start: start, host: "me")
+        for i in session.people.indices { session.people[i].attended = true }
+        let post = Post(id: "mock-shared-post", organizer: "me", title: session.title, gym: session.gym,
+                        date: start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()),
+                        ago: "Yesterday", photo: "group-class", participants: session.going,
+                        caption: "Good rounds with Kenji.", likes: [], extraLikes: 0, comments: [],
+                        occurredAt: start, time: session.time)
+        return (session, post)
+    }
+
+    private static func mockSession(_ id: String, title: String, start: Date, host: String) -> Session {
+        let c = TrainingCalendar.calendar
+        return Session(id: id, title: title, day: start.formatted(.dateTime.weekday(.abbreviated)),
+                       date: c.component(.day, from: start), month: start.formatted(.dateTime.month(.abbreviated)),
+                       time: start.formatted(.dateTime.hour().minute()), gym: "Tidewater BJJ", organizer: host, privacy: .link,
+                       people: [Attendee(id: host, status: .going), Attendee(id: host == "me" ? "kenji" : "me", status: .going)],
+                       startsAt: start)
+    }
+
+    static var quickLogs: [QuickLog] { calendarQuickLogs(now: Date()) }
+
+    private static func calendarQuickLogs(now: Date) -> [QuickLog] {
+        let c = TrainingCalendar.calendar, week = TrainingCalendar.week(now)
+        var dates = [week[0]]
+        for w in 1...16 {
+            let monday = c.date(byAdding: .weekOfYear, value: -w, to: week[0])!
+            dates += [monday, c.date(byAdding: .day, value: w % 5 + 1, to: monday)!]
+        }
+        return dates.enumerated().map { i, date in
+            QuickLog(id: "sample-log-\(i)", loggedOn: TrainingCalendar.key(date),
+                     loggedAt: c.date(bySettingHour: 7, minute: 10, second: 0, of: date)!, timezone: c.timeZone.identifier)
+        }
+    }
+    static var calendarPlans: [Session] {
+        let c = TrainingCalendar.calendar, today = c.startOfDay(for: Date())
+        func plan(_ id: String, offset: Int, host: String) -> Session {
+            let start = c.date(bySettingHour: 19, minute: 0, second: 0, of: c.date(byAdding: .day, value: offset, to: today)!)!
+            return Session(id: id, title: "\(start.formatted(.dateTime.weekday(.wide))) no-gi", day: start.formatted(.dateTime.weekday(.abbreviated)),
+                           date: c.component(.day, from: start), month: start.formatted(.dateTime.month(.abbreviated)), time: "19:00", gym: "Tidewater BJJ",
+                           organizer: host, privacy: .link, people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: start)
+        }
+        return [plan("calendar-today", offset: 0, host: "me"), plan("calendar-future", offset: 2, host: "me"),
+                plan("calendar-guest", offset: -1, host: "kenji"), plan("calendar-second-plan", offset: -1, host: "me")]
+    }
+    static var calendarCompleted: [Session] {
+        var s = calendarPlans[0]
+        s = Session(id: "calendar-unshared", title: "Morning rolls", day: s.day, date: s.date, month: s.month,
+                    time: "07:00", gym: s.gym, organizer: "me", people: s.people,
+                    startsAt: TrainingCalendar.calendar.date(byAdding: .day, value: -2, to: Date()))
+        for i in s.people.indices { s.people[i].attended = true }
+        return [s]
+    }
+}
+#endif

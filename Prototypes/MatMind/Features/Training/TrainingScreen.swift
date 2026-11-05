@@ -60,10 +60,10 @@ struct TrainingScreen: View {
             MMHeader(title: "Training", large: true, trailing: {
                 MMHeaderActions()
             })
-            MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
-                .padding(.horizontal, MMSpace.s6)
-                .padding(.bottom, MMSpace.s4)
+
         } content: {
+            MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
+                .padding(MMSpace.s6)
             if !past && !mm.pendingTrainingInvitations.isEmpty {
                 MMEyebrow("Invites", topPadding: 8)
                 VStack(spacing: 16) {
@@ -85,20 +85,27 @@ struct TrainingScreen: View {
                 }
             }
             if !rest.isEmpty {
-                MMEyebrow(past ? "Past training" : "Coming up", topPadding: invites.isEmpty ? 8 : MMLayout.sectionGap)
+                if past {
+                    MMEyebrow("Past training", topPadding: MMSpace.s4)
+                }
                 VStack(spacing: 16) {
-                    ForEach(rest) { s in sessionCard(s) }
+                    ForEach(rest) { s in sessionCard(s, now: now) }
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, !past && !invites.isEmpty ? MMLayout.sectionGap : MMSpace.s0)
             }
         }
         .animation(MMMotion.easeOut(), value: list.map(\.id))
     }
 
-    private func sessionCard(_ s: Session) -> some View {
+    private func sessionCard(_ s: Session, now: Date) -> some View {
         let showsMenu = s.organizer == "me" && !mm.isCompleted(s)
+        let canComplete = section == "past" && mm.canCompleteTraining(s, now: now)
         return VStack(alignment: .leading, spacing: 8) {
-            SessionTicket(session: s, reservesMenuSpace: showsMenu) { mm.go(.session(id: s.id)) }
+            SessionTicket(session: s, reservesMenuSpace: showsMenu,
+                          completionStatus: section == "past" ? mm.trainingCompletionStatus(s) : nil,
+                          onComplete: canComplete ? { mm.go(.complete(id: s.id)) } : nil,
+                          onTap: { mm.go(.session(id: s.id)) })
                 .overlay(alignment: .topTrailing) {
                     if showsMenu { sessionMenu(s) }
                 }
@@ -424,7 +431,7 @@ struct SessionDetailScreen: View {
 
     private func detail(_ s: Session) -> some View {
         let isOrganizer = s.organizer == "me"
-        let completed = mm.isCompleted(s)
+        let completed = mm.isCompleted(s) || s.people.contains { $0.id == "me" && $0.attended }
         let mine = s.status(of: "me")
         // Organizer first, everyone else in invite order.
         let rows = s.people.filter { $0.id == s.organizer } + s.people.filter { $0.id != s.organizer }
@@ -487,7 +494,7 @@ struct SessionDetailScreen: View {
                     .padding(.bottom, 10)
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { i, row in
-                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && !completed && row.id != "me", divider: i < rows.count - 1)
+                        AttendeeRow(session: s, attendee: row, canRemove: isOrganizer && row.id != "me", divider: i < rows.count - 1)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -499,7 +506,19 @@ struct SessionDetailScreen: View {
             .padding(.horizontal, 16)
         } footer: {
             if completed {
-                MMBadge("Completed", variant: .success, dot: true)
+                VStack(spacing: 8) {
+                    MMBadge("Completed", variant: .success, dot: true)
+                    if isOrganizer && mm.quickTrainingLogEnabled && !mm.sharedSessionIDs.contains(s.id) {
+                        MMButton("Complete & share", iconLeft: "camera", fullWidth: true) { mm.go(.complete(id: s.id)) }
+                    } else if !isOrganizer && s.people.contains(where: { $0.id == "me" && $0.attended }) {
+                        Text("\(mm.person(s.organizer).firstName) can share a photo from this session.")
+                            .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+                            .multilineTextAlignment(.center)
+                        MMButton("I didn't attend", variant: .secondary) {
+                            Task { await mm.removeOwnTrainingAttendance(s) }
+                        }
+                    }
+                }
             } else if isOrganizer {
                 VStack(spacing: 10) {
                     let photoReady = mm.isReadyToShare(s.id)

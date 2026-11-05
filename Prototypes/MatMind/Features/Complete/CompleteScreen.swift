@@ -43,7 +43,7 @@ struct CompleteScreen: View {
         if let result {
             CelebrateView(result: result)
                 .transition(.opacity)
-        } else if let s = mm.findSession(id) {
+        } else if let s = mm.findSession(id), s.organizer == "me" {
             compose(s)
         } else {
             MMColor.bgApp.ignoresSafeArea().toolbar(.hidden, for: .navigationBar)

@@ -103,6 +103,11 @@ enum Privacy: String {
 struct Attendee: Hashable {
     var id: String
     var status: RSVP
+    var attended: Bool = false
+}
+
+enum TrainingCompletionStatus: String {
+    case completed = "Completed"
 }
 
 struct Session: Identifiable, Hashable {
@@ -547,6 +552,36 @@ enum UsernameMention {
     }
 }
 
+/// Private training marker, deliberately unrelated to sessions and posts.
+struct QuickLog: Identifiable, Hashable {
+    var id: String
+    var loggedOn: String
+    var loggedAt: Date
+    var timezone: String
+}
+
+enum TrainingCalendar {
+    static var calendar: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = .current; c.firstWeekday = 2; c.minimumDaysInFirstWeek = 4
+        return c
+    }
+    static func key(_ date: Date, timezone: TimeZone = .current) -> String {
+        let f = DateFormatter(); f.calendar = calendar; f.timeZone = timezone
+        f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
+    }
+    static func week(_ date: Date) -> [Date] {
+        let start = calendar.dateInterval(of: .weekOfYear, for: date)!.start
+        return (0..<7).map { calendar.date(byAdding: .day, value: $0, to: start)! }
+    }
+    static func matches(_ log: QuickLog, session: Session) -> Bool {
+        guard let start = session.startsAt else { return false }
+        return log.loggedOn == key(start, timezone: TimeZone(identifier: log.timezone) ?? .current) && abs(log.loggedAt.timeIntervalSince(start)) <= 3 * 3600
+    }
+}
+
+enum TrainingTap: Equatable { case disabled, choose, entries, quickLog }
 
 /// Read-only session metadata for the private Profile calendar. This is not a new log type.
 struct RhythmSession: Codable, Equatable, Identifiable {
@@ -594,4 +629,3 @@ struct ProfileRhythmHistory {
     func isFuture(_ date: Date) -> Bool { calendar.startOfDay(for: date) > calendar.startOfDay(for: now) }
     var visibleCount: Int { weeks.flatMap { $0 }.filter(isTrained).count }
 }
-

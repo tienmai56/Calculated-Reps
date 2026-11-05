@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import SwiftUI
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
@@ -51,8 +52,9 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testActivityPlansAreFutureLinkSessionsWithoutChangingMemories() {
+    func testActivityPlansKeepPersonalPlansUntilAttendanceWithoutChangingMemories() {
         let ui = AppModel(live: true)
+        ui.quickTrainingLogBackendAvailable = true
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         func plan(_ id: String, privacy: Privacy = .link, rsvp: RSVP = .going, offset: TimeInterval = 60) -> Session {
             Session(id: id, title: id, day: "Fri", date: 15, month: "Jan", time: "6:00 PM", gym: "Gym",
@@ -61,11 +63,11 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         }
         ui.upcoming = [plan("private", privacy: .friends), plan("later", offset: 120), plan("started", offset: 0),
                        plan("declined", rsvp: .declined), plan("earlier")]
-        XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["earlier", "later"])
-        XCTAssertTrue(ui.activityPlans(at: now.addingTimeInterval(120)).isEmpty)
+        XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["started", "earlier", "private", "later"])
+        XCTAssertEqual(ui.activityPlans(at: now.addingTimeInterval(120)).count, 4, "Open plans stay visible after their start")
         XCTAssertTrue(ui.posts.isEmpty, "An upcoming entry never creates a completed memory")
         ui.upcoming.removeAll { $0.id == "earlier" }
-        XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["later"], "Cancelling removes the plan from Activity")
+        XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["started", "private", "later"], "Cancelling removes the plan from Activity")
     }
 
     @MainActor
@@ -103,7 +105,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testCreatingALinkVisiblePreviewPlanAddsActivityImmediately() {
+    func testCreatingPersonalPreviewPlansAddsActivityImmediately() {
         let ui = AppModel(live: false)
         ui.upcoming = []
         ui.toComplete = nil
@@ -116,7 +118,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         draft.title = "Private rolls"
         draft.privacy = .friends
         ui.createSession(draft)
-        XCTAssertEqual(ui.activityPlans().map(\.title), ["Open rolls"])
+        XCTAssertEqual(Set(ui.activityPlans().map(\.title)), Set(["Open rolls", "Private rolls"]))
         XCTAssertEqual(ui.posts, memories)
     }
 
@@ -722,11 +724,13 @@ final class MatMindLiveUITests: XCTestCase {
 
     func testEditingASessionsDateMovesItToItsChronologicalPosition() async throws {
         let ui = AppModel(live: false)
+        let ticketIDs = ["s2", "s3", "s1"]
+        ui.upcoming = ui.upcoming.filter { ticketIDs.contains($0.id) }
         // Preview tickets have labels only until they are edited.
-        XCTAssertEqual(ui.plannedSessions.map(\.id), ["s2", "s3", "s1"])
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ticketIDs)
         // Give the label-only samples future starts so this checks ordering, not tab migration.
         let base = Date().addingTimeInterval(86400)
-        for (index, id) in ["s2", "s3", "s1"].enumerated() {
+        for (index, id) in ticketIDs.enumerated() {
             let i = try XCTUnwrap(ui.upcoming.firstIndex { $0.id == id })
             ui.upcoming[i].startsAt = base.addingTimeInterval(Double(index) * 3600)
         }
@@ -2522,6 +2526,525 @@ final class MonkeyTests: XCTestCase {
 #endif
 }
 
+final class TrainingCalendarTests: XCTestCase {
+    @MainActor func testDaySheetClassificationAndCountsDaysNotEntries() {
+        let ui = AppModel(live: true)
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        let key = TrainingCalendar.key(day)
+        ui.quickLogs = [QuickLog(id: "a", loggedOn: key, loggedAt: day, timezone: "UTC"),
+                        QuickLog(id: "b", loggedOn: key, loggedAt: day, timezone: "UTC")]
+        XCTAssertEqual(ui.entryCount(day), 2)
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 1)
+        XCTAssertEqual(ui.trainingTap(day), .entries)
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .quickLog, "Filled dates without plans add directly from Activity")
+        let plan = Session(id: "p", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: day)
+        ui.upcoming = [plan]
+        XCTAssertEqual(ui.trainingTap(day), .choose, "The calendar/history chooser keeps the open plan available")
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .choose, "The whole Activity day opens the chooser even with multiple quick logs")
+        ui.quickLogs = []
+        XCTAssertEqual(ui.entryCount(day), 0, "Scheduled plans never count")
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .choose, "An empty planned day also opens the chooser")
+        let future = TrainingCalendar.calendar.date(byAdding: .day, value: 1, to: day)!
+        ui.upcoming[0].startsAt = future
+        XCTAssertEqual(ui.trainingTap(future), .disabled, "A future plan cannot be logged")
+        XCTAssertEqual(ui.trainingTap(future, isActivity: true), .choose, "Future planned days can show options without logging early")
+        XCTAssertEqual(ui.trainingTap(day), .quickLog)
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .quickLog)
+        ui.upcoming = []
+        XCTAssertEqual(ui.trainingTap(future, isActivity: true), .disabled, "Future dates without a plan stay disabled")
+    }
+    @MainActor func testTrainingCompletionCTAExcludesFutureGuestAndAlreadyLoggedSessions() async throws {
+        let ui = AppModel(live: false), now = Date()
+        let session = Session(id: "needs-log", title: "Past rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                              people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: now.addingTimeInterval(-60))
+        ui.upcoming = [session]; ui.completedSessions = []; ui.drafts = []; ui.toComplete = nil
+        ui.quickLogs = []; ui.sharedSessionIDs = []; ui.posts = []
+        XCTAssertTrue(ui.canCompleteTraining(session, now: now))
+        XCTAssertNil(ui.trainingCompletionStatus(session))
+
+        await ui.addQuickLog(now)
+        XCTAssertTrue(ui.canCompleteTraining(session, now: now), "A separate date-only quick log does not complete the plan")
+        let marked = await ui.markTrainingDone(session)
+        XCTAssertTrue(marked)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Attendance logged without a photo removes the card CTA")
+        XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Attendance without a photo shows Completed")
+        await ui.undoTrainingToast(try XCTUnwrap(ui.toast?.id))
+        XCTAssertTrue(ui.canCompleteTraining(session, now: now), "Undo makes the unlogged session actionable again")
+        XCTAssertNil(ui.trainingCompletionStatus(session))
+
+        ui.upcoming[0].startsAt = now.addingTimeInterval(60)
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Use the current schedule after an edit, even with a stale card")
+        ui.upcoming = [session]
+        ui.upcoming[0].organizer = "kenji"
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Guests cannot share a host's session")
+        ui.upcoming = [session]
+        ui.upcoming[0].people[0].attended = true
+        XCTAssertFalse(ui.canCompleteTraining(session, now: now), "A logged participant does not need another completion")
+        XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Use current attendance even with a stale card")
+
+        let photos: [String?] = [nil, "sample-photo"]
+        for photo in photos {
+            ui.upcoming = [session]; ui.completedSessions = []; ui.sharedSessionIDs = []; ui.posts = []
+            XCTAssertTrue(ui.canCompleteTraining(session, now: now))
+            XCTAssertNotNil(ui.publish(session.id, photo: photo, caption: photo == nil ? "Good rounds" : "", people: session.going))
+            XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Photo and note-only posts both remove the CTA")
+            XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Photo and note-only posts both show Completed")
+            ui.completedSessions = []; ui.upcoming = [session]
+            XCTAssertFalse(ui.canCompleteTraining(session, now: now), "A published session stays logged even when completion history is not loaded")
+            ui.posts = []
+            XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Completed status survives feed pagination or post removal")
+        }
+    }
+
+    func testMergeWindowIncludesExactlyThreeHoursAndRequiresSameLocalDay() {
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        let start = day.addingTimeInterval(12 * 3600)
+        let s = Session(id: "p", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "12:00", gym: "Gym", organizer: "me", people: [], startsAt: start)
+        var log = QuickLog(id: "a", loggedOn: TrainingCalendar.key(start), loggedAt: start.addingTimeInterval(-10800), timezone: TimeZone.current.identifier)
+        XCTAssertTrue(TrainingCalendar.matches(log, session: s))
+        log.loggedAt = start.addingTimeInterval(10801)
+        XCTAssertFalse(TrainingCalendar.matches(log, session: s))
+        log.loggedAt = start; log.loggedOn = "1999-01-01"
+        XCTAssertFalse(TrainingCalendar.matches(log, session: s))
+    }
+    @MainActor func testHostCompletionAndUndoAffectJoinedParticipantsOnly() async {
+        let ui = AppModel(live: false)
+        let now = Date()
+        let s = Session(id: "host", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                        people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going), Attendee(id: "sarah", status: .invited)], startsAt: now)
+        ui.upcoming = [s]; ui.completedSessions = []; ui.quickLogs = []; ui.posts = []; ui.toComplete = nil; ui.drafts = []
+        await ui.markTrainingDone(s)
+        XCTAssertEqual(ui.daySessions(now).count, 1)
+        XCTAssertEqual(ui.completedSessions.first?.people.filter(\.attended).map(\.id), ["me", "kenji"])
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertEqual(ui.toast?.message, "Marked done for you and Kenji")
+        await ui.trainingUndo?()
+        XCTAssertTrue(ui.completedSessions.isEmpty)
+        XCTAssertEqual(ui.upcoming.first, s)
+    }
+    @MainActor func testGuestCompletionHasNoSharePromptAndCannotPublish() async {
+        let ui = AppModel(live: false)
+        let s = Session(id: "guest", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "kenji",
+                        people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: Date())
+        ui.upcoming = [s]; ui.completedSessions = []; ui.posts = []
+        await ui.markTrainingDone(s)
+        XCTAssertEqual(ui.upcoming.first?.people.filter(\.attended).map(\.id), ["me"])
+        XCTAssertTrue(ui.completedSessions.isEmpty, "Guest attendance never completes the host plan")
+        XCTAssertNil(ui.publish(s.id, photo: "photo", caption: "", people: s.going))
+        await ui.trainingUndo?()
+        XCTAssertEqual(ui.upcoming.first, s)
+    }
+}
+
+extension TrainingCalendarTests {
+    @MainActor func testUndeployedBackendNeverReceivesQuickLogWrites() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        var requests = 0
+        runtime.command = { _, _ in requests += 1; return true }
+        let plan = Session(id: "pending", title: "Past rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [plan]
+        XCTAssertFalse(ui.quickTrainingLogEnabled)
+        let logged = await ui.addQuickLog(Date())
+        let deleted = await ui.deleteQuickLog("missing")
+        let marked = await ui.markTrainingDone(plan)
+        XCTAssertFalse(logged)
+        XCTAssertFalse(deleted)
+        XCTAssertFalse(marked)
+        XCTAssertEqual(requests, 0)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.toast)
+        ui.quickTrainingLogBackendAvailable = true
+        XCTAssertTrue(ui.quickTrainingLogEnabled)
+        ui.clearLiveData()
+        XCTAssertFalse(ui.quickTrainingLogEnabled, "Account clearing also disables the deferred backend feature")
+    }
+
+    @MainActor func testQuickLogUndoNeverCreatesSessionOrPost() async {
+        let ui = AppModel(live: false)
+        ui.quickLogs = []; ui.upcoming = []; ui.completedSessions = []; ui.posts = []; ui.drafts = []; ui.toComplete = nil
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        await ui.addQuickLog(day)
+        XCTAssertEqual(ui.entryCount(day), 1)
+        XCTAssertTrue(ui.trainingSessions(past: true).isEmpty)
+        XCTAssertTrue(ui.trainingSessions(past: false).isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        let toastID = ui.toast!.id
+        await ui.undoTrainingToast(toastID)
+        XCTAssertEqual(ui.entryCount(day), 0)
+        XCTAssertNil(ui.toast)
+        XCTAssertNil(ui.trainingUndo)
+    }
+    @MainActor func testLiveHistorySurvivesSchedulePaginationAndAccountClearing() throws {
+        let model = SocialAppModel(); model.userID = "owner"
+        model.snapshot.training_days = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"day":"2026-11-04","quick_log_count":0,"sessions":[{"id":"older","organizer":"owner","title":"Older rolls","starts_at":"2026-11-04T12:00:00Z","venue":"Gym","status":"completed"}]}]
+        """#.utf8))
+        model.snapshot.participants = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"session_id":"older","user_id":"owner","rsvp":"going","attended":true}]
+        """#.utf8))
+        model.snapshot.shared_session_ids = ["older"]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        let start = try XCTUnwrap(ui.findSession("older")?.startsAt)
+        XCTAssertEqual(ui.entryCount(start), 1, "History must not depend on the schedule's 100-session page")
+        XCTAssertFalse(ui.quickTrainingLogEnabled, "A partial snapshot does not enable undeployed operations")
+        model.snapshot.quick_logs = []; model.snapshot.log_matches = []
+        runtime.sync()
+        XCTAssertTrue(ui.quickTrainingLogEnabled, "Only a complete backend feature snapshot enables live quick logging")
+        XCTAssertFalse(ui.canCompleteTraining(try XCTUnwrap(ui.findSession("older"))), "Previously shared sessions must not get a completion CTA after feed pagination or post deletion")
+        ui.clearLiveData()
+        XCTAssertTrue(ui.calendarSessions.isEmpty)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.sharedSessionIDs.isEmpty)
+        XCTAssertNil(ui.trainingUndo)
+    }
+}
+
+#if DEBUG
+extension TrainingCalendarTests {
+    @MainActor func testPreviewIncludesCompletedUnsharedPlanAndQuickLogs() throws {
+        let ui = AppModel.uiReviewPreview()
+        XCTAssertFalse(ui.quickLogs.isEmpty)
+        let completed = try XCTUnwrap(ui.completedSessions.first)
+        XCTAssertFalse(ui.canCompleteTraining(completed), "A session already logged without a photo must not get a completion CTA")
+        XCTAssertFalse(ui.openPlans(Date()).isEmpty, "Today must offer the planned-session chooser")
+    }
+}
+#endif
+
+@MainActor
+private final class TrainingRuntimeStub: AppRuntime {
+    var busy = false
+    var command: @MainActor (String, [String: Any]) async -> Bool = { _, _ in false }
+    func perform(_ operation: String, _ payload: [String: Any]) async -> Bool { await command(operation, payload) }
+    func authenticate() async {}
+    func signOut() async {}
+    func partners(of personID: String) async -> [Person]? { nil }
+    func searchUsernames(_ query: String) async throws -> [Person] { [] }
+    func enableNotifications() async -> String? { nil }
+    func create(_ draft: SessionDraft, key: UUID) async -> String? { nil }
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool { false }
+    func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? { nil }
+    func saveAvatar(_ jpeg: Data) async -> Bool { false }
+    func friendCode() async -> String? { nil }
+    func connect(_ value: String) async -> String? { nil }
+    func sessionInvitationURL(_ sessionID: String) async -> URL? { nil }
+    func copySessionLink(_ sessionID: String) async {}
+    func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool { false }
+    func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String, focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool { false }
+    func publishGoal(_ goal: MatGoal) async -> String? { nil }
+    func copyGoalLink(_ sharedID: String) async -> Bool { false }
+    func scannerView(found: @escaping (String) -> Void) -> AnyView { AnyView(EmptyView()) }
+    func exportView() -> AnyView { AnyView(EmptyView()) }
+}
+
+extension TrainingCalendarTests {
+    @MainActor func testUnstartedPlanIsDisabledButSeparateQuickLogStillWorks() async {
+        let ui = AppModel(live: false)
+        let start = Date().addingTimeInterval(60)
+        let plan = Session(id: "later", title: "Later rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: start)
+        ui.upcoming = [plan]; ui.completedSessions = []; ui.quickLogs = []; ui.toComplete = nil; ui.drafts = []
+        XCTAssertFalse(ui.canMarkTrainingDone(plan, now: start.addingTimeInterval(-1)))
+        XCTAssertTrue(ui.canMarkTrainingDone(plan, now: start))
+        let saved = await ui.markTrainingDone(plan)
+        XCTAssertFalse(saved)
+        XCTAssertEqual(ui.upcoming.first, plan)
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        let logged = await ui.addQuickLog(day)
+        XCTAssertTrue(logged)
+        XCTAssertEqual(ui.entryCount(day), 1)
+        XCTAssertEqual(ui.trainingTap(day), .choose, "The calendar action still offers the open plan after a separate quick log")
+        XCTAssertEqual(ui.upcoming.first, plan)
+    }
+
+    @MainActor func testCompletionUndoIsUnavailableAfterPublishing() async throws {
+        let ui = AppModel(live: false)
+        let plan = Session(id: "published", title: "Rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [plan]; ui.completedSessions = []; ui.posts = []; ui.quickLogs = []; ui.toComplete = nil
+        await ui.markTrainingDone(plan)
+        let id = try XCTUnwrap(ui.toast?.id)
+        XCTAssertTrue(ui.canUndoTrainingToast(id))
+        XCTAssertNotNil(ui.publish(plan.id, photo: nil, caption: "Good rolls", people: ["me"]))
+        XCTAssertFalse(ui.canUndoTrainingToast(id))
+        await ui.undoTrainingToast(id)
+        XCTAssertEqual(ui.posts.count, 1)
+        XCTAssertTrue(ui.completedSessions.contains { $0.id == plan.id })
+        XCTAssertTrue(ui.upcoming.isEmpty)
+    }
+
+    @MainActor func testFailedQuickLogBlocksDuplicateTapsAndLeavesStateUnchanged() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        let started = expectation(description: "Save started")
+        var resume: CheckedContinuation<Bool, Never>?
+        var requests = 0
+        runtime.command = { _, _ in
+            requests += 1; started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let day = TrainingCalendar.calendar.startOfDay(for: Date())
+        let first = Task { await ui.addQuickLog(day) }
+        await fulfillment(of: [started], timeout: 1)
+        XCTAssertTrue(ui.savingTraining)
+        let duplicate = await ui.addQuickLog(day)
+        XCTAssertFalse(duplicate)
+        XCTAssertEqual(requests, 1)
+        resume?.resume(returning: false)
+        let saved = await first.value
+        XCTAssertFalse(saved)
+        XCTAssertFalse(ui.savingTraining)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.trainingUndo)
+        XCTAssertTrue(ui.path.isEmpty)
+    }
+
+    @MainActor func testFailedCompletionLeavesPlanOpenAndCreatesNoUndo() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        let plan = Session(id: "failure", title: "Rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [plan]
+        let saved = await ui.markTrainingDone(plan)
+        XCTAssertFalse(saved)
+        XCTAssertEqual(ui.upcoming.first, plan)
+        XCTAssertTrue(ui.completedSessions.isEmpty)
+        XCTAssertNil(ui.trainingUndo)
+        XCTAssertTrue(ui.path.isEmpty)
+    }
+
+    @MainActor func testAccountClearingDiscardsPendingTrainingResult() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        let started = expectation(description: "Save started")
+        var resume: CheckedContinuation<Bool, Never>?
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let save = Task { await ui.addQuickLog(Date()) }
+        await fulfillment(of: [started], timeout: 1)
+        ui.clearLiveData()
+        resume?.resume(returning: true)
+        let saved = await save.value
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.toast)
+        XCTAssertNil(ui.trainingUndo)
+        XCTAssertFalse(ui.savingTraining)
+    }
+}
+
+extension TrainingCalendarTests {
+    @MainActor func testQuickLogsStayOnActivityAndKeepStartedPlanInComingUp() async {
+        let ui = AppModel(live: false)
+        let plan = Session(id: "c", title: "Rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.posts = []; ui.quickLogs = []; ui.drafts = []; ui.discoverableSessions = []
+        ui.setTab(.activity)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .choose)
+        await ui.addQuickLog(Date())
+        await ui.addQuickLog(Date())
+        XCTAssertEqual(ui.tab, .activity)
+        XCTAssertTrue(ui.path.isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertEqual(ui.entryCount(Date()), 2)
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(Date())), 1)
+        XCTAssertEqual(ui.trainingTap(Date()), .choose)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .choose, "Adding quick logs must not bypass the planned-day chooser")
+        XCTAssertEqual(ui.activityPlans().map(\.id), [plan.id])
+        await ui.undoTrainingToast(ui.toast!.id)
+        XCTAssertEqual(ui.entryCount(Date()), 1)
+        XCTAssertEqual(ui.upcoming.first, plan)
+        await ui.markTrainingDone(plan)
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+        XCTAssertEqual(ui.trainingTap(Date()), .entries)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .quickLog, "After the plan closes, Activity returns to direct quick logging")
+    }
+}
+
+extension TrainingCalendarTests {
+    @MainActor func testStripAddsToConfirmedDayWithoutAllowingUntap() async {
+        let ui = AppModel(live: false)
+        let day = Date()
+        let session = Session(id: "confirmed", title: "Night training", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                              people: [Attendee(id: "me", status: .going, attended: true)], startsAt: day.addingTimeInterval(-60))
+        ui.upcoming = []; ui.completedSessions = [session]; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = []; ui.posts = []
+        XCTAssertNotNil(ui.publish(session.id, photo: nil, caption: "Good rolls", people: ["me"]))
+        await ui.addQuickLog(day)
+        await ui.addQuickLog(day)
+        XCTAssertEqual(ui.entryCount(day), 3)
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 1)
+        XCTAssertFalse(ui.canRemoveQuickLog(on: day))
+        let removed = await ui.removeLatestQuickLog(on: day)
+        XCTAssertFalse(removed, "A planned-session date is protected even when it also has quick logs")
+        XCTAssertEqual(ui.entryCount(day), 3)
+        XCTAssertEqual(ui.dayLogs(day).count, 2)
+        XCTAssertEqual(ui.daySessions(day).map(\.id), [session.id])
+        XCTAssertEqual(ui.posts.count, 1)
+        XCTAssertTrue(ui.sharedSessionIDs.contains(session.id))
+        XCTAssertTrue(ui.path.isEmpty)
+    }
+
+    @MainActor func testStripRemovalDoesNothingOnPlannedDate() async {
+        let ui = AppModel(live: false)
+        let day = Date()
+        let session = Session(id: "planned", title: "Planned rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                              people: [Attendee(id: "me", status: .going)], startsAt: day.addingTimeInterval(-60))
+        let log = QuickLog(id: "private-log", loggedOn: TrainingCalendar.key(day), loggedAt: day, timezone: TimeZone.current.identifier)
+        ui.upcoming = [session]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = [log]
+        XCTAssertFalse(ui.canRemoveQuickLog(on: day))
+        let removed = await ui.removeLatestQuickLog(on: day)
+        XCTAssertFalse(removed)
+        XCTAssertEqual(ui.quickLogs, [log])
+        XCTAssertEqual(ui.upcoming.first, session)
+        XCTAssertEqual(ui.entryCount(day), 1)
+    }
+
+    @MainActor func testStripRemovesNewestLogAndClearsOnlyAnEmptyDay() async {
+        let ui = AppModel(live: false)
+        let day = Date(), key = TrainingCalendar.key(Date())
+        let earlier = QuickLog(id: "earlier", loggedOn: key, loggedAt: day.addingTimeInterval(-1), timezone: TimeZone.current.identifier)
+        let latest = QuickLog(id: "latest", loggedOn: key, loggedAt: day, timezone: TimeZone.current.identifier)
+        ui.upcoming = []; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = [earlier, latest]
+        await ui.removeLatestQuickLog(on: day)
+        XCTAssertEqual(ui.quickLogs, [earlier])
+        XCTAssertEqual(ui.entryCount(day), 1)
+        await ui.removeLatestQuickLog(on: day)
+        XCTAssertEqual(ui.entryCount(day), 0)
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 0)
+    }
+
+    @MainActor func testFailedStripRemovalPreservesCounterAndBlocksDuplicateTaps() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        let day = Date()
+        let log = QuickLog(id: "log", loggedOn: TrainingCalendar.key(day), loggedAt: day, timezone: TimeZone.current.identifier)
+        ui.quickLogs = [log]
+        let started = expectation(description: "Removal started")
+        var resume: CheckedContinuation<Bool, Never>?
+        var requests = 0
+        runtime.command = { operation, _ in
+            XCTAssertEqual(operation, "delete_quick_log")
+            requests += 1; started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let first = Task { await ui.removeLatestQuickLog(on: day) }
+        await fulfillment(of: [started], timeout: 1)
+        let duplicate = await ui.removeLatestQuickLog(on: day)
+        XCTAssertFalse(duplicate)
+        XCTAssertEqual(requests, 1)
+        resume?.resume(returning: false)
+        let removed = await first.value
+        XCTAssertFalse(removed)
+        XCTAssertEqual(ui.quickLogs, [log])
+        XCTAssertEqual(ui.entryCount(day), 1)
+        XCTAssertFalse(ui.savingTraining)
+    }
+}
+
+#if DEBUG
+extension TrainingCalendarTests {
+    @MainActor func testQuickLogMockSeedsCompletedAndSharedStates() throws {
+        let mock = AppModel.quickTrainingLogMock(.hostPlan)
+        let open = try XCTUnwrap(mock.findSession("mock-today"))
+        let completed = try XCTUnwrap(mock.findSession("mock-completed"))
+        let shared = try XCTUnwrap(mock.findSession("mock-shared"))
+        let post = try XCTUnwrap(mock.posts.first { $0.id == "mock-shared-post" })
+        XCTAssertTrue(mock.canCompleteTraining(open))
+        XCTAssertNil(mock.trainingCompletionStatus(open))
+        XCTAssertFalse(mock.canCompleteTraining(completed))
+        XCTAssertEqual(mock.trainingCompletionStatus(completed), .completed)
+        XCTAssertFalse(mock.canCompleteTraining(shared))
+        XCTAssertEqual(mock.trainingCompletionStatus(shared), .completed)
+        XCTAssertEqual(post.title, shared.title)
+        XCTAssertEqual(post.occurredAt, shared.startsAt)
+        XCTAssertEqual(post.participants, shared.going)
+        mock.sharedSessionIDs = []
+        mock.loadQuickLogMock(.hostPlan)
+        XCTAssertEqual(mock.trainingCompletionStatus(shared), .completed, "Reset restores the completed state for a shared session")
+        XCTAssertEqual(mock.posts.filter { $0.id == "mock-shared-post" }.count, 1)
+    }
+
+    @MainActor func testQuickLogMockRunsLocallyAndResetRestoresFixtures() async {
+        let mock = AppModel.quickTrainingLogMock(.quickLogs)
+        let day = Date(), posts = mock.posts
+        XCTAssertFalse(mock.isLive)
+        XCTAssertNil(mock.runtime)
+        XCTAssertTrue(mock.isSignedIn)
+        XCTAssertEqual(mock.tab, .activity)
+        XCTAssertFalse(mock.shouldAskForMonkey)
+        XCTAssertEqual(mock.entryCount(day), 2)
+        XCTAssertTrue(mock.canRemoveQuickLog(on: day))
+        await mock.addQuickLog(day)
+        XCTAssertEqual(mock.entryCount(day), 3)
+        await mock.removeLatestQuickLog(on: day)
+        XCTAssertEqual(mock.entryCount(day), 2)
+        XCTAssertEqual(mock.posts, posts)
+        mock.go(.session(id: "mock-completed"))
+        mock.loadQuickLogMock(.quickLogs)
+        XCTAssertEqual(mock.entryCount(Date()), 2)
+        XCTAssertEqual(mock.posts.count, posts.count)
+        XCTAssertTrue(mock.path.isEmpty)
+        XCTAssertNil(mock.toast)
+        XCTAssertNil(mock.runtime)
+    }
+
+    @MainActor func testQuickLogMockHostAndGuestCompletionAreLocal() async throws {
+        for scenario in [QuickLogMockScenario.hostPlan, .guestPlan] {
+            let mock = AppModel.quickTrainingLogMock(scenario)
+            let plan = try XCTUnwrap(mock.openPlans(Date()).first)
+            let before = mock.posts.count
+            XCTAssertNil(mock.runtime)
+            XCTAssertTrue(mock.canMarkTrainingDone(plan))
+            let saved = await mock.markTrainingDone(plan)
+            XCTAssertTrue(saved)
+            XCTAssertEqual(mock.posts.count, before, "Attendance never auto-publishes")
+            let done = try XCTUnwrap(mock.findSession(plan.id))
+            XCTAssertTrue(done.people.first { $0.id == "me" }!.attended)
+            if scenario == .hostPlan {
+                XCTAssertTrue(done.people.allSatisfy(\.attended))
+                XCTAssertNotNil(mock.publish(plan.id, photo: nil, caption: "Good rolls", people: plan.going))
+                XCTAssertEqual(mock.posts.count, before + 1)
+            } else {
+                XCTAssertFalse(done.people.first { $0.id == "kenji" }!.attended)
+                XCTAssertNil(mock.publish(plan.id, photo: nil, caption: "Good rolls", people: plan.going))
+                let removed = await mock.removeOwnTrainingAttendance(done)
+                XCTAssertTrue(removed)
+                XCTAssertTrue(mock.daySessions(Date()).isEmpty)
+            }
+            mock.loadQuickLogMock(scenario)
+            XCTAssertEqual(mock.posts.count, before)
+            XCTAssertTrue(mock.canMarkTrainingDone(try XCTUnwrap(mock.openPlans(Date()).first)))
+        }
+    }
+
+    @MainActor func testQuickLogMockStartsLaterAndCannotLoadIntoLiveModel() throws {
+        let mock = AppModel.quickTrainingLogMock(.startsLater)
+        let plan = try XCTUnwrap(mock.openPlans(Date()).first)
+        XCTAssertFalse(mock.canMarkTrainingDone(plan))
+        XCTAssertGreaterThan(try XCTUnwrap(plan.startsAt), Date())
+        let live = AppModel(live: true)
+        live.me.name = "Live account"
+        live.loadQuickLogMock(.quickLogs)
+        XCTAssertTrue(live.isLive)
+        XCTAssertEqual(live.me.name, "Live account")
+        XCTAssertTrue(live.posts.isEmpty)
+        XCTAssertTrue(live.quickLogs.isEmpty)
+        XCTAssertFalse(live.isSignedIn)
+    }
+}
+#endif
 
 final class ProfileHeatmapTests: XCTestCase {
     private var calendar: Calendar {
@@ -2610,4 +3133,3 @@ extension BackendSessionTests {
         XCTAssertEqual(offsets, ["0", "200"])
     }
 }
-

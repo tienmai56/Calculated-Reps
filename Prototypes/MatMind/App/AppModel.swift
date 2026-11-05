@@ -50,8 +50,45 @@ final class AppModel {
         return preview
     }
 #endif
+#if DEBUG || MAT_MIND_PROTOTYPE
+    private(set) var quickLogMockScenario: QuickLogMockScenario = .hostPlan
+
+    static func quickTrainingLogMock(_ scenario: QuickLogMockScenario = .hostPlan) -> AppModel {
+        let model = AppModel(live: false)
+        model.loadQuickLogMock(scenario)
+        return model
+    }
+
+    /// UI-only fixtures can never replace or use a live account/runtime.
+    func loadQuickLogMock(_ scenario: QuickLogMockScenario, now: Date = Date()) {
+        guard !isLive, runtime == nil else { return }
+        reset()
+        quickLogMockScenario = scenario
+        upcoming = SeedData.quickLogMockPlans(scenario, now: now)
+        quickLogs = SeedData.quickLogMockLogs(scenario, now: now)
+        let shared = SeedData.quickLogMockShared(now: now)
+        completedSessions = [shared.session] + SeedData.quickLogMockCompleted(now: now)
+        sharedSessionIDs = [shared.session.id]
+        toComplete = nil
+        notifications = []
+        posts = [shared.post] + SeedData.posts.enumerated().map { index, source in
+            var post = source
+            let date = TrainingCalendar.calendar.date(byAdding: .day, value: -(index + 1), to: now)!
+            post.date = date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+            post.ago = index == 0 ? "Yesterday" : "\(index + 1)d"
+            post.occurredAt = date
+            return post
+        }
+        monkeyPromptAnswered = true
+        isSignedIn = true
+        setTab(.activity)
+    }
+#endif
     let isLive: Bool
-    var busy: Bool { creatingSessions || (runtime?.busy ?? false) }
+    /// Live quick logging stays off until the server exposes the deferred feature's snapshot fields.
+    var quickTrainingLogBackendAvailable = false
+    var quickTrainingLogEnabled: Bool { !isLive || quickTrainingLogBackendAvailable }
+    var busy: Bool { creatingSessions || savingTraining || (runtime?.busy ?? false) }
     private(set) var creatingSessions = false
     private var createdSessions: [UUID: String] = [:]
     private var creationGeneration = UUID()
@@ -66,6 +103,9 @@ final class AppModel {
     }
 
     func clearLiveData() {
+        resetTrainingActions()
+        quickLogs = []; sharedSessionIDs = []
+
         resetPeopleLookup()
         rhythmSessionDates = nil
         resetSessionCreation()
@@ -117,6 +157,21 @@ final class AppModel {
     var posts: [Post] = []
     var upcoming: [Session] = []
     var completedSessions: [Session] = []
+    var sharedSessionIDs: Set<String> = []
+    var quickLogs: [QuickLog] = []
+    var trainingUndo: (() async -> Bool)?
+    var trainingUndoToastID: UUID?
+    var trainingUndoSessionID: String?
+    private(set) var savingTraining = false
+    private var trainingGeneration = UUID()
+
+    func resetTrainingActions() {
+        quickTrainingLogBackendAvailable = false
+        trainingGeneration = UUID()
+        savingTraining = false
+        trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+    }
+
     /// Full 17-week read, separate from the bounded Training list. nil uses the loaded session page.
     var rhythmSessionDates: [Date]? = nil
     /// Friends' open plans from Activity. They enter Training only after joining.
@@ -326,10 +381,25 @@ final class AppModel {
 
     func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
 
-    /// Link-visible plans appear immediately in Activity, without creating a completed post.
+    func trainingCompletionStatus(_ session: Session) -> TrainingCompletionStatus? {
+        let current = findSession(session.id) ?? session
+        if sharedSessionIDs.contains(current.id) || isCompleted(current)
+            || current.people.contains(where: { $0.id == "me" && $0.attended }) { return .completed }
+        return nil
+    }
+
+    /// The Training card action applies only to hosted past sessions with no attendance log or post.
+    func canCompleteTraining(_ session: Session, now: Date = Date()) -> Bool {
+        guard let current = findSession(session.id), current.organizer == "me",
+              current.status(of: "me") == .going, trainingCompletionStatus(current) == nil else { return false }
+        return trainingSessions(past: true, relativeTo: now).contains { $0.id == current.id }
+    }
+
+    /// Personal open plans remain in Activity until attendance is confirmed, including after their start.
     func activityPlans(at now: Date = Date()) -> [Session] {
         (upcoming + discoverableSessions)
-            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && startDate(of: $0) > now }
+            .filter { !isCompleted($0) && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && !$0.people.contains(where: { $0.id == "me" && $0.attended }) }
+            .filter { quickTrainingLogEnabled || ($0.privacy == .link && startDate(of: $0) > now) }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
                 return first == second ? $0.id < $1.id : first < second
@@ -534,6 +604,7 @@ final class AppModel {
     private func updateSession(_ id: String, _ change: (inout Session) -> Void) {
         if let i = upcoming.firstIndex(where: { $0.id == id }) { change(&upcoming[i]) }
         if let i = drafts.firstIndex(where: { $0.id == id }) { change(&drafts[i]) }
+        if let i = completedSessions.firstIndex(where: { $0.id == id }) { change(&completedSessions[i]) }
         if var session = toComplete, session.id == id {
             change(&session)
             toComplete = session
@@ -766,7 +837,7 @@ final class AppModel {
 
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
         if isLive { return nil }
-        guard var s = findSession(sessionID) else { return nil }
+        guard var s = findSession(sessionID), s.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
         if let photo, !s.photos.contains(photo) { s.photos.insert(photo, at: 0) }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
@@ -776,7 +847,11 @@ final class AppModel {
             .filter { people.contains($0.id) && $0.thisWeek != .done }
             .map { StreakTick(id: $0.id, from: $0.streak, to: $0.streak + 1, friendship: $0) }
         posts.insert(post, at: 0)
-        completedSessions.append(s)
+        sharedSessionIDs.insert(s.id)
+        completedSessions.removeAll { $0.id == s.id }
+        var attended = s
+        for i in attended.people.indices { attended.people[i].attended = people.contains(attended.people[i].id) }
+        completedSessions.append(attended)
         upcoming.removeAll { $0.id == sessionID }
         drafts.removeAll { $0.id == sessionID }
         if toComplete?.id == sessionID { toComplete = nil }
@@ -1250,6 +1325,8 @@ final class AppModel {
         resetSessionCreation()
         timers.forEach { $0.cancel() }
         timers = []
+        completedSessions = []
+        resetTrainingActions()
 #if DEBUG || MAT_MIND_PROTOTYPE
         me = SeedData.me
         people = SeedData.people
@@ -1260,7 +1337,10 @@ final class AppModel {
         listedPeople = [:]
         posts = SeedData.posts
         trainingInvitations = []
-        upcoming = SeedData.upcoming
+        upcoming = SeedData.upcoming + SeedData.calendarPlans
+        quickLogs = SeedData.quickLogs
+        completedSessions = SeedData.calendarCompleted
+        sharedSessionIDs = []
         discoverableSessions = []
         toComplete = SeedData.toComplete
         notifications = SeedData.notifications
@@ -1275,7 +1355,6 @@ final class AppModel {
         monkeyPromptAnswered = false
 #endif
         drafts = []
-        completedSessions = []
         path = []
         toast = nil
         highlight = nil
@@ -1336,6 +1415,159 @@ final class AppModel {
 
 
 extension AppModel {
+    var calendarSessions: [Session] {
+        var seen = Set<String>()
+        return (upcoming + completedSessions + drafts + (toComplete.map { [$0] } ?? []))
+            .filter { seen.insert($0.id).inserted }
+    }
+    func dayLogs(_ date: Date) -> [QuickLog] { quickLogs.filter { $0.loggedOn == TrainingCalendar.key(date) } }
+    func daySessions(_ date: Date) -> [Session] {
+        calendarSessions.filter { s in
+            s.startsAt.map { TrainingCalendar.calendar.isDate($0, inSameDayAs: date) } == true
+                && s.people.contains { $0.id == "me" && $0.attended }
+        }
+    }
+    func openPlans(_ date: Date) -> [Session] {
+        calendarSessions.filter { s in
+            s.startsAt.map { TrainingCalendar.calendar.isDate($0, inSameDayAs: date) } == true
+                && (s.organizer == "me" || s.status(of: "me") == .going)
+                && !s.people.contains { $0.id == "me" && $0.attended }
+                && !isCompleted(s)
+        }.sorted { startDate(of: $0) < startDate(of: $1) }
+    }
+    func entryCount(_ date: Date) -> Int { dayLogs(date).count + daySessions(date).count }
+    func trainedDays(_ week: [Date]) -> Int { week.filter { entryCount($0) > 0 }.count }
+    func trainingTap(_ date: Date, now: Date = Date(), isActivity: Bool = false) -> TrainingTap {
+        let planned = !openPlans(date).isEmpty
+        let future = TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: now)
+        // Activity can show a future plan's chooser without allowing an early log.
+        if future && !(isActivity && planned) { return .disabled }
+        if planned { return .choose }
+        return isActivity || entryCount(date) == 0 ? .quickLog : .entries
+    }
+    func canMarkTrainingDone(_ session: Session, now: Date = Date()) -> Bool {
+        guard let current = findSession(session.id), let start = current.startsAt else { return false }
+        return start <= now && !isCompleted(current) && !sharedSessionIDs.contains(current.id)
+            && current.status(of: "me") == .going
+            && !current.people.contains { $0.id == "me" && $0.attended }
+    }
+    func canUndoTrainingToast(_ id: UUID) -> Bool {
+        quickTrainingLogEnabled && trainingUndoToastID == id && trainingUndo != nil
+            && !savingTraining && !(trainingUndoSessionID.map { sharedSessionIDs.contains($0) } ?? false)
+    }
+    func trainingToast(_ text: String, sessionID: String? = nil, undo: @escaping () async -> Bool) {
+        let data = MMToastData(message: text, variant: .success)
+        toast = data; trainingUndo = undo; trainingUndoToastID = data.id; trainingUndoSessionID = sessionID
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let self, self.trainingUndoToastID == data.id else { return }
+            if self.toast?.id == data.id { self.toast = nil }
+            self.trainingUndo = nil; self.trainingUndoToastID = nil; self.trainingUndoSessionID = nil
+        }
+    }
+    func undoTrainingToast(_ id: UUID) async {
+        guard !busy, canUndoTrainingToast(id), let undo = trainingUndo else { return }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
+        let saved = await undo()
+        guard generation == trainingGeneration else { return }
+        if saved {
+            if toast?.id == id { toast = nil }
+            if trainingUndoToastID == id { trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil }
+        } else if toast?.id == id {
+            toast?.message = "Couldn't undo. Try again."
+        }
+    }
+    @discardableResult func addQuickLog(_ date: Date) async -> Bool {
+        guard quickTrainingLogEnabled, !busy, !isLive || runtime != nil, trainingTap(date) != .disabled else { return false }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
+        let log = QuickLog(id: UUID().uuidString, loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
+        if let runtime {
+            let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
+            guard generation == trainingGeneration else { return false }
+            guard saved else { showToast("Couldn't save training. Try again.", .danger); return false }
+        } else { quickLogs.append(log) }
+        trainingToast("Training logged") { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
+        return true
+    }
+    @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
+        guard quickTrainingLogEnabled else { return false }
+        if let runtime { return await runtime.perform("delete_quick_log", ["id": id]) }
+        guard !isLive else { return false }
+        quickLogs.removeAll { $0.id == id }; return true
+    }
+    @discardableResult func removeOwnTrainingAttendance(_ session: Session) async -> Bool {
+        guard !busy, let current = findSession(session.id),
+              current.people.contains(where: { $0.id == "me" && $0.attended }) else { return false }
+        if let runtime {
+            return await runtime.perform("correct_attendance", ["session_id": session.id, "user_id": "me", "attended": false])
+        }
+        guard !isLive else { return false }
+        updateSession(session.id) { session in
+            for i in session.people.indices where session.people[i].id == "me" { session.people[i].attended = false }
+        }
+        showToast("Attendance removed")
+        return true
+    }
+    func canRemoveQuickLog(on date: Date) -> Bool {
+        trainingTap(date) != .disabled && openPlans(date).isEmpty && daySessions(date).isEmpty && !dayLogs(date).isEmpty
+    }
+    /// The strip removes one private log, never confirmed session attendance.
+    @discardableResult func removeLatestQuickLog(on date: Date) async -> Bool {
+        guard !busy, !isLive || runtime != nil, canRemoveQuickLog(on: date),
+              let log = dayLogs(date).max(by: {
+                  $0.loggedAt == $1.loggedAt ? $0.id < $1.id : $0.loggedAt < $1.loggedAt
+              }) else { return false }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
+        let saved = await deleteQuickLog(log.id)
+        guard generation == trainingGeneration else { return false }
+        guard saved else { showToast("Couldn't remove the quick log. Try again.", .danger); return false }
+        trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+        showToast("Quick log removed")
+        return true
+    }
+    @discardableResult func markTrainingDone(_ session: Session) async -> Bool {
+        guard quickTrainingLogEnabled, !busy, !isLive || runtime != nil, canMarkTrainingDone(session),
+              let current = findSession(session.id) else { return false }
+        let generation = trainingGeneration
+        savingTraining = true
+        defer { if generation == trainingGeneration { savingTraining = false } }
+        let actionID = UUID().uuidString
+        var done = current
+        let changed = current.people.filter { $0.status == .going && !$0.attended && (current.organizer == "me" || $0.id == "me") }.map(\.id)
+        for i in done.people.indices where changed.contains(done.people[i].id) { done.people[i].attended = true }
+        if let runtime {
+            let saved = await runtime.perform("mark_training_done", ["session_id": current.id, "action_id": actionID, "timezone": TimeZone.current.identifier])
+            guard generation == trainingGeneration else { return false }
+            guard saved else { showToast("Couldn't mark training done. Try again.", .danger); return false }
+        } else if current.organizer == "me" {
+            completedSessions.removeAll { $0.id == current.id }; completedSessions.append(done)
+            upcoming.removeAll { $0.id == current.id }
+            if toComplete?.id == current.id { toComplete = nil }
+        } else if let i = upcoming.firstIndex(where: { $0.id == current.id }) { upcoming[i] = done }
+        let others = current.going.filter { $0 != "me" }.map { person($0).firstName }.joined(separator: " and ")
+        let message = "Marked done for you" + (current.organizer == "me" && !others.isEmpty ? " and " + others : "")
+        let applied = done
+        trainingToast(message, sessionID: current.id) { [weak self] in
+            guard let self, !self.sharedSessionIDs.contains(current.id) else { return false }
+            if let runtime = self.runtime {
+                return await runtime.perform("undo_training_done", ["action_id": actionID])
+            }
+            guard !self.isLive, self.findSession(current.id) == applied else { return false }
+            self.completedSessions.removeAll { $0.id == current.id }
+            self.upcoming.removeAll { $0.id == current.id }; self.upcoming.append(current)
+            return true
+        }
+        return true
+    }
+}
+
+extension AppModel {
     func trainingRhythm(now: Date = Date(), calendar: Calendar = .current) -> ProfileRhythmHistory {
         if isLive, let rhythmSessionDates {
             return ProfileRhythmHistory(dates: rhythmSessionDates, now: now, calendar: calendar)
@@ -1348,4 +1580,3 @@ extension AppModel {
         return ProfileRhythmHistory(dates: dates + previewDates, now: now, calendar: calendar)
     }
 }
-

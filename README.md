@@ -24,6 +24,10 @@ Live UI models start empty. Sample records and photos require explicit preview m
 
 Open `IntentionalTrainingNotes.xcodeproj`, select `IntentionalTrainingNotes`, and run on iOS 17 or later. The installed app renders the shared screens in `Prototypes/MatMind/`, backed by live services in `MatMind/`. Debug builds also offer **Preview without signing in** on Welcome, with isolated sample data.
 
+**UI-only quick-log mock:** choose the **QuickTrainingLogMock** Xcode scheme to open Activity immediately with seeded data. Its state selector and Reset let you try quick logs, host/guest completion and an unstarted plan without sign-in or database calls. See [mock instructions](Prototypes/README.md#quick-training-log-ui-mock).
+
+**Database work is deferred.** The quick-log migration and SQL tests remain on [`feat/activity-quick-log-db-deferred`](https://github.com/tienmai56/Calculated-Reps/tree/feat/activity-quick-log-db-deferred/supabase/features/quick-training-log), outside this UI merge. Live accounts keep the existing Activity flow and read-only Profile heatmap until the backend explicitly supplies the quick-log snapshot fields. The mock remains fully interactive without a database.
+
 Google sign-in setup is described in [Google sign-in setup](docs/google-sign-in-setup.md). Apple sign-in is hidden for now. Backend migrations and functions are deployed; see [deployment and validation](docs/mat-mind-v2-deployment.md) for configuration and acceptance checks.
 
 Previous local training data is available only through **Settings → Export → Export local sessions**, from Welcome or Profile. Legacy records are not imported into social sessions, photos or streaks. Goals are the one exception: **Goals → Import** reads that export file and brings over active goals with their task names, notes, links and photos (on the device only; sessions and reflections stay in the export).
@@ -84,6 +88,9 @@ module.exports = { presets: [require('./design-system/tailwind.config.js')], con
 ## Credits
 Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsplash (Unsplash License). Logo: the Silverback mark (`assets/brand/`), paired with the "mat monkey." wordmark; see `DESIGN.md` §5.1.
 
+## Regression tests
+
+Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native checks, protected invariants and the current UI acceptance checklist. Database work is documented on the deferred branch.
 ## Profile training heatmap
 
 Profile → Progress combines a static 17-week **Your rhythm** heatmap with the existing Weekly/Monthly chart in one card. Past hosted/joined sessions fill a day even without a shared photo. The heatmap is read-only and introduces no quick logging or backend migration. See the [regression guide](docs/profile-heatmap-regression.md).

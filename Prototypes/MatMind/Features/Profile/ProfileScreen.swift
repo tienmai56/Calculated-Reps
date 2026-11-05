@@ -529,6 +529,7 @@ struct ProfileHistory {
 // MARK: - Progress
 
 private struct ProfileProgressSection: View {
+    @Environment(AppModel.self) private var mm
     let history: ProfileHistory
     @State private var range = "week"
 
@@ -536,10 +537,18 @@ private struct ProfileProgressSection: View {
         let weekly = range == "week"
         let period = history.sessions(in: weekly ? history.thisWeek : history.thisMonth)
         VStack(alignment: .leading, spacing: 0) {
+            if mm.quickTrainingLogEnabled {
+                TrainingRhythm()
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.top, MMSpace.s6)
+            }
+
             VStack(alignment: .leading, spacing: MMSpace.s6) {
-                ProfileTrainingHeatmap()
-                Rectangle().fill(MMColor.borderDefault).frame(height: 1)
-                    .padding(.vertical, MMSpace.s2)
+                if !mm.quickTrainingLogEnabled {
+                    ProfileTrainingHeatmap()
+                    Rectangle().fill(MMColor.borderDefault).frame(height: 1)
+                        .padding(.vertical, MMSpace.s2)
+                }
                 MMTabs(items: [MMTabItem("week", "Weekly"), MMTabItem("month", "Monthly")], selection: $range)
                 Text(weekly ? "This week" : "This month")
                     .mmFont(.display, 22, tracking: -0.015, lineHeight: 1.15)
@@ -1156,4 +1165,3 @@ private struct ProfileTrainingHeatmap: View {
         }
     }
 }
-
