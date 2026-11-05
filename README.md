@@ -6,11 +6,15 @@ Taking or uploading a post-training photo saves it to the training session immed
 
 Planning and logging a session start with **Jiu-Jitsu training** filled in as the title. The small X on the right clears it and focuses the field for a custom title. Keeping the default needs no typing; submitting a cleared title also uses **Jiu-Jitsu training**.
 
+The session date picker uses the device’s local calendar and refreshes when the screen reappears, the app becomes active, the day changes, or the time zone changes. Selected dates stay on the same calendar days while they remain in range. A partly saved batch keeps its original dates for retrying.
+
 Session links preserve existing participants' latest RSVPs when reopened. This backend fix was deployed on November 5, 2026 as `supabase/migrations/20261105053014_preserve_session_link_rsvp.sql`; see the [investigation](docs/session-link-rsvp-investigation.md).
 
 Scanning someone's code follows them immediately. Scanning and the Follow button both grant activity visibility and permission to invite that person to train. Following remains one-way; existing training connections are migrated to follows in both directions.
 
 “My code” uses a stable `matmind://friend/…` QR so partners on builds with different website addresses can scan each other. The updated app also recognizes existing codes from both known invitation hosts. This compatibility fix requires a new iOS build; shared session and goal links continue using the current HTTPS website.
+
+People search accepts **name or @username**. Enter at least three username characters (with or without `@`) to find someone outside your training circle, then tap **Follow**. Username follows use the same backend connection flow as scanning their code. Search is case-insensitive, shows up to 20 username matches, and hides blocked accounts. The backend migration `20261105181902_username_people_search.sql` is deployed; the updated iOS client still needs to be built and installed.
 
 Session invitations show only who invited you, with Accept and Decline. Session title, time, location, notes, focus and guests are returned only after acceptance. Opening a shared session link creates a pending invitation; previews contain no session details. Upcoming plans are visible only to their host and accepted guests. Apply the `follows_and_private_invitations` migration together with the updated iOS client.
 

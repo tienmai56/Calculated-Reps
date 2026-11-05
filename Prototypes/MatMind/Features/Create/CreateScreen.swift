@@ -3,24 +3,14 @@ import SwiftUI
 /// Plan a training (invite friends) or log one that already happened.
 struct CreateScreen: View {
     @Environment(AppModel.self) private var mm
-
-    private struct Day: Hashable {
-        var label: String
-        var weekday: String
-        var date: Int
-        var month: String
-        var value: Date
-    }
+    @Environment(\.scenePhase) private var scenePhase
 
     private static let times = ["6:30 AM", "12:15 PM", "6:00 PM", "7:30 PM"]
 
     @State private var mode: String
     @State private var name = SessionDraft.defaultTitle
     @FocusState private var nameFocused: Bool
-    @State private var dayIndex: Int
-    @State private var selectedDays: Set<Int> = []
-    @State private var calendar = Calendar.current
-    @State private var baseDate = Date()
+    @State private var dateSelection = SessionDaySelection()
     @State private var requests: [SessionCreationRequest] = []
     @State private var submitting = false
     @State private var time: String
@@ -36,7 +26,6 @@ struct CreateScreen: View {
 
     init(startPast: Bool = false, friend: String? = nil, initialFocus: [TrainingFocus] = []) {
         _mode = State(initialValue: startPast ? "past" : "plan")
-        _dayIndex = State(initialValue: 0)
         _time = State(initialValue: startPast ? "6:00 PM" : "10:00 AM")
         _invited = State(initialValue: friend.map { [$0] } ?? [])
         _focusItems = State(initialValue: initialFocus.isEmpty ? [TrainingFocus()] : initialFocus)
@@ -47,20 +36,11 @@ struct CreateScreen: View {
     private var pickableGoals: [MatGoal] {
         mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
-    private var days: [Day] {
-        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.calendar = calendar; formatter.timeZone = calendar.timeZone
-        return (0..<(isPast ? 5 : 7)).map { index in
-            let date = calendar.date(byAdding: .day, value: isPast ? -index - 1 : index, to: baseDate)!
-            formatter.dateFormat = "EEE"; let weekday = formatter.string(from: date)
-            formatter.dateFormat = "MMM"; let month = formatter.string(from: date)
-            return Day(label: index == 0 ? (isPast ? "Yesterday" : "Today") : weekday,
-                       weekday: weekday, date: calendar.component(.day, from: date), month: month, value: date)
-        }
-    }
-    private var day: Day { days[min(isPast ? dayIndex : (selectedDays.min() ?? 0), days.count - 1)] }
+    private var calendar: Calendar { dateSelection.calendar }
+    private var days: [SessionDaySelection.Day] { dateSelection.days(past: isPast) }
+    private var day: SessionDaySelection.Day { days[min(dateSelection.pastDayIndex, days.count - 1)] }
     private var completedCount: Int { mm.createdCount(for: requests) }
-    private var selectionCount: Int { isPast ? 1 : selectedDays.count }
+    private var selectionCount: Int { isPast ? 1 : dateSelection.selectedDays.count }
     private var buttonTitle: String {
         if submitting { return "Creating \(completedCount) of \(requests.count)…" }
         if completedCount > 0 { return "Retry remaining \(requests.count - completedCount)" }
@@ -80,8 +60,9 @@ struct CreateScreen: View {
                 MMTabs(items: [MMTabItem("plan", "Upcoming"), MMTabItem("past", "Already happened")], selection: Binding(
                     get: { mode },
                     set: { newMode in
+                        refreshCalendar()
                         mode = newMode
-                        dayIndex = 0
+                        dateSelection.pastDayIndex = 0
                     }
                 ))
                 .padding(.horizontal, 16)
@@ -112,7 +93,7 @@ struct CreateScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 18)
 
-                field("When", hint: isPast ? nil : "\(selectedDays.count) selected") {
+                field("When", hint: isPast ? nil : "\(dateSelection.selectedDays.count) selected") {
                     if !isPast {
                         Text("Pick one or more days. Same time and details for each.")
                             .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
@@ -121,10 +102,10 @@ struct CreateScreen: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(Array(days.enumerated()), id: \.offset) { i, d in
-                                dayChip(d, on: isPast ? i == dayIndex : selectedDays.contains(i)) {
-                                    if isPast { dayIndex = i }
-                                    else if selectedDays.contains(i) { selectedDays.remove(i) }
-                                    else { selectedDays.insert(i) }
+                                dayChip(d, on: isPast ? i == dateSelection.pastDayIndex : dateSelection.selectedDays.contains(i)) {
+                                    if isPast { dateSelection.pastDayIndex = i }
+                                    else if dateSelection.selectedDays.contains(i) { dateSelection.selectedDays.remove(i) }
+                                    else { dateSelection.selectedDays.insert(i) }
                                 }
                             }
                         }
@@ -222,7 +203,16 @@ struct CreateScreen: View {
                     .disabled(!TrainingFocusTree.isValid(submittedFocusItems) || mm.busy || submitting || selectionCount == 0 || (mm.isLive && gym.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
             }
         }
-        .onAppear { if gym.isEmpty { gym = mm.me.gym } }
+        .onAppear {
+            refreshCalendar()
+            if gym.isEmpty { gym = mm.me.gym }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshCalendar() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshCalendar() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in refreshCalendar() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshCalendar() }
         .mmSheet(isPresented: $customTime, title: "Choose a time") {
             DatePicker("Time", selection: $chosenTime, displayedComponents: .hourAndMinute)
                 .datePickerStyle(.wheel)
@@ -243,10 +233,21 @@ struct CreateScreen: View {
         TrainingFocusTree.optionalOutline(focusItems)
     }
 
+    @discardableResult
+    private func refreshCalendar() -> Bool {
+        // Once a request has started, retries must keep its original dates.
+        guard !submitting, completedCount == 0 else { return false }
+        return dateSelection.refresh()
+    }
+
     private func submit() {
         guard !submitting, !mm.busy else { return }
         if completedCount == 0 {
-            let dates = isPast ? [day.value] : selectedDays.sorted().map { days[$0].value }
+            guard !refreshCalendar() else {
+                mm.showToast("The calendar changed. Check your dates and try again.")
+                return
+            }
+            let dates = isPast ? [day.value] : dateSelection.selectedDays.sorted().map { days[$0].value }
             let draft = SessionDraft(
                 title: name.trimmingCharacters(in: .whitespacesAndNewlines), day: "", date: 0, month: "",
                 time: time, gym: gym, note: note, invited: invited,
@@ -278,7 +279,7 @@ struct CreateScreen: View {
         .padding(.top, 22)
     }
 
-    private func dayChip(_ d: Day, on: Bool, action: @escaping () -> Void) -> some View {
+    private func dayChip(_ d: SessionDaySelection.Day, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Text(d.label).mmFont(.body, 12, .bold, lineHeight: 1).opacity(0.75)
