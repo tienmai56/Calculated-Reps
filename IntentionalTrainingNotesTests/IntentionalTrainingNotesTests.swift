@@ -1519,7 +1519,9 @@ final class BackendSessionTests: XCTestCase {
         let (client, _) = try makeClient(credential: fresh, fixture: fixture)
         let model = SocialAppModel(backend: client)
         model.userID = "owner"
-        let runtime = LiveMatMindRuntime(model: model, ui: AppModel(live: true))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
         let token = String(repeating: "a1", count: 32)
         let generatedCode = await runtime.friendCode()
         let code = try XCTUnwrap(generatedCode)
