@@ -552,6 +552,24 @@ enum UsernameMention {
     }
 }
 
+struct QuickLogTechnique: Identifiable, Codable, Hashable {
+    var id: String = UUID().uuidString
+    var name: String
+
+    static let defaults = [
+        QuickLogTechnique(id: "heel-hook", name: "Heel hook"),
+        QuickLogTechnique(id: "back-take", name: "Back take"),
+        QuickLogTechnique(id: "armbar", name: "Armbar")
+    ]
+}
+
+/// A name snapshot keeps saved reps intact when the usual list changes later.
+struct QuickLogHit: Identifiable, Codable, Hashable {
+    var id: String
+    var name: String
+    var count: Int
+}
+
 /// Private training marker, deliberately unrelated to sessions and posts.
 struct QuickLog: Identifiable, Hashable {
     var id: String

@@ -63,7 +63,10 @@ final class AppModel {
     /// UI-only fixtures can never replace or use a live account/runtime.
     func loadQuickLogMock(_ scenario: QuickLogMockScenario, now: Date = Date()) {
         guard !isLive, runtime == nil else { return }
+        let techniqueAccount = quickLogAccount
+        let techniqueDefaults = quickLogDefaults
         reset()
+        if let techniqueAccount { loadQuickLogTechniques(account: techniqueAccount, defaults: techniqueDefaults) }
         quickLogMockRevision = UUID()
         quickLogMockScenario = scenario
         upcoming = SeedData.quickLogMockPlans(scenario, now: now)
@@ -176,6 +179,10 @@ final class AppModel {
     var completedSessions: [Session] = []
     var sharedSessionIDs: Set<String> = []
     var quickLogs: [QuickLog] = []
+    private(set) var quickLogTechniques = QuickLogTechnique.defaults
+    private(set) var quickLogHitsByID: [String: [QuickLogHit]] = [:]
+    private(set) var quickLogAccount: String?
+    @ObservationIgnored private var quickLogDefaults = UserDefaults.standard
     var activityQuickLogPromptID: String?
     var trainingUndo: (() async -> Bool)?
     var trainingUndoToastID: UUID?
@@ -184,6 +191,9 @@ final class AppModel {
     private var trainingGeneration = UUID()
 
     func resetTrainingActions() {
+        quickLogTechniques = QuickLogTechnique.defaults
+        quickLogHitsByID = [:]
+        quickLogAccount = nil
         activityQuickLogPromptID = nil
         quickTrainingLogBackendAvailable = false
         trainingGeneration = UUID()
@@ -1514,8 +1524,67 @@ extension AppModel {
             toast?.message = "Couldn't undo. Try again."
         }
     }
-    @discardableResult func addQuickLog(_ date: Date) async -> Bool {
+    // Like goals, technique preferences and rep details are private, account-scoped device data.
+    private struct StoredQuickLogTechniques: Codable {
+        var techniques: [QuickLogTechnique]
+        var hitsByID: [String: [QuickLogHit]]
+    }
+
+    private static func quickLogKey(_ account: String) -> String { "matmonkeys.quickLogTechniques.\(account)" }
+
+    func loadQuickLogTechniques(account: String, defaults: UserDefaults = .standard) {
+        guard quickLogAccount != account else { return }
+        if quickLogAccount != nil {
+            trainingGeneration = UUID()
+            savingTraining = false
+            trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+        }
+        quickLogAccount = account
+        quickLogDefaults = defaults
+        let stored = defaults.data(forKey: Self.quickLogKey(account))
+            .flatMap { try? JSONDecoder().decode(StoredQuickLogTechniques.self, from: $0) }
+        quickLogTechniques = stored?.techniques ?? QuickLogTechnique.defaults
+        quickLogHitsByID = stored?.hitsByID ?? [:]
+    }
+
+    private func persistQuickLogTechniques() {
+        guard let quickLogAccount,
+              let data = try? JSONEncoder().encode(StoredQuickLogTechniques(techniques: quickLogTechniques, hitsByID: quickLogHitsByID)) else { return }
+        quickLogDefaults.set(data, forKey: Self.quickLogKey(quickLogAccount))
+    }
+
+    @discardableResult func addQuickLogTechnique(_ name: String) -> QuickLogTechnique? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !quickLogTechniques.contains(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return nil }
+        let technique = QuickLogTechnique(name: trimmed)
+        quickLogTechniques.append(technique)
+        persistQuickLogTechniques()
+        return technique
+    }
+
+    func removeQuickLogTechnique(_ id: String) {
+        quickLogTechniques.removeAll { $0.id == id }
+        persistQuickLogTechniques()
+    }
+
+    func restoreQuickLogTechnique(_ technique: QuickLogTechnique, at index: Int) {
+        guard !quickLogTechniques.contains(where: { $0.id == technique.id || $0.name.caseInsensitiveCompare(technique.name) == .orderedSame }) else { return }
+        quickLogTechniques.insert(technique, at: min(max(0, index), quickLogTechniques.count))
+        persistQuickLogTechniques()
+    }
+
+    /// Each sheet begins with fresh counts; only positive reps enter the saved log.
+    func quickLogHits(counts: [String: Int]) -> [QuickLogHit] {
+        quickLogTechniques.compactMap { technique in
+            guard let count = counts[technique.id], count > 0 else { return nil }
+            return QuickLogHit(id: technique.id, name: technique.name, count: count)
+        }
+    }
+
+    @discardableResult func addQuickLog(_ date: Date, counts: [String: Int]? = nil) async -> Bool {
         guard quickTrainingLogEnabled, !busy, !isLive || runtime != nil, trainingTap(date) != .disabled else { return false }
+        let hits = counts.map { quickLogHits(counts: $0) } ?? []
+        guard counts == nil || !hits.isEmpty else { return false }
         let generation = trainingGeneration
         savingTraining = true
         defer { if generation == trainingGeneration { savingTraining = false } }
@@ -1525,14 +1594,25 @@ extension AppModel {
             guard generation == trainingGeneration else { return false }
             guard saved else { showToast("Couldn't save training. Try again.", .danger); return false }
         } else { quickLogs.append(log) }
+        if !hits.isEmpty {
+            quickLogHitsByID[log.id] = hits
+            persistQuickLogTechniques()
+        }
         trainingToast("Training logged") { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
         return true
     }
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
         guard quickTrainingLogEnabled else { return false }
-        if let runtime { return await runtime.perform("delete_quick_log", ["id": id]) }
-        guard !isLive else { return false }
-        quickLogs.removeAll { $0.id == id }; return true
+        let generation = trainingGeneration
+        if let runtime {
+            guard await runtime.perform("delete_quick_log", ["id": id]), generation == trainingGeneration else { return false }
+        } else {
+            guard !isLive else { return false }
+            quickLogs.removeAll { $0.id == id }
+        }
+        quickLogHitsByID.removeValue(forKey: id)
+        persistQuickLogTechniques()
+        return true
     }
     @discardableResult func removeOwnTrainingAttendance(_ session: Session) async -> Bool {
         guard !busy, let current = findSession(session.id),

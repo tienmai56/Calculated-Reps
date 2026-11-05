@@ -14,6 +14,7 @@ entire flow can be tried immediately without database access.
 
 ## Screen files
 
+- `Prototypes/MatMind/Features/Activity/QuickLogSheet.swift`: technique counters, custom-name entry, usual-list editing and Undo, private Save log.
 - `Prototypes/MatMind/Features/Activity/ActivityScreen.swift`: week strip, chooser, successful-save dismissal and session navigation, retry message, disabled unstarted plans, later log removal.
 - `Prototypes/MatMind/Features/Training/TrainingScreen.swift`: Training lists with completion actions on eligible past tickets; existing session detail page, host publishing action and guest sharing explanation.
 - `Prototypes/MatMind/Features/Profile/ProfileScreen.swift`: personal Progress tab, using the shared rhythm component in ActivityScreen.
@@ -24,7 +25,7 @@ entire flow can be tried immediately without database access.
 ## C: A quick log
 
 1. Save one owner-private log with its date, timestamp and timezone. Disable repeated actions until the request finishes.
-2. Tapping a non-future Activity date without an open plan saves directly, including an already filled date. A day with an open plan always opens **What are you logging?**, whether the date, count badge or calendar badge is tapped. Do not open the day-entries / Log another session popup. On success, stay on Activity (or dismiss the chooser if its quick-log row was used). The day and Profile rhythm update; multiple entries change ×N without increasing the trained-day count.
+2. Tapping a non-future Activity date without an open plan opens **What did you hit today?**, including an already filled date. Enter technique counts and tap **Save log** to create the private entry. The planned-day chooser’s **A quick log** option opens the same technique sheet. A day with an open plan always opens **What are you logging?**, whether the date, count badge or calendar badge is tapped. Do not open the day-entries / Log another session popup. On success, stay on Activity (or dismiss the chooser if its quick-log row was used). The day and Profile rhythm update; multiple entries change ×N without increasing the trained-day count.
 3. Show **Training logged** with an **Undo** action. No photo, composer, post, session completion or friendship credit is created.
 4. Keep the hosted/joined plan open in Coming up, including after its start time. Subsequent day taps reopen the chooser with **Already logged today** until the plan closes. Future planned days also open the chooser, with quick logging disabled until that day and plan completion disabled until its start time. Under This week, show **Tap a day to quickly log your training.** Below the date grid, show **[calendar] = You have a planned session** when the week has an open plan.
 5. Undo removes only the new log. On quick-log-only dates, tapping the count badge immediately removes the latest log and decrements ×N, without confirmation; removing the last log clears the day. Dates with an open plan open the chooser instead of removing logs; confirmed-attendance dates ignore removal taps. Never change session attendance or posts. The older-week entries sheet retains its confirmation flow.

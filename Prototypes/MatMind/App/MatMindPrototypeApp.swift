@@ -11,7 +11,9 @@ struct MatMindPrototypeApp: App {
         _ = MMFont.registered
         let mock = ProcessInfo.processInfo.arguments.contains("--quick-log-mock")
         quickLogMock = mock
-        _model = State(initialValue: mock ? AppModel.quickTrainingLogMock() : AppModel(live: false))
+        let preview = mock ? AppModel.quickTrainingLogMock() : AppModel(live: false)
+        preview.loadQuickLogTechniques(account: "preview")
+        _model = State(initialValue: preview)
     }
 
     var body: some Scene {

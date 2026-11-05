@@ -455,6 +455,7 @@ final class LiveMatMindRuntime: AppRuntime {
             Task { [weak self] in _ = await self?.perform("acknowledge_log_match", ["id": match.id]) }
         }
         ui.loadGoals(account: userID)
+        ui.loadQuickLogTechniques(account: userID)
         ui.loadMonkeyPrompt(account: userID)
         ui.me = model.me.map(person) ?? Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         ui.people = Dictionary(uniqueKeysWithValues: model.snapshot.profiles.filter { $0.id != model.userID }.map { (localID($0.id), person($0)) })
