@@ -287,6 +287,7 @@ struct CreateScreen: View {
 
     private func friendPick(_ p: Person) -> some View {
         let on = invited.contains(p.id)
+        let streak = mm.friendship(p.id)?.streak ?? 0
         return Button {
             withAnimation(MMMotion.bounce()) {
                 if on { invited.removeAll { $0 == p.id } } else { invited.append(p.id) }
@@ -310,10 +311,10 @@ struct CreateScreen: View {
                         }
                     }
                     .overlay(alignment: .topTrailing) {
-                        if !on && f.streak > 0 {
+                        if !on && streak > 0 {
                             HStack(spacing: 2) {
                                 MMIcon("flame", size: 11, filled: true, color: MMColor.flame500)
-                                Text("\(f.streak)").mmFont(.body, 11, .bold, lineHeight: 1).foregroundStyle(MMColor.flameInk)
+                                Text("\(streak)").mmFont(.body, 11, .bold, lineHeight: 1).foregroundStyle(MMColor.flameInk)
                             }
                             .padding(.horizontal, 6)
                             .frame(height: 22)
