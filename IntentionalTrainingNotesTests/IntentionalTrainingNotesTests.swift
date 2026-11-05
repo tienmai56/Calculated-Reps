@@ -736,6 +736,61 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.trainingSessions(past: false, relativeTo: now).contains { $0.id == id })
     }
 
+    @MainActor
+    func testSessionPhotoIsRetainedBeforeAndAfterPublishing() async throws {
+        let ui = AppModel(live: false)
+        let session = try XCTUnwrap(ui.toComplete)
+        let saved = await ui.saveSessionPhoto(session.id, photo: "training-photo")
+        XCTAssertTrue(saved)
+        XCTAssertEqual(ui.findSession(session.id)?.photos, ["training-photo"])
+        XCTAssertFalse(ui.isCompleted(session), "Saving a photo does not publish or complete the session")
+        let savedAgain = await ui.saveSessionPhoto(session.id, photo: "training-photo")
+        XCTAssertTrue(savedAgain)
+        XCTAssertEqual(ui.findSession(session.id)?.photos.count, 1)
+        let result = try XCTUnwrap(ui.publish(session.id, photo: "training-photo", caption: "", people: ["me"]))
+        XCTAssertEqual(result.post.photo, "training-photo")
+        XCTAssertEqual(ui.findSession(session.id)?.photos, ["training-photo"])
+        let guestSession = try XCTUnwrap(ui.upcoming.first { $0.organizer != "me" })
+        let guestSave = await ui.saveSessionPhoto(guestSession.id, photo: "unauthorized-photo")
+        XCTAssertFalse(guestSave)
+        XCTAssertTrue(ui.findSession(guestSession.id)?.photos.isEmpty ?? false)
+    }
+
+    @MainActor
+    func testSavedSessionPhotosLoadWithoutAnActivityPostAndSurviveRefresh() async throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],
+         "sessions":[{"id":"session","organizer":"owner","status":"planned"},
+                     {"id":"other","organizer":"owner","status":"completed"}],
+         "participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"notifications":[],
+         "media":[{"id":"older","session_id":"session","object_key":"owner/older.jpg","state":"ready","created_at":"2026-11-05T10:00:00Z"},
+                  {"id":"newer","session_id":"session","object_key":"owner/newer.jpg","state":"ready","created_at":"2026-11-05T11:00:00Z"},
+                  {"id":"other-photo","session_id":"other","object_key":"owner/other.jpg","state":"ready"}]}
+        """#.utf8))
+        let ui = AppModel(live: true)
+        var requested: [String] = []
+        let runtime = LiveMatMindRuntime(model: model, ui: ui) { key, bucket in
+            requested.append(bucket + ":" + key)
+            return Data(key.utf8)
+        }
+        await runtime.loadPhotos()
+        let sources = try XCTUnwrap(ui.findSession("session")?.photos)
+        XCTAssertEqual(try sources.map { try String(contentsOfFile: $0, encoding: .utf8) }, ["owner/newer.jpg", "owner/older.jpg"])
+        XCTAssertEqual(ui.findSession("other")?.photos.count, 1)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertFalse(ui.isCompleted(try XCTUnwrap(ui.findSession("session"))))
+        model.snapshot.media.reverse()
+        await runtime.loadPhotos()
+        XCTAssertEqual(ui.findSession("session")?.photos, sources)
+        XCTAssertEqual(requested.count, 3, "A refresh reuses the existing downloaded photos")
+        model.userID = nil
+        runtime.sync()
+        XCTAssertTrue(sources.allSatisfy { !FileManager.default.fileExists(atPath: $0) })
+        XCTAssertNil(ui.findSession("session"))
+    }
+
     func testUnsharedPastDraftRemainsInTrainingAfterPublishingWithoutAPhoto() throws {
         let ui = AppModel(live: false)
         let draft = SessionDraft(title: "Yesterday's rounds", day: "Mon", date: 2, month: "Nov", time: "6:00 PM",

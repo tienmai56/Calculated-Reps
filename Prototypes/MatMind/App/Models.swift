@@ -120,6 +120,8 @@ struct Session: Identifiable, Hashable {
     var focusItems: [TrainingFocus] = []
     /// The exact start, when known (live sessions). Preview sessions only have day/month/time text.
     var startsAt: Date? = nil
+    /// Saved session photos, including photos taken before publishing to Activity.
+    var photos: [String] = []
 
     func status(of id: String) -> RSVP? { people.first { $0.id == id }?.status }
 

@@ -66,7 +66,7 @@ struct MatMindRoot: View {
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
-                if old.profiles != new.profiles || old.shared_goals != new.shared_goals { Task { await runtime?.loadPhotos() } }
+                if old.profiles != new.profiles || old.shared_goals != new.shared_goals || old.media != new.media { Task { await runtime?.loadPhotos() } }
                 if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil {
                     // Just signed in or finished profile setup: ask once for push, then keep the token current.
                     Task { await SocialPushCoordinator.register(in: model) }
@@ -399,6 +399,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var mediaKeys: [String: UUID] = [:]
     private var publishRequests: [String: String] = [:]
     private var mediaPhotos: [String: String] = [:]
+    /// Source path → media ID, so a saved selection is reused even if its download cache path changes.
+    private var uploadedSessionPhotos: [String: String] = [:]
     private var avatarUploadKey: UUID?
     private var avatarUploadPhoto: Data?
     /// Photos of goals shared with you: object key → downloaded file.
@@ -438,6 +440,8 @@ final class LiveMatMindRuntime: AppRuntime {
             listAvatars = [:]
             goalPhotos = [:]
             uploadedGoalPhotos = []
+            mediaKeys = [:]; mediaPhotos = [:]; publishKeys = [:]; publishRequests = [:]
+            uploadedSessionPhotos = [:]
             photoOwner = model.userID
         }
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
@@ -471,7 +475,12 @@ final class LiveMatMindRuntime: AppRuntime {
                            month: dateText(date, "MMM"), time: dateText(date, "h:mm a"), gym: row.text("venue"), organizer: localID(row.text("organizer")),
                            privacy: Privacy(rawValue: row.text("join_mode")) ?? .friends,
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
-                           note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
+                           note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date,
+                           photos: model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" }
+                            .sorted {
+                                let first = $0.text("created_at"), second = $1.text("created_at")
+                                return first == second ? $0.id < $1.id : first > second
+                            }.compactMap { photos[$0.id] })
         }
         ui.upcoming = sessions.filter { model.session($0.id)?.text("status") == "planned" && ($0.organizer == "me" || $0.status(of: "me") != nil) }
         ui.completedSessions = sessions.filter { model.session($0.id)?.text("status") == "completed" }
@@ -654,19 +663,46 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         sync(); return result?["id"]?.string
     }
+    /// Prepare/upload once per selection. Publishing reuses a photo already saved to the session.
+    private func uploadSessionPhoto(_ sessionID: String, photo: String) async throws -> String {
+        guard let owner = model.userID else { throw CloudError(message: "Sign in to save your photo.") }
+        let source = sessionID + ":" + photo
+        if let id = uploadedSessionPhotos[source] { return id }
+        if let saved = model.snapshot.media.first(where: {
+            $0.text("session_id") == sessionID && $0.text("owner") == owner && photos[$0.id] == photo
+        }) { return saved.id }
+        let data = try Data(contentsOf: URL(fileURLWithPath: photo))
+        if mediaPhotos[sessionID] != photo { mediaKeys[sessionID] = UUID(); mediaPhotos[sessionID] = photo }
+        let mediaKey = mediaKeys[sessionID] ?? UUID(); mediaKeys[sessionID] = mediaKey
+        let media = try await model.backend.command("prepare_media", payload: ["session_id": sessionID], key: mediaKey)
+        guard model.userID == owner else { throw CancellationError() }
+        guard let id = media["id"]?.string, let objectKey = media["object_key"]?.string else { throw CloudError(message: "Could not prepare photo.") }
+        do { try await model.backend.upload(data, objectKey: objectKey) }
+        catch { let existing = try await model.backend.image(key: objectKey); guard existing == data else { throw error } }
+        guard model.userID == owner else { throw CancellationError() }
+        uploadedSessionPhotos[source] = id
+        return id
+    }
+
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool {
+        let owner = model.userID
+        do {
+            let id = try await uploadSessionPhoto(sessionID, photo: photo)
+            guard model.userID == owner else { return false }
+            guard await model.perform("save_session_photo", ["session_id": sessionID, "media_id": id], key: UUID(uuidString: id) ?? UUID()) != nil else { return false }
+            guard model.userID == owner else { return false }
+            photos[id] = photo
+            sync()
+            return true
+        } catch { if model.userID == owner { model.error = error.localizedDescription }; return false }
+    }
+
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? {
         let before = ui.friends
         do {
             var payload: [String: Any] = ["session_id": sessionID, "caption": caption, "attendees": people.map(cloudID)]
             if let photo {
-                let data = try Data(contentsOf: URL(fileURLWithPath: photo))
-                if mediaPhotos[sessionID] != photo { mediaKeys[sessionID] = UUID(); mediaPhotos[sessionID] = photo }
-                let mediaKey = mediaKeys[sessionID] ?? UUID(); mediaKeys[sessionID] = mediaKey
-                let media = try await model.backend.command("prepare_media", payload: ["session_id": sessionID], key: mediaKey)
-                guard let id = media["id"]?.string, let objectKey = media["object_key"]?.string else { throw CloudError(message: "Could not prepare photo.") }
-                do { try await model.backend.upload(data, objectKey: objectKey) }
-                catch { let existing = try await model.backend.image(key: objectKey); guard existing == data else { throw error } }
-                payload["media_id"] = id
+                payload["media_id"] = try await uploadSessionPhoto(sessionID, photo: photo)
             }
             let request = caption + "|" + people.sorted().joined(separator: ",") + "|" + (photo ?? "")
             if publishRequests[sessionID] != request { publishKeys[sessionID] = UUID(); publishRequests[sessionID] = request }
