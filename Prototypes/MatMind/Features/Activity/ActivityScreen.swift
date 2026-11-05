@@ -28,7 +28,7 @@ struct ActivityScreen: View {
         } content: {
             TrainingWeekCard(anchor: now, isActivity: true)
                 .padding(.horizontal, MMSpace.s6)
-                .padding(.top, MMSpace.s3)
+                .padding(.top, MMSpace.s2)
                 .padding(.bottom, MMSpace.s6)
             if mm.feedPosts.isEmpty && plans.isEmpty {
                 EmptyActivity(prompt: prompt, now: now)
@@ -818,39 +818,44 @@ struct TrainingWeekCard: View {
     @ViewBuilder
     private var header: some View {
         if isActivity {
-            VStack(alignment: .leading, spacing: MMSpace.s2) {
-                HStack(spacing: MMSpace.s4) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("This week")
                         .mmFont(.display, 18)
                         .foregroundStyle(MMColor.paper)
-                    Spacer(minLength: MMSpace.s2)
-                    Button { mm.tab = .training } label: {
-                        HStack(spacing: MMSpace.s2) {
-                            Text("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days")")
-                                .mmFont(.display, 13)
-                                .contentTransition(.numericText())
-                            MMIcon("chevron-right", size: 12, color: logHighlightID == nil ? MMColor.paper : MMColor.white)
-                        }
-                        .foregroundStyle(logHighlightID == nil ? MMColor.paper : MMColor.white)
-                        .padding(.horizontal, MMSpace.s5)
-                        .padding(.vertical, MMSpace.s3)
-                        .background(logHighlightID == nil ? MMColor.paper.opacity(0.12) : MMColor.coral500, in: Capsule())
-                        .modifier(TrainingPop(trigger: mm.trainedDays(days)))
-                        .frame(minHeight: MMLayout.tapTarget)
-                        .contentShape(Rectangle())
-                        // Keep the pill's hit area from stretching the title row.
-                        .padding(.vertical, -MMSpace.s4)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained this week")
-                    .accessibilityHint("Open Training")
-                    .animation(reduceMotion ? nil : MMMotion.easeOut(), value: logHighlightID != nil)
+                    Text("Tap a day to quickly log your training.")
+                        .mmFont(.body, 13, .medium, lineHeight: 1.3)
+                        .foregroundStyle(MMColor.ink200)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 17, alignment: .leading)
                 }
-                Text("Tap a day to quickly log your training.")
-                    .mmFont(.body, 13)
-                    .foregroundStyle(MMColor.ink200)
-                    .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Button { mm.tab = .training } label: {
+                    HStack(spacing: MMSpace.s1) {
+                        Text("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days")")
+                            .mmFont(.body, 13, .bold, lineHeight: 1)
+                            .contentTransition(.numericText())
+                        MMIcon("chevron-right", size: 16, color: logHighlightID == nil ? MMColor.paper : MMColor.white)
+                    }
+                    .foregroundStyle(logHighlightID == nil ? MMColor.paper : MMColor.white)
+                    .padding(.leading, MMSpace.s5)
+                    .padding(.trailing, MMSpace.s3)
+                    .frame(minHeight: 32)
+                    .background(logHighlightID == nil ? MMColor.paper.opacity(0.12) : MMColor.coral500, in: Capsule())
+                    .modifier(TrainingPop(trigger: mm.trainedDays(days)))
+                    .frame(minHeight: MMLayout.tapTarget)
+                    .contentShape(Rectangle())
+                    // The 44pt hit area surrounds the 32pt visual pill.
+                    .padding(.vertical, -MMSpace.s3)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained this week")
+                .accessibilityHint("Open Training")
+                .animation(reduceMotion ? nil : MMMotion.easeOut(), value: logHighlightID != nil)
             }
+            .padding(.leading, MMSpace.s2)
+            .padding(.trailing, MMSpace.s1)
         } else {
             headerContent
         }
@@ -917,24 +922,24 @@ struct TrainingWeekCard: View {
         VStack(spacing: MMSpace.s1) {
             Text(date.formatted(.dateTime.weekday(.narrow)))
                 .mmFont(.body, 10, .semibold, lineHeight: 1)
+                .opacity(0.8)
             Text(date.formatted(.dateTime.day()))
-                .mmFont(.display, 16, lineHeight: 1)
+                .mmFont(.display, 17, tracking: -0.03, lineHeight: 1)
             Group {
                 if count > 1 {
                     Text("×\(count)").mmFont(.body, 10, .bold, lineHeight: 1)
                 } else if count == 1 {
-                    MMIcon("check", size: 10, color: MMColor.white)
+                    MMIcon("check", size: 11, color: MMColor.white)
                 } else if planned {
-                    MMIcon("calendar", size: 10, color: future ? MMColor.paper.opacity(0.45) : MMColor.paper)
+                    MMIcon("calendar", size: 11, color: future ? MMColor.ink400 : MMColor.paper)
                 } else {
                     Circle().fill(today ? MMColor.coral500 : .clear).frame(width: 4, height: 4)
                 }
             }
-            .frame(minHeight: 10)
+            .frame(minHeight: 11)
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
-        .padding(.vertical, MMSpace.s1)
         .frame(maxWidth: .infinity, minHeight: 50)
         .foregroundStyle(count > 0 ? MMColor.white : future ? MMColor.ink400 : MMColor.paper)
         .background(count > 0 ? MMColor.coral500 : future ? .clear : MMColor.paper.opacity(0.10), in: RoundedRectangle(cornerRadius: MMRadius.md))
