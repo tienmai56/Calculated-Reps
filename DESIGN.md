@@ -385,6 +385,15 @@ Activity shows the private This week strip, Coming up and completed-session post
 
 The quick-log flow is available in the **QuickTrainingLogMock** scheme with isolated seeded data. Its database implementation is deferred on `feat/activity-quick-log-db-deferred` and is excluded from this UI merge. Live accounts keep the current Activity prompt and read-only Profile heatmap until the server supplies all quick-log snapshot fields; unsupported logging operations remain disabled.
 
+In the mock, the dark quick-log strip appears first. The calendar prompter sits
+below on paper-2, with ink-900 title, ink-700 metadata, a white calendar tile and
+a secondary View session button so quick logging retains the main emphasis.
+Initially show the closest upcoming session you host or accepted, with **Coming
+up: {title}**, its date/time/gym, and **View session**. Keep that session after its
+start and across tab switches until completion; a day-only quick log never
+completes it. Then advance to the next open session, or hide the prompter if none
+remain. Reuse the existing tilted calendar tile, 24pt card shape and layout.
+
 The preview Activity card uses ink-900, paper text, 24pt radius and no shadow. Its heading is **This week**, followed by **Tap a day to quickly log your training.** in 13pt ink-200. There is no trained-day count. Seven equal columns have an 11pt weekday and a 40pt date circle. Trained days are solid coral; today has a coral ring; future dates are outlined, with a dashed outline for plans. Corner badges show ×N and/or a calendar. Below the dates, show **[calendar] = You have a planned session** in 12pt ink-300 when a plan exists.
 
 Tapping a planned day or either badge always opens **What are you logging?** with the planned session and **A quick log** options, even when the day already has logs. Unstarted plans are disabled; future quick logs are disabled. Other elapsed dates add a private quick log directly. A count tap removes the latest log only on a date with no planned or confirmed session. Successful saves offer Undo and never publish automatically.

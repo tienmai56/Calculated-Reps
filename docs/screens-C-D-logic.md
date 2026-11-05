@@ -4,6 +4,14 @@ Database deployment is paused. Use the **QuickTrainingLogMock** Xcode scheme for
 
 Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular strip and simplified chooser remain in place. The supplied scratchpad path belonged to another workspace; this document records the implementation here.
 
+The follow-up UI mock shows the dark quick-log strip first, with the calendar prompter
+below on warm paper-2, ink text and a secondary View session button. It initially selects the closest upcoming accepted/hosted plan and retains
+that session after its start time and across tab switches until it is completed.
+Quick logs do not close the plan or advance the prompter. Completion advances it
+to the next open plan; when none remain, the prompter disappears. The default
+**Upcoming prompt** mock state includes a **Start plan** time shortcut so the
+entire flow can be tried immediately without database access.
+
 ## Screen files
 
 - `Prototypes/MatMind/Features/Activity/ActivityScreen.swift`: week strip, chooser, successful-save dismissal and session navigation, retry message, disabled unstarted plans, later log removal.

@@ -17,6 +17,7 @@ struct MatMindPrototypeApp: App {
     var body: some Scene {
         WindowGroup {
             MMAppShell()
+                .id(model.quickLogMockRevision)
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if quickLogMock { QuickLogMockControls() }
                 }
@@ -44,6 +45,10 @@ private struct QuickLogMockControls: View {
             }
             .accessibilityLabel("Choose a seeded mock state")
             Spacer(minLength: 8)
+            if mm.quickLogMockScenario == .upcomingPrompt,
+               let session = mm.findSession("mock-today"), mm.startDate(of: session) > Date() {
+                Button("Start plan") { mm.startMockPromptPlan() }
+            }
             Button("Reset") { mm.loadQuickLogMock(mm.quickLogMockScenario) }
         }
         .mmFont(.body, 12, .semibold)

@@ -25,8 +25,16 @@ It builds the separate MatMindPrototype app and opens Activity directly; sign-in
 Supabase setup and the opt-in database bundle are unnecessary. Nothing is sent to
 or read from a backend.
 
-The sample-data bar has four states and **Reset**:
+The sample-data bar has five states and **Reset**:
 
+- **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
+  upcoming session appears below on warm paper-2, with ink text, a white calendar
+  tile and a secondary **View session** button.
+  A quick log leaves that session open. Use **Start plan** to simulate its start,
+  then tap its date and choose the planned session to mark it done. Returning to
+  Activity shows the next open session in the prompter. It stays on the selected
+  session after its start time and across tab switches until completion. Reset
+  restores the original upcoming session.
 - **Host plan:** tap anywhere on today’s planned day to open the chooser, even
   after adding quick logs; completion opens session details with Complete & share.
 - **Guest plan:** confirm only your own attendance; the host keeps sharing control.
