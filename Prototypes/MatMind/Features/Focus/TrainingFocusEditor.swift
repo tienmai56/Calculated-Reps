@@ -6,16 +6,13 @@ struct TrainingFocusEditor: View {
     var allowsEmptyRoots = false
     var focusOnAppear = true
     /// Your goals, offered as one-tap focuses while planning and when editing a
-    /// session's focus. A picked goal carries over its name only; its notes stay
-    /// on the goal, viewable from the card. `nil` hides the picker.
+    /// session's focus. Notes and parts remain read-only references on the goal.
+    /// `nil` hides the picker.
     var goals: [MatGoal]? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focusedID: UUID?
     @State private var removalID: UUID?
     @State private var showRemoval = false
-    /// Focus item → the goal it was picked from. Session-local; not saved with the outline.
-    @State private var goalLinks: [UUID: String] = [:]
-    @State private var openNotes: Set<UUID> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: MMSpace.s5) {
@@ -98,8 +95,8 @@ struct TrainingFocusEditor: View {
                     .focused($focusedID, equals: row.id)
                     .accessibilityLabel(row.depth == 0 ? "Training focus" : (row.depth == 1 ? "Detail" : "Detail, level \(row.depth + 1)"))
                     .accessibilityIdentifier("focus-title-\(row.id)")
-                if row.depth == 0, let goal = linkedGoal(row.id), !goal.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    goalNotes(goal, for: row.id)
+                if row.depth == 0, let goal = row.node.linkedGoal(in: goals ?? []), goal.hasReferenceContent {
+                    TrainingGoalNotes(goal: goal)
                 }
                 if row.depth >= 3 {
                     Text("Detail · level \(row.depth + 1)")
@@ -146,56 +143,8 @@ struct TrainingFocusEditor: View {
         }
     }
 
-    /// The goal's own notes, read-only and collapsed by default, so the session's
-    /// details can be written fresh with the goal in view.
-    private func goalNotes(_ goal: MatGoal, for id: UUID) -> some View {
-        let open = openNotes.contains(id)
-        return VStack(alignment: .leading, spacing: MMSpace.s3) {
-            Button {
-                withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
-                    if open { openNotes.remove(id) } else { openNotes.insert(id) }
-                }
-            } label: {
-                HStack(spacing: MMSpace.s2) {
-                    Text("Goal notes").mmFont(.body, 13, .semibold)
-                    MMIcon("chevron-down", size: 14, weight: .bold)
-                        .rotationEffect(.degrees(open ? 180 : 0))
-                }
-                .foregroundStyle(MMColor.textTertiary)
-                .frame(minHeight: 32)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityValue(open ? "Shown" : "Hidden")
-            if open {
-                Text(goal.notes.trimmingCharacters(in: .whitespacesAndNewlines))
-                    .mmFont(.body, 13, lineHeight: 1.45)
-                    .foregroundStyle(MMColor.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, MMSpace.s5)
-                    .padding(.horizontal, 14)
-                    .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.surfaceSunken))
-                    .transition(.opacity)
-            }
-        }
-        .padding(.bottom, MMSpace.s2)
-    }
-
-    private func linkedGoal(_ id: UUID) -> MatGoal? {
-        guard let goalID = goalLinks[id] else { return nil }
-        return goals?.first { $0.id == goalID }
-    }
-
-    /// The root focus picked from this goal, if it is still in the outline. A saved
-    /// focus has no link yet, so one with the goal's name counts as picked too.
     private func pickedFocusID(for goal: MatGoal) -> UUID? {
-        if let linked = items.first(where: { goalLinks[$0.id] == goal.id }) { return linked.id }
-        let name = goal.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return items.first { item in
-            goalLinks[item.id] == nil
-                && item.title.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(name) == .orderedSame
-        }?.id
+        items.first { $0.linkedGoal(in: goals ?? [])?.id == goal.id }?.id
     }
 
     private func toggleGoal(_ goal: MatGoal) {
@@ -203,8 +152,7 @@ struct TrainingFocusEditor: View {
             if let node = TrainingFocusTree.find(id, in: items) { requestRemoval(node) }
             return
         }
-        let item = TrainingFocus(title: goal.title)
-        goalLinks[item.id] = goal.id
+        let item = TrainingFocus(title: goal.title, goalID: goal.id)
         withAnimation(reduceMotion ? nil : MMMotion.bounce()) { items.append(item) }
     }
 
@@ -240,10 +188,38 @@ struct TrainingFocusEditor: View {
     }
 }
 
-/// Read-only, without editing controls or empty placeholders. Used by sessions
-/// and completed posts so the training content survives publication.
+/// References stay on your goal and reflect its latest saved parts and notes.
+private struct TrainingGoalNotes: View {
+    let goal: MatGoal
+    @State private var expanded = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s3) {
+            Button {
+                withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { expanded.toggle() }
+            } label: {
+                HStack(spacing: MMSpace.s2) {
+                    Text("Goal notes").mmFont(.body, 13, .semibold)
+                    MMIcon("chevron-down", size: 14, weight: .bold)
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+                .foregroundStyle(MMColor.textTertiary)
+                .frame(minHeight: MMLayout.tapTarget)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(expanded ? "Shown" : "Hidden")
+            if expanded { GoalReferenceContent(goal: goal) }
+        }
+    }
+}
+
+/// Session outline with read-only references to the viewer's own goals.
+/// Shared posts use TrainingFocusNames and never show these private references.
 struct TrainingFocusOutline: View {
     var items: [TrainingFocus]
+    @Environment(AppModel.self) private var mm
 
     var body: some View {
         VStack(alignment: .leading, spacing: MMSpace.s5) {
@@ -256,6 +232,9 @@ struct TrainingFocusOutline: View {
                             .mmFont(.body, 15, row.depth == 0 ? .bold : .regular, lineHeight: 1.45)
                             .foregroundStyle(MMColor.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
+                        if row.depth == 0, let goal = row.node.linkedGoal(in: mm.goals), goal.hasReferenceContent {
+                            TrainingGoalNotes(goal: goal)
+                        }
                         if row.depth >= 3 {
                             Text("Detail · level \(row.depth + 1)")
                                 .mmFont(.body, 12)
@@ -264,7 +243,7 @@ struct TrainingFocusOutline: View {
                     }
                 }
                 .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s6)
-                .accessibilityElement(children: .combine)
+                .accessibilityElement(children: .contain)
                 .accessibilityValue("Level \(row.depth + 1)")
             }
         }

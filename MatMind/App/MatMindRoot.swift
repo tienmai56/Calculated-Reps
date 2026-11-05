@@ -66,7 +66,7 @@ struct MatMindRoot: View {
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
-                if old.profiles != new.profiles || old.shared_goals != new.shared_goals { Task { await runtime?.loadPhotos() } }
+                if old.profiles != new.profiles || old.shared_goals != new.shared_goals || old.media != new.media { Task { await runtime?.loadPhotos() } }
                 if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil {
                     // Just signed in or finished profile setup: ask once for push, then keep the token current.
                     Task { await SocialPushCoordinator.register(in: model) }
@@ -120,14 +120,11 @@ struct MatMindRoot: View {
     private func openNotification() {
         guard model.userID != nil, let info = SocialPushCoordinator.pending,
               let id = info["entity_id"] as? String else { return }
-        let kind = info["kind"] as? String
-        switch kind {
-        case "invite", "joined": ui.go(.session(id: id))
-        case "friend": ui.go(.friend(id: id))
-        case "goal_share": ui.go(.sharedGoal(id: id))
-        default: ui.go(.post(id: id))
-        }
         SocialPushCoordinator.pending = nil
+        guard let rawKind = info["kind"] as? String,
+              let kind = AppNotification.Kind(rawValue: rawKind),
+              let destination = AppNotification.destination(kind: kind, entityID: id) else { return }
+        ui.go(destination)
     }
 }
 
@@ -399,6 +396,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var mediaKeys: [String: UUID] = [:]
     private var publishRequests: [String: String] = [:]
     private var mediaPhotos: [String: String] = [:]
+    /// Source path → media ID, so a saved selection is reused even if its download cache path changes.
+    private var uploadedSessionPhotos: [String: String] = [:]
     private var avatarUploadKey: UUID?
     private var avatarUploadPhoto: Data?
     /// Photos of goals shared with you: object key → downloaded file.
@@ -432,6 +431,7 @@ final class LiveMatMindRuntime: AppRuntime {
     func sync(now: Date = Date()) {
         if photoOwner != model.userID {
             ui.resetTrainingActions()
+            ui.resetPeopleLookup()
             ui.resetSessionCreation()
             for path in Array(photos.values) + Array(avatarPhotos.values) + Array(goalPhotos.values) + Array(listAvatars.values) { try? FileManager.default.removeItem(atPath: path) }
             photos = [:]
@@ -439,11 +439,15 @@ final class LiveMatMindRuntime: AppRuntime {
             listAvatars = [:]
             goalPhotos = [:]
             uploadedGoalPhotos = []
+            mediaKeys = [:]; mediaPhotos = [:]; publishKeys = [:]; publishRequests = [:]
+            uploadedSessionPhotos = [:]
             photoOwner = model.userID
         }
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
+        ui.quickTrainingLogBackendAvailable = model.snapshot.quick_logs != nil && model.snapshot.training_days != nil
+            && model.snapshot.log_matches != nil && model.snapshot.shared_session_ids != nil
         ui.isSignedIn = true
-        if ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
+        if ui.quickTrainingLogEnabled, ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
             let title = model.session(match.text("session_id"))?.text("title") ?? "your session"
             ui.trainingToast("We matched your log to \(title)") { [weak self] in
                 return await self?.perform("restore_matched_log", ["id": match.id]) ?? false
@@ -486,7 +490,12 @@ final class LiveMatMindRuntime: AppRuntime {
                            month: dateText(date, "MMM"), time: dateText(date, "h:mm a"), gym: row.text("venue"), organizer: localID(row.text("organizer")),
                            privacy: Privacy(rawValue: row.text("join_mode")) ?? .friends,
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited, attended: $0.flag("attended")) },
-                           note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
+                           note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date,
+                           photos: model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" }
+                            .sorted {
+                                let first = $0.text("created_at"), second = $1.text("created_at")
+                                return first == second ? $0.id < $1.id : first > second
+                            }.compactMap { photos[$0.id] })
         }
         let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))
         let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
@@ -497,6 +506,14 @@ final class LiveMatMindRuntime: AppRuntime {
             return QuickLog(id: row.id, loggedOn: row.text("logged_on"), loggedAt: at, timezone: row.text("timezone"))
         }
         ui.completedSessions = sessions.filter { completedIDs.contains($0.id) }
+        let rhythm = model.snapshot.rhythm_sessions ?? model.snapshot.sessions.compactMap { row -> RhythmSession? in
+            guard let start = row.date("starts_at") else { return nil }
+            return RhythmSession(id: row.id, starts_at: ISO8601DateFormatter().string(from: start), status: row.text("status"),
+                                 organizer: row.text("organizer"), session_participants: model.attendees(row.id).map {
+                RhythmSession.Participation(user_id: $0.text("user_id"), rsvp: $0.text("rsvp"), attended: $0.flag("attended"))
+            })
+        }
+        ui.rhythmSessionDates = rhythm.compactMap { $0.loggedDate(for: userID, now: now) }
         ui.discoverableSessions = sessions.filter { model.session($0.id)?.text("status") == "planned" && $0.organizer != "me" && $0.status(of: "me") == nil && $0.privacy == .link }
         ui.posts = model.snapshot.posts.filter { $0.text("deleted_at").isEmpty && !deletingPosts.contains($0.id) }.map { row in
             let date = row.date("occurred_at") ?? Date()
@@ -646,7 +663,7 @@ final class LiveMatMindRuntime: AppRuntime {
         let receiptKey = (body["action_id"] as? String).flatMap(UUID.init(uuidString:))
             ?? (operation == "create_quick_log" ? (body["id"] as? String).flatMap(UUID.init(uuidString:)) : nil)
             ?? UUID()
-        let result = await model.perform(operation, body, key: receiptKey, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow"].contains(operation))
+        let result = await model.perform(operation, body, key: receiptKey, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow", "follow_username"].contains(operation))
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -679,20 +696,47 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         sync(); return result?["id"]?.string
     }
+    /// Prepare/upload once per selection. Publishing reuses a photo already saved to the session.
+    private func uploadSessionPhoto(_ sessionID: String, photo: String) async throws -> String {
+        guard let owner = model.userID else { throw CloudError(message: "Sign in to save your photo.") }
+        let source = sessionID + ":" + photo
+        if let id = uploadedSessionPhotos[source] { return id }
+        if let saved = model.snapshot.media.first(where: {
+            $0.text("session_id") == sessionID && $0.text("owner") == owner && photos[$0.id] == photo
+        }) { return saved.id }
+        let data = try Data(contentsOf: URL(fileURLWithPath: photo))
+        if mediaPhotos[sessionID] != photo { mediaKeys[sessionID] = UUID(); mediaPhotos[sessionID] = photo }
+        let mediaKey = mediaKeys[sessionID] ?? UUID(); mediaKeys[sessionID] = mediaKey
+        let media = try await model.backend.command("prepare_media", payload: ["session_id": sessionID], key: mediaKey)
+        guard model.userID == owner else { throw CancellationError() }
+        guard let id = media["id"]?.string, let objectKey = media["object_key"]?.string else { throw CloudError(message: "Could not prepare photo.") }
+        do { try await model.backend.upload(data, objectKey: objectKey) }
+        catch { let existing = try await model.backend.image(key: objectKey); guard existing == data else { throw error } }
+        guard model.userID == owner else { throw CancellationError() }
+        uploadedSessionPhotos[source] = id
+        return id
+    }
+
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool {
+        let owner = model.userID
+        do {
+            let id = try await uploadSessionPhoto(sessionID, photo: photo)
+            guard model.userID == owner else { return false }
+            guard await model.perform("save_session_photo", ["session_id": sessionID, "media_id": id], key: UUID(uuidString: id) ?? UUID()) != nil else { return false }
+            guard model.userID == owner else { return false }
+            photos[id] = photo
+            sync()
+            return true
+        } catch { if model.userID == owner { model.error = error.localizedDescription }; return false }
+    }
+
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? {
         guard ui.findSession(sessionID)?.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
         let before = ui.friends
         do {
             var payload: [String: Any] = ["session_id": sessionID, "caption": caption, "attendees": people.map(cloudID)]
             if let photo {
-                let data = try Data(contentsOf: URL(fileURLWithPath: photo))
-                if mediaPhotos[sessionID] != photo { mediaKeys[sessionID] = UUID(); mediaPhotos[sessionID] = photo }
-                let mediaKey = mediaKeys[sessionID] ?? UUID(); mediaKeys[sessionID] = mediaKey
-                let media = try await model.backend.command("prepare_media", payload: ["session_id": sessionID], key: mediaKey)
-                guard let id = media["id"]?.string, let objectKey = media["object_key"]?.string else { throw CloudError(message: "Could not prepare photo.") }
-                do { try await model.backend.upload(data, objectKey: objectKey) }
-                catch { let existing = try await model.backend.image(key: objectKey); guard existing == data else { throw error } }
-                payload["media_id"] = id
+                payload["media_id"] = try await uploadSessionPhoto(sessionID, photo: photo)
             }
             let request = caption + "|" + people.sorted().joined(separator: ",") + "|" + (photo ?? "")
             if publishRequests[sessionID] != request { publishKeys[sessionID] = UUID(); publishRequests[sessionID] = request }
@@ -728,13 +772,13 @@ final class LiveMatMindRuntime: AppRuntime {
     }
     func friendCode() async -> String? {
         guard let result = await model.perform("friend_token", [:]), let token = result["token"]?.string else { return nil }
-        return model.link(kind: "friend", token: token).absoluteString
+        return InvitationLinks.friendCode(token: token).absoluteString
     }
     func connect(_ value: String) async -> String? {
         guard !connecting, !model.busy else { return nil }
         connecting = true
         defer { connecting = false }
-        guard let url = URL(string: value) else { model.error = "Invalid invitation link."; return nil }
+        guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else { model.error = "Invalid invitation link."; return nil }
         model.handle(url)
         guard model.pendingLink == url else { model.error = "Invalid invitation link."; return nil }
         guard model.userID != nil, let destination = InvitationLinks.parse(url, host: Bundle.main.object(forInfoDictionaryKey: "AppLinkHost") as? String) else {
@@ -852,6 +896,13 @@ final class LiveMatMindRuntime: AppRuntime {
             if found.photo == nil { found.photo = listAvatars[row.text("avatar_key")] }
             return found
         }
+    }
+    func searchUsernames(_ query: String) async throws -> [Person] {
+        guard let owner = model.userID else { throw CancellationError() }
+        let rows = try await model.backend.searchUsernames(query)
+        try Task.checkCancellation()
+        guard model.userID == owner else { throw CancellationError() }
+        return rows.map(person)
     }
     func scannerView(found: @escaping (String) -> Void) -> AnyView { AnyView(LiveScannerView(found: found)) }
     func exportView() -> AnyView {

@@ -121,13 +121,14 @@ enum SeedData {
 
     static let notifications: [AppNotification] = [
         AppNotification(id: "n0", kind: .goalShare, who: "kenji", session: "sg-berimbolo", text: "shared Berimbolo entries with you", time: "20m", unread: true),
+        AppNotification(id: "n-goal-update", kind: .goalUpdate, who: "sarah", session: "sg-single-leg", text: "updated Single leg finish", time: "35m", unread: true),
         AppNotification(id: "n1", kind: .invite, who: "jamie", session: "s2", time: "20m", unread: true),
-        AppNotification(id: "n2", kind: .joined, who: "alex", text: "joined Saturday open mat", time: "2h", unread: true),
-        AppNotification(id: "n3", kind: .comment, who: "kenji", text: "commented on Sunday No-Gi open mat", quote: "Rematch Thursday?",
+        AppNotification(id: "n2", kind: .joined, who: "alex", session: "s1", text: "joined Saturday open mat", time: "2h", unread: true),
+        AppNotification(id: "n3", kind: .comment, who: "kenji", session: "p1", text: "commented on Sunday No-Gi open mat", quote: "Rematch Thursday?",
                         photo: "roll-gi", time: "16h", unread: true),
-        AppNotification(id: "n4", kind: .published, who: "sarah", text: "shared Sunday No-Gi open mat. You're in it.", photo: "roll-gi", time: "18h"),
-        AppNotification(id: "n5", kind: .joined, who: "sarah", text: "joined Saturday open mat", time: "1d"),
-        AppNotification(id: "n6", kind: .like, who: "priya", text: "liked your memory", photo: "group-class", time: "1d"),
+        AppNotification(id: "n4", kind: .published, who: "sarah", session: "p1", text: "shared Sunday No-Gi open mat. You're in it.", photo: "roll-gi", time: "18h"),
+        AppNotification(id: "n5", kind: .joined, who: "sarah", session: "s1", text: "joined Saturday open mat", time: "1d"),
+        AppNotification(id: "n6", kind: .like, who: "priya", session: "p3", text: "liked your memory", photo: "group-class", time: "1d"),
         AppNotification(id: "n7", kind: .friend, who: "lena", text: "started following you", time: "2d"),
     ]
 

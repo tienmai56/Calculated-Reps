@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 import UserNotifications
 
-/// Tab 4: me, my belt and friends, then three sections: Progress (stats, streak, goals),
+/// Tab 4: me, my belt and friends, then three sections: Progress (stats),
 /// Activity (past sessions) and Gallery (photos from every session).
 struct ProfileScreen: View {
     @Environment(AppModel.self) private var mm
@@ -29,8 +29,7 @@ struct ProfileScreen: View {
         let me = mm.me
         let history = ProfileHistory(posts: mm.posts.filter { $0.participants.contains("me") })
         MMScreen(tabPadding: true) {
-            MMHeader(title: "Profile", large: true, trailing: {
-                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+            MMHeader(title: "Profile", large: true, showMark: false, trailing: {
                 MMIconButton("settings", variant: .filled, label: "Settings") { openSettings() }
             })
         } content: {
@@ -538,11 +537,18 @@ private struct ProfileProgressSection: View {
         let weekly = range == "week"
         let period = history.sessions(in: weekly ? history.thisWeek : history.thisMonth)
         VStack(alignment: .leading, spacing: 0) {
-            TrainingRhythm()
-                .padding(.horizontal, MMSpace.s6)
-                .padding(.top, MMSpace.s6)
+            if mm.quickTrainingLogEnabled {
+                TrainingRhythm()
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.top, MMSpace.s6)
+            }
 
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: MMSpace.s6) {
+                if !mm.quickTrainingLogEnabled {
+                    ProfileTrainingHeatmap()
+                    Rectangle().fill(MMColor.borderDefault).frame(height: 1)
+                        .padding(.vertical, MMSpace.s2)
+                }
                 MMTabs(items: [MMTabItem("week", "Weekly"), MMTabItem("month", "Monthly")], selection: $range)
                 Text(weekly ? "This week" : "This month")
                     .mmFont(.display, 22, tracking: -0.015, lineHeight: 1.15)
@@ -557,25 +563,11 @@ private struct ProfileProgressSection: View {
                     caption: weekly ? "Past 12 weeks" : "Past 6 months"
                 )
             }
-            .padding(18)
+            .padding(MMSpace.s6)
             .mmCardSurface(radius: MMRadius.lg)
             .padding(.horizontal, 16)
             .padding(.top, 16)
 
-            streakCard
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-
-            MMEyebrow(title: "Goals you're working on") {
-                if !mm.goals.isEmpty {
-                    Button("See all") { mm.setTab(.goals) }
-                        .mmFont(.body, 13, .semibold)
-                        .foregroundStyle(MMColor.textLink)
-                        .frame(minHeight: MMLayout.tapTarget)
-                }
-            }
-            goals
-                .padding(.horizontal, 16)
         }
     }
 
@@ -586,93 +578,6 @@ private struct ProfileProgressSection: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-    }
-
-    private var streakCard: some View {
-        let streak = history.currentStreak
-        let best = history.bestStreak
-        let message: String = {
-            if streak == 0 {
-                return best > 0 ? "Pick it back up · best \(best) week\(best == 1 ? "" : "s")" : "Train once this week to start your streak."
-            }
-            if streak >= best && streak > 1 { return "Your best run yet. Keep rolling." }
-            return "\(streak) week\(streak == 1 ? "" : "s") in a row · best \(best)"
-        }()
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Weekly streak").mmFont(.display, 18, tracking: -0.02, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
-                Spacer(minLength: 8)
-                if streak > 0 {
-                    MMBadge("\(streak) week\(streak == 1 ? "" : "s")", variant: .flame, icon: "flame")
-                }
-            }
-            MMStreakBelt(weeks: history.pastWeeks(9), thisWeek: history.trainedThisWeek ? .done : .pending, hue: .coral)
-            Text(message).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.textSecondary)
-        }
-        .padding(18)
-        .mmCardSurface(radius: MMRadius.lg)
-    }
-
-    @ViewBuilder
-    private var goals: some View {
-        if mm.goals.isEmpty {
-            Button { mm.setTab(.goals) } label: {
-                HStack(spacing: 12) {
-                    MMIcon("notebook-pen", size: 20, color: MMColor.ink700)
-                        .frame(width: 44, height: 44)
-                        .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.paper2))
-                    Text("Add something you're working on").mmFont(.body, 15, .semibold).foregroundStyle(MMColor.textPrimary)
-                    Spacer(minLength: 4)
-                    MMIcon("chevron-right", size: 18, color: MMColor.ink500)
-                }
-                .padding(16)
-                .mmCardSurface(radius: MMRadius.lg)
-            }
-            .buttonStyle(MMPressStyle())
-        } else {
-            VStack(spacing: 12) {
-                ForEach(mm.goals.prefix(3)) { goal in
-                    Button { mm.go(.goal(id: goal.id)) } label: { goalCard(goal) }
-                        .buttonStyle(MMPressStyle())
-                }
-            }
-        }
-    }
-
-    private func goalCard(_ goal: MatGoal) -> some View {
-        let next = mm.nextSession(forGoal: goal.id)
-        return HStack(alignment: .top, spacing: 14) {
-            MMIcon("notebook-pen", size: 20, color: MMColor.ink800)
-                .frame(width: 44, height: 44)
-                .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.paper2))
-            VStack(alignment: .leading, spacing: 4) {
-                Text(goal.title.isEmpty ? "Untitled goal" : goal.title)
-                    .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.25)
-                    .foregroundStyle(MMColor.textPrimary)
-                    .multilineTextAlignment(.leading)
-                if !goal.cardPreview.isEmpty {
-                    Text(goal.cardPreview)
-                        .mmFont(.body, 13, lineHeight: 1.4)
-                        .foregroundStyle(MMColor.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                if let next {
-                    HStack(spacing: 6) {
-                        MMIcon("calendar", size: 14, color: MMColor.textTertiary)
-                        Text("Next: \(next.day), \(next.month) \(next.date) · \(next.title)")
-                            .mmFont(.body, 12, .semibold)
-                            .foregroundStyle(MMColor.textTertiary)
-                            .lineLimit(1)
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            MMIcon("chevron-right", size: 18, color: MMColor.ink500)
-        }
-        .padding(16)
-        .mmCardSurface(radius: MMRadius.lg)
     }
 }
 
@@ -970,7 +875,7 @@ private struct NotificationRow: View {
         case .published: ("images", MMColor.plum500)
         case .like: ("heart", MMColor.coral500)
         case .friend: ("user-plus", MMColor.sun600)
-        case .goalShare: ("notebook-pen", MMColor.sky500)
+        case .goalShare, .goalUpdate: ("notebook-pen", MMColor.sky500)
         }
     }
 
@@ -1032,7 +937,7 @@ private struct NotificationRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if let photo = note.photo {
-                Button { mm.go(.post(id: "p1")) } label: {
+                Button { openNotification() } label: {
                     MMPhotoTile(photo: photo, height: 48, radius: 10).frame(width: 48)
                 }
                 .buttonStyle(MMPressStyle(scale: 0.95))
@@ -1042,20 +947,12 @@ private struct NotificationRow: View {
         .padding(.vertical, 14)
         .background(note.unread ? MMColor.coral500.opacity(0.06) : Color.clear)
         .contentShape(Rectangle())
-        .onTapGesture {
-            // Shared goals open in the preview too, so the invitation flow can be reviewed.
-            if note.kind == .goalShare, let entity = note.session {
-                if mm.sharedGoal(entity) != nil { mm.go(.sharedGoal(id: entity)) }
-                return
-            }
-            guard mm.isLive else { return }
-            switch note.kind {
-            case .friend: mm.go(.friend(id: note.who))
-            case .invite, .joined: if let entity = note.session { mm.go(.session(id: entity)) }
-            case .comment, .published, .like, .mention: if let entity = note.session { mm.go(.post(id: entity)) }
-            case .goalShare: break
-            }
-        }
+        .onTapGesture { openNotification() }
+    }
+
+    private func openNotification() {
+        guard let destination = note.destination else { return }
+        mm.go(destination)
     }
 }
 
@@ -1108,7 +1005,7 @@ struct PersonProfileScreen: View {
                 if let f = mm.friendship(id) { streakLine(f) }
                 partnersRow
                 HStack(spacing: 10) {
-                    if mm.canFollow(id) { followButton(p) }
+                    if mm.canFollow(id) { followButton(p).disabled(mm.pendingFollows.contains(id)) }
                     if mm.canInvite(id) {
                         MMButton("Invite to train", variant: .secondary, iconLeft: "calendar-plus", fullWidth: true) {
                             mm.go(.create(friend: id))
@@ -1200,6 +1097,71 @@ struct PersonProfileScreen: View {
                 .accessibilityHint("Opens unfollow options")
         } else {
             MMButton("Follow \(p.firstName)", iconLeft: "user-plus", fullWidth: true) { mm.setFollowing(id, true) }
+        }
+    }
+}
+
+
+/// A static picture of trained days. Weekly/Monthly below controls only the existing chart.
+private struct ProfileTrainingHeatmap: View {
+    @Environment(AppModel.self) private var mm
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            let history = mm.trainingRhythm(now: context.date)
+            VStack(alignment: .leading, spacing: MMSpace.s6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Your rhythm").mmFont(.display, 22)
+                    Spacer(minLength: MMSpace.s4)
+                    Text("Since \(history.weeks[0][0].formatted(.dateTime.month(.abbreviated).day()))")
+                        .mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
+                }
+                HStack(alignment: .top, spacing: MMSpace.s4) {
+                    VStack(spacing: MMSpace.s2) {
+                        Color.clear.frame(width: 14, height: 16)
+                        ForEach(0..<7) { row in
+                            Text(["M", "", "W", "", "F", "", "S"][row])
+                                .mmFont(.body, 10).foregroundStyle(MMColor.textTertiary)
+                                .frame(width: 14, height: 14)
+                        }
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: MMSpace.s2) {
+                            ForEach(0..<17) { index in weekColumn(index, history: history) }
+                        }
+                    }
+                }
+                HStack(spacing: MMSpace.s6) {
+                    legend("Trained", color: MMColor.accent)
+                    legend("No entry", color: MMColor.paper3)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isImage)
+            .accessibilityLabel("Your rhythm, \(history.visibleCount) trained days over the last 17 weeks. Monday to Sunday, oldest week first. Coral means trained; paper means no entry; outlines are future days.")
+        }
+    }
+    private func weekColumn(_ index: Int, history: ProfileRhythmHistory) -> some View {
+        let days = history.weeks[index]
+        let monthStarts = index == 0 || history.calendar.component(.month, from: days[0]) != history.calendar.component(.month, from: history.weeks[index - 1][0])
+        return VStack(alignment: .leading, spacing: MMSpace.s2) {
+            Text(monthStarts ? days[0].formatted(.dateTime.month(.abbreviated)) : "")
+                .mmFont(.body, 10).foregroundStyle(MMColor.textTertiary)
+                .fixedSize().frame(width: 14, height: 16, alignment: .leading)
+            ForEach(days, id: \.self) { date in
+                let future = history.isFuture(date)
+                RoundedRectangle(cornerRadius: MMSpace.s2)
+                    .fill(future ? .clear : history.isTrained(date) ? MMColor.accent : MMColor.paper3)
+                    .frame(width: 14, height: 14)
+                    .overlay {
+                        if future { RoundedRectangle(cornerRadius: MMSpace.s2).stroke(MMColor.borderDefault, lineWidth: 1) }
+                    }
+            }
+        }
+    }
+    private func legend(_ title: String, color: Color) -> some View {
+        HStack(spacing: MMSpace.s3) {
+            RoundedRectangle(cornerRadius: MMSpace.s2).fill(color).frame(width: 12, height: 12)
+            Text(title).mmFont(.body, 12).foregroundStyle(MMColor.textSecondary)
         }
     }
 }

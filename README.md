@@ -2,11 +2,19 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
+Taking or uploading a post-training photo saves it to the training session immediately, even before publishing to Activity. Training detail shows a Photos section for the host and accepted guests, and the share screen labels its text box **Caption**. The backend migration `20261105075631_save_session_photos.sql` is deployed; the updated iOS client still needs to be built and installed.
+
 Planning and logging a session start with **Jiu-Jitsu training** filled in as the title. The small X on the right clears it and focuses the field for a custom title. Keeping the default needs no typing; submitting a cleared title also uses **Jiu-Jitsu training**.
+
+The session date picker uses the device’s local calendar and refreshes when the screen reappears, the app becomes active, the day changes, or the time zone changes. Selected dates stay on the same calendar days while they remain in range. A partly saved batch keeps its original dates for retrying.
 
 Session links preserve existing participants' latest RSVPs when reopened. This backend fix was deployed on November 5, 2026 as `supabase/migrations/20261105053014_preserve_session_link_rsvp.sql`; see the [investigation](docs/session-link-rsvp-investigation.md).
 
 Scanning someone's code follows them immediately. Scanning and the Follow button both grant activity visibility and permission to invite that person to train. Following remains one-way; existing training connections are migrated to follows in both directions.
+
+“My code” uses a stable `matmind://friend/…` QR so partners on builds with different website addresses can scan each other. The updated app also recognizes existing codes from both known invitation hosts. This compatibility fix requires a new iOS build; shared session and goal links continue using the current HTTPS website.
+
+People search accepts **name or @username**. Enter at least three username characters (with or without `@`) to find someone outside your training circle, then tap **Follow**. Username follows use the same backend connection flow as scanning their code. Search is case-insensitive, shows up to 20 username matches, and hides blocked accounts. The backend migration `20261105181902_username_people_search.sql` is deployed; the updated iOS client still needs to be built and installed.
 
 Session invitations show only who invited you, with Accept and Decline. Session title, time, location, notes, focus and guests are returned only after acceptance. Opening a shared session link creates a pending invitation; previews contain no session details. Upcoming plans are visible only to their host and accepted guests. Apply the `follows_and_private_invitations` migration together with the updated iOS client.
 
@@ -18,11 +26,15 @@ Open `IntentionalTrainingNotes.xcodeproj`, select `IntentionalTrainingNotes`, an
 
 **UI-only quick-log mock:** choose the **QuickTrainingLogMock** Xcode scheme to open Activity immediately with seeded data. Its state selector and Reset let you try quick logs, host/guest completion and an unstarted plan without sign-in or database calls. See [mock instructions](Prototypes/README.md#quick-training-log-ui-mock).
 
-**Quick training log is an opt-in database experiment.** Its SQL is outside normal migrations, so a normal `supabase db push` does not enable it on main. Use preview mode without sign-in for UI tests, or `QUICK_TRAINING_LOG_ENABLED=1 sh scripts/test-database.sh` for disposable database tests. Real-data branch tests require a separate Supabase preview database; see [feature setup](supabase/features/quick-training-log/README.md).
+**Database work is deferred.** The quick-log migration and SQL tests remain on [`feat/activity-quick-log-db-deferred`](https://github.com/tienmai56/Calculated-Reps/tree/feat/activity-quick-log-db-deferred/supabase/features/quick-training-log), outside this UI merge. Live accounts keep the existing Activity flow and read-only Profile heatmap until the backend explicitly supplies the quick-log snapshot fields. The mock remains fully interactive without a database.
 
 Google sign-in setup is described in [Google sign-in setup](docs/google-sign-in-setup.md). Apple sign-in is hidden for now. Backend migrations and functions are deployed; see [deployment and validation](docs/mat-mind-v2-deployment.md) for configuration and acceptance checks.
 
 Previous local training data is available only through **Settings → Export → Export local sessions**, from Welcome or Profile. Legacy records are not imported into social sessions, photos or streaks. Goals are the one exception: **Goals → Import** reads that export file and brings over active goals with their task names, notes, links and photos (on the device only; sessions and reflections stay in the export).
+
+After accepting a shared goal, you receive an in-app notification and a push when its owner changes the title, notes, links, photos or parts. Tapping either opens that shared goal. Unchanged saves stay quiet; pending, declined and blocked recipients receive no update alerts. Push follows your notification settings. The `goal_update_notifications` backend migration is deployed; the updated iOS client still needs to ship for goal notification display and navigation.
+
+After commenting on a memory, you receive an in-app notification and a queued push for every new comment from someone else on that memory, including its author and people you do not follow. Each comment produces one alert per recipient; an @mention takes the place of the ordinary comment alert. Blocks and current post access still apply, and push follows your notification settings and iOS permission. The `comment_thread_notifications` backend migration is deployed and works with the existing app.
 
 The Silverback app icon and logo come from `assets/brand/`. The production bundle identifier, existing sign-in callbacks, and stored-data identifiers retain their original values for compatibility. The `MatMindPrototype` scheme installs a separate **Mat Monkey Proto** app for reviewing the shared design.
 
@@ -78,4 +90,7 @@ Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsp
 
 ## Regression tests
 
-Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native and database test commands, protected invariants and the current boards A–E acceptance checklist.
+Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native checks, protected invariants and the current UI acceptance checklist. Database work is documented on the deferred branch.
+## Profile training heatmap
+
+Profile → Progress combines a static 17-week **Your rhythm** heatmap with the existing Weekly/Monthly chart in one card. Past hosted/joined sessions fill a day even without a shared photo. The heatmap is read-only and introduces no quick logging or backend migration. See the [regression guide](docs/profile-heatmap-regression.md).

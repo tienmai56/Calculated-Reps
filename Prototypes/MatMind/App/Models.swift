@@ -125,6 +125,8 @@ struct Session: Identifiable, Hashable {
     var focusItems: [TrainingFocus] = []
     /// The exact start, when known (live sessions). Preview sessions only have day/month/time text.
     var startsAt: Date? = nil
+    /// Saved session photos, including photos taken before publishing to Activity.
+    var photos: [String] = []
 
     func status(of id: String) -> RSVP? { people.first { $0.id == id }?.status }
 
@@ -150,6 +152,8 @@ struct AppNotification: Identifiable, Hashable {
         case invite, joined, comment, published, like, friend, mention
         /// Someone shared a goal with you; `session` holds the shared goal's id.
         case goalShare = "goal_share"
+        /// The owner updated a goal you've accepted; `session` holds its shared id.
+        case goalUpdate = "goal_update"
     }
 
     let id: String
@@ -161,6 +165,22 @@ struct AppNotification: Identifiable, Hashable {
     var photo: String?
     var time: String
     var unread = false
+
+    /// `session` stores the entity id: a session, post, or shared goal depending on kind.
+    var destination: Route? {
+        Self.destination(kind: kind, entityID: kind == .friend ? who : session)
+    }
+
+    /// Shared by in-app rows, their thumbnails, and push notifications.
+    static func destination(kind: Kind, entityID: String?) -> Route? {
+        guard let id = entityID, !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        switch kind {
+        case .invite, .joined: return .session(id: id)
+        case .comment, .published, .like, .mention: return .post(id: id)
+        case .friend: return .friend(id: id)
+        case .goalShare, .goalUpdate: return .sharedGoal(id: id)
+        }
+    }
 }
 
 enum AppTab: String, CaseIterable {
@@ -366,6 +386,11 @@ struct MatGoal: Identifiable, Hashable, Codable {
 
     /// Every photo file the goal owns, its own and its parts'.
     var allPhotos: [String] { photos + parts.flatMap(\.photos) }
+
+    var hasReferenceContent: Bool {
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !links.isEmpty || !photos.isEmpty || parts.contains { !$0.isBlank }
+    }
 }
 
 extension MatGoal {
@@ -557,3 +582,50 @@ enum TrainingCalendar {
 }
 
 enum TrainingTap: Equatable { case disabled, choose, entries, quickLog }
+
+/// Read-only session metadata for the private Profile calendar. This is not a new log type.
+struct RhythmSession: Codable, Equatable, Identifiable {
+    struct Participation: Codable, Equatable {
+        var user_id: String
+        var rsvp: String
+        var attended: Bool
+    }
+    var id: String
+    var starts_at: String
+    var status: String
+    var organizer: String
+    var session_participants: [Participation]
+
+    var start: Date? {
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.date(from: starts_at) ?? ISO8601DateFormatter().date(from: starts_at)
+    }
+    func loggedDate(for owner: String, now: Date) -> Date? {
+        guard ["planned", "completed"].contains(status), let start, start <= now,
+              let mine = session_participants.first(where: { $0.user_id == owner }), mine.rsvp == "going",
+              status != "completed" || mine.attended else { return nil }
+        return start
+    }
+}
+
+/// Monday–Sunday calendar days, independent of posts and their optional photos.
+struct ProfileRhythmHistory {
+    let calendar: Calendar
+    let now: Date
+    let weeks: [[Date]]
+    let trained: Set<Date>
+
+    init(dates: [Date], now: Date = Date(), calendar: Calendar = .current) {
+        var c = calendar; c.firstWeekday = 2; c.minimumDaysInFirstWeek = 4
+        self.calendar = c; self.now = now
+        let currentMonday = c.dateInterval(of: .weekOfYear, for: now)!.start
+        weeks = (-16...0).map { offset in
+            let monday = c.date(byAdding: .weekOfYear, value: offset, to: currentMonday)!
+            return (0..<7).map { c.date(byAdding: .day, value: $0, to: monday)! }
+        }
+        trained = Set(dates.filter { $0 <= now }.map { c.startOfDay(for: $0) })
+    }
+    func isTrained(_ date: Date) -> Bool { trained.contains(calendar.startOfDay(for: date)) }
+    func isFuture(_ date: Date) -> Bool { calendar.startOfDay(for: date) > calendar.startOfDay(for: now) }
+    var visibleCount: Int { weeks.flatMap { $0 }.filter(isTrained).count }
+}

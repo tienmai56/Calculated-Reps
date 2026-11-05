@@ -77,29 +77,11 @@ jobs:
       - name: Validate migrations and authorization
         env:
           PGPASSWORD: local-test-password
-        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/quick_training_log_disabled.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
-      - name: Reject quick training log installation without opt-in
+        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/comment_threads.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/goal_updates.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/session_photos.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+      - name: Validate username search and following
         env:
           PGPASSWORD: local-test-password
-        shell: bash
-        run: |
-          if psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/features/quick-training-log/install.sql; then
-            echo 'Feature installation unexpectedly succeeded without opt-in' >&2
-            exit 1
-          fi
-          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tests/quick_training_log_disabled.sql
-      - name: Validate opted-in quick training log on the disposable database
-        if: github.head_ref == 'feat/activity-quick-log-rhythm' || github.ref_name == 'feat/activity-quick-log-rhythm'
-        env:
-          PGPASSWORD: local-test-password
-          QUICK_TRAINING_LOG_ENABLED: '1'
-        shell: bash
-        run: |
-          test "$QUICK_TRAINING_LOG_ENABLED" = 1
-          {
-            printf '%s\n' "SET matmonkey.quick_training_log = 'on';"
-            cat supabase/features/quick-training-log/install.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/training_log.sql
-          } | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/tests/username_search.sql
       - name: Verify simultaneous username allocation
         env:
           PGPASSWORD: local-test-password
@@ -114,5 +96,5 @@ jobs:
           node-version: '24'
       - name: Validate account deletion and profile-photo cleanup
         run: node scripts/test-delete-account.mjs
-      - name: Validate notification preferences and mention push routing
+      - name: Validate notification preferences and push routing
         run: node scripts/test-notification-worker.mjs

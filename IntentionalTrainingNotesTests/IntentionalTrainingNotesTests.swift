@@ -4,9 +4,57 @@ import SwiftUI
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
+    func testNotificationDestinationsUseTheirOwnEntityIDs() {
+        let cases: [(AppNotification.Kind, Route)] = [
+            (.invite, .session(id: "target")), (.joined, .session(id: "target")),
+            (.comment, .post(id: "target")), (.published, .post(id: "target")),
+            (.like, .post(id: "target")), (.mention, .post(id: "target")),
+            (.friend, .friend(id: "actor")), (.goalShare, .sharedGoal(id: "target")),
+            (.goalUpdate, .sharedGoal(id: "target"))
+        ]
+        for (kind, expected) in cases {
+            let note = AppNotification(id: "notification", kind: kind, who: "actor", session: "target", time: "now")
+            XCTAssertEqual(note.destination, expected, "Incorrect destination for \(kind)")
+            XCTAssertEqual(AppNotification.destination(kind: kind, entityID: kind == .friend ? "actor" : "target"), expected,
+                           "Push and in-app destinations must agree")
+        }
+        let first = AppNotification(id: "first", kind: .like, who: "actor", session: "first-post", time: "now")
+        let second = AppNotification(id: "second", kind: .like, who: "actor", session: "second-post", time: "now")
+        XCTAssertEqual(first.destination, .post(id: "first-post"))
+        XCTAssertEqual(second.destination, .post(id: "second-post"))
+    }
+
+    func testNotificationsWithoutTargetsNeverFallBackToAnotherActivity() {
+        for kind: AppNotification.Kind in [.invite, .joined, .comment, .published, .like, .mention, .friend, .goalShare, .goalUpdate] {
+            for entityID: String? in [nil, "", "  "] {
+                XCTAssertNil(AppNotification.destination(kind: kind, entityID: entityID))
+            }
+        }
+        XCTAssertNil(AppNotification(id: "missing", kind: .like, who: "actor", time: "now").destination)
+        XCTAssertEqual(AppNotification(id: "friend", kind: .friend, who: "actor", time: "now").destination, .friend(id: "actor"))
+    }
+
+    @MainActor
+    func testPreviewNotificationsReferToTheActivityTheyDescribe() {
+        let ui = AppModel(live: false)
+        for note in ui.notifications {
+            XCTAssertNotNil(note.destination)
+            switch note.destination {
+            case .post(let id, _, _):
+                let post = ui.post(id)
+                XCTAssertNotNil(post)
+                if let photo = note.photo { XCTAssertEqual(photo, post?.photo) }
+            case .session(let id): XCTAssertNotNil(ui.findSession(id))
+            case .sharedGoal(let id): XCTAssertNotNil(ui.sharedGoal(id))
+            default: break
+            }
+        }
+    }
+
     @MainActor
     func testActivityPlansKeepPersonalPlansUntilAttendanceWithoutChangingMemories() {
         let ui = AppModel(live: true)
+        ui.quickTrainingLogBackendAvailable = true
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         func plan(_ id: String, privacy: Privacy = .link, rsvp: RSVP = .going, offset: TimeInterval = 60) -> Session {
             Session(id: id, title: id, day: "Fri", date: 15, month: "Jan", time: "6:00 PM", gym: "Gym",
@@ -737,6 +785,61 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.trainingSessions(past: false, relativeTo: now).contains { $0.id == id })
     }
 
+    @MainActor
+    func testSessionPhotoIsRetainedBeforeAndAfterPublishing() async throws {
+        let ui = AppModel(live: false)
+        let session = try XCTUnwrap(ui.toComplete)
+        let saved = await ui.saveSessionPhoto(session.id, photo: "training-photo")
+        XCTAssertTrue(saved)
+        XCTAssertEqual(ui.findSession(session.id)?.photos, ["training-photo"])
+        XCTAssertFalse(ui.isCompleted(session), "Saving a photo does not publish or complete the session")
+        let savedAgain = await ui.saveSessionPhoto(session.id, photo: "training-photo")
+        XCTAssertTrue(savedAgain)
+        XCTAssertEqual(ui.findSession(session.id)?.photos.count, 1)
+        let result = try XCTUnwrap(ui.publish(session.id, photo: "training-photo", caption: "", people: ["me"]))
+        XCTAssertEqual(result.post.photo, "training-photo")
+        XCTAssertEqual(ui.findSession(session.id)?.photos, ["training-photo"])
+        let guestSession = try XCTUnwrap(ui.upcoming.first { $0.organizer != "me" })
+        let guestSave = await ui.saveSessionPhoto(guestSession.id, photo: "unauthorized-photo")
+        XCTAssertFalse(guestSave)
+        XCTAssertTrue(ui.findSession(guestSession.id)?.photos.isEmpty ?? false)
+    }
+
+    @MainActor
+    func testSavedSessionPhotosLoadWithoutAnActivityPostAndSurviveRefresh() async throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],
+         "sessions":[{"id":"session","organizer":"owner","status":"planned"},
+                     {"id":"other","organizer":"owner","status":"completed"}],
+         "participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"notifications":[],
+         "media":[{"id":"older","session_id":"session","object_key":"owner/older.jpg","state":"ready","created_at":"2026-11-05T10:00:00Z"},
+                  {"id":"newer","session_id":"session","object_key":"owner/newer.jpg","state":"ready","created_at":"2026-11-05T11:00:00Z"},
+                  {"id":"other-photo","session_id":"other","object_key":"owner/other.jpg","state":"ready"}]}
+        """#.utf8))
+        let ui = AppModel(live: true)
+        var requested: [String] = []
+        let runtime = LiveMatMindRuntime(model: model, ui: ui) { key, bucket in
+            requested.append(bucket + ":" + key)
+            return Data(key.utf8)
+        }
+        await runtime.loadPhotos()
+        let sources = try XCTUnwrap(ui.findSession("session")?.photos)
+        XCTAssertEqual(try sources.map { try String(contentsOfFile: $0, encoding: .utf8) }, ["owner/newer.jpg", "owner/older.jpg"])
+        XCTAssertEqual(ui.findSession("other")?.photos.count, 1)
+        XCTAssertTrue(ui.posts.isEmpty)
+        XCTAssertFalse(ui.isCompleted(try XCTUnwrap(ui.findSession("session"))))
+        model.snapshot.media.reverse()
+        await runtime.loadPhotos()
+        XCTAssertEqual(ui.findSession("session")?.photos, sources)
+        XCTAssertEqual(requested.count, 3, "A refresh reuses the existing downloaded photos")
+        model.userID = nil
+        runtime.sync()
+        XCTAssertTrue(sources.allSatisfy { !FileManager.default.fileExists(atPath: $0) })
+        XCTAssertNil(ui.findSession("session"))
+    }
+
     func testUnsharedPastDraftRemainsInTrainingAfterPublishingWithoutAPhoto() throws {
         let ui = AppModel(live: false)
         let draft = SessionDraft(title: "Yesterday's rounds", day: "Mon", date: 2, month: "Nov", time: "6:00 PM",
@@ -1099,6 +1202,42 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(ui.searchPeople("owen").isEmpty, "a partner list doesn't widen search")
     }
 
+    func testUsernameLookupFindsPeopleOutsideCircleAndFollowsLikeScanning() async throws {
+        let ui = AppModel(live: false)
+        XCTAssertTrue(ui.searchPeople("lena").isEmpty)
+        XCTAssertFalse(ui.canFollow("lena"))
+        let matches = try await ui.searchUsernames("  @LENA  ")
+        XCTAssertEqual(matches.map(\.id), ["lena"])
+        XCTAssertTrue(ui.canFollow("lena"))
+        XCTAssertTrue(ui.searchPeople("lena").isEmpty, "Looking up a username doesn't add it to circle name search")
+        ui.setFollowing("lena", true)
+        XCTAssertTrue(ui.isFollowing("lena"))
+        XCTAssertTrue(ui.canInvite("lena"))
+        XCTAssertNotNil(ui.friendship("lena"), "Username follow uses the same connection path as scanning")
+        ui.setFollowing("lena", false)
+        XCTAssertFalse(ui.canInvite("lena"))
+        ui.clearLiveData()
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+        XCTAssertFalse(ui.canFollow("lena"))
+    }
+
+    func testUsernameQueriesRequireLiteralValidPrefixes() async throws {
+        XCTAssertEqual(AppModel.usernameQuery("  @RaFaM  "), "rafam")
+        for query in ["", " ", "@", "@@lena", "le", "len%", "len a", "lén", String(repeating: "a", count: 41)] {
+            XCTAssertFalse(AppModel.canSearchUsername(query), query)
+        }
+        XCTAssertTrue(AppModel.canSearchUsername("@len_a1"))
+        let ui = AppModel(live: false)
+        let found = try await ui.searchUsernames("le")
+        XCTAssertTrue(found.isEmpty)
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+        let task = Task { try await ui.searchUsernames("lena") }
+        task.cancel()
+        do { _ = try await task.value; XCTFail("Cancelled lookups must not cache stale results") }
+        catch is CancellationError { }
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+    }
+
     func testLiveSnapshotMapsCircleAndFollows() throws {
         let data = Data(#"""
         {
@@ -1194,6 +1333,47 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: second))
     }
 
+    func testGoalReferenceRecognizesPartsWithoutLegacyDetails() {
+        var goal = MatGoal(id: "goal", title: "Passing open guard")
+        XCTAssertFalse(goal.hasReferenceContent)
+        goal.parts = [GoalPart(title: "Keep them on their back", notes: "Control the hips")]
+        XCTAssertTrue(goal.hasReferenceContent)
+        XCTAssertTrue(goal.notes.isEmpty)
+        goal.parts = [GoalPart()]
+        XCTAssertFalse(goal.hasReferenceContent)
+        goal.parts = [GoalPart(link: "https://youtu.be/example")]
+        XCTAssertTrue(goal.hasReferenceContent)
+        goal.parts = [GoalPart(photos: ["reference.jpg"])]
+        XCTAssertTrue(goal.hasReferenceContent)
+    }
+
+    func testGoalFocusReferenceSurvivesSessionSaveAndRenames() throws {
+        let focus = TrainingFocus(title: "Passing open guard", goalID: "goal")
+        let encoded = SessionNoteCodec.encode(note: "Bring a gi", focus: [focus])
+        let decoded = SessionNoteCodec.decode(encoded)
+        XCTAssertEqual(decoded.note, "Bring a gi")
+        var restored = try XCTUnwrap(decoded.focus.first)
+        XCTAssertEqual(restored.goalID, "goal")
+        restored.title = "Today's passing focus"
+        let goal = MatGoal(id: "goal", title: "Renamed goal", parts: [GoalPart(notes: "New saved note")])
+        XCTAssertEqual(restored.linkedGoal(in: [goal]), goal)
+        XCTAssertEqual(restored.linkedGoal(in: [goal])?.parts.first?.notes, "New saved note")
+        XCTAssertNil(restored.linkedGoal(in: [MatGoal(id: "other", title: restored.title)]),
+                     "A deleted goal must not be replaced by a different goal with the same name")
+        let raw = try XCTUnwrap(Data(base64Encoded: String(encoded.dropFirst("matmind-focus-v1:".count))))
+        XCTAssertFalse(String(decoding: raw, as: UTF8.self).contains("New saved note"))
+    }
+
+    func testOlderFocusFindsOnlyAnUnambiguousGoalByName() throws {
+        let data = Data(#"{"id":"00000000-0000-0000-0000-000000000001","title":" Passing open guard ","children":[]}"#.utf8)
+        let focus = try JSONDecoder().decode(TrainingFocus.self, from: data)
+        XCTAssertNil(focus.goalID)
+        let goal = MatGoal(id: "goal", title: "passing OPEN guard")
+        XCTAssertEqual(focus.linkedGoal(in: [goal]), goal)
+        XCTAssertNil(focus.linkedGoal(in: [goal, MatGoal(id: "duplicate", title: goal.title)]))
+        XCTAssertNil(focus.linkedGoal(in: []))
+    }
+
     func testUntouchedOptionalFocusDoesNotBlockPlanningOrCreateSavedContent() {
         let outline = TrainingFocusTree.optionalOutline([TrainingFocus(), TrainingFocus(title: "  ")])
         XCTAssertTrue(TrainingFocusTree.isValid(outline))
@@ -1212,6 +1392,90 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertTrue(TrainingFocusTree.isValid(saved))
         XCTAssertEqual(saved.first?.title, "Guard passing")
         XCTAssertEqual(saved.first?.children, [detail])
+    }
+}
+
+final class SessionDaySelectionTests: XCTestCase {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return calendar
+    }
+
+    private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
+
+    func testThursdayNovemberFifthShowsWednesdayFourthAsYesterday() {
+        let selection = SessionDaySelection(now: date("2026-11-05T21:42:00Z"), calendar: calendar)
+        let past = selection.days(past: true)
+        XCTAssertEqual(past.map(\.date), [4, 3, 2, 1, 31])
+        XCTAssertEqual(past.map(\.weekday), ["Wed", "Tue", "Mon", "Sun", "Sat"])
+        XCTAssertEqual(past.map(\.label), ["Yesterday", "Tue", "Mon", "Sun", "Sat"])
+        XCTAssertEqual(past.map(\.month), ["Nov", "Nov", "Nov", "Nov", "Oct"])
+        let upcoming = selection.days(past: false)
+        XCTAssertEqual(upcoming.map(\.date), [5, 6, 7, 8, 9, 10, 11])
+        XCTAssertEqual(upcoming.first?.weekday, "Thu")
+        XCTAssertEqual(upcoming.first?.label, "Today")
+    }
+
+    func testLocalDayDoesNotAdvanceAtUTCMidnight() {
+        let selection = SessionDaySelection(now: date("2026-11-06T02:00:00Z"), calendar: calendar)
+        XCTAssertEqual(selection.days(past: false).first?.date, 5)
+        XCTAssertEqual(selection.days(past: true).first?.date, 4)
+    }
+
+    func testRefreshAfterMidnightKeepsSelectedCivilDates() {
+        var selection = SessionDaySelection(now: date("2026-11-04T21:42:00Z"), calendar: calendar)
+        selection.pastDayIndex = 1 // Monday, November 2.
+        selection.selectedDays = [0, 2] // November 4 and 6.
+        XCTAssertTrue(selection.refresh(now: date("2026-11-05T21:42:00Z"), calendar: calendar))
+        XCTAssertEqual(selection.days(past: true).first?.date, 4)
+        XCTAssertEqual(selection.pastDayIndex, 2)
+        XCTAssertEqual(selection.days(past: true)[selection.pastDayIndex].date, 2)
+        XCTAssertEqual(selection.selectedDays, [1], "Expired dates leave the selection; November 6 stays selected")
+        XCTAssertEqual(selection.days(past: false)[1].date, 6)
+    }
+
+    func testRefreshAfterSeveralDaysDropsExpiredSelections() {
+        var selection = SessionDaySelection(now: date("2026-11-01T20:00:00Z"), calendar: calendar)
+        selection.pastDayIndex = 4
+        selection.selectedDays = [0, 1]
+        XCTAssertTrue(selection.refresh(now: date("2026-11-05T20:00:00Z"), calendar: calendar))
+        XCTAssertEqual(selection.pastDayIndex, 0)
+        XCTAssertTrue(selection.selectedDays.isEmpty)
+        XCTAssertEqual(selection.days(past: true).first?.date, 4)
+    }
+
+    func testRefreshInSameLocalDayKeepsSelections() {
+        var selection = SessionDaySelection(now: date("2026-11-05T09:00:00Z"), calendar: calendar)
+        selection.pastDayIndex = 2
+        selection.selectedDays = [1, 3]
+        XCTAssertFalse(selection.refresh(now: date("2026-11-06T02:00:00Z"), calendar: calendar))
+        XCTAssertEqual(selection.pastDayIndex, 2)
+        XCTAssertEqual(selection.selectedDays, [1, 3])
+    }
+
+    func testTimezoneRefreshKeepsSelectedCalendarDates() {
+        let now = date("2026-11-06T02:00:00Z")
+        var selection = SessionDaySelection(now: now, calendar: calendar)
+        selection.selectedDays = [1, 2] // November 6 and 7 in Los Angeles.
+        var destination = calendar
+        destination.timeZone = TimeZone(identifier: "Pacific/Kiritimati")!
+        XCTAssertTrue(selection.refresh(now: now, calendar: destination))
+        XCTAssertEqual(selection.days(past: false).first?.date, 6)
+        XCTAssertEqual(selection.selectedDays, [0, 1])
+        XCTAssertEqual(selection.calendar.timeZone, destination.timeZone)
+    }
+
+    func testCalendarDaysCrossFallBackAndYearBoundary() {
+        let fallBack = SessionDaySelection(now: date("2026-11-02T08:30:00Z"), calendar: calendar)
+        let yesterday = fallBack.days(past: true)[0]
+        XCTAssertEqual(yesterday.date, 1)
+        XCTAssertEqual(yesterday.weekday, "Sun")
+        XCTAssertEqual(fallBack.today.timeIntervalSince(yesterday.value), 25 * 60 * 60)
+        let newYear = SessionDaySelection(now: date("2027-01-01T20:00:00Z"), calendar: calendar)
+        XCTAssertEqual(newYear.days(past: true).first?.date, 31)
+        XCTAssertEqual(newYear.days(past: true).first?.month, "Dec")
+        XCTAssertEqual(newYear.days(past: false).first?.month, "Jan")
     }
 }
 
@@ -1416,6 +1680,38 @@ final class GoogleCloudSignInTests: XCTestCase {
 final class BackendSessionTests: XCTestCase {
     private let photo = Data([0xff, 0xd8, 0xff, 0xd9])
     private let expiryError = Data(#"{"statusCode":"400","error":"Unauthorized","message":"\"exp\" claim timestamp check failed"}"#.utf8)
+
+    @MainActor
+    func testLiveFriendCodeAndScansSurviveInvitationHostChanges() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data())
+        let fresh = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: fresh, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        let token = String(repeating: "a1", count: 32)
+        let generatedCode = await runtime.friendCode()
+        let code = try XCTUnwrap(generatedCode)
+        XCTAssertEqual(code, "matmind://friend/" + token)
+        for value in [code, "https://matmindbjj.lovable.app/friend/" + token,
+                      " \nhttps://matmonkey.lovable.app/friend/" + token + "\n "] {
+            let friendID = await runtime.connect(value)
+            XCTAssertEqual(friendID, "partner")
+            XCTAssertNil(model.error)
+            XCTAssertNil(model.pendingLink)
+        }
+        let requests = await fixture.requests
+        let redemptions = try requests.filter { $0.url?.path == "/rest/v1/rpc/command" }.compactMap { request -> [String: Any]? in
+            let command = try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any]
+            return command?["operation"] as? String == "redeem_friend" ? command : nil
+        }
+        XCTAssertEqual(redemptions.count, 3)
+        for command in redemptions {
+            XCTAssertEqual((command["payload"] as? [String: String])?["token"], token)
+        }
+    }
 
     func testOldKeychainSessionRefreshesBeforeSendingPhoto() async throws {
         // Existing installations stored no expires_at; the JWT exp still works.
@@ -1768,6 +2064,44 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertTrue(ui.path.isEmpty)
     }
 
+    @MainActor
+    func testUsernameLookupUsesRPCAndFailedFollowRestoresButton() async throws {
+        let rows = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"stranger","name":"Lena Park","username":"lena_park","belt":"white","stripes":1,"gym":"Home gym"}]"#.utf8))
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), usernameRows: rows, followUsernameStatus: 409)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        let found = try await ui.searchUsernames(" @LENA_ ")
+        XCTAssertEqual(found.map(\.id), ["stranger"])
+        XCTAssertTrue(ui.canFollow("stranger"))
+        runtime.sync()
+        XCTAssertEqual(ui.person("stranger").username, "lena_park", "A snapshot refresh retains lookup profile details")
+        ui.setFollowing("stranger", true)
+        ui.setFollowing("stranger", false)
+        XCTAssertTrue(ui.isFollowing("stranger"), "A second tap is ignored while saving")
+        let deadline = Date().addingTimeInterval(5)
+        while ui.pendingFollows.contains("stranger"), Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(ui.pendingFollows.isEmpty)
+        XCTAssertFalse(ui.isFollowing("stranger"), "Rejected follows restore the prior state")
+        let requests = await fixture.requests
+        let lookup = try XCTUnwrap(requests.first { $0.url?.path == "/rest/v1/rpc/search_usernames" })
+        let searchBody = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(lookup.httpBody)) as? [String: String])
+        XCTAssertEqual(searchBody, ["query": "lena_"])
+        let commands = requests.filter { $0.url?.path == "/rest/v1/rpc/command" }
+        XCTAssertEqual(commands.count, 1)
+        let command = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(commands.first?.httpBody)) as? [String: Any])
+        XCTAssertEqual(command["operation"] as? String, "follow_username")
+        XCTAssertEqual(command["payload"] as? [String: String], ["username": "lena_park", "user_id": "stranger"])
+        model.userID = nil
+        runtime.sync()
+        XCTAssertTrue(ui.usernamePeople.isEmpty)
+    }
+
     private func creationRequests() -> [SessionCreationRequest] {
         let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
                                  note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
@@ -1816,13 +2150,16 @@ private actor BackendHTTPFixture {
     private var holdSnapshots: Bool
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
     private var profileSaved = false
+    private let rhythmRows: [RhythmSession]
+    private let usernameRows: [SocialRow]
+    private let followUsernameStatus: Int
     private let loseCreateResponseAt: Int?
     private var createAttempts = 0
     private var createReceipts: [String: (payload: Data, id: String)] = [:]
     var createdSessionCount: Int { createReceipts.count }
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
-         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil) {
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -1832,6 +2169,9 @@ private actor BackendHTTPFixture {
         self.snapshotStarted = snapshotStarted
         self.holdSnapshots = holdSnapshots
         self.loseCreateResponseAt = loseCreateResponseAt
+        self.rhythmRows = rhythmRows
+        self.usernameRows = usernameRows
+        self.followUsernameStatus = followUsernameStatus
     }
 
     func releaseSnapshots() {
@@ -1867,10 +2207,33 @@ private actor BackendHTTPFixture {
         if request.value(forHTTPHeaderField: "Authorization") != "Bearer fresh-token" || rejectFreshToken {
             return (failureStatus, failureBody)
         }
+        if request.url?.path == "/rest/v1/sessions" {
+            let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let offset = Int(items.first { $0.name == "offset" }?.value ?? "0") ?? 0
+            let limit = Int(items.first { $0.name == "limit" }?.value ?? "200") ?? 200
+            return (200, try JSONEncoder().encode(Array(rhythmRows.dropFirst(offset).prefix(limit))))
+        }
+        if request.url?.path == "/rest/v1/rpc/search_usernames" {
+            return (200, try JSONEncoder().encode(usernameRows))
+        }
+        if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
+           let command = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+           command["operation"] as? String == "follow_username" {
+            return (followUsernameStatus, Data(#"{"message":"Username unavailable. Search again"}"#.utf8))
+        }
         if request.url?.path == "/rest/v1/rpc/command",
            let body = request.httpBody,
            let command = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
            command["operation"] as? String == "save_profile" { profileSaved = true }
+        if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
+           let command = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            if command["operation"] as? String == "friend_token" {
+                return (200, try JSONSerialization.data(withJSONObject: ["token": String(repeating: "a1", count: 32)]))
+            }
+            if command["operation"] as? String == "redeem_friend" {
+                return (200, Data(#"{"id":"partner"}"#.utf8))
+            }
+        }
         if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
            let command = try JSONSerialization.jsonObject(with: body) as? [String: Any],
            command["operation"] as? String == "create_session",
@@ -2060,7 +2423,8 @@ final class GoalSharingTests: XCTestCase {
         let json = #"""
         {"profiles":[{"id":"me-id","name":"Dani","belt":"purple","stripes":2,"gym":"Tidewater","username":"dani"},
                      {"id":"sarah-id","name":"Sarah Lee","belt":"blue","stripes":3,"gym":"Tidewater","username":"sarah"}],
-         "friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],
+         "notifications":[{"id":"goal-note","recipient":"me-id","actor":"sarah-id","kind":"goal_update","entity_id":"cloud-1","message":"updated Single leg finish","created_at":"2026-11-04T10:00:00Z"}],
          "shared_goals":[
            {"id":"cloud-1","owner":"sarah-id","client_id":"g9","title":"Single leg finish","notes":"Head on the hip",
             "links":["https://example.com/a"],"photos":[],"media":["sarah-id/aa.jpg"],
@@ -2087,6 +2451,12 @@ final class GoalSharingTests: XCTestCase {
         XCTAssertEqual(ui.person("sarah-id").name, "Sarah Lee", "The sender is known even when not a friend")
         XCTAssertEqual(ui.sharedGoalIDs, ["g1": "cloud-2"])
         XCTAssertEqual(ui.recipients(ofGoal: "g1"), ["sarah-id": "accepted"])
+        let notification = try XCTUnwrap(ui.notifications.first)
+        XCTAssertEqual(notification.kind, .goalUpdate)
+        XCTAssertEqual(notification.session, shared.id)
+        XCTAssertEqual(notification.who, shared.owner)
+        XCTAssertEqual(notification.text, "updated Single leg finish")
+        XCTAssertTrue(notification.unread)
     }
 
     @MainActor
@@ -2267,6 +2637,30 @@ final class TrainingCalendarTests: XCTestCase {
 }
 
 extension TrainingCalendarTests {
+    @MainActor func testUndeployedBackendNeverReceivesQuickLogWrites() async {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        var requests = 0
+        runtime.command = { _, _ in requests += 1; return true }
+        let plan = Session(id: "pending", title: "Past rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [plan]
+        XCTAssertFalse(ui.quickTrainingLogEnabled)
+        let logged = await ui.addQuickLog(Date())
+        let deleted = await ui.deleteQuickLog("missing")
+        let marked = await ui.markTrainingDone(plan)
+        XCTAssertFalse(logged)
+        XCTAssertFalse(deleted)
+        XCTAssertFalse(marked)
+        XCTAssertEqual(requests, 0)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.toast)
+        ui.quickTrainingLogBackendAvailable = true
+        XCTAssertTrue(ui.quickTrainingLogEnabled)
+        ui.clearLiveData()
+        XCTAssertFalse(ui.quickTrainingLogEnabled, "Account clearing also disables the deferred backend feature")
+    }
+
     @MainActor func testQuickLogUndoNeverCreatesSessionOrPost() async {
         let ui = AppModel(live: false)
         ui.quickLogs = []; ui.upcoming = []; ui.completedSessions = []; ui.posts = []; ui.drafts = []; ui.toComplete = nil
@@ -2296,6 +2690,10 @@ extension TrainingCalendarTests {
         runtime.sync()
         let start = try XCTUnwrap(ui.findSession("older")?.startsAt)
         XCTAssertEqual(ui.entryCount(start), 1, "History must not depend on the schedule's 100-session page")
+        XCTAssertFalse(ui.quickTrainingLogEnabled, "A partial snapshot does not enable undeployed operations")
+        model.snapshot.quick_logs = []; model.snapshot.log_matches = []
+        runtime.sync()
+        XCTAssertTrue(ui.quickTrainingLogEnabled, "Only a complete backend feature snapshot enables live quick logging")
         XCTAssertFalse(ui.canCompleteTraining(try XCTUnwrap(ui.findSession("older"))), "Previously shared sessions must not get a completion CTA after feed pagination or post deletion")
         ui.clearLiveData()
         XCTAssertTrue(ui.calendarSessions.isEmpty)
@@ -2325,8 +2723,10 @@ private final class TrainingRuntimeStub: AppRuntime {
     func authenticate() async {}
     func signOut() async {}
     func partners(of personID: String) async -> [Person]? { nil }
+    func searchUsernames(_ query: String) async throws -> [Person] { [] }
     func enableNotifications() async -> String? { nil }
     func create(_ draft: SessionDraft, key: UUID) async -> String? { nil }
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool { false }
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? { nil }
     func saveAvatar(_ jpeg: Data) async -> Bool { false }
     func friendCode() async -> String? { nil }
@@ -2380,6 +2780,7 @@ extension TrainingCalendarTests {
     @MainActor func testFailedQuickLogBlocksDuplicateTapsAndLeavesStateUnchanged() async {
         let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
         ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
         let started = expectation(description: "Save started")
         var resume: CheckedContinuation<Bool, Never>?
         var requests = 0
@@ -2406,6 +2807,7 @@ extension TrainingCalendarTests {
     @MainActor func testFailedCompletionLeavesPlanOpenAndCreatesNoUndo() async {
         let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
         ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
         let plan = Session(id: "failure", title: "Rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
                            people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
         ui.upcoming = [plan]
@@ -2420,6 +2822,7 @@ extension TrainingCalendarTests {
     @MainActor func testAccountClearingDiscardsPendingTrainingResult() async {
         let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
         ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
         let started = expectation(description: "Save started")
         var resume: CheckedContinuation<Bool, Never>?
         runtime.command = { _, _ in
@@ -2522,6 +2925,7 @@ extension TrainingCalendarTests {
     @MainActor func testFailedStripRemovalPreservesCounterAndBlocksDuplicateTaps() async {
         let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
         ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
         let day = Date()
         let log = QuickLog(id: "log", loggedOn: TrainingCalendar.key(day), loggedAt: day, timezone: TimeZone.current.identifier)
         ui.quickLogs = [log]
@@ -2639,3 +3043,91 @@ extension TrainingCalendarTests {
     }
 }
 #endif
+
+final class ProfileHeatmapTests: XCTestCase {
+    private var calendar: Calendar {
+        var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return c
+    }
+    private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
+
+    func testGridHasSeventeenMondayWeeksAndCountsDaysOnce() {
+        let now = date("2026-11-05T04:00:00Z") // Wednesday evening in Los Angeles.
+        let history = ProfileRhythmHistory(dates: [date("2026-11-04T16:00:00Z"), date("2026-11-05T02:00:00Z"), date("2026-11-03T16:00:00Z")], now: now, calendar: calendar)
+        XCTAssertEqual(history.weeks.count, 17)
+        XCTAssertEqual(history.weeks.flatMap { $0 }.count, 119)
+        XCTAssertEqual(history.weeks.first?.first, date("2026-07-13T07:00:00Z"))
+        XCTAssertEqual(history.visibleCount, 2, "Multiple sessions on the same local day fill only one square")
+        XCTAssertTrue(history.isFuture(date("2026-11-05T20:00:00Z")))
+        XCTAssertFalse(history.isFuture(date("2026-11-04T23:00:00Z")))
+    }
+    func testCalendarDaysSurviveDaylightSavingAndYearBoundary() {
+        let history = ProfileRhythmHistory(dates: [date("2026-11-01T08:30:00Z"), date("2026-11-01T09:30:00Z")], now: date("2026-11-03T20:00:00Z"), calendar: calendar)
+        XCTAssertEqual(history.visibleCount, 1, "The repeated DST hour is still one local day")
+        XCTAssertTrue(history.weeks.allSatisfy { $0.count == 7 })
+        let newYear = ProfileRhythmHistory(dates: [], now: date("2027-01-01T20:00:00Z"), calendar: calendar)
+        XCTAssertEqual(newYear.weeks.last?.first, date("2026-12-28T08:00:00Z"))
+    }
+    func testUnsharedAndPhotoFreeSessionsCountButExcludedAttendanceDoesNot() {
+        let now = date("2026-11-05T20:00:00Z")
+        var record = RhythmSession(id: "log", starts_at: "2026-11-04T19:00:00Z", status: "planned", organizer: "me",
+                                   session_participants: [.init(user_id: "me", rsvp: "going", attended: false)])
+        XCTAssertNotNil(record.loggedDate(for: "me", now: now), "A past session log does not require completion, a post or a photo")
+        record.status = "completed"
+        XCTAssertNil(record.loggedDate(for: "me", now: now), "A correction removes an unattended completed session")
+        record.session_participants[0].attended = true
+        XCTAssertNotNil(record.loggedDate(for: "me", now: now))
+        for rsvp in ["invited", "declined"] {
+            record.session_participants[0].rsvp = rsvp
+            XCTAssertNil(record.loggedDate(for: "me", now: now))
+        }
+        record.session_participants[0].rsvp = "going"; record.status = "cancelled"
+        XCTAssertNil(record.loggedDate(for: "me", now: now))
+        record.status = "planned"; record.starts_at = "2026-11-06T19:00:00Z"
+        XCTAssertNil(record.loggedDate(for: "me", now: now), "Future plans do not count")
+        XCTAssertNil(record.loggedDate(for: "someone-else", now: now))
+    }
+    @MainActor func testRuntimeUsesFullHistoryOutsideTheScheduleAndFeedPages() throws {
+        let model = SocialAppModel(); model.userID = "owner"
+        let now = date("2026-11-05T20:00:00Z")
+        model.snapshot.rhythm_sessions = [RhythmSession(id: "unshared", starts_at: "2026-11-04T19:00:00Z", status: "planned", organizer: "owner",
+                                                       session_participants: [.init(user_id: "owner", rsvp: "going", attended: false)])]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync(now: now)
+        XCTAssertTrue(ui.posts.isEmpty); XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertEqual(ui.trainingRhythm(now: now, calendar: calendar).visibleCount, 1)
+        ui.clearLiveData()
+        XCTAssertEqual(ui.trainingRhythm(now: now, calendar: calendar).visibleCount, 0)
+    }
+    func testReadQueryIsOwnerScopedAndBounded() throws {
+        let path = BackendClient.rhythmPath(owner: "owner", from: date("2026-07-13T07:00:00Z"), through: date("2026-11-05T20:00:00Z"), offset: 200, pageSize: 200)
+        let parts = try XCTUnwrap(URLComponents(string: "https://example.com/" + path))
+        let items = parts.queryItems ?? []
+        XCTAssertEqual(parts.path, "/rest/v1/sessions")
+        XCTAssertEqual(items.first { $0.name == "session_participants.user_id" }?.value, "eq.owner")
+        XCTAssertEqual(items.first { $0.name == "session_participants.rsvp" }?.value, "eq.going")
+        XCTAssertEqual(items.filter { $0.name == "starts_at" }.count, 2)
+        XCTAssertEqual(items.first { $0.name == "offset" }?.value, "200")
+        XCTAssertFalse(path.contains("posts")); XCTAssertFalse(path.contains("media"))
+    }
+}
+
+extension BackendSessionTests {
+    func testHeatmapReadPaginatesBeyondTheScheduleLimitWithoutWrites() async throws {
+        let rows = (0..<205).map { index in
+            RhythmSession(id: "s\(index)", starts_at: "2026-11-04T12:00:00Z", status: "planned", organizer: "owner",
+                          session_participants: [.init(user_id: "owner", rsvp: "going", attended: false)])
+        }
+        let fixture = BackendHTTPFixture(failureStatus: 401, failureBody: Data(), rhythmRows: rows)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"), expires_at: Date().timeIntervalSince1970 + 3600)
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let result = try await client.rhythmSessions(owner: "owner")
+        XCTAssertEqual(result.count, 205)
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertTrue(requests.allSatisfy { $0.httpMethod == "GET" && $0.url?.path == "/rest/v1/sessions" })
+        let offsets = requests.map { URLComponents(url: $0.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "offset" }?.value }
+        XCTAssertEqual(offsets, ["0", "200"])
+    }
+}

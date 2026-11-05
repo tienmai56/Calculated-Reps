@@ -228,7 +228,6 @@ final class InvitationLinkTests: XCTestCase {
             }
         }
         for value in ["https://example.com/session/" + token,
-                      "https://matmindbjj.lovable.app/session/" + token,
                       "https://matmonkey.lovable.app/session/extra/" + token,
                       "https://matmonkey.lovable.app/session//" + token,
                       "https://attacker@matmonkey.lovable.app/session/" + token,
@@ -237,6 +236,35 @@ final class InvitationLinkTests: XCTestCase {
                       "matmind://session/" + String(repeating: "１", count: 64),
                       "matmind://session/abc"] {
             XCTAssertNil(InvitationLinks.parse(try XCTUnwrap(URL(string: value)), host: "matmonkey.lovable.app"), value)
+        }
+    }
+
+    func testFriendQRCodeWorksWithBothWebsiteConfigurations() {
+        let token = String(repeating: "a1", count: 32)
+        let code = InvitationLinks.friendCode(token: token)
+        XCTAssertEqual(code.absoluteString, "matmind://friend/" + token)
+        for host in ["matmindbjj.lovable.app", "matmonkey.lovable.app"] {
+            XCTAssertEqual(InvitationLinks.parse(code, host: host), .init(kind: "friend", token: token))
+        }
+    }
+
+    func testInvitationParsingSupportsCodesFromBeforeAndAfterHostMigration() throws {
+        let token = String(repeating: "a1", count: 32)
+        for host in ["matmindbjj.lovable.app", "matmonkey.lovable.app"] {
+            for incomingHost in ["matmindbjj.lovable.app", "matmonkey.lovable.app"] {
+                for kind in ["friend", "session", "goal"] {
+                    let url = try XCTUnwrap(URL(string: "https://" + incomingHost + "/" + kind + "/" + token))
+                    XCTAssertEqual(InvitationLinks.parse(url, host: host), .init(kind: kind, token: token))
+                    XCTAssertNil(InvitationLinks.parse(url, host: "example.com"))
+                    XCTAssertNil(InvitationLinks.parse(url, host: nil))
+                }
+            }
+        }
+        for host in ["matmindbjj.lovable.app", "matmonkey.lovable.app"] {
+            for authority in ["attacker@" + host, host + ".example.com", host + ":443"] {
+                let url = try XCTUnwrap(URL(string: "https://" + authority + "/friend/" + token))
+                XCTAssertNil(InvitationLinks.parse(url, host: "matmonkey.lovable.app"))
+            }
         }
     }
 }

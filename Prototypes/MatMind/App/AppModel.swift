@@ -10,10 +10,12 @@ protocol AppRuntime: AnyObject {
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
     /// Someone's training partners, or nil when you can't see their list.
     func partners(of personID: String) async -> [Person]?
+    func searchUsernames(_ query: String) async throws -> [Person]
     /// Asks for push permission and registers this device. Returns nil on success, or the
     /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
     func enableNotifications() async -> String?
     func create(_ draft: SessionDraft, key: UUID) async -> String?
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
     /// Uploads a square JPEG (from `AppModel.avatarJPEG`) and makes it the signed-in member's profile photo.
     func saveAvatar(_ jpeg: Data) async -> Bool
@@ -83,6 +85,9 @@ final class AppModel {
     }
 #endif
     let isLive: Bool
+    /// Live quick logging stays off until the server exposes the deferred feature's snapshot fields.
+    var quickTrainingLogBackendAvailable = false
+    var quickTrainingLogEnabled: Bool { !isLive || quickTrainingLogBackendAvailable }
     var busy: Bool { creatingSessions || savingTraining || (runtime?.busy ?? false) }
     private(set) var creatingSessions = false
     private var createdSessions: [UUID: String] = [:]
@@ -101,6 +106,8 @@ final class AppModel {
         resetTrainingActions()
         quickLogs = []; sharedSessionIDs = []
 
+        resetPeopleLookup()
+        rhythmSessionDates = nil
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
@@ -120,8 +127,7 @@ final class AppModel {
     var me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
     var people: [String: Person] = [:]
     var friends: [Friendship] = []
-    /// People who train with your training partners, with the partners you share. Suggestions and
-    /// search come only from here and your partners: there is no public directory.
+    /// People who train with your training partners, with the partners you share.
     var circle: [CirclePerson] = []
     /// Following grants activity visibility and permission to invite, never session details.
     var following: Set<String> = []
@@ -140,6 +146,14 @@ final class AppModel {
     var partnerLists: [String: [String]] = [:]
     /// People known only from a partner list (not your partners or in your circle).
     var listedPeople: [String: Person] = [:]
+    /// Minimal profiles returned by an explicit username search, retained while opening a profile.
+    private(set) var usernamePeople: [String: Person] = [:]
+    private(set) var pendingFollows: Set<String> = []
+    private var followGeneration = UUID()
+
+    func resetPeopleLookup() {
+        usernamePeople = [:]; pendingFollows = []; followGeneration = UUID()
+    }
     var posts: [Post] = []
     var upcoming: [Session] = []
     var completedSessions: [Session] = []
@@ -152,11 +166,14 @@ final class AppModel {
     private var trainingGeneration = UUID()
 
     func resetTrainingActions() {
+        quickTrainingLogBackendAvailable = false
         trainingGeneration = UUID()
         savingTraining = false
         trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
     }
 
+    /// Full 17-week read, separate from the bounded Training list. nil uses the loaded session page.
+    var rhythmSessionDates: [Date]? = nil
     /// Friends' open plans from Activity. They enter Training only after joining.
     var discoverableSessions: [Session] = []
     var toComplete: Session?
@@ -205,7 +222,7 @@ final class AppModel {
 
     func person(_ id: String) -> Person {
         if id == "me" { return me }
-        return people[id] ?? listedPeople[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
+        return people[id] ?? listedPeople[id] ?? usernamePeople[id] ?? Person(id: id, name: "Someone", belt: .white, stripes: 0, gym: "", hue: .coral)
     }
 
     func post(_ id: String) -> Post? { posts.first { $0.id == id } }
@@ -224,9 +241,39 @@ final class AppModel {
 
     func isFollowing(_ id: String) -> Bool { following.contains(id) }
 
-    /// You can follow your training partners, the people they train with, and anyone on a partner list you've opened.
+    /// Username lookup lets you follow someone just as you would by scanning their code.
     func canFollow(_ id: String) -> Bool {
-        id != "me" && (isFollowing(id) || friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
+        id != "me" && (usernamePeople[id] != nil || isFollowing(id) || friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
+    }
+
+    static func usernameQuery(_ query: String) -> String {
+        var value = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if value.hasPrefix("@") { value.removeFirst() }
+        return value
+    }
+
+    static func canSearchUsername(_ query: String) -> Bool {
+        let value = usernameQuery(query)
+        return (3...40).contains(value.count) && value.utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 95 }
+    }
+
+    func searchUsernames(_ query: String) async throws -> [Person] {
+        guard Self.canSearchUsername(query) else { return [] }
+        let value = Self.usernameQuery(query)
+        let generation = followGeneration
+        let found: [Person]
+        if let runtime {
+            found = try await runtime.searchUsernames(value)
+        } else {
+            guard !isLive else { return [] }
+            found = people.values.filter { $0.id != "me" && $0.username.hasPrefix(value) }
+                .sorted { $0.username < $1.username }
+        }
+        try Task.checkCancellation()
+        guard generation == followGeneration else { throw CancellationError() }
+        let matches = Array(found.filter { $0.id != "me" }.prefix(20))
+        for p in matches { usernamePeople[p.id] = p }
+        return matches
     }
 
     /// Loads (or refreshes) someone's training partner list into `partnerLists`.
@@ -263,7 +310,7 @@ final class AppModel {
         guard !q.isEmpty else { return [] }
         let ids = Set(friends.map(\.id)).union(following).union(circle.filter { !$0.mutual.isEmpty }.map(\.id))
         func rank(_ p: Person) -> Int { friendship(p.id) != nil ? 1000 : mutualPartners(p.id).count }
-        return ids.compactMap { people[$0] }
+        return ids.map(person)
             .filter { p in
                 let name = p.name.lowercased()
                 return name.hasPrefix(q) || name.split(separator: " ").contains { $0.hasPrefix(q) } || p.username.lowercased().hasPrefix(q)
@@ -349,9 +396,10 @@ final class AppModel {
     }
 
     /// Personal open plans remain in Activity until attendance is confirmed, including after their start.
-    func activityPlans(at _: Date = Date()) -> [Session] {
+    func activityPlans(at now: Date = Date()) -> [Session] {
         (upcoming + discoverableSessions)
             .filter { !isCompleted($0) && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && !$0.people.contains(where: { $0.id == "me" && $0.attended }) }
+            .filter { quickTrainingLogEnabled || ($0.privacy == .link && startDate(of: $0) > now) }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
                 return first == second ? $0.id < $1.id : first < second
@@ -424,9 +472,30 @@ final class AppModel {
 
     /// Follow or unfollow. The button flips right away; live, the next refresh confirms it.
     func setFollowing(_ id: String, _ follow: Bool) {
-        guard id != "me" else { return }
+        guard id != "me", !pendingFollows.contains(id) else { return }
+        let previous = following.contains(id)
         if follow { following.insert(id) } else { following.remove(id) }
-        if isLive { send("set_follow", ["user_id": id, "follow": follow]) }
+        if isLive, let runtime {
+            let generation = followGeneration
+            let username = follow ? usernamePeople[id]?.username : nil
+            pendingFollows.insert(id)
+            Task {
+                guard generation == followGeneration else { return }
+                let saved: Bool
+                if let username {
+                    saved = await runtime.perform("follow_username", ["username": username, "user_id": id])
+                } else {
+                    saved = await runtime.perform("set_follow", ["user_id": id, "follow": follow])
+                }
+                guard generation == followGeneration else { return }
+                if !saved {
+                    if previous { following.insert(id) } else { following.remove(id) }
+                }
+                pendingFollows.remove(id)
+            }
+        } else if !isLive, follow, usernamePeople[id] != nil {
+            addFriend(id)
+        }
     }
 
     func back() {
@@ -725,7 +794,7 @@ final class AppModel {
             later(2.2 + Double(i) * 2) { [weak self] in
                 guard let self else { return }
                 self.updateSession(id) { $0.set(pid, .going) }
-                self.notifications.insert(AppNotification(id: "j\(UUID().uuidString)", kind: .joined, who: pid,
+                self.notifications.insert(AppNotification(id: "j\(UUID().uuidString)", kind: .joined, who: pid, session: id,
                                                           text: "joined \(d.title)", time: "now", unread: true), at: 0)
                 self.fresh = id + pid
                 self.showToast("\(self.person(pid).firstName) joined \(d.title)", .friend)
@@ -755,9 +824,21 @@ final class AppModel {
         return true
     }
 
+    @discardableResult
+    func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool {
+        guard let session = findSession(sessionID), session.organizer == "me", !isCompleted(session) else { return false }
+        if let runtime { return await runtime.saveSessionPhoto(sessionID, photo: photo) }
+        guard !isLive else { return false }
+        updateSession(sessionID) { session in
+            if !session.photos.contains(photo) { session.photos.insert(photo, at: 0) }
+        }
+        return true
+    }
+
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
         if isLive { return nil }
-        guard let s = findSession(sessionID), s.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
+        guard var s = findSession(sessionID), s.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
+        if let photo, !s.photos.contains(photo) { s.photos.insert(photo, at: 0) }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
                         caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems,
@@ -1240,6 +1321,7 @@ final class AppModel {
 
     func reset() {
         if isLive { return }
+        resetPeopleLookup()
         resetSessionCreation()
         timers.forEach { $0.cancel() }
         timers = []
@@ -1370,7 +1452,7 @@ extension AppModel {
             && !current.people.contains { $0.id == "me" && $0.attended }
     }
     func canUndoTrainingToast(_ id: UUID) -> Bool {
-        trainingUndoToastID == id && trainingUndo != nil
+        quickTrainingLogEnabled && trainingUndoToastID == id && trainingUndo != nil
             && !savingTraining && !(trainingUndoSessionID.map { sharedSessionIDs.contains($0) } ?? false)
     }
     func trainingToast(_ text: String, sessionID: String? = nil, undo: @escaping () async -> Bool) {
@@ -1398,7 +1480,7 @@ extension AppModel {
         }
     }
     @discardableResult func addQuickLog(_ date: Date) async -> Bool {
-        guard !busy, !isLive || runtime != nil, trainingTap(date) != .disabled else { return false }
+        guard quickTrainingLogEnabled, !busy, !isLive || runtime != nil, trainingTap(date) != .disabled else { return false }
         let generation = trainingGeneration
         savingTraining = true
         defer { if generation == trainingGeneration { savingTraining = false } }
@@ -1412,6 +1494,7 @@ extension AppModel {
         return true
     }
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
+        guard quickTrainingLogEnabled else { return false }
         if let runtime { return await runtime.perform("delete_quick_log", ["id": id]) }
         guard !isLive else { return false }
         quickLogs.removeAll { $0.id == id }; return true
@@ -1449,7 +1532,7 @@ extension AppModel {
         return true
     }
     @discardableResult func markTrainingDone(_ session: Session) async -> Bool {
-        guard !busy, !isLive || runtime != nil, canMarkTrainingDone(session),
+        guard quickTrainingLogEnabled, !busy, !isLive || runtime != nil, canMarkTrainingDone(session),
               let current = findSession(session.id) else { return false }
         let generation = trainingGeneration
         savingTraining = true
@@ -1481,5 +1564,19 @@ extension AppModel {
             return true
         }
         return true
+    }
+}
+
+extension AppModel {
+    func trainingRhythm(now: Date = Date(), calendar: Calendar = .current) -> ProfileRhythmHistory {
+        if isLive, let rhythmSessionDates {
+            return ProfileRhythmHistory(dates: rhythmSessionDates, now: now, calendar: calendar)
+        }
+        let dates = trainingSessions(past: true, relativeTo: now)
+            .filter { $0.organizer == "me" || $0.status(of: "me") == .going }
+            .map { startDate(of: $0) }
+        // Preview posts have no backing server session rows. Live history never depends on feed pagination.
+        let previewDates = isLive ? [] : ProfileHistory(posts: posts.filter { $0.organizer == "me" || $0.participants.contains("me") }, now: now).items.map(\.day)
+        return ProfileRhythmHistory(dates: dates + previewDates, now: now, calendar: calendar)
     }
 }

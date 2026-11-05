@@ -1,11 +1,6 @@
 #!/bin/sh
 set -eu
 # Uses an isolated, disposable local database, never the hosted project.
-# QUICK_TRAINING_LOG_ENABLED=1 opts into the experimental SQL after baseline checks.
-case "${QUICK_TRAINING_LOG_ENABLED:-0}" in
-  0|1) ;;
-  *) echo 'QUICK_TRAINING_LOG_ENABLED must be 0 or 1' >&2; exit 2 ;;
-esac
 container="matmind-v2-postgres"
 docker exec "$container" psql -U postgres -v ON_ERROR_STOP=1 -c 'DROP DATABASE IF EXISTS matmind_test;'
 docker exec "$container" psql -U postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE matmind_test;'
@@ -18,12 +13,6 @@ DO $$ BEGIN
 END $$;
 SQL
 sed '/create role /d' supabase/tests/bootstrap.sql > /tmp/matmind-test-bootstrap.sql
-cat /tmp/matmind-test-bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/quick_training_log_disabled.sql | docker exec -i "$container" psql -U postgres -d matmind_test -v ON_ERROR_STOP=1
-if [ "${QUICK_TRAINING_LOG_ENABLED:-0}" = 1 ]; then
-  # Each psql process is a new session; the opt-in and install must share this one.
-  {
-    printf '%s\n' "SET matmonkey.quick_training_log = 'on';"
-    cat supabase/features/quick-training-log/install.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/training_log.sql
-  } | docker exec -i "$container" psql -U postgres -d matmind_test -v ON_ERROR_STOP=1
-fi
+cat /tmp/matmind-test-bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/comment_threads.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/goal_updates.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/session_photos.sql | docker exec -i "$container" psql -U postgres -d matmind_test -v ON_ERROR_STOP=1
+cat supabase/tests/username_search.sql | docker exec -i "$container" psql -U postgres -d matmind_test -v ON_ERROR_STOP=1
 python3 scripts/test-username-concurrency.py --container "$container"

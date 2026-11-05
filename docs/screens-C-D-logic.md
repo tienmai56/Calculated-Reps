@@ -33,12 +33,10 @@ Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular str
 7. Training has no standalone share prompter. In Past, an unlogged session you host replaces **You host** with **Complete & Share**, opening the existing composer for that session. Hide this card action for guests, future sessions, confirmed attendance without a post, and published sessions with or without a photo. A separate date-only quick log leaves the plan open and does not suppress its completion action.
 8. Past tickets show only two states: **Complete & Share** for an unlogged hosted session, or **Completed** once the session is logged, whether privately, with a photo or with a note. Known shared session IDs preserve Completed independently of feed pagination. The mock seeds an unlogged host plan, private completed training, and a shared completed session with its local post.
 
-## Existing backend implementation
+## Deferred backend
 
-The opt-in `supabase/features/quick-training-log/install.sql` bundle provides `quick_logs`, private `training_actions`/`log_matches`, `training_days`, and publishing after separate completion. The operation names used consistently by the app and dispatcher are `create_quick_log`, `delete_quick_log`, `mark_training_done`, `undo_training_done`, `restore_matched_log`, and `acknowledge_log_match`.
+This UI merge contains no quick-log migration or SQL test changes. The implementation is preserved on [`feat/activity-quick-log-db-deferred`](https://github.com/tienmai56/Calculated-Reps/tree/feat/activity-quick-log-db-deferred/supabase/features/quick-training-log). Deployment remains paused until explicitly requested.
 
-When a host completes a plan, guest quick logs on the recorded local day within three hours of its start (inclusive) are matched atomically. More distant logs remain separate. Merge Undo restores a separate log without removing attendance. Participant removal clears that session's contribution and invalidates incompatible attendance Undo.
+Live quick logging is disabled unless the server returns all four feature snapshot fields: `quick_logs`, `training_days`, `log_matches`, and `shared_session_ids`. Until then, production uses the existing Activity prompt and read-only Profile heatmap; quick-log save/delete, separate completion and their Undo actions cannot send unsupported requests. Training ticket styling and the existing photo/note composer work with the current backend.
 
-No new completion push notification is sent to guests. Their next refresh fills the day; only a matched log produces the private merge toast.
-
-The bundle is outside normal migrations and guarded by an explicit session flag. Normal migration runs leave it disabled. Use `QUICK_TRAINING_LOG_ENABLED=1 sh scripts/test-database.sh` for disposable local testing; see `../supabase/features/quick-training-log/README.md` for isolation and preview setup. Backend deployment remains on hold. See `quick-training-log-regression.md` for acceptance checks and verification results.
+Use **QuickTrainingLogMock** for the complete in-memory UI. See [acceptance checks](quick-training-log-regression.md).

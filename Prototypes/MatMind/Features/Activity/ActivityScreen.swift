@@ -11,7 +11,7 @@ struct ActivityScreen: View {
     }
 
     private func feed(at now: Date) -> some View {
-        let prompt: Session? = nil
+        let prompt = mm.quickTrainingLogEnabled ? nil : mm.activityPrompt(at: now)
         let plans = mm.activityPlans(at: now)
         return MMScreen(tabPadding: true) {
             MMHeader(title: "Activity", large: true, leading: {
@@ -19,17 +19,18 @@ struct ActivityScreen: View {
                     .onLongPressGesture { if !mm.isLive { mm.showDemoPanel = true } }
                     .accessibilityHint(mm.isLive ? "" : "Long press for prototype tools")
             }, trailing: {
-                MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
-                MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
-                    mm.go(.notifications)
-                }
-                MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
+                MMHeaderActions()
             })
         } content: {
-            TrainingWeekCard(anchor: now, isActivity: true)
-                .padding(.horizontal, MMSpace.s6)
-                .padding(.top, MMSpace.s2)
-                .padding(.bottom, MMSpace.s6)
+            if mm.quickTrainingLogEnabled {
+                TrainingWeekCard(anchor: now, isActivity: true)
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.top, MMSpace.s2)
+                    .padding(.bottom, MMSpace.s6)
+            } else if let session = prompt {
+                ReadyToShare(session: session, now: now)
+                    .padding(.vertical, 12)
+            }
             if mm.feedPosts.isEmpty && plans.isEmpty {
                 EmptyActivity(prompt: prompt, now: now)
             } else {
@@ -125,12 +126,14 @@ private struct EmptyActivity: View {
 
 struct PostCard: View {
     @Environment(AppModel.self) private var mm
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let post: Post
     var highlight = false
 
     @State private var showMenu = false
     @State private var burst = false
     @State private var commentsExpanded = false
+    @State private var commentPreviewVisible = true
     @State private var commentText = ""
 
     var body: some View {
@@ -223,40 +226,25 @@ struct PostCard: View {
             .padding(.top, 8)
             .padding(.leading, -4)
 
-            if commentsExpanded {
+            ZStack(alignment: .topLeading) {
+                commentPreview
+                    .opacity(commentPreviewVisible ? 1 : 0)
+                    .animation(nil, value: commentPreviewVisible)
+                    .allowsHitTesting(!commentsExpanded && commentPreviewVisible)
+                    .accessibilityHidden(commentsExpanded || !commentPreviewVisible)
+
+                // Keep rows at their natural height and reveal them from the top.
+                // Animating the viewport avoids reflowing/fading two comment layouts.
                 inlineComments
                     .padding(.horizontal, 4)
                     .padding(.top, 12)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(height: commentsExpanded ? nil : 0, alignment: .top)
+                    .clipped()
+                    .allowsHitTesting(commentsExpanded)
+                    .disabled(!commentsExpanded)
+                    .accessibilityHidden(!commentsExpanded)
                     .accessibilityIdentifier("inline-comments-\(post.id)")
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            } else if let first = post.comments.first {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        PersonProfileButton(person: mm.person(first.who)) {
-                            Text(first.who == "me" ? "You" : mm.person(first.who).firstName)
-                                .mmFont(.body, 14, .bold).foregroundStyle(MMColor.textPrimary)
-                                .mmMonkey(mm.person(first.who).monkey, size: 16)
-                        }
-                        Button { toggleComments() } label: {
-                            Text(" \(first.text)").mmFont(.body, 14).foregroundStyle(MMColor.textPrimary)
-                                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Expand comments in the feed")
-                    }
-                    if post.comments.count > 1 {
-                        Button { toggleComments() } label: {
-                            Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
-                                .frame(minHeight: MMLayout.tapTarget)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-                .padding(.top, 2)
-                .padding(.bottom, 4)
             }
         }
         .padding(12)
@@ -274,6 +262,39 @@ struct PostCard: View {
         .modifier(PostOptionsModifier(postID: post.id, isPresented: $showMenu))
     }
 
+    @ViewBuilder
+    private var commentPreview: some View {
+        if let first = post.comments.first {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    PersonProfileButton(person: mm.person(first.who)) {
+                        Text(first.who == "me" ? "You" : mm.person(first.who).firstName)
+                            .mmFont(.body, 14, .bold).foregroundStyle(MMColor.textPrimary)
+                            .mmMonkey(mm.person(first.who).monkey, size: 16)
+                    }
+                    Button { toggleComments() } label: {
+                        Text(" \(first.text)").mmFont(.body, 14).foregroundStyle(MMColor.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Expand comments in the feed")
+                }
+                if post.comments.count > 1 {
+                    Button { toggleComments() } label: {
+                        Text("View all \(post.comments.count) comments").mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                            .frame(minHeight: MMLayout.tapTarget)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.top, 2)
+            .padding(.bottom, 4)
+        }
+    }
+
     private var inlineComments: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(post.comments) { comment in
@@ -284,17 +305,7 @@ struct PostCard: View {
                     .mmFont(.body, 14)
                     .foregroundStyle(MMColor.textTertiary)
             }
-            MentionSuggestions(text: $commentText, people: mm.mentionCandidates(for: post))
-            HStack(spacing: 8) {
-                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 34)
-                MMTextField(placeholder: "Say something nice… @tag a partner", text: $commentText) {
-                    sendComment()
-                }
-                MMIconButton("send", variant: .accent, label: "Send comment") {
-                    sendComment()
-                }
-                .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+            CommentComposer(post: post, text: $commentText, onSend: sendComment)
             Button("Hide comments") { toggleComments() }
                 .mmFont(.body, 13, .medium, lineHeight: 1)
                 .foregroundStyle(MMColor.textTertiary)
@@ -304,8 +315,16 @@ struct PostCard: View {
     }
 
     private func toggleComments() {
-        withAnimation(MMMotion.easeOut(MMMotion.base)) {
+        commentPreviewVisible = false
+        if commentsExpanded {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+        withAnimation(reduceMotion ? nil : MMMotion.easeOut(MMMotion.base)) {
             commentsExpanded.toggle()
+        } completion: {
+            // Wait until the rows have retracted before restoring the compact preview.
+            // Checking the current state also handles a second tap mid-animation.
+            if !commentsExpanded { commentPreviewVisible = true }
         }
     }
 
@@ -444,15 +463,7 @@ struct PostDetailScreen: View {
             }
             .padding(.horizontal, 12)
         } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                MentionSuggestions(text: $text, people: mm.mentionCandidates(for: post))
-                HStack(spacing: 8) {
-                    MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 36)
-                    MMTextField(placeholder: "Say something nice… @tag a partner", text: $text, autoFocus: focusComment) { send(post) }
-                    MMIconButton("send", variant: .accent, label: "Send") { send(post) }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
+            CommentComposer(post: post, text: $text, autoFocus: focusComment) { send(post) }
         }
         .modifier(PostOptionsModifier(postID: post.id, isPresented: $showMenu))
     }
@@ -596,6 +607,32 @@ private struct ReportReasonList: View {
     }
 }
 
+/// Compact shared composer for feed comments and post detail.
+private struct CommentComposer: View {
+    @Environment(AppModel.self) private var mm
+    let post: Post
+    @Binding var text: String
+    var autoFocus = false
+    var onSend: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s4) {
+            MentionSuggestions(text: $text, people: mm.mentionCandidates(for: post))
+            HStack(spacing: MMSpace.s4) {
+                MMAvatar(name: mm.me.name, photo: mm.me.photo, size: 34)
+                MMTextField(placeholder: "Say something nice…", text: $text,
+                            autoFocus: autoFocus, onSubmit: onSend)
+                    .submitLabel(.send)
+                    .accessibilityLabel("Add a comment")
+                    .accessibilityHint("Use @ to tag a partner.")
+                MMIconButton("send", variant: .accent, label: "Send comment", action: onSend)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct CommentRow: View {
     @Environment(AppModel.self) private var mm
     let comment: Comment
@@ -616,33 +653,37 @@ private struct CommentRow: View {
         return mm.canDelete(comment, on: postID)
     }
 
+    private func authorLine(for person: Person) -> [MMRun] {
+        var name = MMRun.person(person, 13, .bold)
+        name.monkeySize = 16
+        var runs = [name]
+        if let createdAt = comment.createdAt {
+            let time = createdAt.formatted(.relative(presentation: .numeric, unitsStyle: .narrow))
+            runs.append(.body(" · \(time)", 12, color: MMColor.textTertiary))
+        }
+        return runs
+    }
+
     var body: some View {
         let p = mm.person(comment.who)
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: MMSpace.s4) {
             PersonProfileButton(person: p) {
                 MMAvatar(name: p.name, photo: p.photo, size: 34)
+                    .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                PersonProfileButton(person: p) {
-                    Text(comment.who == "me" ? "You" : p.name).mmFont(.body, 13, .bold, lineHeight: 1.3).foregroundStyle(MMColor.textPrimary)
-                        .mmMonkey(p.monkey, size: 16)
-                }
+            // Inline profile links keep the author at text height. The avatar
+            // retains a separate 44pt target without stretching the header.
+            VStack(alignment: .leading, spacing: MMSpace.s1) {
+                PersonText(authorLine(for: p))
+                    .mmFont(.body, 13, .bold, lineHeight: 1.3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityValue(comment.createdAt?.formatted(date: .abbreviated, time: .shortened) ?? "")
                 MentionText(text: comment.text).mmFont(.body, 15, lineHeight: 1.4).foregroundStyle(MMColor.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                if let createdAt = comment.createdAt {
-                    Text(createdAt.formatted(date: .abbreviated, time: .shortened))
-                        .mmFont(.body, 11, lineHeight: 1.3)
-                        .foregroundStyle(MMColor.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 9)
-            .background {
-                let shape = UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 18, bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous)
-                shape.fill(MMColor.white).overlay(shape.stroke(MMColor.borderSubtle, lineWidth: 1))
-            }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, MMSpace.s2)
             if reportable || deletable {
                 Menu {
                     if deletable {
@@ -657,7 +698,6 @@ private struct CommentRow: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Comment options")
-                .padding(.trailing, -10)
             }
         }
         .opacity(comment.fresh && !shown ? 0 : 1)

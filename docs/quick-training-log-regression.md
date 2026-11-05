@@ -1,38 +1,24 @@
-# Quick training log regression tests
+# Quick training log UI regression checks
 
-Run these checks whenever changes touch Activity, Training, Profile, Complete & share, attendance, RSVP/guest lists, date/timezone handling, snapshots, caching, or sign-in/account switching. Source of truth: DESIGN.md, “Week strip and quick logs” and “Your rhythm”. Design reference: canvas Page 2 (`Activity-em83-6z5j.dc.html`) supersedes the earlier Activity strip and chooser styling; the current boards A–E retain the interaction and data rules. The later UI decision moves Your rhythm from board E’s Training placement to your own Profile.
+The database migration is excluded from this UI merge and preserved on [feat/activity-quick-log-db-deferred](https://github.com/tienmai56/Calculated-Reps/tree/feat/activity-quick-log-db-deferred/supabase/features/quick-training-log). Do not deploy it until explicitly requested.
 
 ## Automated checks
 
-On macOS with the iPhone 17 Pro simulator installed:
+On macOS, build the mock and run the app tests with an installed iPhone simulator:
 
 ```sh
-xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+xcodebuild -scheme QuickTrainingLogMock -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO test
 ```
 
-`TrainingCalendarTests` in `IntentionalTrainingNotesTests/IntentionalTrainingNotesTests.swift` covers tap precedence, day counting, plan exclusion, the three-hour merge boundary, local-day matching, host versus guest completion, host/guest undo, organizer-only publishing, quick-log Undo, calendar history beyond schedule pagination, account clearing, unstarted plans, failed saves, duplicate taps, and Undo after publication. Existing tests continue covering the photo-or-note rule, session lists, Activity discovery and live snapshot mapping.
+`TrainingCalendarTests` covers chooser precedence, private counter changes, attendance, publication with or without a photo, Completed labels, Undo, save failures, account clearing, seeded reset and rejection of unsupported live requests. Existing main tests also cover session photos, username following, notifications and the read-only Profile heatmap.
 
-For the database, use the repository’s **disposable local test database**, never production. With the existing PostgreSQL test container `matmind-v2-postgres` running:
+## Release boundary
 
-```sh
-QUICK_TRAINING_LOG_ENABLED=1 sh scripts/test-database.sh
-```
-
-The script drops/recreates only `matmind_test` in that test container. By default it applies only normal migrations, runs baseline checks and asserts the training-log schema is absent. `QUICK_TRAINING_LOG_ENABLED=1` additionally installs `supabase/features/quick-training-log/install.sql` with its required SQL session flag, then reruns baseline suites and `supabase/tests/training_log.sql`. The feature SQL is deliberately outside the normal migration directory so merging this branch or running `supabase db push` cannot activate it. It checks owner privacy, guest-only attendance, host completion for joined participants, no automatic post, near-log merge versus distant-log retention, undo restoring attendance and merged logs, publication after separate completion, and participant removal. New operation calls still pass through `command` receipts and authorization.
-
-For focused reruns against a disposable fixture with the feature explicitly installed, run `supabase/tests/training_log.sql` as the test database owner. It creates users inside a transaction, switches to `authenticated` for API checks, and rolls back its fixtures. Do not run it against a populated database.
-
-## Invariants to preserve
-
-- One trained day means at least one quick log or confirmed attendance. Plans alone never count; multiple entries do not increase the day count.
-- Quick logs are owner-private and cannot create posts, media, session tickets, or friendship credits.
-- Activity days with open plans open the chooser from the date or either badge, including future plans and dates with existing quick logs. Dates without plans add directly only for today/past dates; future empty dates stay disabled. A count-badge tap removes one quick log only on quick-log-only dates. Count taps on planned days open the chooser; confirmed-attendance-only dates ignore removal taps. Multiple plans remain separate chooser options.
-- Host completion fills joined participants only. Guest completion never changes the host or another guest. Removing attendance removes that session’s contribution; another entry can still keep the day filled.
-- Only the host sees share prompts or can publish. Every photo invitation explains that the photo gets posted to Activity. Existing photo-or-note validation remains enforced by both app and database.
-- Undo targets one mutation. After newer edits/publication, attendance undo must fail safely without reverting other work. Activity count-badge removal is immediate; removal of a specific log in the older-week entries sheet still requires confirmation.
-- A merge requires the quick log’s recorded local day and a timestamp within three hours (inclusive) of the plan’s start. Merge Undo restores the log without removing attendance.
-- Calendar history comes from `training_days`, independently of the feed’s 30-post and schedule’s 100-session limits.
-- Logout/account switching clears logs, pending training actions and undo state; late results cannot create a toast or Undo in another account. Preview fixtures never load into a live account.
+- The complete quick-log UI is available in **QuickTrainingLogMock** without sign-in or network writes.
+- Live quick logging stays disabled until all feature snapshot fields are present. The existing live Activity prompt and Profile heatmap remain active while the backend is deferred.
+- Training cards show the smaller right-aligned **Complete & Share** or **Completed**, with avatars and no going-count label. These styling changes use the current backend and existing composer.
+- This merge changes no SQL, migration harness or database CI steps. The deferred branch preserves backend installation and SQL regression instructions.
 
 ## Manual acceptance checks (boards A–E)
 
@@ -49,24 +35,6 @@ Use explicit UI preview mode for sample records; use two test accounts for live 
 9. **Persistence:** relaunch and refresh; private logs and attendance remain correct. Switch accounts and sign out; no other account’s logs, merge toast, undo or delayed save result appears. Test a week across a daylight-saving change and Dec/Jan year boundary.
 10. **Accessibility:** with Reduce Motion, no day/count pop. With VoiceOver, each day button announces the full date, trained state, entry count and planned titles, including a plan on an already trained day. The This week heading has no trained-day count or count announcement. Activity date buttons announce and open the chooser when a plan exists, otherwise add logs; removable count badges and calendar badges have separate accessible actions. Planned/confirmed dates must not offer a removal action. VoiceOver also offers Remove one quick log on an eligible date button. The rhythm grid still announces summary and week actions. Check large Dynamic Type, long session titles, multiple participant names, a solo host, and fully visible badges. Profile’s older-week sheet retains its white card, larger tiles and ×N pill.
 
-## Validation recorded during implementation
+## Verification
 
-The new migration, training-log SQL regression, and all 14 existing SQL suites passed in PGlite after applying the existing migration chain. The harness translated psql variables for the existing suites. This harness used replacement crypto functions because PGlite lacks pgcrypto; cryptographic invitation behavior was not validated there. Native XCTest, the Docker suite and simulator visual checks still require the environments above. Treat those as release checks, not as completed verification.
-
-
-### C/D verification
-
-For the C/D update, the complete migration chain and all 15 SQL regression suites passed on a disposable PostgreSQL 17 instance, including real pgcrypto. Added SQL checks cover completion/publication before the exact start timestamp, no completion notification, and Undo after publication. The changed Swift files pass syntax parsing. New native tests cover C’s retained plan, host/guest attendance, unstarted plans, failed saves, duplicate taps, stale account results and post-publication Undo; XCTest and simulator interaction checks still require Xcode on macOS. The feature bundle has not been deployed to the hosted database and is excluded from normal migrations.
-
-
-### Direct Activity tap update
-
-Added native cases for repeated logging on a confirmed day, protected planned/attended dates, removing only the newest quick log, clearing an empty day, failed removal and duplicate removal taps. Swift syntax and whitespace checks pass. These XCTest cases and badge hit-testing still require Xcode/simulator verification. This update reuses the existing owner-private delete operation and changes no backend schema.
-
-
-### Feature installation gate
-
-The experimental SQL lives in `supabase/features/quick-training-log/install.sql`, outside the production migration path. Unset or `0` disables `QUICK_TRAINING_LOG_ENABLED` in the local harness; `1` explicitly enables installation only on its disposable database. CI checks the unmodified schema, rejects installation without the SQL session flag and verifies rollback on every branch; only `feat/activity-quick-log-rhythm` opts in and runs the training suites in its temporary database. See the feature README for live preview-database isolation; a Git branch alone cannot isolate a shared backend.
-
-
-Gate verification on PostgreSQL 17: the default harness passed baseline suites and feature-absence assertions; installation without a flag rolled back even with psql stop-on-error disabled; explicit opt-in passed all 15 SQL suites and username concurrency checks. A read-only hosted-schema check confirmed `quick_logs`, `training_command` and `training_days` are absent, and its migration history contains no training-log migration. No hosted write was performed.
+Changed Swift files are syntax-checked locally. Xcode build, archive and XCTest are checked by the PR's existing GitHub Actions workflow before merge. No hosted database writes or deployment are part of this task.

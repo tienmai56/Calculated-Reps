@@ -25,6 +25,8 @@ struct CompleteScreen: View {
     @State private var camera = false
     @State private var pickerItem: PhotosPickerItem?
     @State private var publishing = false
+    @State private var savingPhoto = false
+    @State private var photoSaveFailed = false
     @State private var removed: Set<String> = []
     @State private var photo: String? = nil
     @State private var showRoll = false
@@ -73,6 +75,7 @@ struct CompleteScreen: View {
                                 .padding(.leading, 12)
                                 .padding(.bottom, 14)
                             MMIconButton("repeat-2", variant: .overlay, size: 40, label: "Change photo") { choosePhoto() }
+                                .disabled(savingPhoto || publishing)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                                 .padding(12)
                         }
@@ -83,7 +86,15 @@ struct CompleteScreen: View {
                     emptyPhoto
                         .padding(.top, MMLayout.sectionGap)
                 }
-                MMTextField(placeholder: photo == nil ? "What happened on the mat? @tag a partner" : "Add a few words? @tag a partner",
+                if savingPhoto {
+                    Text("Saving photo to session…")
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+                        .padding(.top, MMSpace.s4)
+                } else if photoSaveFailed, let photo {
+                    MMButton("Retry saving photo", variant: .secondary, size: .sm, iconLeft: "repeat-2") { savePhoto(photo) }
+                        .padding(.top, MMSpace.s4)
+                }
+                MMTextField(label: "Caption", placeholder: photo == nil ? "What happened on the mat? @tag a partner" : "Add a few words? @tag a partner",
                             text: $caption, multiline: true, rows: 2, focusRequest: noteFocus)
                     .padding(.top, 16)
                 MentionSuggestions(text: $caption, people: mm.mentionCandidates(including: people))
@@ -111,6 +122,8 @@ struct CompleteScreen: View {
             .animation(MMMotion.easeOut(MMMotion.fast), value: nudged)
         }
         .onChange(of: canPublish) { _, ready in if ready { nudged = false } }
+        .onAppear { if photo == nil { photo = s.photos.first } }
+        .onChange(of: s.photos) { _, saved in if photo == nil { photo = saved.first } }
         .photosPicker(isPresented: $library, selection: $pickerItem, matching: .images)
         .task(id: pickerItem) {
             guard let pickerItem, let data = try? await pickerItem.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
@@ -124,6 +137,7 @@ struct CompleteScreen: View {
                 ForEach(mm.cameraRoll, id: \.self) { name in
                     Button {
                         withAnimation(MMMotion.bounce(MMMotion.slow)) { photo = name }
+                        savePhoto(name)
                         showRoll = false
                     } label: {
                         Color.clear
@@ -200,7 +214,7 @@ struct CompleteScreen: View {
                 withAnimation(MMMotion.easeOut(0.3)) { result = r }
             }
         }
-        .disabled(!canPublish || publishing || mm.busy)
+        .disabled(!canPublish || publishing || savingPhoto || mm.busy)
         .overlay {
             // A disabled button swallows taps, so catch them here to point at what's missing.
             if !canPublish && !publishing && !mm.busy {
@@ -253,8 +267,19 @@ struct CompleteScreen: View {
         let normalized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
         guard let data = normalized.jpegData(compressionQuality: 0.8) else { return }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("training-\(UUID().uuidString).jpg")
-        do { try data.write(to: url, options: .atomic); photo = url.path }
+        do { try data.write(to: url, options: .atomic); photo = url.path; savePhoto(url.path) }
         catch { mm.showToast("Could not save that photo. Please try again.") }
+    }
+
+    private func savePhoto(_ source: String) {
+        savingPhoto = true
+        photoSaveFailed = false
+        // Keep saving if the organizer closes the composer after taking the photo.
+        Task {
+            let saved = await mm.saveSessionPhoto(id, photo: source)
+            savingPhoto = false
+            photoSaveFailed = !saved
+        }
     }
 
     private var emptyPhoto: some View {
