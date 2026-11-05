@@ -186,11 +186,12 @@ enum SeedData {
 
 // Calendar fixtures are preview-only. Live AppModel starts with no records.
 enum QuickLogMockScenario: String, CaseIterable, Identifiable {
-    case upcomingPrompt, quickLogs, techniqueStats, hostPlan, guestPlan, startsLater
+    case upcomingPrompt, noQuickLogs, quickLogs, techniqueStats, hostPlan, guestPlan, startsLater
     var id: String { rawValue }
     var title: String {
         switch self {
         case .upcomingPrompt: "Upcoming prompt"
+        case .noQuickLogs: "No quick logs"
         case .quickLogs: "Quick logs"
         case .techniqueStats: "Technique stats"
         case .hostPlan: "Host plan"
@@ -206,7 +207,7 @@ extension SeedData {
         let tomorrow = c.date(byAdding: .day, value: 1, to: today)!
         let future = c.date(bySettingHour: 19, minute: 0, second: 0, of: c.date(byAdding: .day, value: 2, to: today)!)!
         var plans = [mockSession("mock-future", title: "Open mat", start: future, host: "me")]
-        if scenario != .quickLogs && scenario != .techniqueStats {
+        if ![QuickLogMockScenario.noQuickLogs, .quickLogs, .techniqueStats].contains(scenario) {
             let start = scenario == .startsLater || scenario == .upcomingPrompt
                 ? min(now.addingTimeInterval(3600), tomorrow.addingTimeInterval(-0.001))
                 : max(today, now.addingTimeInterval(-3600))
@@ -217,6 +218,7 @@ extension SeedData {
     }
 
     static func quickLogMockLogs(_ scenario: QuickLogMockScenario, now: Date) -> [QuickLog] {
+        if scenario == .noQuickLogs { return [] }
         let key = TrainingCalendar.key(now)
         var logs = calendarQuickLogs(now: now).filter { $0.loggedOn != key }
         if scenario == .quickLogs {
@@ -226,6 +228,16 @@ extension SeedData {
             }
         }
         return logs
+    }
+
+    /// The Quick logs fixture includes actual hits, not just date markers.
+    static var quickLogMockTodayHits: [String: [QuickLogHit]] {
+        [
+            "mock-today-log-0": [QuickLogHit(id: "heel-hook", name: "Heel hook", count: 2),
+                                 QuickLogHit(id: "armbar", name: "Armbar", count: 1)],
+            "mock-today-log-1": [QuickLogHit(id: "heel-hook", name: "Heel hook", count: 1),
+                                 QuickLogHit(id: "back-take", name: "Back take", count: 2)]
+        ]
     }
 
     /// Explicit review-only fixture; the installed app never calls this path.

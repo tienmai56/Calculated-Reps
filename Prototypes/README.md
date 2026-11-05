@@ -25,7 +25,7 @@ It builds the separate MatMindPrototype app and opens Activity directly; sign-in
 Supabase setup and the opt-in database bundle are unnecessary. Nothing is sent to
 or read from a backend.
 
-The sample-data bar has six states and **Reset**:
+The sample-data bar has seven states and **Reset**:
 
 - **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
   upcoming session appears below on warm paper-2, with ink text, a white calendar
@@ -35,12 +35,13 @@ The sample-data bar has six states and **Reset**:
   Activity shows the next open session in the prompter. It stays on the selected
   session after its start time and across tab switches until completion. Reset
   restores the original upcoming session.
+- **No quick logs:** opens Stats with no quick-log records and the Peek-a-boo invitation. Log hits opens today’s counter sheet; saving the first hits replaces the invitation with charts.
 - **Technique stats:** opens Stats with Heel hook, Armbar and Back take daily reps for this week and last week. Explicit sample data only; it never writes to an account or backend.
 - **Host plan:** tap anywhere on today’s planned day to open the chooser, even
   after adding quick logs; completion opens session details with Complete & share.
 - **Guest plan:** confirm only your own attendance; the host keeps sharing control.
 - **Starts later:** the planned option is disabled, while a separate quick log works.
-- **Quick logs:** today starts with ×2; tap the date to add and its count to remove.
+- **Quick logs:** two logs today include technique hits (Heel hook 3, Armbar 1, Back take 2), so Stats shows charts instead of the monkey. today starts with ×2; tap the date to add and its count to remove.
 
 Dates follow the device’s current day. A future open mat, completed unshared
 training, a completed-and-shared session with its sample post, and 17 weeks of

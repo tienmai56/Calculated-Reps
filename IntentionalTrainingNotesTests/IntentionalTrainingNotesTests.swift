@@ -2870,6 +2870,35 @@ final class TechniqueTrendTests: XCTestCase {
 
 #if DEBUG
 extension TechniqueTrendTests {
+    @MainActor func testQuickLogMockIncludesHitsAndNoLogStateCanSaveAndUndoItsFirstHits() async throws {
+        let ui = AppModel.quickTrainingLogMock(.quickLogs)
+        var history = TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID)
+        XCTAssertFalse(ui.quickLogs.isEmpty)
+        XCTAssertEqual(Set(history.trends.map(\.name)), Set(["Heel hook", "Armbar", "Back take"]))
+        XCTAssertEqual(history.trends.first { $0.id == "heel hook" }?.thisWeekTotal, 3)
+
+        ui.loadQuickLogMock(.noQuickLogs)
+        XCTAssertEqual(ui.tab, .profile)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        history = TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID)
+        XCTAssertTrue(history.trends.isEmpty, "No quick logs must show the empty-state invitation")
+
+        let saved = await ui.addQuickLog(Date(), counts: ["heel-hook": 1])
+        XCTAssertTrue(saved)
+        history = TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID)
+        XCTAssertEqual(history.trends.first?.thisWeekTotal, 1, "The first saved hits replace the monkey with charts")
+        let toast = try XCTUnwrap(ui.toast)
+        await ui.undoTrainingToast(toast.id)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID).trends.isEmpty)
+
+        let live = AppModel(live: true)
+        live.loadQuickLogMock(.quickLogs)
+        live.loadQuickLogMock(.noQuickLogs)
+        XCTAssertTrue(live.quickLogs.isEmpty)
+        XCTAssertTrue(live.quickLogHitsByID.isEmpty)
+    }
+
     @MainActor func testExplicitStatsPreviewSeedsTwoWeeksWithoutLiveData() {
         let now = date("2026-11-05")
         let ui = AppModel(live: false)
