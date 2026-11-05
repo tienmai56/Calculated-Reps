@@ -2,7 +2,9 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
-Upcoming sessions set to **Anyone with the link** appear in the host's and their friends' Activity feeds as soon as they are created. Friends can open the ticket and join; joining adds it to Training. Friends-only plans stay out of Activity. Apply `supabase/migrations/20261104160002_upcoming_activity_sessions.sql` before shipping this UI; it extends session visibility and validates joins from the feed.
+Scanning someone's code follows them immediately. Scanning and the Follow button both grant activity visibility and permission to invite that person to train. Following remains one-way; existing training connections are migrated to follows in both directions.
+
+Session invitations show only who invited you, with Accept and Decline. Session title, time, location, notes, focus and guests are returned only after acceptance. Opening a shared session link creates a pending invitation; previews contain no session details. Upcoming plans are visible only to their host and accepted guests. Apply the `follows_and_private_invitations` migration together with the updated iOS client.
 
 Session editing supports **Add another time**. The first date and time updates the existing session and keeps retained guests’ RSVPs; added times create independent sessions with the edited details and guest list. Duplicate times are blocked. If saving stops partway through, the editor shows what was saved and retries only the remaining sessions.
 

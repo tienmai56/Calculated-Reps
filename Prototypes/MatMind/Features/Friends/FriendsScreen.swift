@@ -53,7 +53,7 @@ struct FriendsScreen: View {
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("At the gym with someone new?").mmFont(.display, 18, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
-                        Text("Scan their code. You're friends instantly.").mmFont(.body, 13).foregroundStyle(MMColor.ink700)
+                        Text("Scan their code to follow their activity.").mmFont(.body, 13).foregroundStyle(MMColor.ink700)
                     }
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -123,6 +123,7 @@ private struct FriendStreakCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if broken {
                     MMButton(copy.cta ?? "Invite", variant: .secondary, size: .sm) { mm.go(.create(friend: f.id)) }
+                        .disabled(!mm.canInvite(f.id))
                 } else {
                     VStack(alignment: .trailing, spacing: 0) {
                         Text("\(n)").mmFont(.display, 30, tracking: -0.04, lineHeight: 1).foregroundStyle(p.hue.ink)
@@ -138,6 +139,7 @@ private struct FriendStreakCard: View {
                     Text(mm.isLive ? "Make a plan with \(p.firstName) this week" : "\(p.firstName) is free most Thursdays").mmFont(.body, 13, .semibold).foregroundStyle(p.hue.ink)
                     Spacer(minLength: 8)
                     MMButton("Invite", size: .sm, iconLeft: "calendar-plus") { mm.go(.create(friend: f.id)) }
+                        .disabled(!mm.canInvite(f.id))
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 12)
@@ -286,8 +288,8 @@ private struct PersonSearchRow: View {
     var query = ""
     /// Suggestions leave the belt to the avatar's ring; search results spell it out.
     var showsBelt = true
-    /// Partner lists offer Follow on every row, your own partners included. Search labels them instead.
-    var followsPartners = false
+    /// Follow controls activity and invitation access on every person row.
+    var followsPartners = true
 
     var body: some View {
         let p = person

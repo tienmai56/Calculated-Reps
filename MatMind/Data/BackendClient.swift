@@ -64,6 +64,7 @@ struct SocialSnapshot: Codable, Equatable {
     var shared_goals: [SocialRow]? = nil, goal_shares: [SocialRow]? = nil
     /// Friends' open plans have their own limit, so discovery cannot crowd out your schedule.
     var activity_sessions: [SocialRow]? = nil
+    var training_invitations: [SocialRow]? = nil
     /// Optional so older caches still decode. `circle`: people who share a training partner
     /// with you (`id`, `mutual` partner ids). `follows`: who you follow.
     var circle: [SocialRow]? = nil, follows: [SocialRow]? = nil

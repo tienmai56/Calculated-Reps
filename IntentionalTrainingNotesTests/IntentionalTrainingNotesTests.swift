@@ -22,7 +22,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testLiveActivityDiscoveryEntersTrainingOnlyAfterJoiningAndLeavesAfterCompletion() throws {
+    func testOldDiscoveryCacheStaysHiddenUntilAcceptedAndLeavesAfterCompletion() throws {
         let model = SocialAppModel()
         model.userID = "owner"
         model.snapshot.activity_sessions = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
@@ -34,9 +34,9 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         let ui = AppModel(live: true)
         let runtime = LiveMatMindRuntime(model: model, ui: ui)
         runtime.sync()
-        XCTAssertEqual(ui.activityPlans().map(\.id), ["open"])
+        XCTAssertTrue(ui.activityPlans().isEmpty)
         XCTAssertTrue(ui.plannedSessions.isEmpty)
-        XCTAssertEqual(ui.findSession("open")?.organizer, "friend", "Feed tickets can open session details")
+        XCTAssertNil(ui.findSession("open"), "Old discovery caches cannot reveal unaccepted session details")
         model.snapshot.participants += try JSONDecoder().decode([SocialRow].self, from: Data(#"""
         [{"session_id":"open","user_id":"owner","rsvp":"going"}]
         """#.utf8))
@@ -74,20 +74,57 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testJoiningADiscoveredPreviewPlanAddsItToTraining() {
+    func testPreviewInvitationShowsNoDetailsUntilAccepted() throws {
         let ui = AppModel(live: false)
-        ui.upcoming = []
-        ui.discoverableSessions = [Session(id: "open", title: "Open rolls", day: "Fri", date: 15, month: "Jan", time: "6:00 PM", gym: "Gym",
-                                           organizer: "sarah", privacy: .link, people: [Attendee(id: "sarah", status: .going)],
-                                           startsAt: Date().addingTimeInterval(3600))]
-        XCTAssertTrue(ui.plannedSessions.isEmpty)
-        ui.rsvp("open", .going)
-        XCTAssertEqual(ui.plannedSessions.map(\.id), ["open"])
-        XCTAssertEqual(ui.activityPlans().map(\.id), ["open"])
-        XCTAssertEqual(ui.findSession("open")?.status(of: "me"), .going)
-        ui.rsvp("open", .declined)
-        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        let invitation = try XCTUnwrap(ui.pendingTrainingInvitations.first)
+        XCTAssertFalse(ui.activityPlans().contains { $0.id == invitation.id })
+        ui.rsvp(invitation.id, .going)
+        XCTAssertFalse(ui.pendingTrainingInvitations.contains { $0.id == invitation.id })
+        XCTAssertEqual(ui.findSession(invitation.id)?.status(of: "me"), .going)
+        ui.rsvp(invitation.id, .declined)
+        XCTAssertFalse(ui.plannedSessions.contains { $0.id == invitation.id })
+    }
+
+    @MainActor
+    func testScanningAndFollowingBothGrantInvitePermission() {
+        let ui = AppModel(live: false)
+        XCTAssertFalse(ui.canInvite("lena"))
+        ui.addFriend("lena")
+        XCTAssertTrue(ui.isFollowing("lena"))
+        XCTAssertTrue(ui.canInvite("lena"))
+        ui.setFollowing("lena", false)
+        XCTAssertFalse(ui.canInvite("lena"), "A legacy training connection grants no separate invite permission")
+        ui.setFollowing("rafa", true)
+        XCTAssertTrue(ui.invitees.contains { $0.id == "rafa" })
+        XCTAssertTrue(ui.canInvite("rafa"))
+    }
+
+    @MainActor
+    func testLivePendingInvitationContainsOnlyHostAndIdentity() throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "training_invitations":[{"id":"invitation","organizer":"host","organizer_name":"Sarah"}]}
+        """#.utf8))
+        let ui = AppModel(live: true)
+        LiveMatMindRuntime(model: model, ui: ui).sync()
+        XCTAssertEqual(ui.pendingTrainingInvitations, [TrainingInvitation(id: "invitation", organizer: "host")])
+        XCTAssertEqual(ui.person("host").name, "Sarah")
+        XCTAssertNil(ui.findSession("invitation"))
         XCTAssertTrue(ui.activityPlans().isEmpty)
+        // A cache written by the previous client may still have full invited rows.
+        model.snapshot.training_invitations = nil
+        model.snapshot.sessions = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"id":"invitation","organizer":"host","title":"Private title","venue":"Private venue","note":"Private note","starts_at":"2099-01-01T18:00:00Z","status":"planned","join_mode":"link"}]
+        """#.utf8))
+        model.snapshot.participants = try JSONDecoder().decode([SocialRow].self, from: Data(#"""
+        [{"session_id":"invitation","user_id":"owner","rsvp":"invited"}]
+        """#.utf8))
+        LiveMatMindRuntime(model: model, ui: ui).sync()
+        XCTAssertEqual(ui.pendingTrainingInvitations.map(\.id), ["invitation"])
+        XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertNil(ui.findSession("invitation"))
     }
 
     func testMentionTypingAndInsertionAfterEmoji() {

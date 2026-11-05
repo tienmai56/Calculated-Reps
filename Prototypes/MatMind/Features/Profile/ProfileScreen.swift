@@ -985,7 +985,14 @@ private struct NotificationRow: View {
                 }
             }
             VStack(alignment: .leading, spacing: 0) {
-                if note.kind == .invite, let s = session {
+                if note.kind == .invite, let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == note.session }) {
+                    Text("\(p.firstName) invited you to train").mmFont(.body, 15, .bold)
+                    Text("Accept to see the session details.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    HStack(spacing: 8) {
+                        MMButton("Decline", variant: .secondary, size: .sm) { mm.rsvp(invitation.id, .declined) }
+                        MMButton("Accept", size: .sm, iconLeft: "check") { mm.rsvp(invitation.id, .going) }
+                    }.padding(.top, 10)
+                } else if note.kind == .invite, let s = session {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         PersonProfileButton(person: p) {
                             Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
@@ -1011,7 +1018,7 @@ private struct NotificationRow: View {
                             Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
                                 .mmMonkey(p.monkey, size: 18)
                         }
-                        Text(" \(note.text)").mmFont(.body, 15).foregroundStyle(MMColor.textPrimary)
+                        Text(note.kind == .invite ? " invited you to train" : " \(note.text)").mmFont(.body, 15).foregroundStyle(MMColor.textPrimary)
                     }
                     if let quote = note.quote {
                         Text("“\(quote)”").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 4)
@@ -1098,7 +1105,7 @@ struct PersonProfileScreen: View {
                 partnersRow
                 HStack(spacing: 10) {
                     if mm.canFollow(id) { followButton(p) }
-                    if mm.friendship(id) != nil {
+                    if mm.canInvite(id) {
                         MMButton("Invite to train", variant: .secondary, iconLeft: "calendar-plus", fullWidth: true) {
                             mm.go(.create(friend: id))
                         }

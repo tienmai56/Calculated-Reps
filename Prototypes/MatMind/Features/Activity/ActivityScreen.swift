@@ -30,7 +30,7 @@ struct ActivityScreen: View {
                 ReadyToShare(session: session, now: now)
                     .padding(.vertical, 12)
             }
-            if mm.posts.isEmpty && plans.isEmpty {
+            if mm.feedPosts.isEmpty && plans.isEmpty {
                 EmptyActivity(prompt: prompt, now: now)
             } else {
                 if !plans.isEmpty {
@@ -43,10 +43,10 @@ struct ActivityScreen: View {
                     .padding(.horizontal, MMSpace.s6)
                     .padding(.bottom, MMSpace.s6)
                 }
-                ForEach(mm.posts) { post in
+                ForEach(mm.feedPosts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
                 }
-                if mm.isLive && !mm.posts.isEmpty {
+                if mm.isLive && !mm.feedPosts.isEmpty {
                     MMButton("Load older memories", variant: .ghost) {
                         Task { _ = await mm.runtime?.perform("load_more_feed", [:]) }
                     }.padding(.horizontal, 16)

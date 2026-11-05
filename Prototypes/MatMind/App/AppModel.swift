@@ -67,7 +67,7 @@ final class AppModel {
         resetSessionCreation()
         me = Person(id: "me", name: "", belt: .white, stripes: 0, gym: "", hue: .coral)
         gyms = []; cameraRoll = []
-        people = [:]; friends = []; circle = []; following = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; discoverableSessions = []; completedSessions = []; toComplete = nil
+        people = [:]; friends = []; circle = []; following = []; trainingInvitations = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; discoverableSessions = []; completedSessions = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         editingMonkey = false; monkeyPromptVisible = false; monkeyPromptAnswered = true; monkeyAccount = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
@@ -86,9 +86,19 @@ final class AppModel {
     /// People who train with your training partners, with the partners you share. Suggestions and
     /// search come only from here and your partners: there is no public directory.
     var circle: [CirclePerson] = []
-    /// Who you follow. No approval needed, and it never widens what you can see:
-    /// posts stay visible only when you or one of your partners trained in them.
+    /// Following grants activity visibility and permission to invite, never session details.
     var following: Set<String> = []
+    var trainingInvitations: [TrainingInvitation] = []
+    var pendingTrainingInvitations: [TrainingInvitation] {
+        let existing = Set(trainingInvitations.map(\.id))
+        return trainingInvitations + upcoming.filter { $0.status(of: "me") == .invited && !existing.contains($0.id) }
+            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer) }
+    }
+    var feedPosts: [Post] {
+        posts.filter { $0.organizer == "me" || following.contains($0.organizer) || $0.participants.contains("me") || $0.participants.contains { following.contains($0) } }
+    }
+    var invitees: [Person] { following.map(person).sorted { $0.name < $1.name } }
+    func canInvite(_ id: String) -> Bool { id != "me" && following.contains(id) }
     /// Training partner lists loaded for profiles: person id → partner ids, your own partners first.
     var partnerLists: [String: [String]] = [:]
     /// People known only from a partner list (not your partners or in your circle).
@@ -165,7 +175,7 @@ final class AppModel {
 
     /// You can follow your training partners, the people they train with, and anyone on a partner list you've opened.
     func canFollow(_ id: String) -> Bool {
-        id != "me" && (friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
+        id != "me" && (isFollowing(id) || friendship(id) != nil || circle.contains { $0.id == id } || partnerLists.values.contains { $0.contains(id) })
     }
 
     /// Loads (or refreshes) someone's training partner list into `partnerLists`.
@@ -200,7 +210,7 @@ final class AppModel {
         var q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if q.hasPrefix("@") { q.removeFirst() }
         guard !q.isEmpty else { return [] }
-        let ids = Set(friends.map(\.id)).union(circle.filter { !$0.mutual.isEmpty }.map(\.id))
+        let ids = Set(friends.map(\.id)).union(following).union(circle.filter { !$0.mutual.isEmpty }.map(\.id))
         func rank(_ p: Person) -> Int { friendship(p.id) != nil ? 1000 : mutualPartners(p.id).count }
         return ids.compactMap { people[$0] }
             .filter { p in
@@ -276,7 +286,7 @@ final class AppModel {
     /// Link-visible plans appear immediately in Activity, without creating a completed post.
     func activityPlans(at now: Date = Date()) -> [Session] {
         (upcoming + discoverableSessions)
-            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && startDate(of: $0) > now }
+            .filter { $0.privacy == .link && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && startDate(of: $0) > now }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
                 return first == second ? $0.id < $1.id : first < second
@@ -543,9 +553,7 @@ final class AppModel {
 
     func rsvp(_ sessionID: String, _ status: RSVP) {
         if isLive { send("set_rsvp", ["session_id": sessionID, "rsvp": status.rawValue]); return }
-        if status == .going, let index = discoverableSessions.firstIndex(where: { $0.id == sessionID }) {
-            upcoming.append(discoverableSessions.remove(at: index))
-        }
+        trainingInvitations.removeAll { $0.id == sessionID }
         updateSession(sessionID) { $0.set("me", status) }
         for i in notifications.indices where notifications[i].session == sessionID { notifications[i].unread = false }
         if status == .going {
@@ -722,6 +730,7 @@ final class AppModel {
 
     func addFriend(_ id: String) {
         if isLive { return }
+        following.insert(id)
         guard !friends.contains(where: { $0.id == id }) else { return }
         friends.insert(Friendship(id: id, weeks: Array(repeating: false, count: 9), thisWeek: .pending, best: 0, together: 0), at: 0)
     }
@@ -1169,10 +1178,11 @@ final class AppModel {
         people = SeedData.people
         friends = SeedData.friends
         circle = SeedData.circle
-        following = SeedData.following
+        following = SeedData.following.union(SeedData.friends.map(\.id))
         partnerLists = [:]
         listedPeople = [:]
         posts = SeedData.posts
+        trainingInvitations = []
         upcoming = SeedData.upcoming
         discoverableSessions = []
         toComplete = SeedData.toComplete

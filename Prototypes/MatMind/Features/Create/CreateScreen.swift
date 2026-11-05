@@ -154,15 +154,15 @@ struct CreateScreen: View {
 
                 field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-                        ForEach(mm.friends) { f in friendPick(f) }
+                        ForEach(mm.invitees) { p in friendPick(p) }
                     }
                 }
 
                 if !isPast {
                     field("Who can join") {
-                        MMTabs(items: [MMTabItem("friends", "Friends only"), MMTabItem("link", "Anyone with link")], selection: $privacy)
+                        MMTabs(items: [MMTabItem("friends", "Invited people"), MMTabItem("link", "Anyone with link")], selection: $privacy)
                         if privacy == Privacy.link.rawValue {
-                            Text("Appears in your Activity and your friends' feeds so they can join.")
+                            Text("Invited people accept before seeing session details.")
                                 .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, MMSpace.s4)
                         }
                         if mm.isLive {
@@ -177,8 +177,8 @@ struct CreateScreen: View {
                                 MMButton("Copy", variant: .soft, size: .sm, iconLeft: "copy") { mm.showToast("Invite link copied", .success) }
                             } else {
                                 Text(privacy == Privacy.link.rawValue
-                                     ? "Anyone with a Mat Monkey account can join from the link."
-                                     : "Only your friends can join from the link.")
+                                     ? "Anyone with a Mat Monkey account can accept an invitation from the link."
+                                     : "People you follow can receive an invitation.")
                                     .mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 MMButton("Get link", variant: .secondary, size: .sm, iconLeft: "link") {
@@ -285,12 +285,12 @@ struct CreateScreen: View {
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
-    private func friendPick(_ f: Friendship) -> some View {
-        let p = mm.person(f.id)
-        let on = invited.contains(f.id)
+    private func friendPick(_ p: Person) -> some View {
+        let on = invited.contains(p.id)
+        let streak = mm.friendship(p.id)?.streak ?? 0
         return Button {
             withAnimation(MMMotion.bounce()) {
-                if on { invited.removeAll { $0 == f.id } } else { invited.append(f.id) }
+                if on { invited.removeAll { $0 == p.id } } else { invited.append(p.id) }
             }
         } label: {
             VStack(spacing: 6) {
@@ -311,10 +311,10 @@ struct CreateScreen: View {
                         }
                     }
                     .overlay(alignment: .topTrailing) {
-                        if !on && f.streak > 0 {
+                        if !on && streak > 0 {
                             HStack(spacing: 2) {
                                 MMIcon("flame", size: 11, filled: true, color: MMColor.flame500)
-                                Text("\(f.streak)").mmFont(.body, 11, .bold, lineHeight: 1).foregroundStyle(MMColor.flameInk)
+                                Text("\(streak)").mmFont(.body, 11, .bold, lineHeight: 1).foregroundStyle(MMColor.flameInk)
                             }
                             .padding(.horizontal, 6)
                             .frame(height: 22)
