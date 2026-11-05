@@ -789,14 +789,11 @@ struct TrainingWeekCard: View {
             } else {
                 HStack(spacing: 4) { ForEach(days, id: \.self) { day in tile(day) } }
             }
-            if !isActivity || days.contains(where: { !mm.openPlans($0).isEmpty }) {
+            if !isActivity {
                 HStack(spacing: MMSpace.s2) {
-                    MMIcon("calendar", size: 12, color: isActivity ? MMColor.ink300 : MMColor.textTertiary)
-                    Text(isActivity ? "You have a planned session" : "Planned session")
-                        .mmFont(.body, 12)
-                        .foregroundStyle(isActivity ? MMColor.ink300 : MMColor.textTertiary)
+                    MMIcon("calendar", size: 12, color: MMColor.textTertiary)
+                    Text("Planned session").mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
                 }
-                .padding(.horizontal, isActivity ? MMSpace.s2 : 0)
             }
         }
         .padding(EdgeInsets(top: isActivity ? 16 : 12, leading: isActivity ? 14 : 12, bottom: 12, trailing: isActivity ? 14 : 12))
@@ -830,11 +827,17 @@ struct TrainingWeekCard: View {
                         .contentTransition(.numericText())
                         .accessibilityLabel("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained this week")
                 }
-                Text("Tap a day to add a log; tap its count to remove one.")
-                    .mmFont(.body, 13, .medium, lineHeight: 1.3)
-                    .foregroundStyle(MMColor.ink200)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(minHeight: 17, alignment: .leading)
+                if days.contains(where: { !mm.openPlans($0).isEmpty }) {
+                    HStack(spacing: MMSpace.s2) {
+                        MMIcon("calendar", size: 12, color: MMColor.ink300)
+                        Text("=")
+                        Text("You have a planned session")
+                    }
+                    .mmFont(.body, 12)
+                    .foregroundStyle(MMColor.ink300)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("The calendar icon means you have a planned session")
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, MMSpace.s2)
