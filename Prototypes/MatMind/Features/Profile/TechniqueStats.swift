@@ -64,7 +64,7 @@ private struct TechniqueTrendCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .trailing, spacing: MMSpace.s2) {
-                    Text("\(trend.thisWeekTotal) reps this week")
+                    Text("\(trend.thisWeekTotal) \(trend.thisWeekTotal == 1 ? "hit" : "hits") this week")
                         .mmFont(.body, 13, .semibold).foregroundStyle(MMColor.textPrimary)
                     Text("\(trend.lastWeekTotal) last week")
                         .mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
@@ -73,8 +73,8 @@ private struct TechniqueTrendCard: View {
             }
             chart
                 .frame(height: MMLayout.tapTarget * 3)
-                .accessibilityLabel("\(trend.name), daily reps, Monday to Sunday")
-                .accessibilityValue("\(trend.thisWeekTotal) reps so far this week; \(trend.lastWeekTotal) last week. This week stops at today.")
+                .accessibilityLabel("\(trend.name), daily hits, Monday to Sunday")
+                .accessibilityValue("\(trend.thisWeekTotal) hits so far this week; \(trend.lastWeekTotal) last week. This week stops at today.")
         }
         .padding(MMSpace.s6)
         .mmCardSurface()
@@ -84,18 +84,18 @@ private struct TechniqueTrendCard: View {
     private var chart: some View {
         Chart {
             ForEach(0..<7, id: \.self) { day in
-                LineMark(x: .value("Day", day), y: .value("Reps", trend.lastWeek[day]), series: .value("Week", "Last week"))
+                LineMark(x: .value("Day", day), y: .value("Hits", trend.lastWeek[day]), series: .value("Week", "Last week"))
                     .foregroundStyle(MMColor.ink400)
                     .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
                     .interpolationMethod(.linear)
             }
             ForEach(0...currentDayIndex, id: \.self) { day in
-                LineMark(x: .value("Day", day), y: .value("Reps", trend.thisWeek[day]), series: .value("Week", "This week"))
+                LineMark(x: .value("Day", day), y: .value("Hits", trend.thisWeek[day]), series: .value("Week", "This week"))
                     .foregroundStyle(MMColor.accent)
                     .lineStyle(StrokeStyle(lineWidth: 2.5))
                     .interpolationMethod(.linear)
             }
-            PointMark(x: .value("Day", currentDayIndex), y: .value("Reps", trend.thisWeek[currentDayIndex]))
+            PointMark(x: .value("Day", currentDayIndex), y: .value("Hits", trend.thisWeek[currentDayIndex]))
                 .foregroundStyle(MMColor.accent)
                 .symbolSize(MMSpace.s8)
         }
