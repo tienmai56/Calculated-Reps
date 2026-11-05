@@ -1346,6 +1346,90 @@ final class MatMindLiveUITests: XCTestCase {
     }
 }
 
+final class SessionDaySelectionTests: XCTestCase {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return calendar
+    }
+
+    private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
+
+    func testThursdayNovemberFifthShowsWednesdayFourthAsYesterday() {
+        let selection = SessionDaySelection(now: date("2026-11-05T21:42:00Z"), calendar: calendar)
+        let past = selection.days(past: true)
+        XCTAssertEqual(past.map(\.date), [4, 3, 2, 1, 31])
+        XCTAssertEqual(past.map(\.weekday), ["Wed", "Tue", "Mon", "Sun", "Sat"])
+        XCTAssertEqual(past.map(\.label), ["Yesterday", "Tue", "Mon", "Sun", "Sat"])
+        XCTAssertEqual(past.map(\.month), ["Nov", "Nov", "Nov", "Nov", "Oct"])
+        let upcoming = selection.days(past: false)
+        XCTAssertEqual(upcoming.map(\.date), [5, 6, 7, 8, 9, 10, 11])
+        XCTAssertEqual(upcoming.first?.weekday, "Thu")
+        XCTAssertEqual(upcoming.first?.label, "Today")
+    }
+
+    func testLocalDayDoesNotAdvanceAtUTCMidnight() {
+        let selection = SessionDaySelection(now: date("2026-11-06T02:00:00Z"), calendar: calendar)
+        XCTAssertEqual(selection.days(past: false).first?.date, 5)
+        XCTAssertEqual(selection.days(past: true).first?.date, 4)
+    }
+
+    func testRefreshAfterMidnightKeepsSelectedCivilDates() {
+        var selection = SessionDaySelection(now: date("2026-11-04T21:42:00Z"), calendar: calendar)
+        selection.pastDayIndex = 1 // Monday, November 2.
+        selection.selectedDays = [0, 2] // November 4 and 6.
+        XCTAssertTrue(selection.refresh(now: date("2026-11-05T21:42:00Z"), calendar: calendar))
+        XCTAssertEqual(selection.days(past: true).first?.date, 4)
+        XCTAssertEqual(selection.pastDayIndex, 2)
+        XCTAssertEqual(selection.days(past: true)[selection.pastDayIndex].date, 2)
+        XCTAssertEqual(selection.selectedDays, [1], "Expired dates leave the selection; November 6 stays selected")
+        XCTAssertEqual(selection.days(past: false)[1].date, 6)
+    }
+
+    func testRefreshAfterSeveralDaysDropsExpiredSelections() {
+        var selection = SessionDaySelection(now: date("2026-11-01T20:00:00Z"), calendar: calendar)
+        selection.pastDayIndex = 4
+        selection.selectedDays = [0, 1]
+        XCTAssertTrue(selection.refresh(now: date("2026-11-05T20:00:00Z"), calendar: calendar))
+        XCTAssertEqual(selection.pastDayIndex, 0)
+        XCTAssertTrue(selection.selectedDays.isEmpty)
+        XCTAssertEqual(selection.days(past: true).first?.date, 4)
+    }
+
+    func testRefreshInSameLocalDayKeepsSelections() {
+        var selection = SessionDaySelection(now: date("2026-11-05T09:00:00Z"), calendar: calendar)
+        selection.pastDayIndex = 2
+        selection.selectedDays = [1, 3]
+        XCTAssertFalse(selection.refresh(now: date("2026-11-06T02:00:00Z"), calendar: calendar))
+        XCTAssertEqual(selection.pastDayIndex, 2)
+        XCTAssertEqual(selection.selectedDays, [1, 3])
+    }
+
+    func testTimezoneRefreshKeepsSelectedCalendarDates() {
+        let now = date("2026-11-06T02:00:00Z")
+        var selection = SessionDaySelection(now: now, calendar: calendar)
+        selection.selectedDays = [1, 2] // November 6 and 7 in Los Angeles.
+        var destination = calendar
+        destination.timeZone = TimeZone(identifier: "Pacific/Kiritimati")!
+        XCTAssertTrue(selection.refresh(now: now, calendar: destination))
+        XCTAssertEqual(selection.days(past: false).first?.date, 6)
+        XCTAssertEqual(selection.selectedDays, [0, 1])
+        XCTAssertEqual(selection.calendar.timeZone, destination.timeZone)
+    }
+
+    func testCalendarDaysCrossFallBackAndYearBoundary() {
+        let fallBack = SessionDaySelection(now: date("2026-11-02T08:30:00Z"), calendar: calendar)
+        let yesterday = fallBack.days(past: true)[0]
+        XCTAssertEqual(yesterday.date, 1)
+        XCTAssertEqual(yesterday.weekday, "Sun")
+        XCTAssertEqual(fallBack.today.timeIntervalSince(yesterday.value), 25 * 60 * 60)
+        let newYear = SessionDaySelection(now: date("2027-01-01T20:00:00Z"), calendar: calendar)
+        XCTAssertEqual(newYear.days(past: true).first?.date, 31)
+        XCTAssertEqual(newYear.days(past: true).first?.month, "Dec")
+        XCTAssertEqual(newYear.days(past: false).first?.month, "Jan")
+    }
+}
+
 final class MultiDayScheduleTests: XCTestCase {
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)

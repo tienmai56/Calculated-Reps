@@ -6,6 +6,8 @@ Taking or uploading a post-training photo saves it to the training session immed
 
 Planning and logging a session start with **Jiu-Jitsu training** filled in as the title. The small X on the right clears it and focuses the field for a custom title. Keeping the default needs no typing; submitting a cleared title also uses **Jiu-Jitsu training**.
 
+The session date picker uses the device’s local calendar and refreshes when the screen reappears, the app becomes active, the day changes, or the time zone changes. Selected dates stay on the same calendar days while they remain in range. A partly saved batch keeps its original dates for retrying.
+
 Session links preserve existing participants' latest RSVPs when reopened. This backend fix was deployed on November 5, 2026 as `supabase/migrations/20261105053014_preserve_session_link_rsvp.sql`; see the [investigation](docs/session-link-rsvp-investigation.md).
 
 Scanning someone's code follows them immediately. Scanning and the Follow button both grant activity visibility and permission to invite that person to train. Following remains one-way; existing training connections are migrated to follows in both directions.
