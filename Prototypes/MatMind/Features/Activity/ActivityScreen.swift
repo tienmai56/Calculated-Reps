@@ -820,6 +820,10 @@ struct TrainingWeekCard: View {
                 Text("This week")
                     .mmFont(.display, 18)
                     .foregroundStyle(MMColor.paper)
+                Text("Tap a day to quickly log your training.")
+                    .mmFont(.body, 13)
+                    .foregroundStyle(MMColor.ink200)
+                    .fixedSize(horizontal: false, vertical: true)
                 if days.contains(where: { !mm.openPlans($0).isEmpty }) {
                     HStack(spacing: MMSpace.s2) {
                         MMIcon("calendar", size: 12, color: MMColor.ink300)
