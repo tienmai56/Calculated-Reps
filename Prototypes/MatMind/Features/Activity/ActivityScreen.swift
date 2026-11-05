@@ -779,7 +779,10 @@ struct TrainingWeekCard: View {
                 Text(isActivity ? "This week" : days[0].formatted(.dateTime.month(.abbreviated).day())).mmFont(.display, 16)
                 Spacer(minLength: 4)
                 Text("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") this week")
-                    .mmFont(.body, 12, .semibold).padding(6).background(MMColor.paper2, in: Capsule()).contentTransition(.numericText())
+                    .mmFont(.body, 12, .semibold)
+                    .padding(.horizontal, MMSpace.s5)
+                    .padding(.vertical, MMSpace.s3)
+                    .background(MMColor.paper2, in: Capsule()).contentTransition(.numericText())
                     .modifier(TrainingPop(trigger: mm.trainedDays(days)))
                 if isActivity { MMIconButton("chevron-right", label: "Open Training") { mm.tab = .training } }
             }
@@ -812,16 +815,22 @@ struct TrainingWeekCard: View {
         let today = TrainingCalendar.calendar.isDateInToday(date)
         let future = TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: Date())
         return Button { tap(date) } label: {
-            VStack(spacing: 5) {
-                Text(date.formatted(.dateTime.weekday(.narrow))).mmFont(.body, 12, .semibold)
-                Text(date.formatted(.dateTime.day())).mmFont(.display, 16)
+            VStack(spacing: MMSpace.s2) {
+                Text(date.formatted(.dateTime.weekday(.narrow)))
+                    .mmFont(.body, 11, .semibold)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(date.formatted(.dateTime.day()))
+                    .mmFont(.display, 16)
+                    .fixedSize(horizontal: false, vertical: true)
                 Group {
                     if count > 1 { Text("×\(count)").mmFont(.body, 10, .bold).padding(.horizontal, 4).background(.white, in: Capsule()).foregroundStyle(MMColor.accent) }
                     else if count == 1 { MMIcon("check", size: 12, color: .white) }
                     else if planned { MMIcon("calendar", size: 12, color: MMColor.textTertiary) }
                     else { Circle().fill(today ? MMColor.accent : .clear).frame(width: 4, height: 4) }
-                }.frame(height: 14)
-            }.frame(maxWidth: .infinity, minHeight: 56)
+                }.frame(minHeight: 14)
+            }
+                .padding(.vertical, MMSpace.s4)
+                .frame(maxWidth: .infinity, minHeight: MMSpace.s11 + MMSpace.s6)
                 .foregroundStyle(count > 0 ? .white : future ? MMColor.textDisabled : MMColor.textPrimary)
                 .background(count > 0 ? MMColor.accent : future ? .clear : MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.md))
                 .overlay {

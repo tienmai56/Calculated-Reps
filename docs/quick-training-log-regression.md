@@ -47,7 +47,7 @@ Use explicit UI preview mode for sample records; use two test accounts for live 
 7. **Merge:** guest logs within three hours; host completes the plan. On the guest’s next app open/refresh, the log has become the attended session and a matched-log toast offers Undo. Undo restores a separate log. Repeat beyond three hours: retain both. Repeat exactly at three hours and across local midnight/timezones.
 8. **Permissions and correction:** guest cannot publish even via a deep link/API call. Host removes a joined guest; that session stops counting for them. Guest removes their own attendance. Invited/declined participants never gain attendance. Host Undo restores only people changed by that action.
 9. **Persistence:** relaunch and refresh; private logs and attendance remain correct. Switch accounts and sign out; no other account’s logs, merge toast, undo or share card appears. Test a week across a daylight-saving change and Dec/Jan year boundary.
-10. **Accessibility:** with Reduce Motion, no tile/count pop. With VoiceOver, each tile announces full date, trained state and planned title; grid announces summary and week actions. Check large Dynamic Type, long session titles, multiple participant names, and a solo host.
+10. **Accessibility:** with Reduce Motion, no tile/count pop. With VoiceOver, each tile announces full date, trained state and planned title; grid announces summary and week actions. Check large Dynamic Type, long session titles, multiple participant names, and a solo host. In each strip, the weekday and status must have visible top/bottom insets; the date, check/calendar and ×2 pill must stay fully inside the tile at default and larger text sizes.
 
 ## Validation recorded during implementation
 
