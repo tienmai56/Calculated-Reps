@@ -1305,9 +1305,24 @@ final class MultiDayScheduleTests: XCTestCase {
         }
     }
 
-    func testSuggestedTitlesFollowEachSelectedDay() {
+    func testDefaultTitleIsTheSameForEverySelectedDay() {
         let scheduled = draft(time: "10:00 AM").scheduled(on: [date("2026-11-06T20:00:00Z"), date("2026-11-07T20:00:00Z"), date("2026-11-08T20:00:00Z")], calendar: calendar)
-        XCTAssertEqual(scheduled.map(\.title), ["Morning rolls", "Saturday open mat", "Sunday open mat"])
+        XCTAssertEqual(scheduled.map(\.title), Array(repeating: "Jiu-Jitsu training", count: 3))
+    }
+
+    func testPrefilledTitleSurvivesDateAndTimeChanges() {
+        let original = draft(title: SessionDraft.defaultTitle)
+        let scheduled = original.scheduled(at: [date("2026-11-06T17:00:00Z"), date("2026-11-08T02:00:00Z")], calendar: calendar)
+        XCTAssertEqual(scheduled.map(\.title), ["Jiu-Jitsu training", "Jiu-Jitsu training"])
+    }
+
+    func testClearedTitleCanStillLogAPastSession() throws {
+        var original = draft(title: " \n ")
+        original.past = true
+        let scheduled = original.scheduled(on: [date("2026-11-01T20:00:00Z")], calendar: calendar)
+        let session = try XCTUnwrap(scheduled.first)
+        XCTAssertEqual(session.title, "Jiu-Jitsu training")
+        XCTAssertTrue(session.past)
     }
 
     func testTimeStaysLocalAcrossDaylightSavingChange() throws {
