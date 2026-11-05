@@ -19,8 +19,12 @@ test('worker rejects unauthenticated requests before reading notifications', asy
   assert.equal((await handler(new Request('https://example.invalid/worker'))).status, 401);
 });
 
-for (const enabled of [true, false]) {
-  test(`mention push ${enabled ? 'delivers and opens the post' : 'respects disabled notifications'}`, async t => {
+for (const note of [
+  { kind: 'mention', entity_id: 'post-id', message: 'mentioned you in a comment' },
+  { kind: 'goal_update', entity_id: 'goal-id', message: 'updated Single leg finish' },
+]) {
+ for (const enabled of [true, false]) {
+  test(`${note.kind} push ${enabled ? 'delivers with the entity to open' : 'respects disabled notifications'}`, async t => {
     let pushes = 0;
     let deviceReads = 0;
     let delivered = false;
@@ -30,14 +34,15 @@ for (const enabled of [true, false]) {
         pushes++;
         assert.equal(options.headers['apns-collapse-id'], 'note-id');
         const payload = JSON.parse(options.body);
-        assert.equal(payload.kind, 'mention');
-        assert.equal(payload.entity_id, 'post-id');
-        assert.equal(payload.aps.alert.body, 'Sarah mentioned you in a comment');
+        assert.equal(payload.kind, note.kind);
+        assert.equal(payload.entity_id, note.entity_id);
+        assert.equal(payload.aps['thread-id'], note.kind);
+        assert.equal(payload.aps.alert.body, `Sarah ${note.message}`);
         return new Response(null, { status: 200 });
       }
       switch (pathname) {
         case '/rest/v1/rpc/claim_notifications': return Response.json([{ id: 'note-id', attempts: 1 }]);
-        case '/rest/v1/notifications': return Response.json([{ id: 'note-id', recipient: 'hippo', actor: 'sarah', kind: 'mention', entity_id: 'post-id', message: 'mentioned you in a comment' }]);
+        case '/rest/v1/notifications': return Response.json([{ id: 'note-id', recipient: 'hippo', actor: 'sarah', ...note }]);
         case '/rest/v1/account_settings': return Response.json([{ push_enabled: enabled }]);
         case '/rest/v1/device_tokens': deviceReads++; return Response.json([{ token: 'device-token', environment: 'sandbox' }]);
         case '/rest/v1/profiles': return Response.json([{ name: 'Sarah' }]);
@@ -54,4 +59,5 @@ for (const enabled of [true, false]) {
     assert.equal(deviceReads, enabled ? 1 : 0);
     assert.ok(delivered);
   });
+ }
 }

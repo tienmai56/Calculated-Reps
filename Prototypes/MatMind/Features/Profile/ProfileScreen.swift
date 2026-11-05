@@ -966,7 +966,7 @@ private struct NotificationRow: View {
         case .published: ("images", MMColor.plum500)
         case .like: ("heart", MMColor.coral500)
         case .friend: ("user-plus", MMColor.sun600)
-        case .goalShare: ("notebook-pen", MMColor.sky500)
+        case .goalShare, .goalUpdate: ("notebook-pen", MMColor.sky500)
         }
     }
 
@@ -1039,9 +1039,9 @@ private struct NotificationRow: View {
         .background(note.unread ? MMColor.coral500.opacity(0.06) : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture {
-            // Shared goals open in the preview too, so the invitation flow can be reviewed.
-            if note.kind == .goalShare, let entity = note.session {
-                if mm.sharedGoal(entity) != nil { mm.go(.sharedGoal(id: entity)) }
+            // Goal notifications open in previews too; removed goals show the unavailable state.
+            if note.kind == .goalShare || note.kind == .goalUpdate, let entity = note.session {
+                mm.go(.sharedGoal(id: entity))
                 return
             }
             guard mm.isLive else { return }
@@ -1049,7 +1049,7 @@ private struct NotificationRow: View {
             case .friend: mm.go(.friend(id: note.who))
             case .invite, .joined: if let entity = note.session { mm.go(.session(id: entity)) }
             case .comment, .published, .like, .mention: if let entity = note.session { mm.go(.post(id: entity)) }
-            case .goalShare: break
+            case .goalShare, .goalUpdate: break
             }
         }
     }
