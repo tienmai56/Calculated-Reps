@@ -56,6 +56,7 @@ extension MMScreen where Footer == EmptyView {
 struct MMHeader<Leading: View, Trailing: View>: View {
     var title: String
     var large = false
+    var showMark = true
     var sub: String?
     var titleColor: Color = MMColor.ink900
     @ViewBuilder var leading: Leading
@@ -67,9 +68,8 @@ struct MMHeader<Leading: View, Trailing: View>: View {
         let centered = !large && hasLeading
         HStack(spacing: 6) {
             leading
-            // Top-level (large) headers lead with the Silverback mark unless the
-            // screen supplies its own leading view (e.g. Activity's long-press mark).
-            if large && !hasLeading { MMHeaderMark() }
+            // Top-level headers can opt out of the default Silverback mark.
+            if large && showMark && !hasLeading { MMHeaderMark() }
             VStack(alignment: centered ? .center : .leading, spacing: 3) {
                 Text(title)
                     .mmFont(.display, large ? 32 : 18, tracking: large ? -0.035 : -0.015, lineHeight: 1)
@@ -93,7 +93,7 @@ struct MMHeader<Leading: View, Trailing: View>: View {
     }
 }
 
-/// The same navigation actions on every tab, backed by the shared unread count.
+/// Shared navigation actions for tab and Friends headers, backed by the unread count.
 struct MMHeaderActions: View {
     @Environment(AppModel.self) private var mm
 
@@ -107,8 +107,8 @@ struct MMHeaderActions: View {
 }
 
 extension MMHeader where Leading == EmptyView {
-    init(title: String, large: Bool = false, sub: String? = nil, @ViewBuilder trailing: () -> Trailing) {
-        self.init(title: title, large: large, sub: sub, leading: { EmptyView() }, trailing: trailing)
+    init(title: String, large: Bool = false, showMark: Bool = true, sub: String? = nil, @ViewBuilder trailing: () -> Trailing) {
+        self.init(title: title, large: large, showMark: showMark, sub: sub, leading: { EmptyView() }, trailing: trailing)
     }
 }
 
