@@ -1,6 +1,6 @@
 # Quick training log UI regression checks
 
-The database migration is excluded from this UI merge and preserved on [feat/activity-quick-log-db-deferred](https://github.com/tienmai56/Calculated-Reps/tree/feat/activity-quick-log-db-deferred/supabase/features/quick-training-log). Do not deploy it until explicitly requested.
+Database migration `20261105212524_quick_training_log.sql` is deployed to Mat Mind. The source and regression suite match the validated deployment.
 
 ## Automated checks
 
@@ -16,9 +16,9 @@ xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator
 ## Release boundary
 
 - The complete quick-log UI is available in **QuickTrainingLogMock** without sign-in or network writes.
-- Live quick logging stays disabled until all feature snapshot fields are present. The existing live Activity prompt and Profile heatmap remain active while the backend is deferred.
+- Live quick logging enables when all feature snapshot fields are present; the deployed snapshot provides them. Refresh or restart the regular app to fetch the new snapshot.
 - Training cards show the smaller right-aligned **Complete & Share** or **Completed**, with avatars and no going-count label. These styling changes use the current backend and existing composer.
-- This merge changes no SQL, migration harness or database CI steps. The deferred branch preserves backend installation and SQL regression instructions.
+- Run `sh scripts/test-database.sh` on the disposable local PostgreSQL container to validate the full chain, baseline authorization, quick logs, completion/Undo, photo saving after completion and username concurrency.
 
 ## Manual acceptance checks (boards A–E)
 
@@ -37,4 +37,4 @@ Use explicit UI preview mode for sample records; use two test accounts for live 
 
 ## Verification
 
-Changed Swift files are syntax-checked locally. Xcode build, archive and XCTest are checked by the PR's existing GitHub Actions workflow before merge. No hosted database writes or deployment are part of this task.
+Changed Swift files are syntax-checked locally. Xcode build, archive and XCTest are checked by the PR's existing GitHub Actions workflow before merge. The migration was deployed after local validation against both the repository chain and copies of the current production routines; production verification used schema inspection and read-only authenticated snapshot assertions, with no test training records created.
