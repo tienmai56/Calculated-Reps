@@ -3,6 +3,53 @@ import UIKit
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
+    func testNotificationDestinationsUseTheirOwnEntityIDs() {
+        let cases: [(AppNotification.Kind, Route)] = [
+            (.invite, .session(id: "target")), (.joined, .session(id: "target")),
+            (.comment, .post(id: "target")), (.published, .post(id: "target")),
+            (.like, .post(id: "target")), (.mention, .post(id: "target")),
+            (.friend, .friend(id: "actor")), (.goalShare, .sharedGoal(id: "target")),
+            (.goalUpdate, .sharedGoal(id: "target"))
+        ]
+        for (kind, expected) in cases {
+            let note = AppNotification(id: "notification", kind: kind, who: "actor", session: "target", time: "now")
+            XCTAssertEqual(note.destination, expected, "Incorrect destination for \(kind)")
+            XCTAssertEqual(AppNotification.destination(kind: kind, entityID: kind == .friend ? "actor" : "target"), expected,
+                           "Push and in-app destinations must agree")
+        }
+        let first = AppNotification(id: "first", kind: .like, who: "actor", session: "first-post", time: "now")
+        let second = AppNotification(id: "second", kind: .like, who: "actor", session: "second-post", time: "now")
+        XCTAssertEqual(first.destination, .post(id: "first-post"))
+        XCTAssertEqual(second.destination, .post(id: "second-post"))
+    }
+
+    func testNotificationsWithoutTargetsNeverFallBackToAnotherActivity() {
+        for kind: AppNotification.Kind in [.invite, .joined, .comment, .published, .like, .mention, .friend, .goalShare, .goalUpdate] {
+            for entityID: String? in [nil, "", "  "] {
+                XCTAssertNil(AppNotification.destination(kind: kind, entityID: entityID))
+            }
+        }
+        XCTAssertNil(AppNotification(id: "missing", kind: .like, who: "actor", time: "now").destination)
+        XCTAssertEqual(AppNotification(id: "friend", kind: .friend, who: "actor", time: "now").destination, .friend(id: "actor"))
+    }
+
+    @MainActor
+    func testPreviewNotificationsReferToTheActivityTheyDescribe() {
+        let ui = AppModel(live: false)
+        for note in ui.notifications {
+            XCTAssertNotNil(note.destination)
+            switch note.destination {
+            case .post(let id, _, _):
+                let post = ui.post(id)
+                XCTAssertNotNil(post)
+                if let photo = note.photo { XCTAssertEqual(photo, post?.photo) }
+            case .session(let id): XCTAssertNotNil(ui.findSession(id))
+            case .sharedGoal(let id): XCTAssertNotNil(ui.sharedGoal(id))
+            default: break
+            }
+        }
+    }
+
     @MainActor
     func testActivityPlansAreFutureLinkSessionsWithoutChangingMemories() {
         let ui = AppModel(live: true)
@@ -2563,3 +2610,4 @@ extension BackendSessionTests {
         XCTAssertEqual(offsets, ["0", "200"])
     }
 }
+

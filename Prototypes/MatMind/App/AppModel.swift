@@ -723,7 +723,7 @@ final class AppModel {
             later(2.2 + Double(i) * 2) { [weak self] in
                 guard let self else { return }
                 self.updateSession(id) { $0.set(pid, .going) }
-                self.notifications.insert(AppNotification(id: "j\(UUID().uuidString)", kind: .joined, who: pid,
+                self.notifications.insert(AppNotification(id: "j\(UUID().uuidString)", kind: .joined, who: pid, session: id,
                                                           text: "joined \(d.title)", time: "now", unread: true), at: 0)
                 self.fresh = id + pid
                 self.showToast("\(self.person(pid).firstName) joined \(d.title)", .friend)
@@ -1348,3 +1348,4 @@ extension AppModel {
         return ProfileRhythmHistory(dates: dates + previewDates, now: now, calendar: calendar)
     }
 }
+
