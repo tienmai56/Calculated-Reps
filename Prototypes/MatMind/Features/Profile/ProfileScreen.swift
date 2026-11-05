@@ -538,7 +538,10 @@ private struct ProfileProgressSection: View {
         let weekly = range == "week"
         let period = history.sessions(in: weekly ? history.thisWeek : history.thisMonth)
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: MMSpace.s6) {
+                ProfileTrainingHeatmap()
+                Rectangle().fill(MMColor.borderDefault).frame(height: 1)
+                    .padding(.vertical, MMSpace.s2)
                 MMTabs(items: [MMTabItem("week", "Weekly"), MMTabItem("month", "Monthly")], selection: $range)
                 Text(weekly ? "This week" : "This month")
                     .mmFont(.display, 22, tracking: -0.015, lineHeight: 1.15)
@@ -553,7 +556,7 @@ private struct ProfileProgressSection: View {
                     caption: weekly ? "Past 12 weeks" : "Past 6 months"
                 )
             }
-            .padding(18)
+            .padding(MMSpace.s6)
             .mmCardSurface(radius: MMRadius.lg)
             .padding(.horizontal, 16)
             .padding(.top, 16)
@@ -1196,6 +1199,71 @@ struct PersonProfileScreen: View {
                 .accessibilityHint("Opens unfollow options")
         } else {
             MMButton("Follow \(p.firstName)", iconLeft: "user-plus", fullWidth: true) { mm.setFollowing(id, true) }
+        }
+    }
+}
+
+
+/// A static picture of trained days. Weekly/Monthly below controls only the existing chart.
+private struct ProfileTrainingHeatmap: View {
+    @Environment(AppModel.self) private var mm
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            let history = mm.trainingRhythm(now: context.date)
+            VStack(alignment: .leading, spacing: MMSpace.s6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Your rhythm").mmFont(.display, 22)
+                    Spacer(minLength: MMSpace.s4)
+                    Text("Since \(history.weeks[0][0].formatted(.dateTime.month(.abbreviated).day()))")
+                        .mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
+                }
+                HStack(alignment: .top, spacing: MMSpace.s4) {
+                    VStack(spacing: MMSpace.s2) {
+                        Color.clear.frame(width: 14, height: 16)
+                        ForEach(0..<7) { row in
+                            Text(["M", "", "W", "", "F", "", "S"][row])
+                                .mmFont(.body, 10).foregroundStyle(MMColor.textTertiary)
+                                .frame(width: 14, height: 14)
+                        }
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: MMSpace.s2) {
+                            ForEach(0..<17) { index in weekColumn(index, history: history) }
+                        }
+                    }
+                }
+                HStack(spacing: MMSpace.s6) {
+                    legend("Trained", color: MMColor.accent)
+                    legend("No entry", color: MMColor.paper3)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isImage)
+            .accessibilityLabel("Your rhythm, \(history.visibleCount) trained days over the last 17 weeks. Monday to Sunday, oldest week first. Coral means trained; paper means no entry; outlines are future days.")
+        }
+    }
+    private func weekColumn(_ index: Int, history: ProfileRhythmHistory) -> some View {
+        let days = history.weeks[index]
+        let monthStarts = index == 0 || history.calendar.component(.month, from: days[0]) != history.calendar.component(.month, from: history.weeks[index - 1][0])
+        return VStack(alignment: .leading, spacing: MMSpace.s2) {
+            Text(monthStarts ? days[0].formatted(.dateTime.month(.abbreviated)) : "")
+                .mmFont(.body, 10).foregroundStyle(MMColor.textTertiary)
+                .fixedSize().frame(width: 14, height: 16, alignment: .leading)
+            ForEach(days, id: \.self) { date in
+                let future = history.isFuture(date)
+                RoundedRectangle(cornerRadius: MMSpace.s2)
+                    .fill(future ? .clear : history.isTrained(date) ? MMColor.accent : MMColor.paper3)
+                    .frame(width: 14, height: 14)
+                    .overlay {
+                        if future { RoundedRectangle(cornerRadius: MMSpace.s2).stroke(MMColor.borderDefault, lineWidth: 1) }
+                    }
+            }
+        }
+    }
+    private func legend(_ title: String, color: Color) -> some View {
+        HStack(spacing: MMSpace.s3) {
+            RoundedRectangle(cornerRadius: MMSpace.s2).fill(color).frame(width: 12, height: 12)
+            Text(title).mmFont(.body, 12).foregroundStyle(MMColor.textSecondary)
         }
     }
 }
