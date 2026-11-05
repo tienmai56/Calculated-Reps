@@ -62,12 +62,13 @@ struct TrainingScreen: View {
             })
 
         } content: {
-            if let session = mm.trainingPrompt {
-                TrainingCatchUp(session: session).padding(MMSpace.s6)
-            }
             MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
-                .padding(.horizontal, MMSpace.s6)
-                .padding(.bottom, MMSpace.s4)
+                .padding(MMSpace.s6)
+            if let session = mm.trainingPrompt {
+                TrainingCatchUp(session: session)
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.bottom, MMSpace.s6)
+            }
             if !past && !mm.pendingTrainingInvitations.isEmpty {
                 MMEyebrow("Invites", topPadding: 8)
                 VStack(spacing: 16) {
@@ -89,11 +90,14 @@ struct TrainingScreen: View {
                 }
             }
             if !rest.isEmpty {
-                MMEyebrow(past ? "Past training" : "Coming up", topPadding: invites.isEmpty ? 8 : MMLayout.sectionGap)
+                if past {
+                    MMEyebrow("Past training", topPadding: MMSpace.s4)
+                }
                 VStack(spacing: 16) {
                     ForEach(rest) { s in sessionCard(s) }
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, !past && !invites.isEmpty ? MMLayout.sectionGap : MMSpace.s0)
             }
         }
         .animation(MMMotion.easeOut(), value: list.map(\.id))
