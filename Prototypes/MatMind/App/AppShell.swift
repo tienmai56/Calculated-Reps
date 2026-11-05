@@ -112,8 +112,8 @@ struct TabRoot: View {
                     MMTabBarItem(id: AppTab.activity.rawValue, label: "Activity", icon: "house"),
                     MMTabBarItem(id: AppTab.training.rawValue, label: "Training", icon: "calendar"),
                     MMTabBarItem(id: AppTab.goals.rawValue, label: "Goals", icon: "notebook-pen"),
-                    // Friends live in Profile, so the streak reminder dot does too.
-                    MMTabBarItem(id: AppTab.profile.rawValue, label: "Profile", icon: "user", badge: mm.friendsNeedAttention),
+                    // Stats still contains your profile and friends.
+                    MMTabBarItem(id: AppTab.profile.rawValue, label: "Stats", icon: "user", badge: mm.friendsNeedAttention),
                 ],
                 selection: Binding(
                     get: { mm.tab.rawValue },

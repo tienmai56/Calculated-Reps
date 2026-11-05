@@ -71,6 +71,11 @@ final class AppModel {
         quickLogMockScenario = scenario
         upcoming = SeedData.quickLogMockPlans(scenario, now: now)
         quickLogs = SeedData.quickLogMockLogs(scenario, now: now)
+        if scenario == .techniqueStats {
+            let samples = SeedData.quickLogMockTechniques(now: now)
+            quickLogs += samples.logs
+            quickLogHitsByID.merge(samples.hits) { _, sample in sample }
+        }
         let shared = SeedData.quickLogMockShared(now: now)
         completedSessions = [shared.session] + SeedData.quickLogMockCompleted(now: now)
         sharedSessionIDs = [shared.session.id]
@@ -86,7 +91,7 @@ final class AppModel {
         }
         monkeyPromptAnswered = true
         isSignedIn = true
-        setTab(.activity)
+        setTab(scenario == .techniqueStats ? .profile : .activity)
     }
 
     /// Simulator-only time shortcut; no runtime or backend operation is used.

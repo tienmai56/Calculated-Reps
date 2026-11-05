@@ -8,7 +8,7 @@ A native port of the interactive prototype in `ui_kits/app/`, built on the Mat M
 2. Pick the **MatMindPrototype** scheme and an iPhone simulator.
 3. Run. It installs as "Mat Monkey Proto" (`com.tienmai.intentionaltrainingnotes.matmind`, iOS 17+), next to the production app.
 
-The app now starts on the Mat Monkey welcome screen. **Continue with Google** shows a short loading state and opens the demo Activity feed. This is a simulated sign-up/login interaction: it does not connect a Google account or request credentials. Profile → Settings → Sign out returns to Welcome and resets sample data. A fresh launch also starts signed out.
+The app now starts on the Mat Monkey welcome screen. **Continue with Google** shows a short loading state and opens the demo Activity feed. This is a simulated sign-up/login interaction: it does not connect a Google account or request credentials. Stats → Settings → Sign out returns to Welcome and resets sample data. A fresh launch also starts signed out.
 
 The welcome photo stack fans into place and gently floats while the app is active. Both effects stop with Reduce Motion enabled. The lowercase Mat Monkey wordmark and existing design-system photos, type, surfaces, and buttons are reused. The Google icon is bundled unchanged from [FirebaseUI's official asset](https://github.com/firebase/firebaseui-web/blob/master/image/google.svg).
 
@@ -25,7 +25,7 @@ It builds the separate MatMindPrototype app and opens Activity directly; sign-in
 Supabase setup and the opt-in database bundle are unnecessary. Nothing is sent to
 or read from a backend.
 
-The sample-data bar has five states and **Reset**:
+The sample-data bar has six states and **Reset**:
 
 - **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
   upcoming session appears below on warm paper-2, with ink text, a white calendar
@@ -35,6 +35,7 @@ The sample-data bar has five states and **Reset**:
   Activity shows the next open session in the prompter. It stays on the selected
   session after its start time and across tab switches until completion. Reset
   restores the original upcoming session.
+- **Technique stats:** opens Stats with Heel hook, Armbar and Back take daily reps for this week and last week. Explicit sample data only; it never writes to an account or backend.
 - **Host plan:** tap anywhere on today’s planned day to open the chooser, even
   after adding quick logs; completion opens session details with Complete & share.
 - **Guest plan:** confirm only your own attendance; the host keeps sharing control.
