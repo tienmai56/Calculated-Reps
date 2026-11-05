@@ -420,7 +420,7 @@ Use the paper canvas with a small photo-memory frame for Activity and an undated
 - No personal past sessions: offer Log a past session.
 - No goals: three athletic-tape strips with example goals ("Single leg", "RNC finish", "Knee cut") drop in one after another with `--ease-bounce`, then sway gently; Reduce Motion shows them still. "What are you chasing?" · "Name it. Bring it to the mat." · **Add a goal**, with a ghost **Import from old notebook** when available. The export steps live in a dialog shown before the file picker, not on the screen.
 - An empty schedule never removes completed posts from Activity. Declined invitations do not count as upcoming plans.
-- Training’s ink “How was {session title}?” prompt shows the most recent completed, unshared planned session you host. Complete & share opens that session’s composer. It never appears for guests or quick logs.
+- Training’s ink “How was {session title}?” prompt shows the most recent completed, unshared planned session you host. Match main’s ReadyToShare prompt: 24pt card corners, 16pt padding, a 64pt paper-2 camera tile with a 3pt white rim rotated −4° on the left, and a text/action stack 14pt away. Use a 17pt Bricolage title, inline 13pt ink-200 audience copy 4pt below, and the small coral Complete & share button 10pt below that. The audience explanation sits directly on ink. Full titles and copy wrap. Complete & share opens that session’s composer. It never appears for guests or quick logs.
 
 Native pattern: `Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift`. Browser companion: `Prototypes/EmptyPreview/`.
 

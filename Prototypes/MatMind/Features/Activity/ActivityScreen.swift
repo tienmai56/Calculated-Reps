@@ -1181,26 +1181,43 @@ struct TrainingWeekCard: View {
     }
 
 }
-struct TrainingAudience: View {
-    @Environment(AppModel.self) private var mm
-    let session: Session
-    var body: some View {
-        let names = session.going.filter { $0 != "me" }.map { mm.person($0).firstName }.joined(separator: " and ")
-        HStack(alignment: .top, spacing: 8) {
-            MMIcon("users", size: 18)
-            Text(names.isEmpty ? "Your photo gets posted to Activity for your training partners." : "Your photo gets posted to Activity for \(names) and your training partners.").mmFont(.body, 15, .medium)
-        }.padding(12).background(.white, in: RoundedRectangle(cornerRadius: MMRadius.sm)).foregroundStyle(MMColor.textPrimary)
-    }
-}
+/// Training's completed-session prompt uses main's ReadyToShare card layout.
 struct TrainingCatchUp: View {
     @Environment(AppModel.self) private var mm
     let session: Session
+
+    private var shareLine: String {
+        let names = session.going.filter { $0 != "me" }.map { mm.person($0).firstName }.joined(separator: " and ")
+        return names.isEmpty
+            ? "Your photo gets posted to Activity for your training partners."
+            : "Your photo gets posted to Activity for \(names) and your training partners."
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("How was \(session.title)?").mmFont(.display, 22).foregroundStyle(MMColor.paper)
-            TrainingAudience(session: session)
-            MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
-        }.padding(16).background(MMColor.ink900, in: RoundedRectangle(cornerRadius: MMRadius.lg))
+        HStack(spacing: 14) {
+            MMIcon("camera", size: 28, color: MMColor.ink500)
+                .frame(width: 64, height: 64)
+                .background(MMColor.paper2)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(MMColor.white).padding(-3))
+                .rotationEffect(.degrees(-4))
+            VStack(alignment: .leading, spacing: 0) {
+                Text("How was \(session.title)?")
+                    .mmFont(.display, 17, lineHeight: 1.2)
+                    .foregroundStyle(MMColor.paper)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(shareLine)
+                    .mmFont(.body, 13, .medium, lineHeight: 1.35)
+                    .foregroundStyle(MMColor.ink200)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+                MMButton("Complete & share", size: .sm, iconLeft: "camera") { mm.go(.complete(id: session.id)) }
+                    .padding(.top, 10)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(MMColor.ink900))
     }
 }
 struct TrainingRhythm: View {
