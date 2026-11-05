@@ -121,6 +121,7 @@ enum SeedData {
 
     static let notifications: [AppNotification] = [
         AppNotification(id: "n0", kind: .goalShare, who: "kenji", session: "sg-berimbolo", text: "shared Berimbolo entries with you", time: "20m", unread: true),
+        AppNotification(id: "n-goal-update", kind: .goalUpdate, who: "sarah", session: "sg-single-leg", text: "updated Single leg finish", time: "35m", unread: true),
         AppNotification(id: "n1", kind: .invite, who: "jamie", session: "s2", time: "20m", unread: true),
         AppNotification(id: "n2", kind: .joined, who: "alex", text: "joined Saturday open mat", time: "2h", unread: true),
         AppNotification(id: "n3", kind: .comment, who: "kenji", text: "commented on Sunday No-Gi open mat", quote: "Rematch Thursday?",

@@ -124,7 +124,7 @@ struct MatMindRoot: View {
         switch kind {
         case "invite", "joined": ui.go(.session(id: id))
         case "friend": ui.go(.friend(id: id))
-        case "goal_share": ui.go(.sharedGoal(id: id))
+        case "goal_share", "goal_update": ui.go(.sharedGoal(id: id))
         default: ui.go(.post(id: id))
         }
         SocialPushCoordinator.pending = nil

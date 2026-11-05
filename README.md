@@ -20,6 +20,8 @@ Google sign-in setup is described in [Google sign-in setup](docs/google-sign-in-
 
 Previous local training data is available only through **Settings → Export → Export local sessions**, from Welcome or Profile. Legacy records are not imported into social sessions, photos or streaks. Goals are the one exception: **Goals → Import** reads that export file and brings over active goals with their task names, notes, links and photos (on the device only; sessions and reflections stay in the export).
 
+After accepting a shared goal, you receive an in-app notification and a push when its owner changes the title, notes, links, photos or parts. Tapping either opens that shared goal. Unchanged saves stay quiet; pending, declined and blocked recipients receive no update alerts. Push follows your notification settings. The `goal_update_notifications` backend migration is deployed; the updated iOS client still needs to ship for goal notification display and navigation.
+
 The Silverback app icon and logo come from `assets/brand/`. The production bundle identifier, existing sign-in callbacks, and stored-data identifiers retain their original values for compatibility. The `MatMindPrototype` scheme installs a separate **Mat Monkey Proto** app for reviewing the shared design.
 
 The next production build is **1.1 (4)**. The Xcode project, schemes and source module identifiers keep their existing names; both installed app labels and wordmarks use **Mat Monkey**. Store/TestFlight listing names and Google's OAuth consent name are managed separately in App Store Connect and Google Auth Platform; set those display names to **Mat Monkey** while retaining the existing app and OAuth client IDs.

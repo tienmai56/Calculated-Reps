@@ -2100,7 +2100,8 @@ final class GoalSharingTests: XCTestCase {
         let json = #"""
         {"profiles":[{"id":"me-id","name":"Dani","belt":"purple","stripes":2,"gym":"Tidewater","username":"dani"},
                      {"id":"sarah-id","name":"Sarah Lee","belt":"blue","stripes":3,"gym":"Tidewater","username":"sarah"}],
-         "friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],
+         "notifications":[{"id":"goal-note","recipient":"me-id","actor":"sarah-id","kind":"goal_update","entity_id":"cloud-1","message":"updated Single leg finish","created_at":"2026-11-04T10:00:00Z"}],
          "shared_goals":[
            {"id":"cloud-1","owner":"sarah-id","client_id":"g9","title":"Single leg finish","notes":"Head on the hip",
             "links":["https://example.com/a"],"photos":[],"media":["sarah-id/aa.jpg"],
@@ -2127,6 +2128,12 @@ final class GoalSharingTests: XCTestCase {
         XCTAssertEqual(ui.person("sarah-id").name, "Sarah Lee", "The sender is known even when not a friend")
         XCTAssertEqual(ui.sharedGoalIDs, ["g1": "cloud-2"])
         XCTAssertEqual(ui.recipients(ofGoal: "g1"), ["sarah-id": "accepted"])
+        let notification = try XCTUnwrap(ui.notifications.first)
+        XCTAssertEqual(notification.kind, .goalUpdate)
+        XCTAssertEqual(notification.session, shared.id)
+        XCTAssertEqual(notification.who, shared.owner)
+        XCTAssertEqual(notification.text, "updated Single leg finish")
+        XCTAssertTrue(notification.unread)
     }
 
     @MainActor

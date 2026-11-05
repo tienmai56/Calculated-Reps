@@ -145,6 +145,8 @@ struct AppNotification: Identifiable, Hashable {
         case invite, joined, comment, published, like, friend, mention
         /// Someone shared a goal with you; `session` holds the shared goal's id.
         case goalShare = "goal_share"
+        /// The owner updated a goal you've accepted; `session` holds its shared id.
+        case goalUpdate = "goal_update"
     }
 
     let id: String
