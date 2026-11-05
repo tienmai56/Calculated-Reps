@@ -34,7 +34,8 @@ The sample-data bar has four states and **Reset**:
 - **Quick logs:** today starts with ×2; tap the date to add and its count to remove.
 
 Dates follow the device’s current day. A future open mat, completed unshared
-training, sample posts and 17 weeks of rhythm history are also seeded. Sharing
+training, a completed-and-shared session with its sample post, and 17 weeks of
+rhythm history are also seeded. Sharing
 creates only a local post; Undo and attendance correction are simulated in memory.
 Reset restores the selected state. The normal **MatMindPrototype** scheme retains
 its welcome flow, and the production app’s scheme/backend settings are unchanged.
@@ -42,7 +43,9 @@ its welcome flow, and the production app’s scheme/backend settings are unchang
 In **Training → Past**, unlogged sessions you host have a **Complete & share**
 button in place of **You host**, opening that session’s composer. Sessions already
 marked done or published with a photo or note have no completion button in the
-list. The compact button is right-aligned beside the avatars when it fits; ticket
+list: they show **Completed** or **Completed & shared** in place of **You host**.
+The Host plan mock includes all three states. The compact button is right-aligned
+beside the avatars when it fits; ticket
 cards show avatars without a going-count label. Training has no standalone share
 prompter.
 

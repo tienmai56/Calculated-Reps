@@ -64,10 +64,12 @@ final class AppModel {
         quickLogMockScenario = scenario
         upcoming = SeedData.quickLogMockPlans(scenario, now: now)
         quickLogs = SeedData.quickLogMockLogs(scenario, now: now)
-        completedSessions = SeedData.quickLogMockCompleted(now: now)
+        let shared = SeedData.quickLogMockShared(now: now)
+        completedSessions = [shared.session] + SeedData.quickLogMockCompleted(now: now)
+        sharedSessionIDs = [shared.session.id]
         toComplete = nil
         notifications = []
-        posts = SeedData.posts.enumerated().map { index, source in
+        posts = [shared.post] + SeedData.posts.enumerated().map { index, source in
             var post = source
             let date = TrainingCalendar.calendar.date(byAdding: .day, value: -(index + 1), to: now)!
             post.date = date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
@@ -332,12 +334,17 @@ final class AppModel {
 
     func isCompleted(_ session: Session) -> Bool { completedSessions.contains { $0.id == session.id } }
 
+    func trainingCompletionStatus(_ session: Session) -> TrainingCompletionStatus? {
+        if sharedSessionIDs.contains(session.id) { return .shared }
+        let current = findSession(session.id) ?? session
+        if isCompleted(current) || current.people.contains(where: { $0.id == "me" && $0.attended }) { return .completed }
+        return nil
+    }
+
     /// The Training card action applies only to hosted past sessions with no attendance log or post.
     func canCompleteTraining(_ session: Session, now: Date = Date()) -> Bool {
         guard let current = findSession(session.id), current.organizer == "me",
-              current.status(of: "me") == .going, !isCompleted(current),
-              !sharedSessionIDs.contains(current.id),
-              !current.people.contains(where: { $0.id == "me" && $0.attended }) else { return false }
+              current.status(of: "me") == .going, trainingCompletionStatus(current) == nil else { return false }
         return trainingSessions(past: true, relativeTo: now).contains { $0.id == current.id }
     }
 

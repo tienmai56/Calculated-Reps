@@ -106,6 +106,11 @@ struct Attendee: Hashable {
     var attended: Bool = false
 }
 
+enum TrainingCompletionStatus: String {
+    case completed = "Completed"
+    case shared = "Completed & shared"
+}
+
 struct Session: Identifiable, Hashable {
     let id: String
     var title: String

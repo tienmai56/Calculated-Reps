@@ -234,6 +234,20 @@ extension SeedData {
         return [session]
     }
 
+    static func quickLogMockShared(now: Date) -> (session: Session, post: Post) {
+        let c = TrainingCalendar.calendar
+        let day = c.date(byAdding: .day, value: -1, to: now)!
+        let start = c.date(bySettingHour: 19, minute: 0, second: 0, of: day)!
+        var session = mockSession("mock-shared", title: "Evening rolls", start: start, host: "me")
+        for i in session.people.indices { session.people[i].attended = true }
+        let post = Post(id: "mock-shared-post", organizer: "me", title: session.title, gym: session.gym,
+                        date: start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()),
+                        ago: "Yesterday", photo: "group-class", participants: session.going,
+                        caption: "Good rounds with Kenji.", likes: [], extraLikes: 0, comments: [],
+                        occurredAt: start, time: session.time)
+        return (session, post)
+    }
+
     private static func mockSession(_ id: String, title: String, start: Date, host: String) -> Session {
         let c = TrainingCalendar.calendar
         return Session(id: id, title: title, day: start.formatted(.dateTime.weekday(.abbreviated)),

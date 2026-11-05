@@ -19,6 +19,8 @@ struct SessionTicket: View {
     var notchColor: Color = MMColor.bgApp
     /// Leaves room at the top right for an overlaid options ("…") button.
     var reservesMenuSpace = false
+    /// Past Training cards show the recorded attendance/publication state.
+    var completionStatus: TrainingCompletionStatus? = nil
     /// Training can replace the host label with a session-specific completion action.
     var onComplete: (() -> Void)? = nil
     var onTap: (() -> Void)?
@@ -78,18 +80,18 @@ struct SessionTicket: View {
                         .truncationMode(.tail)
                 }
                 Group {
-                    if let onComplete {
+                    if onComplete != nil || completionStatus != nil {
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: MMSpace.s4) {
                                 MMAvatarStack(people: going, size: 28, ring: .white)
                                     .fixedSize()
                                 Spacer(minLength: MMSpace.s2)
-                                completionButton(onComplete)
+                                completionAccessory
                             }
                             VStack(alignment: .trailing, spacing: MMSpace.s4) {
                                 MMAvatarStack(people: going, size: 28, ring: .white)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                completionButton(onComplete)
+                                completionAccessory
                             }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                         }
@@ -122,14 +124,20 @@ struct SessionTicket: View {
         .accessibilityElement(children: .contain)
     }
 
-    private func completionButton(_ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text("Complete & share")
-                .mmFont(.display, 12, .bold, tracking: -0.01, lineHeight: 1)
+    @ViewBuilder
+    private var completionAccessory: some View {
+        if let completionStatus {
+            MMBadge(completionStatus.rawValue, variant: completionStatus == .shared ? .success : .neutral)
+                .fixedSize()
+        } else if let onComplete {
+            Button(action: onComplete) {
+                Text("Complete & share")
+                    .mmFont(.display, 12, .bold, tracking: -0.01, lineHeight: 1)
+            }
+            .buttonStyle(MMButtonStyle(variant: .primary, size: .sm, fullWidth: false))
+            .fixedSize(horizontal: true, vertical: false)
+            .disabled(mm.busy)
+            .accessibilityLabel("Complete and share \(session.title)")
         }
-        .buttonStyle(MMButtonStyle(variant: .primary, size: .sm, fullWidth: false))
-        .fixedSize(horizontal: true, vertical: false)
-        .disabled(mm.busy)
-        .accessibilityLabel("Complete and share \(session.title)")
     }
 }

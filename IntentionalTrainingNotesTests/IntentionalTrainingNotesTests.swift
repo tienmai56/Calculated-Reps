@@ -2189,6 +2189,7 @@ final class TrainingCalendarTests: XCTestCase {
         ui.upcoming = [session]; ui.completedSessions = []; ui.drafts = []; ui.toComplete = nil
         ui.quickLogs = []; ui.sharedSessionIDs = []; ui.posts = []
         XCTAssertTrue(ui.canCompleteTraining(session, now: now))
+        XCTAssertNil(ui.trainingCompletionStatus(session))
 
         await ui.addQuickLog(now)
         XCTAssertTrue(ui.canCompleteTraining(session, now: now), "A separate date-only quick log does not complete the plan")
@@ -2196,8 +2197,10 @@ final class TrainingCalendarTests: XCTestCase {
         XCTAssertTrue(marked)
         XCTAssertTrue(ui.posts.isEmpty)
         XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Attendance logged without a photo removes the card CTA")
+        XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Private attendance must not claim the session was shared")
         await ui.undoTrainingToast(try XCTUnwrap(ui.toast?.id))
         XCTAssertTrue(ui.canCompleteTraining(session, now: now), "Undo makes the unlogged session actionable again")
+        XCTAssertNil(ui.trainingCompletionStatus(session))
 
         ui.upcoming[0].startsAt = now.addingTimeInterval(60)
         XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Use the current schedule after an edit, even with a stale card")
@@ -2207,6 +2210,7 @@ final class TrainingCalendarTests: XCTestCase {
         ui.upcoming = [session]
         ui.upcoming[0].people[0].attended = true
         XCTAssertFalse(ui.canCompleteTraining(session, now: now), "A logged participant does not need another completion")
+        XCTAssertEqual(ui.trainingCompletionStatus(session), .completed, "Use current attendance even with a stale card")
 
         let photos: [String?] = [nil, "sample-photo"]
         for photo in photos {
@@ -2214,8 +2218,11 @@ final class TrainingCalendarTests: XCTestCase {
             XCTAssertTrue(ui.canCompleteTraining(session, now: now))
             XCTAssertNotNil(ui.publish(session.id, photo: photo, caption: photo == nil ? "Good rounds" : "", people: session.going))
             XCTAssertFalse(ui.canCompleteTraining(session, now: now), "Photo and note-only posts both remove the CTA")
+            XCTAssertEqual(ui.trainingCompletionStatus(session), .shared, "Photo and note-only posts both show Completed & shared")
             ui.completedSessions = []; ui.upcoming = [session]
             XCTAssertFalse(ui.canCompleteTraining(session, now: now), "A published session stays logged even when completion history is not loaded")
+            ui.posts = []
+            XCTAssertEqual(ui.trainingCompletionStatus(session), .shared, "Shared status survives feed pagination or post removal")
         }
     }
 
@@ -2542,6 +2549,27 @@ extension TrainingCalendarTests {
 
 #if DEBUG
 extension TrainingCalendarTests {
+    @MainActor func testQuickLogMockSeedsCompletedAndSharedStates() throws {
+        let mock = AppModel.quickTrainingLogMock(.hostPlan)
+        let open = try XCTUnwrap(mock.findSession("mock-today"))
+        let completed = try XCTUnwrap(mock.findSession("mock-completed"))
+        let shared = try XCTUnwrap(mock.findSession("mock-shared"))
+        let post = try XCTUnwrap(mock.posts.first { $0.id == "mock-shared-post" })
+        XCTAssertTrue(mock.canCompleteTraining(open))
+        XCTAssertNil(mock.trainingCompletionStatus(open))
+        XCTAssertFalse(mock.canCompleteTraining(completed))
+        XCTAssertEqual(mock.trainingCompletionStatus(completed), .completed)
+        XCTAssertFalse(mock.canCompleteTraining(shared))
+        XCTAssertEqual(mock.trainingCompletionStatus(shared), .shared)
+        XCTAssertEqual(post.title, shared.title)
+        XCTAssertEqual(post.occurredAt, shared.startsAt)
+        XCTAssertEqual(post.participants, shared.going)
+        mock.sharedSessionIDs = []
+        mock.loadQuickLogMock(.hostPlan)
+        XCTAssertEqual(mock.trainingCompletionStatus(shared), .shared, "Reset restores the seeded shared session and its post")
+        XCTAssertEqual(mock.posts.filter { $0.id == "mock-shared-post" }.count, 1)
+    }
+
     @MainActor func testQuickLogMockRunsLocallyAndResetRestoresFixtures() async {
         let mock = AppModel.quickTrainingLogMock(.quickLogs)
         let day = Date(), posts = mock.posts

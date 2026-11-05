@@ -31,6 +31,7 @@ Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular str
 5. Completion Undo restores only that action's changes and merged logs. Hide it once a post exists; the server also rejects Undo after publication or an intervening session edit/removal.
 6. A failed completion keeps the chooser open, with unchanged attendance and no navigation or success toast. Repeat actions are blocked while saving.
 7. Training has no standalone share prompter. In Past, an unlogged session you host replaces **You host** with **Complete & share**, opening the existing composer for that session. Hide this card action for guests, future sessions, confirmed attendance without a post, and published sessions with or without a photo. A separate date-only quick log leaves the plan open and does not suppress its completion action.
+8. Past tickets replace the host label with **Completed** for recorded attendance without publication, or **Completed & shared** once the session is published with a photo or note. Publication status takes precedence and comes from known shared session IDs, independently of feed pagination. The mock seeds an unlogged host plan, private completed training, and a shared completed session with its local post.
 
 ## Existing backend implementation
 

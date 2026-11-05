@@ -103,6 +103,7 @@ struct TrainingScreen: View {
         let canComplete = section == "past" && mm.canCompleteTraining(s, now: now)
         return VStack(alignment: .leading, spacing: 8) {
             SessionTicket(session: s, reservesMenuSpace: showsMenu,
+                          completionStatus: section == "past" ? mm.trainingCompletionStatus(s) : nil,
                           onComplete: canComplete ? { mm.go(.complete(id: s.id)) } : nil,
                           onTap: { mm.go(.session(id: s.id)) })
                 .overlay(alignment: .topTrailing) {
