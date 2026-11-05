@@ -775,18 +775,7 @@ struct TrainingWeekCard: View {
     private var days: [Date] { TrainingCalendar.week(anchor) }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(isActivity ? "This week" : days[0].formatted(.dateTime.month(.abbreviated).day())).mmFont(.display, 16)
-                Spacer(minLength: 4)
-                Text("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") this week")
-                    .mmFont(.body, 12, .semibold)
-                    .padding(.horizontal, MMSpace.s5)
-                    .padding(.vertical, MMSpace.s3)
-                    .background(MMColor.paper2, in: Capsule()).contentTransition(.numericText())
-                    .modifier(TrainingPop(trigger: mm.trainedDays(days)))
-                if isActivity { MMIconButton("chevron-right", label: "Open your rhythm in Profile") { mm.tab = .profile } }
-            }
-            Text("Tap a day to quickly log your training.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+            header
             HStack(spacing: 4) { ForEach(days, id: \.self) { day in tile(day) } }
             HStack(spacing: 4) {
                 MMIcon("calendar", size: 12, color: MMColor.textTertiary)
@@ -810,6 +799,51 @@ struct TrainingWeekCard: View {
         }
         .onDisappear { shareSessionID = nil; mm.trainingShareID = nil }
     }
+
+    @ViewBuilder
+    private var header: some View {
+        if isActivity {
+            // The full heading is the tap target, so the chevron doesn't stretch
+            // the title row and push the helper text away from it.
+            Button { mm.tab = .profile } label: {
+                headerContent
+                    .frame(minHeight: MMLayout.tapTarget, alignment: .topLeading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("This week, \(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") trained")
+            .accessibilityHint("Open your rhythm in Profile")
+        } else {
+            headerContent
+        }
+    }
+
+    private var headerContent: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s2) {
+            HStack(spacing: MMSpace.s4) {
+                Text(isActivity ? "This week" : days[0].formatted(.dateTime.month(.abbreviated).day()))
+                    .mmFont(.display, 16)
+                    .foregroundStyle(MMColor.textPrimary)
+                Spacer(minLength: MMSpace.s2)
+                Text("\(mm.trainedDays(days)) \(mm.trainedDays(days) == 1 ? "day" : "days") this week")
+                    .mmFont(.body, 12, .semibold)
+                    .foregroundStyle(MMColor.textPrimary)
+                    .padding(.horizontal, MMSpace.s5)
+                    .padding(.vertical, MMSpace.s3)
+                    .background(MMColor.paper2, in: Capsule()).contentTransition(.numericText())
+                    .modifier(TrainingPop(trigger: mm.trainedDays(days)))
+                if isActivity {
+                    MMIcon("chevron-right", size: 22, weight: .bold, color: MMColor.ink700)
+                }
+            }
+            Text("Tap a day to quickly log your training.")
+                .mmFont(.body, 13)
+                .foregroundStyle(MMColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private func tile(_ date: Date) -> some View {
         let count = mm.entryCount(date), planned = !mm.openPlans(date).isEmpty
         let today = TrainingCalendar.calendar.isDateInToday(date)
