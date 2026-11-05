@@ -183,6 +183,8 @@ enum Route: Hashable {
 }
 
 struct SessionDraft: Equatable {
+    static let defaultTitle = "Jiu-Jitsu training"
+
     var title: String
     var day: String
     var date: Int
@@ -237,7 +239,9 @@ struct SessionDraft: Equatable {
             draft.date = calendar.component(.day, from: start)
             draft.startsAt = start
             draft.timezone = calendar.timeZone.identifier
-            if draft.title.isEmpty || Self.isSuggestedTitle(draft.title) {
+            if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                draft.title = Self.defaultTitle
+            } else if Self.isSuggestedTitle(draft.title) {
                 draft.title = Self.suggestedTitle(weekday: draft.day, time: draft.time)
             }
             return draft
@@ -261,7 +265,7 @@ struct SessionDraft: Equatable {
             formatter.dateFormat = "EEE"; draft.day = formatter.string(from: day)
             formatter.dateFormat = "MMM"; draft.month = formatter.string(from: day)
             draft.date = calendar.component(.day, from: day)
-            if draft.title.isEmpty { draft.title = Self.suggestedTitle(weekday: draft.day, time: time) }
+            if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { draft.title = Self.defaultTitle }
             draft.startsAt = start
             draft.timezone = calendar.timeZone.identifier
             return draft

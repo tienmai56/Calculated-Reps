@@ -15,7 +15,8 @@ struct CreateScreen: View {
     private static let times = ["6:30 AM", "12:15 PM", "6:00 PM", "7:30 PM"]
 
     @State private var mode: String
-    @State private var name = ""
+    @State private var name = SessionDraft.defaultTitle
+    @FocusState private var nameFocused: Bool
     @State private var dayIndex: Int
     @State private var selectedDays: Set<Int> = []
     @State private var calendar = Calendar.current
@@ -59,7 +60,6 @@ struct CreateScreen: View {
     }
     private var day: Day { days[min(isPast ? dayIndex : (selectedDays.min() ?? 0), days.count - 1)] }
     private var completedCount: Int { mm.createdCount(for: requests) }
-    private var autoName: String { SessionDraft.suggestedTitle(weekday: day.weekday, time: time) }
     private var selectionCount: Int { isPast ? 1 : selectedDays.count }
     private var buttonTitle: String {
         if submitting { return "Creating \(completedCount) of \(requests.count)…" }
@@ -87,11 +87,27 @@ struct CreateScreen: View {
                 .padding(.horizontal, 16)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    TextField(autoName, text: $name)
-                        .mmFont(.display, 30, tracking: -0.035, lineHeight: 1.1)
-                        .foregroundStyle(MMColor.ink900)
-                        .tint(MMColor.accent)
-                    Text(selectionCount > 1 ? "Name each session, or keep our suggestions." : "Name it, or keep our suggestion.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    HStack(spacing: 4) {
+                        TextField("Session title", text: $name)
+                            .mmFont(.display, 30, tracking: -0.035, lineHeight: 1.1)
+                            .foregroundStyle(MMColor.ink900)
+                            .tint(MMColor.accent)
+                            .focused($nameFocused)
+                            .accessibilityLabel("Session title")
+                        if !name.isEmpty {
+                            Button {
+                                name = ""
+                                nameFocused = true
+                            } label: {
+                                MMIcon("x", size: 16, color: MMColor.textTertiary)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Clear session title")
+                        }
+                    }
+                    Text("Keep this title, or make it your own.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 18)

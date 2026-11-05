@@ -2,6 +2,8 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
+Planning and logging a session start with **Jiu-Jitsu training** filled in as the title. The small X on the right clears it and focuses the field for a custom title. Keeping the default needs no typing; submitting a cleared title also uses **Jiu-Jitsu training**.
+
 Upcoming sessions set to **Anyone with the link** appear in the host's and their friends' Activity feeds as soon as they are created. Friends can open the ticket and join; joining adds it to Training. Friends-only plans stay out of Activity. Apply `supabase/migrations/20261104160002_upcoming_activity_sessions.sql` before shipping this UI; it extends session visibility and validates joins from the feed.
 
 Session editing supports **Add another time**. The first date and time updates the existing session and keeps retained guests’ RSVPs; added times create independent sessions with the edited details and guest list. Duplicate times are blocked. If saving stops partway through, the editor shows what was saved and retries only the remaining sessions.
