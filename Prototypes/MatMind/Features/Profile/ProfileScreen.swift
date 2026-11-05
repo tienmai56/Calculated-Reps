@@ -56,6 +56,10 @@ struct ProfileScreen: View {
             .padding(.horizontal, 16)
             .padding(.top, 4)
 
+            TrainingRhythm()
+                .padding(.horizontal, MMSpace.s6)
+                .padding(.top, MMSpace.s6)
+
             ProfileSectionTabs(selection: $section)
                 .padding(.top, 18)
 

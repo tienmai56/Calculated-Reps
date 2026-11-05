@@ -784,7 +784,7 @@ struct TrainingWeekCard: View {
                     .padding(.vertical, MMSpace.s3)
                     .background(MMColor.paper2, in: Capsule()).contentTransition(.numericText())
                     .modifier(TrainingPop(trigger: mm.trainedDays(days)))
-                if isActivity { MMIconButton("chevron-right", label: "Open Training") { mm.tab = .training } }
+                if isActivity { MMIconButton("chevron-right", label: "Open your rhythm in Profile") { mm.tab = .profile } }
             }
             Text("Tap a day to quickly log your training.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
             HStack(spacing: 4) { ForEach(days, id: \.self) { day in tile(day) } }

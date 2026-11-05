@@ -65,7 +65,6 @@ struct TrainingScreen: View {
             if let session = mm.trainingPrompt {
                 TrainingCatchUp(session: session).padding(MMSpace.s6)
             }
-            TrainingRhythm().padding(MMSpace.s6)
             MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
                 .padding(.horizontal, MMSpace.s6)
                 .padding(.bottom, MMSpace.s4)

@@ -74,4 +74,4 @@ Fonts from Google Fonts (OFL). Icons: Lucide v0.454.0 (ISC). Sample photos: Unsp
 
 ## Regression tests
 
-Changes to Activity logging, Training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native and database test commands, protected invariants and the current boards A–E acceptance checklist.
+Changes to Activity logging, Profile training rhythm, attendance, RSVP or publishing must follow the [quick training log regression guide](docs/quick-training-log-regression.md). It includes native and database test commands, protected invariants and the current boards A–E acceptance checklist.
