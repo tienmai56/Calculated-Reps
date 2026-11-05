@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 import UserNotifications
 
-/// Tab 4: me, my belt and friends, then three sections: Progress (stats, streak, goals),
+/// Tab 4: me, my belt and friends, then three sections: Progress (stats),
 /// Activity (past sessions) and Gallery (photos from every session).
 struct ProfileScreen: View {
     @Environment(AppModel.self) private var mm
@@ -529,7 +529,6 @@ struct ProfileHistory {
 // MARK: - Progress
 
 private struct ProfileProgressSection: View {
-    @Environment(AppModel.self) private var mm
     let history: ProfileHistory
     @State private var range = "week"
 
@@ -560,20 +559,6 @@ private struct ProfileProgressSection: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
 
-            streakCard
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-
-            MMEyebrow(title: "Goals you're working on") {
-                if !mm.goals.isEmpty {
-                    Button("See all") { mm.setTab(.goals) }
-                        .mmFont(.body, 13, .semibold)
-                        .foregroundStyle(MMColor.textLink)
-                        .frame(minHeight: MMLayout.tapTarget)
-                }
-            }
-            goals
-                .padding(.horizontal, 16)
         }
     }
 
@@ -584,93 +569,6 @@ private struct ProfileProgressSection: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-    }
-
-    private var streakCard: some View {
-        let streak = history.currentStreak
-        let best = history.bestStreak
-        let message: String = {
-            if streak == 0 {
-                return best > 0 ? "Pick it back up · best \(best) week\(best == 1 ? "" : "s")" : "Train once this week to start your streak."
-            }
-            if streak >= best && streak > 1 { return "Your best run yet. Keep rolling." }
-            return "\(streak) week\(streak == 1 ? "" : "s") in a row · best \(best)"
-        }()
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Weekly streak").mmFont(.display, 18, tracking: -0.02, lineHeight: 1.2).foregroundStyle(MMColor.textPrimary)
-                Spacer(minLength: 8)
-                if streak > 0 {
-                    MMBadge("\(streak) week\(streak == 1 ? "" : "s")", variant: .flame, icon: "flame")
-                }
-            }
-            MMStreakBelt(weeks: history.pastWeeks(9), thisWeek: history.trainedThisWeek ? .done : .pending, hue: .coral)
-            Text(message).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.textSecondary)
-        }
-        .padding(18)
-        .mmCardSurface(radius: MMRadius.lg)
-    }
-
-    @ViewBuilder
-    private var goals: some View {
-        if mm.goals.isEmpty {
-            Button { mm.setTab(.goals) } label: {
-                HStack(spacing: 12) {
-                    MMIcon("notebook-pen", size: 20, color: MMColor.ink700)
-                        .frame(width: 44, height: 44)
-                        .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.paper2))
-                    Text("Add something you're working on").mmFont(.body, 15, .semibold).foregroundStyle(MMColor.textPrimary)
-                    Spacer(minLength: 4)
-                    MMIcon("chevron-right", size: 18, color: MMColor.ink500)
-                }
-                .padding(16)
-                .mmCardSurface(radius: MMRadius.lg)
-            }
-            .buttonStyle(MMPressStyle())
-        } else {
-            VStack(spacing: 12) {
-                ForEach(mm.goals.prefix(3)) { goal in
-                    Button { mm.go(.goal(id: goal.id)) } label: { goalCard(goal) }
-                        .buttonStyle(MMPressStyle())
-                }
-            }
-        }
-    }
-
-    private func goalCard(_ goal: MatGoal) -> some View {
-        let next = mm.nextSession(forGoal: goal.id)
-        return HStack(alignment: .top, spacing: 14) {
-            MMIcon("notebook-pen", size: 20, color: MMColor.ink800)
-                .frame(width: 44, height: 44)
-                .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.paper2))
-            VStack(alignment: .leading, spacing: 4) {
-                Text(goal.title.isEmpty ? "Untitled goal" : goal.title)
-                    .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.25)
-                    .foregroundStyle(MMColor.textPrimary)
-                    .multilineTextAlignment(.leading)
-                if !goal.cardPreview.isEmpty {
-                    Text(goal.cardPreview)
-                        .mmFont(.body, 13, lineHeight: 1.4)
-                        .foregroundStyle(MMColor.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                if let next {
-                    HStack(spacing: 6) {
-                        MMIcon("calendar", size: 14, color: MMColor.textTertiary)
-                        Text("Next: \(next.day), \(next.month) \(next.date) · \(next.title)")
-                            .mmFont(.body, 12, .semibold)
-                            .foregroundStyle(MMColor.textTertiary)
-                            .lineLimit(1)
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            MMIcon("chevron-right", size: 18, color: MMColor.ink500)
-        }
-        .padding(16)
-        .mmCardSurface(radius: MMRadius.lg)
     }
 }
 
