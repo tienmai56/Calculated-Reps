@@ -16,6 +16,8 @@ Live UI models start empty. Sample records and photos require explicit preview m
 
 Open `IntentionalTrainingNotes.xcodeproj`, select `IntentionalTrainingNotes`, and run on iOS 17 or later. The installed app renders the shared screens in `Prototypes/MatMind/`, backed by live services in `MatMind/`. Debug builds also offer **Preview without signing in** on Welcome, with isolated sample data.
 
+**Quick training log is an opt-in database experiment.** Its SQL is outside normal migrations, so a normal `supabase db push` does not enable it on main. Use preview mode without sign-in for UI tests, or `QUICK_TRAINING_LOG_ENABLED=1 sh scripts/test-database.sh` for disposable database tests. Real-data branch tests require a separate Supabase preview database; see [feature setup](supabase/features/quick-training-log/README.md).
+
 Google sign-in setup is described in [Google sign-in setup](docs/google-sign-in-setup.md). Apple sign-in is hidden for now. Backend migrations and functions are deployed; see [deployment and validation](docs/mat-mind-v2-deployment.md) for configuration and acceptance checks.
 
 Previous local training data is available only through **Settings → Export → Export local sessions**, from Welcome or Profile. Legacy records are not imported into social sessions, photos or streaks. Goals are the one exception: **Goals → Import** reads that export file and brings over active goals with their task names, notes, links and photos (on the device only; sessions and reflections stay in the export).

@@ -1,3 +1,15 @@
+-- Experimental feature bundle: intentionally outside supabase/migrations.
+-- Apply only to an isolated local/preview database, never the shared production project.
+-- Enable for this SQL session with: SET matmonkey.quick_training_log = 'on';
+-- The transaction rolls everything back on a missing flag, even without ON_ERROR_STOP.
+begin;
+do $feature_gate$
+begin
+ if current_setting('matmonkey.quick_training_log',true) is distinct from 'on' then
+  raise exception 'Quick training log is disabled. Opt in only on an isolated test database.';
+ end if;
+end $feature_gate$;
+
 -- Private quick logs and reversible attendance, independent of publishing.
 create table public.quick_logs (
  id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles on delete cascade,
@@ -203,3 +215,5 @@ create function public.snapshot() returns jsonb language sql stable security inv
 $$;
 revoke all on function public.snapshot() from public,anon;
 grant execute on function public.snapshot() to authenticated;
+
+commit;

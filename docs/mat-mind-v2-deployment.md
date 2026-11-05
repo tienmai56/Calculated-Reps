@@ -49,6 +49,8 @@ Validation: all 78 SQL assertions passed on disposable PostgreSQL 17, including 
 
 Validation for mentions: the disposable PostgreSQL 17 suite covers username uniqueness, legacy-client defaults, caption and comment mentions, edits, retries, email/partial-token rejection, stranger isolation, blocks, duplicate-author-alert suppression, queue insertion and private helper permissions. `node scripts/test-notification-worker.mjs` checks enabled/disabled push and post routing with mocked delivery. The iOS XCTest suite includes UTF-16/emoji mention parsing and insertion checks; an iOS build/device run is required before release.
 
+The quick-training-log experiment is intentionally excluded from `supabase/migrations/`. Normal deployment commands below do not install it. Its opt-in SQL lives under `supabase/features/quick-training-log/` and is for an isolated local/preview database only; see that feature’s README. Do not copy it into the production migration directory for branch testing.
+
 To link another checkout or deploy subsequent migrations:
 
 ```sh
