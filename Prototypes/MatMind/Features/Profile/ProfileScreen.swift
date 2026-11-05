@@ -56,10 +56,6 @@ struct ProfileScreen: View {
             .padding(.horizontal, 16)
             .padding(.top, 4)
 
-            TrainingRhythm()
-                .padding(.horizontal, MMSpace.s6)
-                .padding(.top, MMSpace.s6)
-
             ProfileSectionTabs(selection: $section)
                 .padding(.top, 18)
 
@@ -542,6 +538,10 @@ private struct ProfileProgressSection: View {
         let weekly = range == "week"
         let period = history.sessions(in: weekly ? history.thisWeek : history.thisMonth)
         VStack(alignment: .leading, spacing: 0) {
+            TrainingRhythm()
+                .padding(.horizontal, MMSpace.s6)
+                .padding(.top, MMSpace.s6)
+
             VStack(alignment: .leading, spacing: 16) {
                 MMTabs(items: [MMTabItem("week", "Weekly"), MMTabItem("month", "Monthly")], selection: $range)
                 Text(weekly ? "This week" : "This month")
