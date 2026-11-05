@@ -41,11 +41,11 @@ Local checks validate the diff and icon assets; native builds and tests require 
 
 ## Technique sheet
 
-- Open an elapsed day without a plan: no log or count changes until Save log succeeds. Planned-day chooser → A quick log and older-week Log another session open the same sheet. The sheet has **What did you hit today?**, no date heading, no day picker and no search.
+- Open an elapsed day without a plan: no log or count changes until Save log succeeds. Planned-day chooser → A quick log and older-week Log another session open the same sheet. The sheet has **What did you hit today?**, no date heading, no day picker, no search and no privacy helper. Its height fits the content; Save log follows Add technique with the shared dialog action gap instead of a fixed footer and empty space.
 - Start with Heel hook, Back take and Armbar at zero. Minus cannot go below zero; zero never removes a technique. Save log stays disabled until at least one technique has positive reps.
-- Add technique opens a labeled plain name field; Cancel and Add technique sit outside it. Blank and duplicate names are rejected. Arbitrary names and long names work. Canceling the form changes nothing.
+- Add technique opens a labeled plain name field; Cancel and Add technique sit outside it, with Cancel text aligned to the field’s leading edge. Blank and duplicate names are rejected. Arbitrary names and long names work. Canceling the form changes nothing.
 - Edit → remove → Undo restores the technique’s position and draft count. Remove every technique, close and reopen: the list stays empty with Add technique available. Removing a technique never changes already saved logs.
 - Close the sheet after adding/removing without saving reps: the latest list still appears next time. Repeat on an older date and relaunch the preview: latest edits win. Daily counts start fresh, and older-week entries display saved name/count snapshots.
 - Save failure retains draft counts and offers retry without adding an entry. Undoing a saved log removes its rep details but keeps list edits. Switching accounts during a save cannot copy reps, list state, Undo or success feedback into the next account.
 - **Storage boundary:** technique preferences and per-log rep details are stored on this device under each account, following Goals. They do not sync across devices. The preview uses a separate namespace. No SQL changes or backend deployment are included.
-- Check a narrow phone, a long technique list, keyboard focus/scrolling, large Dynamic Type, VoiceOver control labels and Reduce Motion. Save remains reachable above the keyboard.
+- Check a narrow phone, a long technique list, keyboard focus/scrolling, large Dynamic Type, VoiceOver control labels and Reduce Motion. The sheet grows as content is added and scrolls at the system height limit; scroll to Save log with the keyboard open.

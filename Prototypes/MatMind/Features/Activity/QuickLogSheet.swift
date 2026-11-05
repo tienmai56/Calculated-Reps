@@ -1,5 +1,10 @@
 import SwiftUI
 
+private struct QuickLogSheetHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 /// Shared by Activity's day strip, planned-day chooser and older-week history.
 /// List edits save immediately. Counts remain a draft until Save log succeeds.
 struct QuickLogSheet: View {
@@ -15,6 +20,7 @@ struct QuickLogSheet: View {
     @State private var nameError: String?
     @State private var saveFailed = false
     @State private var removed: RemovedTechnique?
+    @State private var contentHeight: CGFloat = 320
 
     private struct RemovedTechnique {
         var technique: QuickLogTechnique
@@ -55,30 +61,31 @@ struct QuickLogSheet: View {
                             .accessibilityIdentifier("quick-log-save-error")
                     }
                 }
-            } actions: { EmptyView() }
-            .padding(.horizontal, MMLayout.gutter)
-            .padding(.top, MMSpace.s8)
-            .padding(.bottom, MMSpace.s6)
-            .disabled(mm.busy)
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(alignment: .leading, spacing: MMSpace.s6) {
-                HStack(spacing: MMSpace.s2) {
-                    MMIcon("lock", size: 14, color: MMColor.textTertiary)
-                    Text("Only you can see this.").mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
-                }
+            } actions: {
                 MMButton(mm.savingTraining ? "Saving…" : "Save log", fullWidth: true) { save() }
                     .disabled(!canSave)
                     .accessibilityIdentifier("quick-log-save")
             }
-            .padding(MMLayout.gutter)
-            .background(MMColor.surfaceCard)
+            .padding(.horizontal, MMLayout.gutter)
+            .padding(.top, MMSpace.s8)
+            .padding(.bottom, MMSpace.s6)
+            .background {
+                // Match the shared sheet pattern: measure the full content so short
+                // lists keep Save log close and longer lists scroll at the system cap.
+                GeometryReader { geometry in
+                    Color.clear.preference(key: QuickLogSheetHeightKey.self, value: geometry.size.height)
+                }
+            }
+            .disabled(mm.busy)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollDismissesKeyboard(.interactively)
+        .onPreferenceChange(QuickLogSheetHeightKey.self) { height in
+            if height > 0 { contentHeight = height }
         }
         .background(MMColor.surfaceCard)
         .presentationBackground(MMColor.surfaceCard)
-        .presentationDetents([.fraction(0.75), .large])
+        .presentationDetents([.height(contentHeight)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(MMRadius.xl)
         .interactiveDismissDisabled(mm.savingTraining)
@@ -139,8 +146,15 @@ struct QuickLogSheet: View {
                     .submitLabel(.done)
                     .onChange(of: name) { _, _ in nameError = nil }
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: MMSpace.s5) { addActions }
-                    VStack(spacing: MMSpace.s5) { addActions }
+                    HStack(spacing: MMSpace.s5) {
+                        cancelAdd
+                        Spacer(minLength: MMSpace.s5)
+                        confirmAdd
+                    }
+                    VStack(alignment: .leading, spacing: MMSpace.s5) {
+                        cancelAdd
+                        confirmAdd
+                    }
                 }
             }
         } else {
@@ -153,9 +167,19 @@ struct QuickLogSheet: View {
         }
     }
 
-    @ViewBuilder private var addActions: some View {
-        MMButton("Cancel", variant: .ghost, fullWidth: true) { adding = false; name = "" }
-        MMButton("Add technique", variant: .inverse, fullWidth: true, action: add)
+    private var cancelAdd: some View {
+        Button { adding = false; name = "" } label: {
+            Text("Cancel")
+                .mmFont(.display, MMButtonSize.md.fontSize, .bold, tracking: -0.01, lineHeight: 1)
+                .foregroundStyle(MMColor.textPrimary)
+                .frame(minWidth: MMLayout.tapTarget, minHeight: MMButtonSize.md.height, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(MMPressStyle())
+    }
+
+    private var confirmAdd: some View {
+        MMButton("Add technique", variant: .inverse, action: add)
             .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
