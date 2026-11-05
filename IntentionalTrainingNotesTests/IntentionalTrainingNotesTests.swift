@@ -724,11 +724,13 @@ final class MatMindLiveUITests: XCTestCase {
 
     func testEditingASessionsDateMovesItToItsChronologicalPosition() async throws {
         let ui = AppModel(live: false)
+        let ticketIDs = ["s2", "s3", "s1"]
+        ui.upcoming = ui.upcoming.filter { ticketIDs.contains($0.id) }
         // Preview tickets have labels only until they are edited.
-        XCTAssertEqual(ui.plannedSessions.map(\.id), ["s2", "s3", "s1"])
+        XCTAssertEqual(ui.plannedSessions.map(\.id), ticketIDs)
         // Give the label-only samples future starts so this checks ordering, not tab migration.
         let base = Date().addingTimeInterval(86400)
-        for (index, id) in ["s2", "s3", "s1"].enumerated() {
+        for (index, id) in ticketIDs.enumerated() {
             let i = try XCTUnwrap(ui.upcoming.firstIndex { $0.id == id })
             ui.upcoming[i].startsAt = base.addingTimeInterval(Double(index) * 3600)
         }
