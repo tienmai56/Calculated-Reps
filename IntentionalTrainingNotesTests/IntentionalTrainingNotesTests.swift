@@ -1193,6 +1193,47 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: second))
     }
 
+    func testGoalReferenceRecognizesPartsWithoutLegacyDetails() {
+        var goal = MatGoal(id: "goal", title: "Passing open guard")
+        XCTAssertFalse(goal.hasReferenceContent)
+        goal.parts = [GoalPart(title: "Keep them on their back", notes: "Control the hips")]
+        XCTAssertTrue(goal.hasReferenceContent)
+        XCTAssertTrue(goal.notes.isEmpty)
+        goal.parts = [GoalPart()]
+        XCTAssertFalse(goal.hasReferenceContent)
+        goal.parts = [GoalPart(link: "https://youtu.be/example")]
+        XCTAssertTrue(goal.hasReferenceContent)
+        goal.parts = [GoalPart(photos: ["reference.jpg"])]
+        XCTAssertTrue(goal.hasReferenceContent)
+    }
+
+    func testGoalFocusReferenceSurvivesSessionSaveAndRenames() throws {
+        let focus = TrainingFocus(title: "Passing open guard", goalID: "goal")
+        let encoded = SessionNoteCodec.encode(note: "Bring a gi", focus: [focus])
+        let decoded = SessionNoteCodec.decode(encoded)
+        XCTAssertEqual(decoded.note, "Bring a gi")
+        var restored = try XCTUnwrap(decoded.focus.first)
+        XCTAssertEqual(restored.goalID, "goal")
+        restored.title = "Today's passing focus"
+        let goal = MatGoal(id: "goal", title: "Renamed goal", parts: [GoalPart(notes: "New saved note")])
+        XCTAssertEqual(restored.linkedGoal(in: [goal]), goal)
+        XCTAssertEqual(restored.linkedGoal(in: [goal])?.parts.first?.notes, "New saved note")
+        XCTAssertNil(restored.linkedGoal(in: [MatGoal(id: "other", title: restored.title)]),
+                     "A deleted goal must not be replaced by a different goal with the same name")
+        let raw = try XCTUnwrap(Data(base64Encoded: String(encoded.dropFirst("matmind-focus-v1:".count))))
+        XCTAssertFalse(String(decoding: raw, as: UTF8.self).contains("New saved note"))
+    }
+
+    func testOlderFocusFindsOnlyAnUnambiguousGoalByName() throws {
+        let data = Data(#"{"id":"00000000-0000-0000-0000-000000000001","title":" Passing open guard ","children":[]}"#.utf8)
+        let focus = try JSONDecoder().decode(TrainingFocus.self, from: data)
+        XCTAssertNil(focus.goalID)
+        let goal = MatGoal(id: "goal", title: "passing OPEN guard")
+        XCTAssertEqual(focus.linkedGoal(in: [goal]), goal)
+        XCTAssertNil(focus.linkedGoal(in: [goal, MatGoal(id: "duplicate", title: goal.title)]))
+        XCTAssertNil(focus.linkedGoal(in: []))
+    }
+
     func testUntouchedOptionalFocusDoesNotBlockPlanningOrCreateSavedContent() {
         let outline = TrainingFocusTree.optionalOutline([TrainingFocus(), TrainingFocus(title: "  ")])
         XCTAssertTrue(TrainingFocusTree.isValid(outline))
