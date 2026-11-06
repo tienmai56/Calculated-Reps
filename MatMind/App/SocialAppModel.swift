@@ -115,9 +115,9 @@ import SwiftData
             // Closing the provider sheet leaves the user on Welcome.
         } catch { self.error = error.localizedDescription }
     }
-    /// `busy` (which locks the app and shows the spinner) covers only the write itself; the
-    /// follow-up refresh runs unlocked so the app is usable while new data loads.
-    /// `blocking: false` skips the lock entirely, for writes the UI has already applied optimistically.
+    /// `busy` guards save controls and shows the spinner during the write itself;
+    /// navigation stays available, and the follow-up refresh runs without disabling saves.
+    /// `blocking: false` skips the save guard, for writes the UI has already applied optimistically.
     /// `refresh: false` skips the reload for writes that change nothing on screen.
     @discardableResult func perform(_ operation: String, _ payload: [String:Any], key: UUID = UUID(), blocking: Bool = true, refresh reload: Bool = true) async -> [String:ArchiveValue]? {
         if blocking { guard !busy else { return nil }; busy = true }

@@ -43,7 +43,8 @@ struct MatMindRoot: View {
 
     private var liveShell: some View {
         MMAppShell()
-            .disabled(model.busy)
+            // Keep navigation and cached content usable during network requests.
+            // Save controls and model commands guard against duplicate submissions.
             .environment(ui)
             .environment(model)
             .task {
@@ -103,7 +104,12 @@ struct MatMindRoot: View {
                 if model.userID != nil && model.me == nil { LiveProfileSetup() .environment(model) }
             }
             .overlay(alignment: .top) {
-                if model.busy { ProgressView().padding(12).background(.regularMaterial, in: Capsule()) }
+                if model.busy {
+                    ProgressView()
+                        .padding(12)
+                        .background(.regularMaterial, in: Capsule())
+                        .allowsHitTesting(false)
+                }
             }
             .alert("Couldn’t complete that", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
                 Button("OK") { model.error = nil }
