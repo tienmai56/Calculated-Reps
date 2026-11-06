@@ -27,7 +27,7 @@ struct CreateScreen: View {
         _mode = State(initialValue: startPast ? "past" : "plan")
         _time = State(initialValue: startPast ? "6:00 PM" : "10:00 AM")
         _invited = State(initialValue: friend.map { [$0] } ?? [])
-        _focusItems = State(initialValue: initialFocus)
+        _focusItems = State(initialValue: initialFocus.isEmpty ? [TrainingFocus()] : initialFocus)
     }
 
     private var isPast: Bool { mode == "past" }
@@ -127,7 +127,7 @@ struct CreateScreen: View {
                         .accessibilityLabel("Session description")
                 }
 
-                field("What are we working on?", hint: focusItems.isEmpty ? "Optional" : "\(focusItems.filter(\.isCompleted).count)/\(focusItems.count)") {
+                field("What are we working on?", hint: submittedFocusItems.isEmpty ? "Optional" : "\(submittedFocusItems.filter(\.isCompleted).count)/\(submittedFocusItems.count)") {
                     TrainingFocusComposer(items: $focusItems, allowsCompletion: isPast, goals: pickableGoals)
                 }
 

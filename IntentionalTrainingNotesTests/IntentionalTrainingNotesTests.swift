@@ -1363,6 +1363,37 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(SessionNoteCodec.decode(SessionNoteCodec.encode(note: decoded.note, focus: decoded.focus)).focus, decoded.focus)
     }
 
+    func testInlineFocusDescriptionPreservesExistingDetailsAndCompletion() {
+        let nested = TrainingFocus(title: "Keep the frame")
+        let first = TrainingFocus(title: "Frame early", children: [nested])
+        let second = TrainingFocus(title: "Recover position")
+        var focus = TrainingFocus(title: "Guard retention", children: [first, second], goalID: "goal", isCompleted: true)
+        focus.detailDescription = "Recover the knee shield"
+        XCTAssertEqual(focus.children[0].id, first.id)
+        XCTAssertEqual(focus.children[0].children, [nested])
+        XCTAssertEqual(focus.children[1], second)
+        XCTAssertEqual(focus.goalID, "goal")
+        XCTAssertTrue(focus.isCompleted)
+        focus.detailDescription = ""
+        XCTAssertEqual(focus.children.count, 2, "Clearing text never discards existing nested details")
+        XCTAssertEqual(focus.children[0].children, [nested])
+        XCTAssertFalse(TrainingFocusTree.isValid([focus]))
+    }
+
+    func testInlineOptionalDescriptionCanBeAddedAndCleared() {
+        var focus = TrainingFocus(title: "Guard retention")
+        focus.detailDescription = " "
+        XCTAssertTrue(focus.children.isEmpty)
+        focus.detailDescription = "Frame early"
+        XCTAssertEqual(focus.children.count, 1)
+        let detailID = focus.children[0].id
+        focus.detailDescription = "Recover position"
+        XCTAssertEqual(focus.children[0].id, detailID)
+        focus.detailDescription = ""
+        XCTAssertTrue(focus.children.isEmpty)
+        XCTAssertTrue(TrainingFocusTree.isValid([focus]))
+    }
+
     @MainActor
     func testCheckingCompletedSessionFocusPreservesSessionAndGoal() throws {
         let ui = AppModel(live: false)

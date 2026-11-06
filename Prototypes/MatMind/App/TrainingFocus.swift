@@ -11,6 +11,24 @@ struct TrainingFocus: Identifiable, Hashable, Codable {
     /// Completion belongs to this session, not to the linked goal.
     var isCompleted = false
 
+    /// The compact checklist description is the first saved detail. Keep the
+    /// existing outline (including IDs and deeper details) when editing it.
+    var detailDescription: String {
+        get { children.first?.title ?? "" }
+        set {
+            if children.isEmpty {
+                if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    children.append(TrainingFocus(title: newValue))
+                }
+            } else if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      children.count == 1, children[0].children.isEmpty {
+                children.removeFirst()
+            } else {
+                children[0].title = newValue
+            }
+        }
+    }
+
     func linkedGoal(in goals: [MatGoal]) -> MatGoal? {
         if let goalID { return goals.first { $0.id == goalID } }
         // Older sessions stored only the name. Avoid guessing between duplicate names.

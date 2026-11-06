@@ -564,15 +564,9 @@ struct SessionDetailScreen: View {
         }
         .sheet(isPresented: $showFocusEditor) {
             ScrollView {
-                MMDialogBody(title: "What are we working on?", description: "Big idea first. Details underneath.",
+                MMDialogBody(title: "What are we working on?",
                              onClose: { showFocusEditor = false }) {
-                    if !pickableGoals.isEmpty {
-                        Text("Pick from your goals, or add your own.")
-                            .mmFont(.body, 13)
-                            .foregroundStyle(MMColor.textTertiary)
-                            .padding(.bottom, MMSpace.s5)
-                    }
-                    TrainingFocusEditor(items: $focusDraft, goals: pickableGoals)
+                    TrainingFocusComposer(items: $focusDraft, allowsCompletion: completed || mm.isReadyToShare(s.id), goals: pickableGoals)
                 } actions: {
                     EmptyView()
                 }
@@ -582,10 +576,10 @@ struct SessionDetailScreen: View {
             .safeAreaInset(edge: .bottom) {
                 MMButton("Save focus plan", fullWidth: true) {
                     if let runtime = mm.runtime {
-                        Task { if await runtime.saveFocus(s.id, focusDraft) { showFocusEditor = false } }
-                    } else if mm.updateSessionFocus(s.id, focusDraft) { showFocusEditor = false }
+                        Task { if await runtime.saveFocus(s.id, TrainingFocusTree.optionalOutline(focusDraft)) { showFocusEditor = false } }
+                    } else if mm.updateSessionFocus(s.id, TrainingFocusTree.optionalOutline(focusDraft)) { showFocusEditor = false }
                 }
-                .disabled(!TrainingFocusTree.isValid(focusDraft))
+                .disabled(!TrainingFocusTree.isValid(TrainingFocusTree.optionalOutline(focusDraft)))
                 .padding(MMSpace.s6)
                 .background(MMColor.bgApp)
             }

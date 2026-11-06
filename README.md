@@ -2,7 +2,7 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
-Planning and logging show an optional **Description** input and a compact focus checklist. Add or edit focuses in the existing editor sheet; mark each focus complete when logging a past session or, as the organizer, from past training details and the share screen. Checks save with the session and leave linked goals unchanged. Existing sessions load unchecked. These changes require a new iOS build.
+Planning and logging show an optional **Description** input and an inline focus checklist. The first unchecked row is visible immediately; type its title and description directly, then use **Add a focus** to append another row without a sheet. Mark each focus complete when logging a past session or, as the organizer, from past training details and the share screen. Checks save with the session and leave linked goals unchanged. Existing sessions load unchecked. These changes require a new iOS build. CI uploads empty, upcoming, and past screenshots of the actual SwiftUI checklist as **session-checklist-native**.
 
 Follow, QR scans and username follows create the same mutual training-partner connection: both people can see activity, invite each other and explicitly share notes/goals. The backend migration `20261106074004_unify_training_partner_connections.sql` is deployed. Notes stay private until shared; the updated client copy requires a new iOS build.
 
