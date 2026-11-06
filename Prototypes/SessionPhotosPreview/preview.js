@@ -14,7 +14,7 @@ const photoAlt = photo => ({
   'roll-gi': 'Partners practicing a jiu-jitsu pass',
   'coach-help': 'A coach working with training partners'
 })[photo];
-const knownStates = ['before', 'preview', 'posted', 'empty', 'upcoming', 'absent'];
+const knownStates = ['before', 'preview', 'posted', 'empty', 'focus', 'upcoming', 'absent'];
 let state;
 let returnFocus;
 let toastTimer;
@@ -39,6 +39,7 @@ function initialize(name) {
     upcoming: selected === 'upcoming',
     attended: selected !== 'absent',
     hostPhoto: !['empty', 'upcoming'].includes(selected),
+    hasFocus: selected === 'focus',
     ownPhoto: selected === 'posted' ? 'group-class' : null,
     draft: selected === 'preview' ? 'group-class' : null
   };
@@ -82,12 +83,19 @@ function sessionContent() {
       ${infoRow('clock', 'Wed, Nov 4 · 8:00 PM')}
       ${infoRow('lock', 'Friends only')}
     </div>
+    ${state.hasFocus ? `<section class="focus-section" aria-labelledby="focus-heading">
+      <h3 id="focus-heading">What we're working on</h3>
+      <div class="focus-outline"><div>${icon('notebook-pen')}<strong>Guard passing</strong></div><div class="focus-detail">${icon('chevron-right')}<span>Win the underhook</span></div></div>
+    </section>` : ''}
     <section class="photos" id="photos" aria-labelledby="photos-heading">
       <div class="section-heading"><h3 id="photos-heading">Photos</h3><span class="photo-count">${count === 0 ? 'None yet' : count === 1 ? '1 photo' : `${count} photos`}</span></div>
       <div class="photo-list">
         ${state.hostPhoto ? photoCard('Sarah Lee', 'roll-gi') : ''}
         ${state.ownPhoto ? photoCard('Tien Mai', state.ownPhoto, true) : ''}
-        ${count === 0 ? `<div class="empty-photos"><p>No photos from this session yet.</p><p>${state.upcoming ? 'Add yours after training.' : 'Share your view of the rounds.'}</p></div>` : ''}
+        ${count === 0 ? `<div class="empty-photos">
+          <div class="reminder-art" aria-hidden="true"><img class="reminder-monkey" src="../../assets/brand/logo-mark.svg" alt=""><div class="reminder-photo"><div class="reminder-tile">${icon('camera')}</div></div></div>
+          <p>Post-roll photos land here.</p>
+        </div>` : ''}
       </div>
     </section>
     <h3 class="people-heading">Who's coming</h3>

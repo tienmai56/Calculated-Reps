@@ -1,7 +1,7 @@
 # Participant photos · UI mockup
 
-This is a standalone design review, refined against `main` at `0d4cfc82`
-(November 5, 2026) and the supplied session-detail screenshot. It does not
+This is a standalone design review, refined against `main` at `7dd972c3`
+and the supplied session-detail screenshot. It does not
 implement the feature in the app. The SwiftUI screens, app models, backend,
 database, shared design tokens and Xcode project are unchanged.
 
@@ -36,8 +36,11 @@ Use `--port 4178` if the default port is occupied.
 - The photo uses the session’s audience. Guests cannot change the host’s photo,
   session details, audience, completion or shared Activity post.
 
-The selector also shows **No photos yet**, **Before training**, and **Did not
-attend**. The latter two have no photo action. All fixtures use a fixed example
+The selector also shows **No photos yet**, **With session focus**, **Before
+training**, and **Did not attend**. The latter two have no photo action. The focus
+state keeps the outline above Photos, matching latest main. The empty photo row
+uses main's supplied Silverback reminder artwork and copy, held in its Reduce
+Motion pose. All fixtures use a fixed example
 session date; they do not represent the device’s current clock. The overview’s
 third screen starts scrolled to Photos so both authors are visible; scrolling up
 reveals the same session ticket and metadata as the first screen. Photos keep
@@ -50,6 +53,7 @@ their actual 240-point height and scroll under the fixed footer.
 | `Features/Training/SessionTicket.swift` | 96pt mint date stub, 48pt date, dashed tear, punched notches, 24pt card, 18pt title, overlapping avatars and host attribution |
 | `Features/Training/TrainingScreen.swift` | Blank back header, separate white venue/time/privacy card, 22pt gap before Photos, photo count and participant list |
 | `SessionDetailScreen.sessionPhotos` | 8pt photo-card padding, 240pt photos, 14pt image corners; proposed name row is the addition |
+| `SessionPhotoReminderArtwork`, `TrainingFocusOutline` | Existing empty-photo reminder and read-only focus above Photos, as introduced on latest main |
 | `Features/Complete/CompleteScreen.swift` | White session-summary card, 330pt preview, 26pt corners, overlaid change-photo control and sticky publish action |
 | `DesignSystem/Patterns/Shell.swift` | Fixed header, independent scroll body, sticky footer and safe areas |
 | `DesignSystem/Components/Core.swift` | 44pt icon targets, pill primary/secondary actions, 3pt press edges and completed badge |
@@ -89,3 +93,5 @@ Screenshots in `screenshots/` are browser renders, with individual phones at 2×
 - `02-preview.png`: photo preview before posting.
 - `03-posted.png`: both authors’ photos, scrolled to Photos.
 - `04-photo-menu.png`: replace/remove on your own photo.
+- `05-empty.png`: latest main's empty-photo reminder.
+- `06-focus.png`: focus outline before Photos.

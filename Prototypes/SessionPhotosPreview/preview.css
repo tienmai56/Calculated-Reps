@@ -105,9 +105,20 @@ body.embedded .interactive { width: 100%; }
 .author-row h4 { font: 700 var(--text-body)/var(--lh-body-s) var(--font-body); margin: 0; overflow-wrap: anywhere; }
 .author-row .you { font-weight: 400; color: var(--text-tertiary); }
 .photo-tile { width: 100%; height: 240px; display: block; object-fit: cover; border-radius: var(--radius-md); background: var(--paper-3); }
-.empty-photos { padding: var(--space-6); background: var(--surface-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
-.empty-photos p { font-size: var(--text-body-s); color: var(--text-secondary); line-height: var(--lh-body-s); }
-.empty-photos p + p { margin-top: var(--space-2); }
+.empty-photos { display: flex; align-items: center; gap: var(--space-5); min-height: 128px; }
+.empty-photos p { font: 800 var(--text-title-m)/1.15 var(--font-display); letter-spacing: -.02em; }
+/* Latest main's SessionPhotoReminderArtwork, held in its Reduce Motion pose. */
+.reminder-art { position: relative; flex-shrink: 0; width: 104px; height: 112px; pointer-events: none; }
+.reminder-monkey { position: absolute; width: 44px; height: 50px; left: 49px; top: 6px; transform: rotate(12deg); transform-origin: bottom left; }
+.reminder-photo { position: absolute; left: 10px; top: 34px; padding: var(--space-3) var(--space-3) 14px; border-radius: var(--radius-sm); background: var(--surface-card); box-shadow: var(--shadow-card); transform: rotate(-9deg); }
+.reminder-tile { display: grid; place-items: center; width: 56px; height: 47px; border-radius: var(--radius-xs); background: var(--surface-sunken); color: var(--text-tertiary); }
+.reminder-tile .icon { width: 23px; height: 23px; }
+.focus-section { margin-top: var(--space-6); }
+.focus-section h3 { font: 800 var(--text-title-m)/1.15 var(--font-display); letter-spacing: -.02em; margin-bottom: var(--space-4); }
+.focus-outline { padding: var(--space-6); border-radius: var(--radius-lg); background: var(--surface-card); box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: var(--space-5); }
+.focus-outline > div { display: flex; align-items: flex-start; gap: var(--space-4); font: 400 var(--text-body)/var(--lh-body) var(--font-body); }
+.focus-outline .icon { width: 16px; height: 16px; margin-top: var(--space-1); color: var(--text-tertiary); }
+.focus-outline .focus-detail { margin-left: var(--space-6); }
 .people-heading { margin: 22px var(--space-2) 10px; }
 .people-card { padding: var(--space-2) 14px; background: var(--surface-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
 .person { min-height: 60px; display: flex; align-items: center; gap: var(--space-5); padding: 10px 0; }

@@ -15,6 +15,7 @@ FILES = {
     "/Prototypes/SessionPhotosPreview/preview.css": PREVIEW / "preview.css",
     "/Prototypes/SessionPhotosPreview/preview.js": PREVIEW / "preview.js",
     "/styles.css": ROOT / "styles.css",
+    "/assets/brand/logo-mark.svg": ROOT / "assets/brand/logo-mark.svg",
 }
 for name in ["fonts.css", "colors.css", "typography.css", "spacing.css", "base.css"]:
     FILES[f"/design-system/tokens/{name}"] = ROOT / "design-system/tokens" / name
@@ -22,7 +23,7 @@ for name in ["BricolageGrotesque.woff2", "Archivo-normal.woff2", "Archivo-italic
     FILES[f"/assets/fonts/{name}"] = ROOT / "assets/fonts" / name
 for name in ["group-class", "roll-gi", "coach-help"]:
     FILES[f"/assets/photos/{name}.jpg"] = ROOT / "assets/photos" / f"{name}.jpg"
-for name in ["chevron-left", "clock", "map-pin", "lock", "camera", "repeat-2", "check", "user", "x", "ellipsis", "trash-2"]:
+for name in ["chevron-left", "chevron-right", "notebook-pen", "clock", "map-pin", "lock", "camera", "repeat-2", "check", "user", "x", "ellipsis", "trash-2"]:
     FILES[f"/assets/icons/{name}.svg"] = ROOT / "assets/icons" / f"{name}.svg"
 
 
