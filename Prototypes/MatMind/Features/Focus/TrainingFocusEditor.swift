@@ -1,5 +1,153 @@
 import SwiftUI
 
+/// A focus is a session checklist item; its outline and private goal references
+/// stay intact underneath. The shared checkbox supplies the app's coral state.
+struct TrainingFocusChecklist: View {
+    var items: [TrainingFocus]
+    var onToggle: ((UUID, Bool) -> Void)? = nil
+    var onEdit: (() -> Void)? = nil
+    var onAdd: (() -> Void)? = nil
+    @Environment(AppModel.self) private var mm
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s5) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if index > 0 { Divider() }
+                HStack(alignment: .top, spacing: MMSpace.s4) {
+                    VStack(alignment: .leading, spacing: MMSpace.s3) {
+                        MMCheckbox(isOn: Binding(
+                            get: { item.isCompleted },
+                            set: { onToggle?(item.id, $0) }
+                        ), label: item.title)
+                        .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .disabled(onToggle == nil)
+                        .accessibilityValue(item.isCompleted ? "Completed" : "Not completed")
+                        .accessibilityHint(onToggle == nil ? "Mark complete after training" : "Mark what you worked on")
+
+                        if !item.children.isEmpty {
+                            VStack(alignment: .leading, spacing: MMSpace.s2) {
+                                ForEach(TrainingFocusTree.rows(item.children)) { row in
+                                    Text(row.node.title)
+                                        .mmText(.bodyS)
+                                        .foregroundStyle(MMColor.textSecondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
+                                }
+                            }
+                            .padding(.leading, MMSpace.s8 + MMSpace.s5)
+                        }
+                        if let goal = item.linkedGoal(in: mm.goals), goal.hasReferenceContent {
+                            TrainingGoalNotes(goal: goal, initiallyExpanded: false)
+                                .padding(.leading, MMSpace.s8 + MMSpace.s5)
+                        }
+                    }
+                    if let onEdit {
+                        MMIconButton("pencil", label: "Edit \(item.title)", action: onEdit)
+                    }
+                }
+            }
+            if let onAdd {
+                if !items.isEmpty { Divider() }
+                MMButton("Add a focus", variant: .ghost, iconLeft: "plus", fullWidth: true, action: onAdd)
+            }
+        }
+        .padding(MMSpace.s6)
+        .mmCardSurface()
+    }
+}
+
+/// The composer shows a checklist, with text editing kept in the existing focus
+/// sheet. Cancel leaves the checklist untouched; Done commits a valid outline.
+struct TrainingFocusComposer: View {
+    @Binding var items: [TrainingFocus]
+    var allowsCompletion = false
+    var goals: [MatGoal] = []
+    @State private var editing = false
+    @State private var draft: [TrainingFocus] = []
+
+    var body: some View {
+        TrainingFocusChecklist(items: items, onToggle: allowsCompletion ? toggle : nil, onEdit: {
+            draft = items
+            editing = true
+        }, onAdd: {
+            draft = items + [TrainingFocus()]
+            editing = true
+        })
+        .sheet(isPresented: $editing) {
+            ScrollView {
+                MMDialogBody(title: "What are we working on?", onClose: { editing = false }) {
+                    TrainingFocusEditor(items: $draft, allowsEmptyRoots: true, goals: goals)
+                } actions: {
+                    EmptyView()
+                }
+                .padding(MMSpace.s7)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom) {
+                MMButton("Done", fullWidth: true) {
+                    items = TrainingFocusTree.optionalOutline(draft)
+                    editing = false
+                }
+                .disabled(!TrainingFocusTree.isValid(TrainingFocusTree.optionalOutline(draft)))
+                .padding(MMSpace.s6)
+                .background(MMColor.bgApp)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(MMRadius.xl)
+            .presentationBackground(MMColor.bgApp)
+        }
+    }
+
+    private func toggle(_ id: UUID, _ completed: Bool) {
+        TrainingFocusTree.update(id, in: &items) { $0.isCompleted = completed }
+    }
+}
+
+/// Save a check through the same versioned focus update used by the editor.
+/// Render saved state, so failed requests never leave an unsaved check on screen.
+struct TrainingSessionFocusChecklist: View {
+    let session: Session
+    @Environment(AppModel.self) private var mm
+    @State private var saving = false
+
+    private var canComplete: Bool {
+        session.organizer == "me" && mm.trainingSessions(past: true).contains { $0.id == session.id }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s4) {
+            HStack {
+                if canComplete {
+                    Text("Mark what you worked on.").mmText(.bodyS)
+                        .foregroundStyle(MMColor.textTertiary)
+                }
+                Spacer(minLength: 0)
+                MMMeta("\(session.focusItems.filter(\.isCompleted).count)/\(session.focusItems.count)")
+                    .accessibilityLabel("\(session.focusItems.filter(\.isCompleted).count) of \(session.focusItems.count) focuses completed")
+            }
+            TrainingFocusChecklist(items: session.focusItems, onToggle: canComplete ? toggle : nil)
+                .disabled(saving || mm.busy)
+        }
+    }
+
+    private func toggle(_ id: UUID, _ completed: Bool) {
+        guard !saving, !mm.busy, canComplete,
+              var items = mm.findSession(session.id)?.focusItems else { return }
+        TrainingFocusTree.update(id, in: &items) { $0.isCompleted = completed }
+        saving = true
+        Task {
+            if let runtime = mm.runtime {
+                _ = await runtime.saveFocus(session.id, items)
+            } else {
+                mm.updateSessionFocus(session.id, items)
+            }
+            saving = false
+        }
+    }
+}
+
 /// The same editor is used while planning and by the organizer on session details.
 struct TrainingFocusEditor: View {
     @Binding var items: [TrainingFocus]

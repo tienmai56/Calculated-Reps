@@ -229,11 +229,11 @@ private struct MatSessionEditorSheet: View {
                     MMTextField(label: "Session name", placeholder: "Saturday open mat", text: $title)
                     scheduleFields
                     MMPlaceSearchField(label: "Gym", placeholder: "Search gyms or addresses", text: $gym)
-                    MMTextField(label: "Note", placeholder: "Anything people should know", text: $note, multiline: true, rows: 4)
+                    MMTextField(label: "Description", placeholder: "Anything people should know", text: $note, multiline: true, rows: 3)
                     VStack(alignment: .leading, spacing: 10) {
                         Text("What we're working on").mmFont(.display, 16)
-                        TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false,
-                                            goals: mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                        TrainingFocusComposer(items: $focusItems, allowsCompletion: startsAt <= Date(),
+                                              goals: mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
                     }
                     guestList
                 }
@@ -478,7 +478,7 @@ struct SessionDetailScreen: View {
                     }
                     .padding(.top, MMSpace.s6)
                     if !s.focusItems.isEmpty {
-                        TrainingFocusOutline(items: s.focusItems)
+                        TrainingSessionFocusChecklist(session: s)
                             .padding(.top, MMSpace.s4)
                     } else {
                         MMButton("Add a focus", variant: .secondary, iconLeft: "plus", fullWidth: true) {

@@ -2,6 +2,8 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
+Planning and logging show an optional **Description** input and a compact focus checklist. Add or edit focuses in the existing editor sheet; mark each focus complete when logging a past session or, as the organizer, from past training details and the share screen. Checks save with the session and leave linked goals unchanged. Existing sessions load unchecked. These changes require a new iOS build.
+
 Follow, QR scans and username follows create the same mutual training-partner connection: both people can see activity, invite each other and explicitly share notes/goals. The backend migration `20261106074004_unify_training_partner_connections.sql` is deployed. Notes stay private until shared; the updated client copy requires a new iOS build.
 
 Navigation and cached content stay interactive during network requests. Pending saves disable their guarded controls rather than the entire app, and the loading indicator lets taps pass through. Refreshing after returning to the app runs in the background. This client fix requires a new iOS build to take effect on installed devices.
