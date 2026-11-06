@@ -202,6 +202,13 @@ final class AppModel {
     var trainingUndoSessionID: String?
     private(set) var savingTraining = false
     private var trainingGeneration = UUID()
+    /// Live quick logs saved (or still saving) on this device that no snapshot has returned yet.
+    /// A snapshot replaces the list, so these stay on screen until the server sends them back.
+    @ObservationIgnored private var localQuickLogs: [String: QuickLog] = [:]
+    /// Background saves for one-tap logs, by log ID. Undo and removal wait for their save first.
+    @ObservationIgnored private(set) var quickLogSaves: [String: Task<Bool, Never>] = [:]
+    /// The quick log whose "Training logged" toast currently offers Undo.
+    @ObservationIgnored private var trainingUndoQuickLogID: String?
 
     func resetTrainingActions() {
         quickLogTechniques = QuickLogTechnique.defaults
@@ -212,6 +219,7 @@ final class AppModel {
         trainingGeneration = UUID()
         savingTraining = false
         trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+        localQuickLogs = [:]; quickLogSaves = [:]; trainingUndoQuickLogID = nil
     }
 
     /// Full 17-week read, separate from the bounded Training list. nil uses the loaded session page.
@@ -1593,6 +1601,7 @@ extension AppModel {
             && !savingTraining && !(trainingUndoSessionID.map { sharedSessionIDs.contains($0) } ?? false)
     }
     func trainingToast(_ text: String, sessionID: String? = nil, inline: Bool = false, undo: @escaping () async -> Bool) {
+        trainingUndoQuickLogID = nil
         let data = MMToastData(message: text, variant: .success, inline: inline)
         toast = data; trainingUndo = undo; trainingUndoToastID = data.id; trainingUndoSessionID = sessionID
         Task { [weak self] in
@@ -1698,6 +1707,9 @@ extension AppModel {
             let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
             guard generation == trainingGeneration else { return nil }
             guard saved else { showToast("Couldn't save training. Try again.", .danger, inline: inline); return nil }
+            // The live save skips its full reload, so show the log until the next snapshot includes it.
+            localQuickLogs[log.id] = log
+            if !quickLogs.contains(where: { $0.id == log.id }) { quickLogs.append(log) }
         } else { quickLogs.append(log) }
         if !hits.isEmpty {
             quickLogHitsByID[log.id] = hits
@@ -1705,6 +1717,43 @@ extension AppModel {
         }
         trainingToast("Training logged", inline: inline) { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
         return log
+    }
+    /// Activity's one-tap log. The day, Undo and the follow-up appear in the same frame as the tap;
+    /// the live save runs behind them without locking the app, so rapid taps each add a log.
+    /// The client-made ID is the save's idempotency key. A failed save takes the log back off the card.
+    @discardableResult func logTrainingNow(_ date: Date) -> QuickLog? {
+        guard quickTrainingLogEnabled, !isLive || runtime != nil, trainingTap(date) != .disabled else { return nil }
+        let log = QuickLog(id: UUID().uuidString.lowercased(), loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
+        quickLogs.append(log)
+        if let runtime {
+            localQuickLogs[log.id] = log
+            let generation = trainingGeneration
+            quickLogSaves[log.id] = Task { [weak self] in
+                let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
+                guard let self, generation == self.trainingGeneration else { return false }
+                self.quickLogSaves[log.id] = nil
+                if !saved { self.rollBackQuickLog(log.id) }
+                return saved
+            }
+        }
+        trainingToast("Training logged", inline: true) { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
+        trainingUndoQuickLogID = log.id
+        return log
+    }
+    private func rollBackQuickLog(_ id: String) {
+        localQuickLogs[id] = nil
+        quickLogs.removeAll { $0.id == id }
+        if quickLogHitsByID.removeValue(forKey: id) != nil { persistQuickLogTechniques() }
+        if trainingUndoQuickLogID == id {
+            trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
+        }
+        showToast("Couldn't save training. Try again.", .danger, inline: true)
+    }
+    /// Live snapshots replace the list; logs saved here that the server hasn't returned yet stay.
+    func applyServerQuickLogs(_ logs: [QuickLog]) {
+        let serverIDs = Set(logs.map(\.id))
+        localQuickLogs = localQuickLogs.filter { !serverIDs.contains($0.key) }
+        quickLogs = logs + localQuickLogs.values.sorted { $0.loggedAt == $1.loggedAt ? $0.id < $1.id : $0.loggedAt < $1.loggedAt }
     }
     /// Techniques counted after a one-tap log. Like other rep details they stay private on this device.
     /// Hits for techniques no longer in the list keep their saved snapshot.
@@ -1719,8 +1768,16 @@ extension AppModel {
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
         guard quickTrainingLogEnabled else { return false }
         let generation = trainingGeneration
+        // A one-tap save still in flight finishes first, so the delete never reaches the server before the create.
+        if let save = quickLogSaves[id] {
+            let created = await save.value
+            guard generation == trainingGeneration else { return false }
+            if !created { return true } // The failed save already took the log off the card.
+        }
         if let runtime {
             guard await runtime.perform("delete_quick_log", ["id": id]), generation == trainingGeneration else { return false }
+            localQuickLogs[id] = nil
+            quickLogs.removeAll { $0.id == id }
         } else {
             guard !isLive else { return false }
             quickLogs.removeAll { $0.id == id }
