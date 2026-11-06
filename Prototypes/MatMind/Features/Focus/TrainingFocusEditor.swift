@@ -262,8 +262,10 @@ struct TrainingFocusOutline: View {
 /// planned it, so the feed and post detail never show them.
 struct TrainingFocusNames: View {
     var items: [TrainingFocus]
-    /// Show tags in post detail instead of the quiet text summary used in feed cards.
+    /// Post detail shows names immediately; feed cards keep them behind a disclosure.
     var wraps = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var expanded = false
 
     private var titles: [String] {
         TrainingFocusTree.normalized(items).map(\.title).filter { !$0.isEmpty }
@@ -275,19 +277,58 @@ struct TrainingFocusNames: View {
                 EmptyView()
             } else if wraps {
                 MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) { tags }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("What we worked on: \(titles.joined(separator: ", "))")
             } else {
-                HStack(alignment: .top, spacing: MMSpace.s3) {
-                    MMIcon("notebook-pen", size: 16, color: MMColor.textTertiary)
-                        .padding(.top, MMSpace.s1)
-                    Text(titles.joined(separator: " · "))
-                        .mmText(.bodyS)
-                        .foregroundStyle(MMColor.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                disclosure
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(wraps ? "What we worked on" : "Goals worked on"): \(titles.joined(separator: ", "))")
+    }
+
+    private var disclosure: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { expanded.toggle() }
+            } label: {
+                HStack(spacing: MMSpace.s4) {
+                    MMIcon("notebook-pen", size: 16, color: MMColor.coral700)
+                    Text("Worked on")
+                        .mmText(.bodyS, .semibold)
+                        .foregroundStyle(MMColor.textPrimary)
+                    Text("\(titles.count)")
+                        .mmText(.caption, .bold)
+                        .foregroundStyle(MMColor.textPrimary)
+                        .padding(.horizontal, MMSpace.s4)
+                        .padding(.vertical, MMSpace.s2)
+                        .background(MMColor.white, in: Capsule())
+                    Spacer(minLength: MMSpace.s4)
+                    MMIcon("chevron-down", size: 14, color: MMColor.ink700)
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("What we worked on, \(titles.count) \(titles.count == 1 ? "technique" : "techniques")")
+            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            .accessibilityHint(expanded ? "Hide technique names" : "Show technique names")
+
+            if expanded {
+                VStack(alignment: .leading, spacing: MMSpace.s4) {
+                    ForEach(Array(titles.enumerated()), id: \.offset) { _, title in
+                        Text(title)
+                            .mmText(.bodyS, .medium)
+                            .foregroundStyle(MMColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.bottom, MMSpace.s5)
+            }
+        }
+        .padding(.horizontal, MMSpace.s5)
+        .background(MMColor.paper2, in: RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous))
+        .accessibilityElement(children: .contain)
     }
 
     private var tags: some View {
