@@ -89,6 +89,17 @@ For a populated example, long-press the Silverback mark on Activity → States �
 
 A standalone browser companion is in `Prototypes/FocusPreview/`. Run `python3 Prototypes/FocusPreview/serve.py` from the repository root; it serves only preview assets on loopback port 4176. The browser companion mirrors the native planning form, including the original date/time, gym, note, friend, and privacy controls. The Example and Blank buttons are review controls outside the phone. Browser state is independent of the native app. The browser's completion action uses a labeled sample photo; real authentication and backend services are not connected.
 
+## Participant photos · design review only
+
+`Prototypes/SessionPhotosPreview/` contains the refined participant-photo mockup,
+using main’s session ticket, metadata/photo cards, typography and sticky footer.
+Run `python3 Prototypes/SessionPhotosPreview/serve.py` from the repository root,
+then open <http://127.0.0.1:4177/Prototypes/SessionPhotosPreview/>. The overview and
+interactive sample flow cover adding, previewing, replacing and removing one
+photo per participant per session. This is an isolated browser mockup; app and
+backend behavior are unchanged. See its [README](SessionPhotosPreview/README.md)
+for screenshots, pattern references and review states.
+
 ## Layout
 
 `Prototypes/MatMind/` is an Xcode *synchronized folder*: any file added there is part of the target automatically, with no project-file edits needed.
