@@ -157,7 +157,7 @@ final class AppModel {
     var friends: [Friendship] = []
     /// People who train with your training partners, with the partners you share.
     var circle: [CirclePerson] = []
-    /// Following grants activity visibility and permission to invite, never session details.
+    /// Follow and QR scanning create mutual training partnerships for activity, invitations and note sharing.
     var following: Set<String> = []
     var trainingInvitations: [TrainingInvitation] = []
     var pendingTrainingInvitations: [TrainingInvitation] {
@@ -526,6 +526,7 @@ final class AppModel {
     /// Follow or unfollow. The button flips right away; live, the next refresh confirms it.
     func setFollowing(_ id: String, _ follow: Bool) {
         guard id != "me", !pendingFollows.contains(id) else { return }
+        guard !follow || canFollow(id) else { return }
         let previous = following.contains(id)
         if follow { following.insert(id) } else { following.remove(id) }
         if isLive, let runtime {
@@ -546,8 +547,10 @@ final class AppModel {
                 }
                 pendingFollows.remove(id)
             }
-        } else if !isLive, follow, usernamePeople[id] != nil {
+        } else if !isLive, follow {
             addFriend(id)
+        } else if !isLive {
+            friends.removeAll { $0.id == id }
         }
     }
 
@@ -936,7 +939,9 @@ final class AppModel {
 
     func addFriend(_ id: String) {
         if isLive { return }
+        guard id != "me" else { return }
         following.insert(id)
+        if people[id] == nil, let person = listedPeople[id] ?? usernamePeople[id] { people[id] = person }
         guard !friends.contains(where: { $0.id == id }) else { return }
         friends.insert(Friendship(id: id, weeks: Array(repeating: false, count: 9), thisWeek: .pending, best: 0, together: 0), at: 0)
     }
@@ -1387,7 +1392,8 @@ final class AppModel {
         people = SeedData.people
         friends = SeedData.friends
         circle = SeedData.circle
-        following = SeedData.following.union(SeedData.friends.map(\.id))
+        following = Set(SeedData.friends.map(\.id))
+        for id in SeedData.following { addFriend(id) }
         partnerLists = [:]
         listedPeople = [:]
         posts = SeedData.posts

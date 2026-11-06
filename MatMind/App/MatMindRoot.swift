@@ -542,7 +542,8 @@ final class LiveMatMindRuntime: AppRuntime {
         ui.circle = (model.snapshot.circle ?? []).map { row in
             CirclePerson(id: localID(row.text("id")), mutual: (row.values["mutual"]?.strings ?? []).map(localID))
         }
-        ui.following = Set((model.snapshot.follows ?? []).map { localID($0.text("followee")) })
+        // Older caches and QR connections also represent mutual follows.
+        ui.following = Set((model.snapshot.follows ?? []).map { localID($0.text("followee")) }).union(ui.friends.map(\.id))
         ui.trainingInvitations = (model.snapshot.training_invitations ?? []).map { row in
             let host = localID(row.text("organizer"))
             if ui.people[host] == nil {

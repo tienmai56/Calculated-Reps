@@ -50,7 +50,7 @@ select pg_temp.assert_username(public.can_post('00000000-0000-0000-0000-00000000
 select public.command('create_session','{"title":"Training invite","starts_at":"2099-01-01T18:00:00Z","timezone":"UTC","venue":"Home gym","invited":["00000000-0000-0000-0000-000000000902"]}',gen_random_uuid());
 reset role;
 select pg_temp.assert_username((select count(*)=1 from public.notifications where recipient='00000000-0000-0000-0000-000000000902' and kind='friend'),'same notification behavior as scanning, without duplicates');
-select pg_temp.assert_username(not exists(select 1 from public.follows where follower='00000000-0000-0000-0000-000000000902'),'following is one way');
+select pg_temp.assert_username(exists(select 1 from public.follows where follower='00000000-0000-0000-0000-000000000902' and followee='00000000-0000-0000-0000-000000000901'),'username following creates a mutual connection');
 set local role authenticated;
 select pg_temp.assert_username(pg_temp.username_fails($q$select public.command('follow_username','{"username":"lookup_904","user_id":"00000000-0000-0000-0000-000000000904"}',gen_random_uuid())$q$),'cannot follow someone you blocked');
 select pg_temp.assert_username(pg_temp.username_fails($q$select public.command('follow_username','{"username":"lookup_905","user_id":"00000000-0000-0000-0000-000000000905"}',gen_random_uuid())$q$),'cannot follow someone who blocked you');

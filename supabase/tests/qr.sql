@@ -10,6 +10,14 @@ select public.command('save_profile','{"name":"Y"}',gen_random_uuid());
 select public.command('redeem_friend',jsonb_build_object('token',:'token'),gen_random_uuid());
 select public.command('redeem_friend',jsonb_build_object('token',:'token'),gen_random_uuid());
 do $$ begin if (select count(*) from public.friendships)<>1 then raise exception 'QR replay duplicated friendship'; end if; end $$;
+do $$ begin
+ if not exists(select 1 from public.follows where follower=auth.uid() and followee='00000000-0000-0000-0000-000000000011') then raise exception 'QR did not follow the code owner'; end if;
+end $$;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000011',true);
+do $$ begin
+ if not exists(select 1 from public.follows where follower=auth.uid() and followee='00000000-0000-0000-0000-000000000012') then raise exception 'QR did not follow back'; end if;
+end $$;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000012',true);
 select public.post_details('00000000-0000-0000-0000-000000000099');
 select * from public.feed_page();
 select * from public.comment_page('00000000-0000-0000-0000-000000000099');
