@@ -39,7 +39,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .ghost-btn{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);font:700 14px/1 var(--font-display);display:inline-flex;align-items:center;gap:6px;color:var(--text-primary)}
 .ghost-btn:hover{background:var(--surface-hover)}
 
-.directions{max-width:880px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 32px;align-items:start}
+.directions{max-width:1260px;margin:0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px 28px;align-items:start}
+@media(max-width:1280px){.directions{grid-template-columns:repeat(2,minmax(0,1fr));max-width:880px}}
 @media(max-width:860px){.directions{grid-template-columns:minmax(0,1fr);max-width:var(--phone-w)}}
 .direction{display:grid;gap:16px;min-width:0}
 .dir-head{display:grid;gap:6px}
@@ -181,6 +182,39 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .addrow button{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 14px/1 var(--font-display)}
 .pad .saved{margin-top:10px;color:var(--text-tertiary)}
 
+/* ---------- Direction C: one quiet line at the bottom of the week card ---------- */
+.cue{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin-top:10px;padding:8px 4px 0;border-top:1px solid var(--ink-line);animation:drop var(--dur-slow) var(--ease-out)}
+.cue-text{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font:600 13px/1.3 var(--font-body);color:var(--on-ink-soft)}
+.cue-text .icon{width:15px;height:15px;color:var(--coral-300)}
+.cue-text em{font-style:normal;font-weight:500;color:var(--on-ink-mute);overflow-wrap:anywhere}
+.cue-actions{display:flex;align-items:center;gap:2px;margin-left:auto}
+.cue-skip{min-height:44px;padding:0 10px;font:600 13px/1 var(--font-body);color:var(--on-ink-mute)}
+.cue-x{width:44px;padding:0;display:grid;place-items:center}
+.cue-x .icon{width:16px;height:16px}
+.cue-add{position:relative;min-height:44px;display:grid;place-items:center;padding:0 2px}
+.cue-add span{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 12px;border-radius:var(--radius-pill);box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35);color:var(--on-ink);font:700 13px/1 var(--font-display);letter-spacing:-.01em}
+.cue-add .icon{width:14px;height:14px}
+.cue-add.nudge span{animation:nudge 1.6s var(--ease-out) .35s 2}
+@keyframes nudge{0%{box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35),0 0 0 0 rgba(255,92,57,.55)}70%{box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35),0 0 0 8px rgba(255,92,57,0)}100%{box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35),0 0 0 0 rgba(255,92,57,0)}}
+.rows{margin-top:4px}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
+.row:last-child{border-bottom:0}
+.row .name{flex:1;min-width:0;font:800 16px/1.2 var(--font-display);letter-spacing:-.01em;overflow-wrap:anywhere}
+.step{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
+.step.minus{background:var(--surface-sunken);color:var(--ink-500)}
+.step.minus:disabled{opacity:.45}
+.step.plus{background:var(--surface-inverse);color:var(--text-inverse)}
+.step .icon{width:18px;height:18px}
+.row .count{min-width:24px;text-align:center;font:700 16px/1 var(--font-body);font-variant-numeric:tabular-nums}
+.row .count.zero{color:var(--text-tertiary)}
+.row .count.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.sheet-sub{margin:-8px 0 8px;font-size:13px;line-height:1.4;color:var(--text-tertiary)}
+.add-move{display:inline-flex;align-items:center;gap:6px;min-height:44px;font:700 15px/1 var(--font-display);color:var(--text-primary)}
+.add-move .icon{width:17px;height:17px}
+.sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.sheet-foot .saved{color:var(--text-tertiary)}
+.done-pill{min-height:48px;padding:0 26px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 16px/1 var(--font-display)}
+
 /* ---------- toast + sheet ---------- */
 .toast{position:absolute;left:16px;right:16px;bottom:96px;z-index:6;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);box-shadow:var(--shadow-float);animation:rise var(--dur-base) var(--ease-bounce)}
 .toast .icon{width:18px;height:18px;color:var(--mint-500)}
@@ -223,7 +257,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 <header class="intro">
   <span class="eyebrow">Activity · This week · design exploration</span>
   <h1>Tap a day, it's logged.</h1>
-  <p>Round 2. Both directions drop the “What did you hit today?” sheet. One tap counts the day straight away. Below the days, an optional follow-up lets you count techniques or tap Not now, and whatever you count still feeds the technique charts in Stats. Both phones open just after tapping Friday. Tap any past day, or Replay the tap, to see it again.</p>
+  <p>Round 3 adds a quieter option, C. In all three, tapping a day no longer opens the “What did you hit today?” sheet: one tap counts the day straight away. Below the days, an optional follow-up lets you count techniques or tap Not now, and whatever you count still feeds the technique charts in Stats. Every phone opens just after tapping Friday. Tap any past day, or Replay the tap, to see it again.</p>
   <div class="controls">
     <div class="seg" role="group" aria-label="Scenario">
       <button type="button" id="sc-plain" aria-pressed="true">Regular day</button>
@@ -280,10 +314,33 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
       </div>
     </div>
   </section>
+
+  <section class="direction" aria-labelledby="c-title">
+    <div class="dir-head">
+      <span class="tag">Direction C · new</span>
+      <h2 id="c-title">Quiet line</h2>
+      <p>The subtle one. Logging a day adds a single line at the bottom of the week card: “Friday logged”, a small Add moves pill and Not now. No techniques are listed and nothing opens until you ask.</p>
+    </div>
+    <div class="phone" id="phone-c" data-dir="c"></div>
+    <div class="stats" id="stats-c"></div>
+    <div class="notes">
+      <h3>How it behaves</h3>
+      <ul>
+        <li>Tap a day: it fills coral, the toast confirms it, and one line fades in under the days. The Add moves pill gives two soft coral pulses, then stays still.</li>
+        <li>Add moves is the only way in. It opens a short sheet, “What landed on Friday?”, with the − / + counters for subs, sweeps and passes.</li>
+        <li>Counts save as you tap. After Done, the line shows what you added (“Heel hook ×2 · Armbar”) with Edit.</li>
+        <li>Not now removes the line. The card goes back to exactly how it looks today.</li>
+      </ul>
+      <div class="tradeoff">
+        <div><b>Strong at</b>Barely changes the screen. Logging stays one tap, and the invitation is easy to ignore.</div>
+        <div><b>Watch for</b>Easy to miss for new users. Counting takes two taps (Add moves, then +), and it uses a sheet again, though only on request.</div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <section class="foot" aria-labelledby="shared-title">
-  <h2 id="shared-title">Same in both</h2>
+  <h2 id="shared-title">Same in all three</h2>
   <ul>
     <li><b>Planned days keep the chooser.</b> Switch to “Planned session today” and tap Friday. The sheet still offers the planned session and a quick log. The quick log option now logs immediately and closes the sheet, then the same optional technique follow-up appears. Choosing the plan still goes to Complete & share.</li>
     <li><b>Stats stay honest.</b> Every tap creates a quick log. Hits you count attach to that log, so the existing technique charts in Stats pick them up unchanged. A tap with no hits counts the day and adds nothing to the charts.</li>
@@ -321,7 +378,7 @@ function fresh(){
     fx:{}                 // one-shot animation flags
   };
 }
-const state = {a:fresh(), b:fresh()};
+const state = {a:fresh(), b:fresh(), c:fresh()};
 
 const planOn = day => scenario === 'plan' ? (day === TODAY || day === 5) : day === 5;
 const isFuture = day => day > TODAY;
@@ -352,7 +409,7 @@ function quickLog(dir, day){
   const log = {id:'q'+(seq++), hits:{}};
   s.logs[day].push(log);
   s.active = {day, logId:log.id};
-  s.adding = false; s.draft = '';
+  s.adding = false; s.draft = ''; s.hitsSheet = false;
   s.fx.pop = day; s.fx.open = true;
   showToast(dir, 'Training logged', () => undoLog(dir, day, log.id));
   render(dir);
@@ -423,6 +480,7 @@ function weekHTML(dir, s){
     <div class="days">${WEEK.map((d,i) => dayHTML(dir, s, d, i)).join('')}</div>
     ${anyPlan ?  `<div class="legend">${icon('calendar')}<span>= You have a planned session</span></div>` : ''}
     ${dir === 'a' ? movesHTML(s) : ''}
+    ${dir === 'c' ? cueHTML(s) : ''}
   </div>`;
 }
 
@@ -480,6 +538,55 @@ function padHTML(s){
   </div>`;
 }
 
+/* Direction C */
+function cueHTML(s){
+  const log = activeLog(s);
+  if (!log) return '';
+  const day = WEEK[s.active.day];
+  const hits = s.techniques.filter(t => log.hits[t.id]);
+  if (hits.length && !s.hitsSheet) {
+    const list = hits.map(t => `${esc(t.name)}${log.hits[t.id] > 1 ? ` ×${log.hits[t.id]}` : ''}`).join(' · ');
+    return `<div class="cue" data-still>
+      <span class="cue-text">${icon('check')}<span>${day.name}<em> · ${list}</em></span></span>
+      <span class="cue-actions"><button type="button" class="cue-add" data-act="hitsopen" data-key="c-edit"><span>${icon('pencil')}Edit</span></button><button type="button" class="cue-skip cue-x" data-act="close" aria-label="Hide">${icon('x')}</button></span>
+    </div>`;
+  }
+  return `<div class="cue">
+    <span class="cue-text">${icon('check')}${day.name} logged</span>
+    <span class="cue-actions">
+      <button type="button" class="cue-skip" data-act="close" data-key="c-skip">Not now</button>
+      <button type="button" class="cue-add ${s.fx.open ? 'nudge' : ''}" data-act="hitsopen" data-key="c-open" aria-label="Add moves to ${day.name}, optional"><span>${icon('plus')}Add moves</span></button>
+    </span>
+  </div>`;
+}
+function hitsSheetHTML(s){
+  const log = activeLog(s);
+  if (!s.hitsSheet || !log) return '';
+  const day = WEEK[s.active.day];
+  const any = Object.keys(log.hits).length > 0;
+  const rows = s.techniques.map(t => {
+    const n = log.hits[t.id] || 0;
+    return `<div class="row">
+      <span class="name">${esc(t.name)}</span>
+      <button type="button" class="step minus" data-act="less" data-id="${t.id}" data-key="c-less-${t.id}" ${n ? '' : 'disabled'} aria-label="One fewer ${esc(t.name)}">${icon('minus')}</button>
+      <span class="count ${n ? '' : 'zero'} ${s.fx.bump === t.id ? 'bump':''}" aria-label="${esc(t.name)}, ${n} hits">${n}</span>
+      <button type="button" class="step plus" data-act="hit" data-id="${t.id}" data-key="c-hit-${t.id}" aria-label="One more ${esc(t.name)}">${icon('plus')}</button>
+    </div>`;
+  }).join('');
+  const add = s.adding
+    ? `<div class="addrow"><input id="c-new" data-key="c-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>`
+    : `<button type="button" class="add-move" data-act="adding" data-key="c-adding">${icon('plus')}Add a move</button>`;
+  return `<div class="scrim" data-act="hitsdone"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="c-sheet-title">
+    <div class="grab"></div>
+    <div class="sheet-h"><h3 id="c-sheet-title">What landed on ${day.name}?</h3><button type="button" class="hbtn" data-act="hitsdone" aria-label="Close">${icon('x')}</button></div>
+    <p class="sheet-sub">Subs, sweeps, passes. Optional, and it saves as you tap.</p>
+    <div class="rows">${rows}</div>
+    ${add}
+    <div class="sheet-foot"><span class="saved">${any ? `${icon('circle-check')}Saved to Stats` : ''}</span><button type="button" class="done-pill" data-act="hitsdone" data-key="c-done">Done</button></div>
+  </div>`;
+}
+
 function sheetHTML(s){
   if (s.sheet === null) return '';
   const day = s.sheet, d = WEEK[day], p = planInfo(day);
@@ -526,6 +633,7 @@ function phoneHTML(dir){
     <span>${icon('notebook-pen')}Goals</span><span>${icon('user')}Stats</span>
   </nav>
   ${s.toast ? `<div class="toast" role="status">${icon('circle-check')}<span>${esc(s.toast.text)}</span>${s.toast.undo ? '<button type="button" data-act="toastundo">Undo</button>' : ''}</div>` : ''}
+  ${dir === 'c' ? hitsSheetHTML(s) : ''}
   ${sheetHTML(s)}`;
 }
 
@@ -561,7 +669,7 @@ function render(dir){
 }
 
 /* ---------- events ---------- */
-for (const dir of ['a','b']) {
+for (const dir of ['a','b','c']) {
   const phone = document.getElementById('phone-' + dir);
   phone.addEventListener('click', e => {
     const el = e.target.closest('[data-act]');
@@ -572,7 +680,9 @@ for (const dir of ['a','b']) {
       case 'remove': removeLatest(dir, day); break;
       case 'hit': bump(dir, id, 1); break;
       case 'less': bump(dir, id, -1); break;
-      case 'close': s.active = null; s.adding = false; render(dir); break;
+      case 'close': s.active = null; s.adding = false; s.hitsSheet = false; render(dir); break;
+      case 'hitsopen': s.hitsSheet = true; render(dir); phone.querySelector('.sheet .step.plus')?.focus({preventScroll:true}); break;
+      case 'hitsdone': s.hitsSheet = false; s.adding = false; render(dir); phone.querySelector('[data-key="c-edit"],[data-key="c-open"]')?.focus({preventScroll:true}); break;
       case 'adding': s.adding = true; s.draft = ''; render(dir); break;
       case 'addsave': addTechnique(dir); break;
       case 'toastundo': s.toast?.undo?.(); break;
@@ -588,6 +698,7 @@ for (const dir of ['a','b']) {
       const s = state[dir];
       if (s.sheet !== null) { s.sheet = null; render(dir); }
       else if (s.adding) { s.adding = false; render(dir); }
+      else if (s.hitsSheet) { s.hitsSheet = false; render(dir); }
     }
   });
 }
@@ -599,13 +710,13 @@ function setScenario(next){
   replay();
 }
 function resetAll(){
-  state.a = fresh(); state.b = fresh();
-  render('a'); render('b');
+  state.a = fresh(); state.b = fresh(); state.c = fresh();
+  render('a'); render('b'); render('c');
 }
 // Start each phone just after tapping today, so the follow-up is visible without a tap.
 function replay(){
   resetAll();
-  tapDay('a', TODAY); tapDay('b', TODAY);
+  tapDay('a', TODAY); tapDay('b', TODAY); tapDay('c', TODAY);
 }
 document.getElementById('sc-plain').addEventListener('click', () => setScenario('plain'));
 document.getElementById('sc-plan').addEventListener('click', () => setScenario('plan'));

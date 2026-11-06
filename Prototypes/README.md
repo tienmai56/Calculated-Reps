@@ -62,10 +62,11 @@ prompter.
 
 ## Tap-to-log directions (exploration)
 
-A browser comparison of two directions where tapping a day on Activity's week card logs training immediately, with no "What did you hit today?" sheet. Counting techniques becomes an optional follow-up below the days, always with **Not now**. Run `python3 Prototypes/QuickLogPreview/serve.py` from the repository root and open loopback port 4177. Both phones open just after tapping Friday; **Replay the tap** shows it again.
+A browser comparison of three directions where tapping a day on Activity's week card logs training immediately, with no "What did you hit today?" sheet. Counting techniques becomes an optional follow-up below the days, always with **Not now**. Run `python3 Prototypes/QuickLogPreview/serve.py` from the repository root and open loopback port 4177. Both phones open just after tapping Friday; **Replay the tap** shows it again.
 
 - **A · Moves row:** the week card grows a second row of technique circles that match the day circles. Tap a circle to count a hit; it fills coral, and a small − takes one back.
 - **B · Tap pad:** a separate full-width white card lands below the calendar with a 2-column grid of technique tiles. Tap a tile to count; counted tiles turn coral-tinted with a − button.
+- **C · Quiet line:** the subtle option. One line fades in at the bottom of the week card ("Friday logged", **Not now**, and an **Add moves** pill that pulses twice). Nothing is listed or expanded until Add moves opens a short counter sheet; afterwards the line summarizes the hits with Edit.
 
 Both keep the planned-day chooser; its quick log option now logs right away and then shows the same optional follow-up. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. Sample data only; nothing is saved. (Round 1's speech bubble and tucked-under tray are in git history.)
 
