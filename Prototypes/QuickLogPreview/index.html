@@ -91,6 +91,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .week-h{padding:0 4px;display:grid;gap:4px}
 .week-h strong{font:800 18px/1.2 var(--font-display);letter-spacing:-.015em}
 .week-h span{font-size:13px;line-height:1.35;color:var(--on-ink-soft)}
+.week-h .confirm{display:flex;align-items:center;gap:6px;min-height:18px;color:var(--on-ink);font-weight:600;animation:drop var(--dur-base) var(--ease-out)}
+.week-h .confirm .icon{width:15px;height:15px;color:var(--coral-300)}
+.week-h .confirm .undo{position:relative;margin:-6px 0 -6px 4px;height:28px;padding:0 12px;border-radius:var(--radius-pill);background:rgba(250,246,239,.14);color:var(--on-ink);font:700 13px/1 var(--font-display)}
+.week-h .confirm .undo::after{content:"";position:absolute;inset:-8px -4px}
 .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin-top:12px}
 .day{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;min-height:66px;padding-top:2px}
 .day .wd{font:600 11px/1 var(--font-body);color:var(--on-ink-mute)}
@@ -189,6 +193,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .cue-text em{font-style:normal;font-weight:500;color:var(--on-ink-mute);overflow-wrap:anywhere}
 .cue-actions{display:flex;align-items:center;gap:2px;margin-left:auto}
 .cue-skip{min-height:44px;padding:0 10px;font:600 13px/1 var(--font-body);color:var(--on-ink-mute)}
+.cue.choices{display:grid;grid-template-columns:1fr 1.6fr;gap:8px;padding-top:12px}
+.choice-skip,.choice-log{min-height:44px;border-radius:var(--radius-pill);display:inline-flex;align-items:center;justify-content:center;gap:6px;font:700 14px/1 var(--font-display);letter-spacing:-.01em}
+.choice-skip{color:var(--on-ink-mute)}
+.choice-skip:hover{background:var(--ink-wash)}
+.choice-log{color:var(--on-ink);box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35)}
+.choice-log .icon{width:15px;height:15px}
+.choice-log.nudge{animation:nudge 1.6s var(--ease-out) .35s 2}
 .cue-x{width:44px;padding:0;display:grid;place-items:center}
 .cue-x .icon{width:16px;height:16px}
 .cue-add{position:relative;min-height:44px;display:grid;place-items:center;padding:0 2px}
@@ -280,7 +291,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     <div class="notes">
       <h3>How it behaves</h3>
       <ul>
-        <li>Tap a day: it fills coral, a “Training logged · Undo” toast confirms it, and a row of technique circles opens under the days: “What landed on Friday?”</li>
+        <li>Tap a day: it fills coral, the card's subtitle turns into “Training logged · Undo” for a few seconds, and a row of technique circles opens under the days: “What landed on Friday?”</li>
         <li>Tap a circle to count one hit. It fills coral and shows the count. The small − on it takes one back, like the ×N badge on a day.</li>
         <li>Hits save as you tap. “Not now” folds the row away, and it turns into “Done” once you've counted something.</li>
         <li>More techniques scroll sideways. The last circle adds a new move.</li>
@@ -303,7 +314,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     <div class="notes">
       <h3>How it behaves</h3>
       <ul>
-        <li>Tap a day: it fills coral, the toast confirms it, and the tap pad drops in under the week card: “Friday's logged. Anything land?”</li>
+        <li>Tap a day: it fills coral, “Training logged · Undo” shows in the card's subtitle, and the tap pad drops in under the week card: “Friday's logged. Anything land?”</li>
         <li>Tap anywhere on a tile to count one hit. Counted tiles turn coral-tinted, with a − button in the corner.</li>
         <li>Hits save as you tap. “Not now” becomes “Done” once you've counted something. Either one clears the card.</li>
         <li>The calendar card never changes. The dashed tile adds a new move.</li>
@@ -319,21 +330,21 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     <div class="dir-head">
       <span class="tag">Direction C · new</span>
       <h2 id="c-title">Quiet line</h2>
-      <p>The subtle one. Logging a day adds a single line at the bottom of the week card: “Friday logged”, a small Add moves pill and Not now. No techniques are listed and nothing opens until you ask.</p>
+      <p>The subtle one. The coral day and “Training logged · Undo” in the card's subtitle show that you just logged. Below the days there are only two options: Not now and Log techniques. Nothing is listed and nothing opens until you ask.</p>
     </div>
     <div class="phone" id="phone-c" data-dir="c"></div>
     <div class="stats" id="stats-c"></div>
     <div class="notes">
       <h3>How it behaves</h3>
       <ul>
-        <li>Tap a day: it fills coral, the toast confirms it, and one line fades in under the days. The Add moves pill gives two soft coral pulses, then stays still.</li>
-        <li>Add moves is the only way in. It opens a short sheet, “What landed on Friday?”, with the − / + counters for subs, sweeps and passes.</li>
+        <li>Tap a day: it fills coral, the subtitle confirms it with Undo, and two options fade in under the days. Log techniques gives two soft coral pulses, then stays still.</li>
+        <li>Log techniques is the only way in. It opens a short sheet, “What landed on Friday?”, with the − / + counters for subs, sweeps and passes.</li>
         <li>Counts save as you tap. After Done, the line shows what you added (“Heel hook ×2 · Armbar”) with Edit.</li>
         <li>Not now removes the line. The card goes back to exactly how it looks today.</li>
       </ul>
       <div class="tradeoff">
         <div><b>Strong at</b>Barely changes the screen. Logging stays one tap, and the invitation is easy to ignore.</div>
-        <div><b>Watch for</b>Easy to miss for new users. Counting takes two taps (Add moves, then +), and it uses a sheet again, though only on request.</div>
+        <div><b>Watch for</b>Easy to miss for new users. Counting takes two taps (Log techniques, then +), and it uses a sheet again, though only on request.</div>
       </div>
     </div>
   </section>
@@ -344,6 +355,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   <ul>
     <li><b>Planned days keep the chooser.</b> Switch to “Planned session today” and tap Friday. The sheet still offers the planned session and a quick log. The quick log option now logs immediately and closes the sheet, then the same optional technique follow-up appears. Choosing the plan still goes to Complete & share.</li>
     <li><b>Stats stay honest.</b> Every tap creates a quick log. Hits you count attach to that log, so the existing technique charts in Stats pick them up unchanged. A tap with no hits counts the day and adds nothing to the charts.</li>
+    <li><b>Undo sits where you tapped.</b> “Training logged · Undo” replaces the week card's subtitle for five seconds, right above the days, then the subtitle comes back. It no longer appears at the bottom of the screen.</li>
     <li><b>Not now is always one tap away.</b> The follow-up never blocks the log. Not now (or Done after counting) clears it, and the day stays counted.</li>
     <li><b>Removing works as today.</b> The ×N badge on a day still removes the latest quick log, along with any hits on it.</li>
   </ul>
@@ -446,9 +458,9 @@ function addTechnique(dir){
   bump(dir, t.id, 1);
 }
 let toastTimers = {};
-function showToast(dir, text, undo){
+function showToast(dir, text, undo, near = true){
   const s = state[dir];
-  s.toast = {text, undo};
+  s.toast = {text, undo, near};
   clearTimeout(toastTimers[dir]);
   toastTimers[dir] = setTimeout(() => { s.toast = null; render(dir); }, 5000);
 }
@@ -476,7 +488,9 @@ function weekHTML(dir, s){
   const anyPlan = WEEK.some((_, i) => planOn(i));
   const copy = 'Tap a day you trained. It counts right away.';
   return `<div class="week">
-    <div class="week-h"><strong>This week</strong><span>${copy}</span></div>
+    <div class="week-h"><strong>This week</strong>${s.toast && s.toast.near
+      ? `<span class="confirm" role="status">${icon('circle-check')}${esc(s.toast.text)}${s.toast.undo ? '<button type="button" class="undo" data-act="toastundo" data-key="undo">Undo</button>' : ''}</span>`
+      : `<span>${copy}</span>`}</div>
     <div class="days">${WEEK.map((d,i) => dayHTML(dir, s, d, i)).join('')}</div>
     ${anyPlan ?  `<div class="legend">${icon('calendar')}<span>= You have a planned session</span></div>` : ''}
     ${dir === 'a' ? movesHTML(s) : ''}
@@ -547,16 +561,13 @@ function cueHTML(s){
   if (hits.length && !s.hitsSheet) {
     const list = hits.map(t => `${esc(t.name)}${log.hits[t.id] > 1 ? ` ×${log.hits[t.id]}` : ''}`).join(' · ');
     return `<div class="cue" data-still>
-      <span class="cue-text">${icon('check')}<span>${day.name}<em> · ${list}</em></span></span>
+      <span class="cue-text">${icon('check')}<span>${list}</span></span>
       <span class="cue-actions"><button type="button" class="cue-add" data-act="hitsopen" data-key="c-edit"><span>${icon('pencil')}Edit</span></button><button type="button" class="cue-skip cue-x" data-act="close" aria-label="Hide">${icon('x')}</button></span>
     </div>`;
   }
-  return `<div class="cue">
-    <span class="cue-text">${icon('check')}${day.name} logged</span>
-    <span class="cue-actions">
-      <button type="button" class="cue-skip" data-act="close" data-key="c-skip">Not now</button>
-      <button type="button" class="cue-add ${s.fx.open ? 'nudge' : ''}" data-act="hitsopen" data-key="c-open" aria-label="Add moves to ${day.name}, optional"><span>${icon('plus')}Add moves</span></button>
-    </span>
+  return `<div class="cue choices" role="group" aria-label="Optional: log techniques for ${day.name}">
+    <button type="button" class="choice-skip" data-act="close" data-key="c-skip">Not now</button>
+    <button type="button" class="choice-log ${s.fx.open ? 'nudge' : ''}" data-act="hitsopen" data-key="c-open">${icon('plus')}Log techniques</button>
   </div>`;
 }
 function hitsSheetHTML(s){
@@ -632,7 +643,7 @@ function phoneHTML(dir){
     <span><span class="plan">${icon('plus')}</span></span>
     <span>${icon('notebook-pen')}Goals</span><span>${icon('user')}Stats</span>
   </nav>
-  ${s.toast ? `<div class="toast" role="status">${icon('circle-check')}<span>${esc(s.toast.text)}</span>${s.toast.undo ? '<button type="button" data-act="toastundo">Undo</button>' : ''}</div>` : ''}
+  ${s.toast && !s.toast.near ? `<div class="toast" role="status">${icon('circle-check')}<span>${esc(s.toast.text)}</span>${s.toast.undo ? '<button type="button" data-act="toastundo">Undo</button>' : ''}</div>` : ''}
   ${dir === 'c' ? hitsSheetHTML(s) : ''}
   ${sheetHTML(s)}`;
 }
@@ -688,7 +699,7 @@ for (const dir of ['a','b','c']) {
       case 'toastundo': s.toast?.undo?.(); break;
       case 'sheetclose': s.sheet = null; render(dir); break;
       case 'quick': { const d = s.sheet; s.sheet = null; quickLog(dir, d); break; }
-      case 'plan': s.sheet = null; showToast(dir, 'Opens Complete & share for Morning open mat'); render(dir); break;
+      case 'plan': s.sheet = null; showToast(dir, 'Opens Complete & share for Morning open mat', null, false); render(dir); break;
     }
   });
   phone.addEventListener('input', e => { if (e.target.matches('input')) state[dir].draft = e.target.value; });

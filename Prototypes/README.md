@@ -66,9 +66,9 @@ A browser comparison of three directions where tapping a day on Activity's week 
 
 - **A · Moves row:** the week card grows a second row of technique circles that match the day circles. Tap a circle to count a hit; it fills coral, and a small − takes one back.
 - **B · Tap pad:** a separate full-width white card lands below the calendar with a 2-column grid of technique tiles. Tap a tile to count; counted tiles turn coral-tinted with a − button.
-- **C · Quiet line:** the subtle option. One line fades in at the bottom of the week card ("Friday logged", **Not now**, and an **Add moves** pill that pulses twice). Nothing is listed or expanded until Add moves opens a short counter sheet; afterwards the line summarizes the hits with Edit.
+- **C · Quiet line:** the subtle option. Below the days, only two options fade in: **Not now** and **Log techniques** (which pulses twice). Nothing is listed or expanded until Log techniques opens a short counter sheet; afterwards the line summarizes the hits with Edit.
 
-Both keep the planned-day chooser; its quick log option now logs right away and then shows the same optional follow-up. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. Sample data only; nothing is saved. (Round 1's speech bubble and tucked-under tray are in git history.)
+In all three, "Training logged · Undo" replaces the week card's subtitle for five seconds, next to the tap, instead of a toast at the bottom of the screen. All keep the planned-day chooser; its quick log option now logs right away and then shows the same optional follow-up. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. Sample data only; nothing is saved. (Round 1's speech bubble and tucked-under tray are in git history.)
 
 ## Empty states
 
