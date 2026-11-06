@@ -13,8 +13,10 @@ current native `SessionTicket`, metadata card, `MMPhotoTile`, `MMButton`,
 - The separate composer uses the single-image Photos picker. Its JPEG draft
   stays on the device until Post photo; closing discards the draft. Failed
   uploads keep the draft for retry and leave the previous photo intact.
-- Each photo card shows its author's name, including while the image downloads.
-  Only the current person's card has Replace photo and Remove photo. A stale
+- Each photo shows its author's name above the image, including while the image
+  downloads. Name and image sit directly on the paper canvas, with no white
+  wrapper or shadow. A 24pt gap separates contributions; photos retain their
+  rounded corners. Only your own entry has Replace photo and Remove photo. A stale
   replacement/removal fails rather than overwriting another device's changes.
 - Removing a photo keeps training attendance and credits. Correcting attendance,
   declining, or removing a guest detaches that person's session-photo slot.

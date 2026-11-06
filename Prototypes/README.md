@@ -92,7 +92,9 @@ A standalone browser companion is in `Prototypes/FocusPreview/`. Run `python3 Pr
 ## Participant session photos
 
 After training, confirmed attendees can add one photo from session details.
-Photos keep main's 240pt tiles and white cards, with the author's name above each.
+Photos keep main's 240pt rounded tiles, with the author's name above each,
+directly on the paper canvas. There is no white wrapper, inset or outer shadow
+around the name and photo; contributions are separated by 24pt of space.
 **Add photo** opens a separate preview with the existing summary card, 330pt
 photo and sticky **Post photo** action. Selection stays local until posting.
 The participant's own menu offers **Replace photo** and confirmed **Remove photo**;

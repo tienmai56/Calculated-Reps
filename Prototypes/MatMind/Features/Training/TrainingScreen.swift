@@ -679,39 +679,36 @@ struct SessionDetailScreen: View {
                 }
                 .frame(minHeight: 128)
             } else {
-                VStack(spacing: MMSpace.s5) {
+                VStack(spacing: MMSpace.s8) {
                     ForEach(photos) { photo in
-                        MMCard(padding: MMSpace.s4) {
-                            VStack(spacing: 0) {
-                                HStack(spacing: MMSpace.s4) {
-                                    PersonProfileButton(person: mm.person(photo.author)) {
-                                        Text(mm.person(photo.author).name + (photo.author == "me" ? " (you)" : ""))
-                                            .mmFont(.body, 15, .bold)
-                                            .foregroundStyle(MMColor.textPrimary)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    if photo.author == "me" && mm.canPostParticipantPhoto(session) {
-                                        Menu {
-                                            Button {
-                                                replacingPhotoID = photo.id
-                                                showPhotoComposer = true
-                                            } label: { Label("Replace photo", image: "repeat-2") }
-                                            Button(role: .destructive) { removingPhoto = photo } label: { Label("Remove photo", image: "trash-2") }
-                                        } label: {
-                                            MMIcon("ellipsis", size: 20)
-                                                .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
-                                                .contentShape(Rectangle())
-                                        }
-                                        .accessibilityLabel("Your photo options")
-                                        .disabled(removing || mm.busy)
-                                    }
+                        VStack(alignment: .leading, spacing: MMSpace.s4) {
+                            HStack(spacing: MMSpace.s4) {
+                                PersonProfileButton(person: mm.person(photo.author)) {
+                                    Text(mm.person(photo.author).name + (photo.author == "me" ? " (you)" : ""))
+                                        .mmFont(.body, 15, .bold)
+                                        .foregroundStyle(MMColor.textPrimary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                                .frame(minHeight: MMLayout.tapTarget)
-                                .padding(.horizontal, MMSpace.s3)
-                                MMPhotoTile(photo: photo.source, height: 240, radius: MMRadius.md) { EmptyView() }
-                                    .accessibilityLabel("Session photo from \(mm.person(photo.author).name)")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                if photo.author == "me" && mm.canPostParticipantPhoto(session) {
+                                    Menu {
+                                        Button {
+                                            replacingPhotoID = photo.id
+                                            showPhotoComposer = true
+                                        } label: { Label("Replace photo", image: "repeat-2") }
+                                        Button(role: .destructive) { removingPhoto = photo } label: { Label("Remove photo", image: "trash-2") }
+                                    } label: {
+                                        MMIcon("ellipsis", size: 20)
+                                            .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .accessibilityLabel("Your photo options")
+                                    .disabled(removing || mm.busy)
+                                }
                             }
+                            .frame(minHeight: MMLayout.tapTarget)
+                            MMPhotoTile(photo: photo.source, height: 240, radius: MMRadius.md) { EmptyView() }
+                                .accessibilityLabel("Session photo from \(mm.person(photo.author).name)")
                         }
                     }
                 }
