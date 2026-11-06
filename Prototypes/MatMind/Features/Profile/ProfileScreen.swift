@@ -899,7 +899,7 @@ struct PersonProfileScreen: View {
                 .padding(.bottom, 16)
         }
         .mmSheet(isPresented: $confirmUnfollow, title: "Unfollow \(p.firstName)?",
-                 description: "You can follow again anytime.") {
+                 description: "This removes your training-partner connection for both of you. You can connect again through your partners or a QR code.") {
             VStack(spacing: 12) {
                 MMButton("Unfollow", variant: .danger, iconLeft: "user-minus", fullWidth: true) {
                     confirmUnfollow = false

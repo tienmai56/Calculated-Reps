@@ -295,10 +295,10 @@ private struct ConnectedView: View {
             .frame(height: 120)
 
             Group {
-                Text("You’re following \(p.firstName)").mmFont(.display, 30, tracking: -0.04, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
+                Text("You and \(p.firstName) are training partners").mmFont(.display, 30, tracking: -0.04, lineHeight: 1.05).foregroundStyle(MMColor.ink900)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 28)
-                Text("See their activity and invite them to train. They accept before seeing session details.").mmFont(.body, 15).foregroundStyle(MMColor.ink800)
+                Text("See each other’s activity, share notes and invite each other to train. Accept an invitation to see session details.").mmFont(.body, 15).foregroundStyle(MMColor.ink800)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 8)
                 VStack(spacing: 8) {

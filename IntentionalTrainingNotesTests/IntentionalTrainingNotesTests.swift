@@ -142,10 +142,37 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertTrue(ui.isFollowing("lena"))
         XCTAssertTrue(ui.canInvite("lena"))
         ui.setFollowing("lena", false)
-        XCTAssertFalse(ui.canInvite("lena"), "A legacy training connection grants no separate invite permission")
+        XCTAssertFalse(ui.canInvite("lena"), "Unfollowing removes the mutual connection")
         ui.setFollowing("rafa", true)
         XCTAssertTrue(ui.invitees.contains { $0.id == "rafa" })
         XCTAssertTrue(ui.canInvite("rafa"))
+        XCTAssertNotNil(ui.friendship("rafa"), "Following creates a training partnership")
+        ui.setFollowing("rafa", false)
+        XCTAssertNil(ui.friendship("rafa"))
+        XCTAssertFalse(ui.isFollowing("rafa"))
+    }
+
+    @MainActor
+    func testFollowAndScanCreateTheSameActivityAndSharingConnection() throws {
+        let followed = AppModel(live: false)
+        let scanned = AppModel(live: false)
+        var memory = try XCTUnwrap(followed.posts.first)
+        memory.organizer = "rafa"
+        memory.participants = ["rafa"]
+        followed.posts = [memory]
+        scanned.posts = [memory]
+        XCTAssertTrue(followed.feedPosts.isEmpty)
+        followed.setFollowing("rafa", true)
+        scanned.addFriend("rafa")
+        XCTAssertEqual(followed.feedPosts, scanned.feedPosts)
+        XCTAssertEqual(followed.feedPosts, [memory])
+        XCTAssertEqual(followed.friendship("rafa"), scanned.friendship("rafa"))
+        XCTAssertTrue(followed.friends.contains { $0.id == "rafa" }, "Note sharing offers training partners")
+        followed.setFollowing("rafa", false)
+        XCTAssertTrue(followed.feedPosts.isEmpty)
+        XCTAssertNil(followed.friendship("rafa"))
+        followed.setFollowing("stranger", true)
+        XCTAssertFalse(followed.isFollowing("stranger"))
     }
 
     @MainActor
@@ -1290,6 +1317,8 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(ui.circle, [CirclePerson(id: "rafa", mutual: ["sarah"])])
         XCTAssertEqual(ui.suggestedPeople.map(\.id), ["rafa"])
         XCTAssertTrue(ui.isFollowing("rafa"))
+        XCTAssertTrue(ui.isFollowing("sarah"), "QR partners follow each other even with older caches")
+        XCTAssertTrue(ui.canInvite("sarah"))
         // Caches saved before following existed still decode.
         let old = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"{"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]}"#.utf8))
         XCTAssertNil(old.circle)
