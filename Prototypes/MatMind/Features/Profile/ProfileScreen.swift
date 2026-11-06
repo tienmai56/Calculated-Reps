@@ -64,6 +64,9 @@ struct ProfileScreen: View {
             case .gallery: ProfileGallerySection(history: history)
             }
         }
+        // A Your rhythm widget tap lands on Progress, where Your rhythm comes first.
+        .onAppear { openWidgetProgress() }
+        .onChange(of: mm.widgetProfileSectionRequest) { _, _ in openWidgetProgress() }
         .mmSheet(isPresented: $showSettings, title: "Account") {
             VStack(alignment: .leading, spacing: 16) {
                 // Build my monkey (Maybe later, or never asked) or Edit my monkey.
@@ -285,6 +288,12 @@ struct ProfileScreen: View {
         belt = mm.me.belt.rawValue
         stripes = String(mm.me.stripes)
         showSettings = true
+    }
+
+    private func openWidgetProgress() {
+        guard mm.widgetProfileSectionRequest != nil else { return }
+        mm.widgetProfileSectionRequest = nil
+        section = .progress
     }
 }
 

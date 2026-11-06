@@ -1166,6 +1166,21 @@ struct TrainingWeekCard: View {
         .sensoryFeedback(trigger: mm.toast?.id) { _, _ in
             isActivity && mm.toast?.inline == true && mm.toast?.variant == .danger ? SensoryFeedback.error : nil
         }
+        .onAppear { openWidgetQuickLog() }
+        .onChange(of: mm.widgetQuickLogRequest) { _, _ in openWidgetQuickLog() }
+    }
+
+    /// The widget's Log training button takes the same path as tapping today here.
+    private func openWidgetQuickLog() {
+        guard isActivity, mm.widgetQuickLogRequest != nil else { return }
+        mm.widgetQuickLogRequest = nil
+        let today = Date()
+        guard days.contains(where: { TrainingCalendar.calendar.isDate($0, inSameDayAs: today) }) else { return }
+        Task { @MainActor in
+            // Let the tab switch settle before logging and showing the follow-up.
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if selected == nil { log(today) }
+        }
     }
 
     @ViewBuilder

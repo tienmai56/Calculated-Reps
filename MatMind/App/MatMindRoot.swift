@@ -7,6 +7,8 @@ struct MatMindRoot: View {
     @State var model: SocialAppModel
     @State private var ui = AppModel(live: true)
     @State private var runtime: LiveMatMindRuntime?
+    /// A widget tap that arrived before the account finished loading.
+    @State private var pendingWidget: WidgetDestination?
     @Environment(\.scenePhase) private var phase
 #if DEBUG
     @State private var previewModel: AppModel?
@@ -62,11 +64,14 @@ struct MatMindRoot: View {
                 services.sync()
                 await services.loadPhotos()
                 openNotification()
+                if let destination = WidgetLaunchRequest.take() { pendingWidget = destination }
+                openPendingWidget()
                 if model.me != nil { await SocialPushCoordinator.register(in: model) }
                 if model.me != nil, let pending = model.pendingLink { await redeemLink(pending) }
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
+                openPendingWidget()
                 if old.profiles != new.profiles || old.shared_goals != new.shared_goals || old.media != new.media { Task { await runtime?.loadPhotos() } }
                 if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil {
                     // Just signed in or finished profile setup: ask once for push, then keep the token current.
@@ -75,7 +80,13 @@ struct MatMindRoot: View {
                 }
             }
             .onChange(of: model.userID) { _, _ in runtime?.sync() }
+            .onReceive(NotificationCenter.default.publisher(for: WidgetLaunchRequest.notification)) { _ in
+                if let destination = WidgetLaunchRequest.take() { openWidget(destination) }
+            }
             .onChange(of: phase) { _, phase in
+                if phase == .active, let destination = WidgetLaunchRequest.take() { openWidget(destination) }
+                // Local saves (quick logs, Undo) reach the widgets even before the next refresh.
+                if phase == .background { runtime?.publishWidgets() }
                 if phase == .active { Task { await model.refresh(); await runtime?.loadPhotos() } }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushOpen"))) { _ in
@@ -91,6 +102,7 @@ struct MatMindRoot: View {
                 Task { await model.refresh(); await runtime?.loadPhotos() }
             }
             .onOpenURL { url in
+                if let destination = WidgetDestination(url: url) { openWidget(destination); return }
                 model.handle(url)
                 guard model.pendingLink == url else { return }
             }
@@ -117,6 +129,19 @@ struct MatMindRoot: View {
             .refreshable { await model.refresh(); await runtime?.loadPhotos() }
             .preferredColorScheme(.light)
             .tint(MMColor.accent)
+    }
+
+    /// Widget taps open existing screens once the signed-in account is ready.
+    private func openWidget(_ destination: WidgetDestination) {
+        pendingWidget = destination
+        openPendingWidget()
+    }
+
+    private func openPendingWidget() {
+        // Signed out, the request waits; the widget itself only offers sign-in then.
+        guard let destination = pendingWidget, model.userID != nil, ui.isSignedIn else { return }
+        pendingWidget = nil
+        ui.openWidget(destination)
     }
 
     private func redeemLink(_ url: URL) async {
@@ -437,6 +462,8 @@ final class LiveMatMindRuntime: AppRuntime {
                monkey: MMMonkeyLook(code: row.text("monkey")))
     }
     func sync(now: Date = Date()) {
+        // Every exit, signed in or out, refreshes what the home-screen widgets show.
+        defer { publishWidgets(now: now) }
         if photoOwner != model.userID {
             ui.resetTrainingActions()
             ui.resetPeopleLookup()
@@ -668,6 +695,13 @@ final class LiveMatMindRuntime: AppRuntime {
         if model.userID != nil, model.me != nil, let pending = model.pendingLink { _ = await connect(pending.absoluteString) }
     }
     func signOut() async { await model.logout(); sync() }
+    /// Publishes the widget snapshot, stamped with the server time of the last fetch so
+    /// widgets can say "As of …" when the app hasn't refreshed in a while.
+    func publishWidgets(now: Date = Date()) {
+        let clock = ISO8601DateFormatter(); clock.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fetched = model.snapshot.server_time.flatMap { clock.date(from: $0) ?? ISO8601DateFormatter().date(from: $0) }
+        ui.publishWidgetSnapshot(now: now, updatedAt: fetched.map { min($0, now) } ?? now)
+    }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
         if operation == "enable_notifications" { return await enableNotifications() == nil }

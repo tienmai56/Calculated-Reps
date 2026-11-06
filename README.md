@@ -52,6 +52,8 @@ The Silverback app icon and logo come from `assets/brand/`. The production bundl
 
 The next production build is **1.1 (4)**. The Xcode project, schemes and source module identifiers keep their existing names; both installed app labels and wordmarks use **Mat Monkey**. Store/TestFlight listing names and Google's OAuth consent name are managed separately in App Store Connect and Google Auth Platform; set those display names to **Mat Monkey** while retaining the existing app and OAuth client IDs.
 
+**Home-screen widgets:** the `MatMonkeyWidgets` extension (embedded in the IntentionalTrainingNotes app) adds **Your rhythm** and **Next session** in small and medium sizes; see [DESIGN.md › Home-screen widgets](DESIGN.md#home-screen-widgets). The app shares a snapshot through the App Group `group.com.tienmai.intentionaltrainingnotes`, so enable that App Group for both `com.tienmai.intentionaltrainingnotes` and `com.tienmai.intentionaltrainingnotes.widgets` (automatic signing registers it on first build). Keep the extension's `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` equal to the app's when bumping a build. Widgets never write data: Log training opens the app's existing Quick Log, and every other tap opens an existing screen through `matmind://widget/…` links.
+
 ```sh
 xcodebuild -scheme IntentionalTrainingNotes -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```
