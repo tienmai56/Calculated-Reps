@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mat Monkey · Participant photos · UI mockup</title>
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="preview.css">
+  <script src="preview.js" defer></script>
+</head>
+<body>
+  <section class="review" aria-label="Mockup review controls">
+    <div>
+      <p class="review-label">Mat Monkey · UI mockup</p>
+      <h1>A photo from everyone.</h1>
+      <p>One session. One photo per person.</p>
+    </div>
+    <nav class="review-links" aria-label="Preview layout">
+      <a href="?layout=overview">Overview</a>
+      <a href="?state=before">Try the flow</a>
+    </nav>
+    <label class="state-control" hidden>Review state
+      <select id="review-state">
+        <option value="before">After training · add yours</option>
+        <option value="preview">Preview a photo</option>
+        <option value="posted">Your photo posted</option>
+        <option value="empty">No photos yet</option>
+        <option value="focus">With session focus</option>
+        <option value="upcoming">Before training</option>
+        <option value="absent">Did not attend</option>
+      </select>
+    </label>
+  </section>
+
+  <main id="overview" class="overview" aria-label="Participant photo flow" hidden>
+    <figure>
+      <figcaption><span>01</span> After training</figcaption>
+      <iframe title="Session before adding your photo" data-state="before"></iframe>
+      <p>The same session ticket and details.<br>Add your photo from the completed footer.</p>
+    </figure>
+    <figure>
+      <figcaption><span>02</span> Preview &amp; post</figcaption>
+      <iframe title="Preview one participant photo" data-state="preview"></iframe>
+      <p>One photo, with your name.<br>Nothing appears in the session until you post.</p>
+    </figure>
+    <figure>
+      <figcaption><span>03</span> Together in one place</figcaption>
+      <iframe title="Session with both participants' photos" data-state="posted"></iframe>
+      <p>Name, photo, and your own photo menu.<br>Replace or remove; never a second photo slot.</p>
+    </figure>
+  </main>
+
+  <section id="interactive" class="interactive" aria-label="Interactive mobile mockup" hidden>
+    <div class="phone">
+      <div class="safe-top" aria-hidden="true"></div>
+      <header class="header" id="header"></header>
+      <div class="screen-body" id="screen-body" tabindex="-1"></div>
+      <footer class="footer" id="footer"></footer>
+      <div class="safe-bottom" aria-hidden="true"></div>
+      <div class="sheet-overlay" id="sheet-overlay" hidden>
+        <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1">
+          <div class="sheet-grabber" aria-hidden="true"></div>
+          <div class="sheet-header">
+            <h2 id="sheet-title"></h2>
+            <button class="icon-button" data-action="close-sheet" aria-label="Close dialog"></button>
+          </div>
+          <div id="sheet-content"></div>
+        </section>
+      </div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </div>
+  </section>
+  <p class="review-note">Design review only · sample photos · changes stay in this page and reset on reload.</p>
+</body>
+</html>
