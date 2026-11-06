@@ -53,3 +53,28 @@ for the Apple association JSON, 1200 × 630 PNG, and unavailable invitation/imag
 responses (preview version `20261104.2`). The website's `docs/ios-invitation-links.md`
 contains route details. Social applications control their own preview crops and
 caches. A signed iPhone release remains a separate step.
+
+## Session preview contract repair — November 6, 2026
+
+The hosted `follows_and_private_invitations` migration replaced the session
+summary with `{ "kind": "session" }`. The published website requires the title,
+start time, timezone, venue, participants, participant count and focus fields;
+it rejects the incomplete result, producing HTTP 503 instead of a session card.
+
+`20261106081650_restore_session_invitation_previews.sql` restores that limited
+summary and is deployed to the social project. It preserves active-token,
+organizer, planned-session and block checks. Viewing a preview never accepts an
+invitation. Friend and goal previews remain generic; notes and nested focus
+details remain private.
+
+Validation reproduced the incomplete-response failure, then passed the local
+database regression suite, the published website's validator and metadata
+formatter against a real PostgreSQL response, and isolated hosted preview tests
+whose fixtures were rolled back. Anonymous table access remains denied.
+
+For device acceptance, share a fresh `https://matmonkey.lovable.app/session/…`
+link in Messages and confirm the card. Links using the retired
+`matmindbjj.lovable.app` address or `matmind://` cannot fetch this website's
+preview. Existing Messages cards can retain earlier responses. End-to-end live
+HTML/image checks and a physical Messages check still require a real shared URL;
+the execution environment cannot reach the Lovable host.

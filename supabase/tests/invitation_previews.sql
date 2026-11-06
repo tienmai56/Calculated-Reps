@@ -24,6 +24,12 @@ select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64)
 select pg_temp.assert_preview(public.invitation_preview('session',repeat('A',64))->>'venue'='Alliance Jiu-Jitsu','uppercase hex normalizes');
 select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64))->'participants'='["Host","Going"]','only confirmed participants, host first');
 select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64))->'focus'='["Knee cut","Back takes"]','top-level focus only');
+select pg_temp.assert_preview(
+ (select array_agg(key order by key) from jsonb_object_keys(public.invitation_preview('session',repeat('a',64))) as keys(key))
+ =array['focus','kind','participant_count','participants','starts_at','timezone','title','venue'],
+ 'session preview matches the complete website contract with no private fields');
+select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64))->>'timezone'='America/Los_Angeles','preview preserves the session timezone');
+select pg_temp.assert_preview((public.invitation_preview('session',repeat('a',64))->>'starts_at')::timestamptz='2026-11-07T18:00:00Z'::timestamptz,'preview preserves the session start');
 select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64))::text not like '%Private%','never returns private notes or nested focus');
 select pg_temp.assert_preview(public.invitation_preview('friend',repeat('a',64)) is null,'kind must match capability');
 select pg_temp.assert_preview(public.invitation_preview('session',repeat('b',64)) is null,'unknown token unavailable');
@@ -52,6 +58,9 @@ update public.sessions set status='cancelled';
 select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64)) is null,'cancelled session unavailable');
 update public.sessions set status='completed';
 select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64)) is null,'completed session unavailable');
+update public.sessions set status='planned';
+update public.capabilities set owner='00000000-0000-0000-0000-000000000402';
+select pg_temp.assert_preview(public.invitation_preview('session',repeat('a',64)) is null,'a capability owned by someone other than the organizer cannot preview the session');
 -- Other invitation types have branded previews without leaking their content.
 insert into public.capabilities(owner,kind,token_hash,expires_at) values
  ('00000000-0000-0000-0000-000000000401','friend',extensions.digest(repeat('c',64),'sha256'),'infinity');
