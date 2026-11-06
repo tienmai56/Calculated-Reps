@@ -21,7 +21,7 @@ struct MMAppShell: View {
             }
         }
         .overlay(alignment: .top) {
-            if let toast = mm.toast {
+            if let toast = mm.toast, !toast.inline {
                 MMToast(message: toast.message, variant: toast.variant,
                         actionLabel: mm.canUndoTrainingToast(toast.id) ? "Undo" : nil,
                         action: mm.canUndoTrainingToast(toast.id) ? { Task { await mm.undoTrainingToast(toast.id) } } : nil)

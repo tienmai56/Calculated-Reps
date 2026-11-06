@@ -131,3 +131,28 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 `scripts/test-database.sh` uses only the disposable local `matmind-v2-postgres` container and `matmind_test` database. Start PostgreSQL 17 locally and create the test roles from `supabase/tests/bootstrap.sql` on a fresh cluster first. Never point this harness at the hosted project. `scripts/check-zip.py <export.zip>` validates a real exported ZIP independently.
 
 For rollout, run the migration fixtures against a production-signed upgrade build without deleting the old app. Check record counts, dates and attachments, cloud-independent archive access, hidden archive entry for new/demo-only installs, native sharing and cancellation. Keep the old source files and staged backups throughout rollout.
+
+## Participant session photos · deployed November 6, 2026 (Pacific)
+
+With the user's approval, migration
+`20261106215306_participant_session_photos.sql` was applied to the live Mat Mind
+project. The migration filename matches the hosted migration ledger. Its SQL is
+unchanged from PR #105's tested implementation; app code is unchanged by this
+deployment record.
+
+The authenticated snapshot now reports `participant_photos_available: true`.
+After rebuilding/running the feature branch, refresh or reopen the app to enable
+Add photo on joined past sessions with confirmed attendance. The existing host
+Activity publishing flow remains separate.
+
+Post-deployment checks verified the per-person unique index, ready constraint,
+selection/attendance cleanup triggers, private bucket and restricted helper
+permissions. All 14 existing ready photos were assigned one valid current slot
+per owner/session, without duplicates. Existing media, post, session, participant
+and credit counts were unchanged. The prior dispatcher and snapshot definitions
+were preserved exactly apart from the intended extension. An authenticated-role
+snapshot read returned the enabled flag in a rolled-back transaction. No test
+uploads or notifications were created. Security findings match the baseline;
+there are no new performance findings. Native builds, the Release archive,
+204 XCTest tests, database suites and Edge Function tests had already passed
+on the implementation commit. Two-account device upload review remains manual.

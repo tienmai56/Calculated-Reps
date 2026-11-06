@@ -30,6 +30,8 @@ struct MMToastData: Identifiable, Equatable {
     let id = UUID()
     var message: String
     var variant: MMToastVariant = .neutral
+    /// Shown next to the control that caused it (Activity's week card) instead of at the top of the screen.
+    var inline = false
 }
 
 /// Ink pill that drops from the top. Auto-dismiss (2.6s) is the host's job.

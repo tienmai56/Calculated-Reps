@@ -110,6 +110,21 @@ enum TrainingCompletionStatus: String {
     case completed = "Completed"
 }
 
+struct SessionPhoto: Identifiable, Hashable {
+    let id: String
+    let author: String
+    /// Nil while the private image is downloading; keep the author and slot visible.
+    var source: String?
+}
+
+/// Present the sheet and its expected photo version as one immutable value.
+/// Separate presentation/selection state can open a replacement as a new post.
+struct ParticipantPhotoDraft: Identifiable {
+    let id = UUID()
+    let sessionID: String
+    let replacingPhotoID: String?
+}
+
 struct Session: Identifiable, Hashable {
     let id: String
     var title: String
@@ -127,6 +142,12 @@ struct Session: Identifiable, Hashable {
     var startsAt: Date? = nil
     /// Saved session photos, including photos taken before publishing to Activity.
     var photos: [String] = []
+    /// Nil for older servers/caches and legacy demo fixtures.
+    var photoContributions: [SessionPhoto]? = nil
+
+    var sessionPhotos: [SessionPhoto] {
+        photoContributions ?? photos.map { SessionPhoto(id: $0, author: organizer, source: $0) }
+    }
 
     func status(of id: String) -> RSVP? { people.first { $0.id == id }?.status }
 
@@ -610,7 +631,8 @@ enum TrainingCalendar {
     }
 }
 
-enum TrainingTap: Equatable { case disabled, choose, entries, quickLog }
+/// Planned days log like any other day; their calendar badge is a reminder, not a second entry type.
+enum TrainingTap: Equatable { case disabled, entries, quickLog }
 
 /// Read-only session metadata for the private Profile calendar. This is not a new log type.
 struct RhythmSession: Codable, Equatable, Identifiable {

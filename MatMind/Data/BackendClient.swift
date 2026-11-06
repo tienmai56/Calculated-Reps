@@ -55,6 +55,7 @@ struct SocialRow: Codable, Identifiable, Equatable {
     }
 }
 struct SocialSnapshot: Codable, Equatable {
+    var participant_photos_available: Bool? = nil
     var quick_logs: [SocialRow]? = nil
     var log_matches: [SocialRow]? = nil
     var training_days: [SocialRow]? = nil
