@@ -9,7 +9,8 @@ struct TrainingInvitationCard: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("\(mm.person(invitation.organizer).firstName) invited you to train")
                 .mmFont(.display, 20, .bold).foregroundStyle(MMColor.textPrimary)
-            Text("Accept to see the session details.")
+            let preview = [invitation.title, invitation.gym].compactMap { $0 }.joined(separator: " · ")
+            Text(preview.isEmpty ? "Accept to see the session details." : preview)
                 .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
             HStack(spacing: 8) {
                 MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }

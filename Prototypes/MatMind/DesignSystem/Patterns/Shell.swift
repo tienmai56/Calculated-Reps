@@ -100,7 +100,7 @@ struct MMHeaderActions: View {
     var body: some View {
         MMIconButton("search", variant: .filled, label: "Search people") { mm.go(.people) }
         MMIconButton("bell", badge: mm.unreadCount > 0 ? .count(mm.unreadCount) : nil, label: "Notifications") {
-            mm.go(.notifications)
+            mm.go(.notifications())
         }
         MMIconButton("qr-code", variant: .filled, label: "My code") { mm.go(.qr()) }
     }

@@ -551,11 +551,19 @@ final class LiveMatMindRuntime: AppRuntime {
             }
             return TrainingInvitation(id: row.text("id"), organizer: host)
         }
+        // Invitation cards preview the title and venue; nothing else until accepted.
+        let previews = Dictionary((model.snapshot.invitation_previews ?? []).map { ($0.text("id"), $0) }, uniquingKeysWith: { first, _ in first })
         // Old caches may still contain invited sessions; render only their invitation.
         for row in model.snapshot.sessions where row.text("organizer") != userID && model.attendees(row.id).contains(where: { $0.text("user_id") == userID && $0.text("rsvp") == "invited" }) {
             if !ui.trainingInvitations.contains(where: { $0.id == row.id }) {
                 ui.trainingInvitations.append(TrainingInvitation(id: row.id, organizer: localID(row.text("organizer"))))
             }
+        }
+        for i in ui.trainingInvitations.indices {
+            guard let preview = previews[ui.trainingInvitations[i].id] else { continue }
+            let title = preview.text("title"), venue = preview.text("venue")
+            ui.trainingInvitations[i].title = title.isEmpty ? nil : title
+            ui.trainingInvitations[i].gym = venue.isEmpty ? nil : venue
         }
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,

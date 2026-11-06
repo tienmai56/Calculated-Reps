@@ -141,10 +141,14 @@ struct Session: Identifiable, Hashable {
     var going: [String] { people.filter { $0.status == .going }.map(\.id) }
 }
 
-/// No session fields are delivered until this invitation is accepted.
+/// A pending invitation. Its card previews only the session title and venue;
+/// the start time, notes, focus and guest list arrive once it's accepted.
+/// Backends without invitation previews leave `title` and `gym` nil.
 struct TrainingInvitation: Identifiable, Hashable {
     let id: String
     let organizer: String
+    var title: String? = nil
+    var gym: String? = nil
 }
 
 struct AppNotification: Identifiable, Hashable {
@@ -206,7 +210,8 @@ enum Route: Hashable {
     /// A goal someone shared with you (an invitation, or one you accepted).
     case sharedGoal(id: String)
     case qr(scan: Bool = false)
-    case notifications
+    /// `invites` opens the Invites tab instead of All.
+    case notifications(invites: Bool = false)
     /// Search & discover people, opened from the Activity header.
     case people
     /// Someone who isn't your training partner (partners open `.friend`).

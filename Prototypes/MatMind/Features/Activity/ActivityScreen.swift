@@ -30,6 +30,12 @@ struct ActivityScreen: View {
                     .padding(.top, MMSpace.s2)
                     .padding(.bottom, MMSpace.s6)
             }
+            if !mm.pendingTrainingInvitations.isEmpty {
+                MMEyebrow("Invites", topPadding: mm.quickTrainingLogEnabled ? MMSpace.s0 : MMSpace.s4)
+                ActivityInvitesCard(invitations: mm.pendingTrainingInvitations)
+                    .padding(.horizontal, MMSpace.s6)
+                    .padding(.bottom, MMSpace.s6)
+            }
             if let session = prompt {
                 ReadyToShare(session: session, now: now, keepsUpcomingStyle: mm.quickTrainingLogEnabled)
                     .padding(.top, mm.quickTrainingLogEnabled ? MMSpace.s0 : MMSpace.s5)
@@ -68,6 +74,133 @@ struct ActivityScreen: View {
         }
         .onChange(of: prompt?.id, initial: true) { _, id in
             if mm.quickTrainingLogEnabled { mm.activityQuickLogPromptID = id }
+        }
+    }
+}
+
+/// Pending invitations, right below This week. Opens Notifications on the Invites tab.
+private struct ActivityInvitesCard: View {
+    @Environment(AppModel.self) private var mm
+    let invitations: [TrainingInvitation]
+
+    private var hosts: [Person] {
+        var seen = Set<String>()
+        return invitations.map(\.organizer).filter { seen.insert($0).inserted }.map(mm.person)
+    }
+
+    private var headline: String {
+        let names = hosts.map(\.firstName)
+        switch names.count {
+        case 0, 1: return "\(names.first ?? "A partner") invited you to train"
+        case 2: return "\(names[0]) and \(names[1]) invited you"
+        default: return "\(names[0]), \(names[1]) and \(names.count - 2) more invited you"
+        }
+    }
+
+    private var detail: String {
+        if invitations.count == 1 { return invitations[0].title ?? "Tap to see the invite" }
+        return "\(invitations.count) sessions waiting on you"
+    }
+
+    var body: some View {
+        Button { mm.go(.notifications(invites: true)) } label: {
+            HStack(spacing: 14) {
+                PeekingInviteTile()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(headline)
+                        .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.2)
+                        .foregroundStyle(MMColor.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: MMSpace.s4) {
+                        MMAvatarStack(people: hosts.map(\.avatar), size: 22, max: 3, ring: MMColor.white)
+                        Text(detail)
+                            .mmFont(.body, 13, lineHeight: 1.3)
+                            .foregroundStyle(MMColor.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text("\(invitations.count)")
+                    .mmFont(.body, 13, .bold, lineHeight: 1)
+                    .foregroundStyle(MMColor.textOnAccent)
+                    .padding(.horizontal, 7)
+                    .frame(minWidth: 24, minHeight: 24)
+                    .background(Capsule().fill(MMColor.accent))
+                MMIcon("chevron-right", size: 18, color: MMColor.ink400)
+            }
+            .padding(.vertical, 12)
+            .padding(.leading, 12)
+            .padding(.trailing, 14)
+            .mmCardSurface(radius: MMRadius.lg)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MMPressStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Invites, \(invitations.count) waiting. \(headline). \(detail)")
+        .accessibilityHint("Opens your invites")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The Silverback peeks out of an envelope, nods, then ducks back: about a 5s loop.
+/// Reduce Motion holds the peeking pose.
+private struct PeekingInviteTile: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Peek {
+        var drop: CGFloat = 19
+        var tilt: Double = 0
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            monkey
+                .frame(width: 22)
+                .offset(x: 17, y: 5)
+            ZStack {
+                RoundedRectangle(cornerRadius: 3.3, style: .continuous)
+                    .fill(MMColor.white)
+                    .frame(width: 33.3, height: 26.7)
+                MMIcon("mail", size: 40, color: MMColor.coral700)
+            }
+            .frame(width: 40, height: 40)
+            .offset(x: 8, y: 16)
+        }
+        .frame(width: 56, height: 56, alignment: .topLeading)
+        .background(MMColor.accentTint)
+        .clipShape(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous))
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var monkey: some View {
+        let mark = Image("SilverbackMark").resizable().scaledToFit()
+        if reduceMotion {
+            mark
+        } else {
+            mark.keyframeAnimator(initialValue: Peek(), repeating: true) { content, peek in
+                content
+                    .rotationEffect(.degrees(peek.tilt), anchor: .bottom)
+                    .offset(y: peek.drop)
+            } keyframes: { _ in
+                KeyframeTrack(\.drop) {
+                    LinearKeyframe(19, duration: 0.4)
+                    SpringKeyframe(-2, duration: 0.4, spring: .bouncy)
+                    CubicKeyframe(0, duration: 0.2)
+                    LinearKeyframe(0, duration: 2.3)
+                    CubicKeyframe(19, duration: 0.5)
+                    LinearKeyframe(19, duration: 1.2)
+                }
+                KeyframeTrack(\.tilt) {
+                    LinearKeyframe(0, duration: 1.4)
+                    CubicKeyframe(7, duration: 0.2)
+                    CubicKeyframe(0, duration: 0.2)
+                    CubicKeyframe(-7, duration: 0.2)
+                    CubicKeyframe(0, duration: 0.2)
+                    LinearKeyframe(0, duration: 2.8)
+                }
+            }
         }
     }
 }
