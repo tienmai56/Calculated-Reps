@@ -124,74 +124,62 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .tabbar .icon{width:22px;height:22px}
 .tabbar .plan{width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--white);display:grid;place-items:center;margin:-6px auto 0;box-shadow:0 3px 0 var(--accent-shade)}
 
-/* ---------- Direction A: tally inside the card ---------- */
-.tally{position:relative;margin-top:12px;padding:14px;border-radius:18px;background:var(--ink-700);box-shadow:0 6px 18px rgba(29,27,24,.35);animation:drop var(--dur-slow) var(--ease-out)}
-.tally::before{content:"";position:absolute;top:-8px;left:calc(var(--caret) - 9px);width:18px;height:18px;background:var(--ink-700);border-radius:3px;transform:rotate(45deg);transition:left var(--dur-base) var(--ease-out)}
-.tally-top{display:flex;align-items:center;gap:10px}
-.okdot{width:26px;height:26px;border-radius:50%;background:var(--coral-500);color:var(--white);display:grid;place-items:center;flex-shrink:0}
-.okdot .icon{width:15px;height:15px}
-.tally-top strong{flex:1;min-width:0;font:800 16px/1.2 var(--font-display);letter-spacing:-.015em}
-.link-btn{min-height:44px;padding:0 6px;font:600 13px/1 var(--font-body);color:var(--on-ink-soft);text-decoration:underline;text-underline-offset:3px}
-.x-btn{width:44px;height:44px;margin:-8px -8px -8px -4px;border-radius:50%;display:grid;place-items:center;color:var(--on-ink-soft)}
-.x-btn .icon{width:18px;height:18px}
-.tally p{margin:2px 0 12px 36px;font-size:13px;line-height:1.35;color:var(--on-ink-mute)}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;min-height:44px;border-radius:var(--radius-pill);background:var(--ink-wash);box-shadow:inset 0 0 0 1px var(--ink-line);color:var(--on-ink);font:700 14px/1 var(--font-display);letter-spacing:-.01em;transition:background var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out)}
-.chip .add{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px}
-.chip .num{min-width:22px;height:22px;padding:0 6px;border-radius:11px;display:grid;place-items:center;background:var(--coral-500);color:var(--white);font:800 12px/1 var(--font-display);font-variant-numeric:tabular-nums}
-.chip .num.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
-.chip .less{width:36px;min-height:44px;display:grid;place-items:center;margin-left:4px;color:var(--ink-500)}
-.tally .chip{background:rgba(250,246,239,.1);box-shadow:inset 0 0 0 1px rgba(250,246,239,.2)}
-.tally .chip.on{background:var(--paper);box-shadow:none}
-.tally .chip.new{background:transparent;box-shadow:none;outline-color:rgba(250,246,239,.3)}
-.tally p{color:var(--ink-200)}
-.chip .less .icon{width:16px;height:16px}
-.chip.on{background:var(--paper);color:var(--ink-900);box-shadow:none}
-.chip.on .add{padding-left:2px}
-.chip.new{background:transparent;box-shadow:none;outline:1.5px dashed var(--ink-line);outline-offset:-1.5px;color:var(--on-ink-soft)}
-.chip.new .icon{width:16px;height:16px}
-.newmove{display:flex;gap:8px;width:100%}
-.newmove input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--ink-line);background:var(--ink-900);color:var(--on-ink);padding:0 12px;font:400 15px var(--font-body)}
+/* ---------- Direction A: a second row of discs inside the week card ---------- */
+.moves{margin-top:10px;padding:14px 4px 0;border-top:1px solid var(--ink-line);animation:drop var(--dur-slow) var(--ease-out)}
+.moves-h{display:flex;align-items:center;gap:10px}
+.moves-h div{flex:1;min-width:0}
+.moves-h strong{display:block;font:800 16px/1.2 var(--font-display);letter-spacing:-.015em;color:var(--on-ink)}
+.moves-h div span{display:block;margin-top:3px;font-size:12px;line-height:1.3;color:var(--on-ink-mute)}
+.quiet{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:rgba(250,246,239,.12);color:var(--on-ink);font:700 14px/1 var(--font-display);letter-spacing:-.01em;flex-shrink:0}
+.move-row{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin:8px -4px 0;padding:10px 0 4px}
+.move-row::-webkit-scrollbar{display:none}
+.move{position:relative;flex:0 0 74px;display:flex;flex-direction:column;align-items:center;gap:7px}
+.move-btn{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--ink-wash);box-shadow:inset 0 0 0 1.5px var(--ink-line);color:var(--on-ink-soft);font:800 20px/1 var(--font-display);font-variant-numeric:tabular-nums;transition:background var(--dur-fast) var(--ease-out)}
+.move-btn .icon{width:20px;height:20px}
+.move.on .move-btn{background:var(--coral-500);color:var(--white);box-shadow:none}
+.move.on .move-btn.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.move.new .move-btn{background:transparent;box-shadow:none;outline:1.5px dashed rgba(250,246,239,.3);outline-offset:-1.5px}
+.move .label{font:600 11px/1.25 var(--font-body);color:var(--on-ink-soft);text-align:center;width:70px;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.move.on .label{color:var(--on-ink)}
+.move .less{position:absolute;top:-10px;left:calc(50% + 10px);width:32px;height:32px;display:grid;place-items:center}
+.move .less .mb{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--paper);color:var(--ink-900);box-shadow:0 0 0 2px var(--ink-900)}
+.move .less .icon{width:12px;height:12px}
+.newmove{display:flex;gap:8px;margin-top:10px}
+.newmove input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--ink-line);background:var(--ink-800);color:var(--on-ink);padding:0 12px;font:400 15px var(--font-body)}
 .newmove input::placeholder{color:var(--ink-400)}
 .newmove button{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:var(--paper);color:var(--ink-900);font:700 14px/1 var(--font-display)}
-.tally-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;min-height:44px}
 .saved{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--on-ink-mute)}
 .saved .icon{width:14px;height:14px;color:var(--mint-500)}
-.done-btn{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:rgba(250,246,239,.14);color:var(--on-ink);font:700 14px/1 var(--font-display)}
+.moves .saved{margin-top:8px}
+.moves{padding-bottom:4px}
 
-/* ---------- Direction B: tray pulled out from under the card ---------- */
-.tray{position:relative;z-index:1;margin:-24px 26px 0;padding:36px 14px 14px;border-radius:0 0 22px 22px;background:var(--surface-card);box-shadow:var(--shadow-card);animation:slide var(--dur-slow) var(--ease-out)}
-.tray-top{display:flex;align-items:center;gap:12px}
-.tray .okdot{width:34px;height:34px}
-.tray .okdot .icon{width:18px;height:18px}
-.tray-text{flex:1;min-width:0}
-.tray-text strong{display:block;font:800 16px/1.2 var(--font-display);letter-spacing:-.015em}
-.tray-text span{display:block;font-size:13px;line-height:1.35;color:var(--text-secondary);margin-top:2px;overflow-wrap:anywhere}
-.tray .x-btn{color:var(--text-tertiary);align-self:flex-start;margin:-10px -10px 0 0}
-.tray-actions{display:flex;align-items:center;gap:8px;margin-top:12px}
-.pill-inv{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 15px/1 var(--font-display);letter-spacing:-.01em;display:inline-flex;align-items:center;gap:8px}
-.pill-inv .icon{width:17px;height:17px}
-.pill-ghost{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:var(--radius-pill);font:700 15px/1 var(--font-display);color:var(--text-secondary)}
-.pill-ghost .icon{width:17px;height:17px}
-.pill-ghost:hover{background:var(--surface-hover)}
-.rows{margin-top:6px}
-.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
-.row:last-child{border-bottom:0}
-.row .name{flex:1;min-width:0;font:800 15px/1.2 var(--font-display);letter-spacing:-.01em}
-.step{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
-.step.minus{background:var(--surface-sunken);color:var(--ink-500)}
-.step.minus:disabled{opacity:.45}
-.step.plus{background:var(--surface-inverse);color:var(--text-inverse)}
-.step .icon{width:18px;height:18px}
-.row .count{min-width:24px;text-align:center;font:700 16px/1 var(--font-body);font-variant-numeric:tabular-nums}
-.row .count.zero{color:var(--text-tertiary)}
-.row .count.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+/* ---------- Direction B: a separate tap-pad card below the calendar ---------- */
+.pad{margin:12px 16px 0;padding:16px;border-radius:24px;background:var(--surface-card);box-shadow:var(--shadow-card);animation:land var(--dur-slow) var(--ease-bounce)}
+.pad-h{display:flex;align-items:center;gap:12px}
+.okdot{width:36px;height:36px;border-radius:50%;background:var(--coral-500);color:var(--white);display:grid;place-items:center;flex-shrink:0}
+.okdot .icon{width:19px;height:19px}
+.pad-h div{flex:1;min-width:0}
+.pad-h strong{display:block;font:800 17px/1.2 var(--font-display);letter-spacing:-.015em}
+.pad-h div span{display:block;margin-top:2px;font-size:13px;line-height:1.3;color:var(--text-secondary)}
+.quiet-l{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:var(--surface-sunken);color:var(--text-primary);font:700 14px/1 var(--font-display);letter-spacing:-.01em;flex-shrink:0}
+.pad-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}
+.tile{position:relative;min-width:0}
+.tile .hit{width:100%;min-height:76px;border-radius:var(--radius-md);background:var(--surface-sunken);display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:8px;padding:11px 12px;text-align:left;transition:background var(--dur-fast) var(--ease-out)}
+.tile .hit b{font:800 15px/1.15 var(--font-display);letter-spacing:-.01em;overflow-wrap:anywhere;padding-right:4px}
+.tile .n{font:800 26px/1 var(--font-display);letter-spacing:-.03em;color:var(--ink-300);font-variant-numeric:tabular-nums;display:flex;align-items:center}
+.tile .n .icon{width:20px;height:20px}
+.tile.on .hit{background:var(--accent-tint)}
+.tile.on .n{color:var(--coral-700)}
+.tile .n.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.tile .less{position:absolute;right:2px;bottom:2px;width:44px;height:44px;display:grid;place-items:center}
+.tile .less .mb{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--surface-card);color:var(--ink-700);box-shadow:var(--shadow-card)}
+.tile .less .icon{width:15px;height:15px}
+.tile.add .hit{background:transparent;outline:1.5px dashed var(--border-default);outline-offset:-1.5px;flex-direction:row;align-items:center;justify-content:center;gap:6px;color:var(--text-secondary);font:700 14px/1 var(--font-display)}
+.tile.add .icon{width:17px;height:17px}
 .addrow{display:flex;gap:8px;margin-top:8px}
 .addrow input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--border-default);background:var(--surface-input);padding:0 12px;font:400 15px var(--font-body)}
-.tray-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
-.tray-foot .saved{color:var(--text-tertiary)}
-.summary{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.summary span{padding:6px 10px;border-radius:var(--radius-pill);background:var(--surface-sunken);font:600 13px/1 var(--font-body)}
+.addrow button{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 14px/1 var(--font-display)}
+.pad .saved{margin-top:10px;color:var(--text-tertiary)}
 
 /* ---------- toast + sheet ---------- */
 .toast{position:absolute;left:16px;right:16px;bottom:96px;z-index:6;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);box-shadow:var(--shadow-float);animation:rise var(--dur-base) var(--ease-bounce)}
@@ -223,7 +211,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
 @keyframes pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
 @keyframes drop{from{opacity:0;transform:translateY(-6px)}}
-@keyframes slide{from{transform:translateY(-36px);opacity:0}}
+@keyframes land{from{transform:translateY(-14px) scale(.97);opacity:0}}
 @keyframes rise{from{opacity:0;transform:translateY(12px)}}
 @keyframes fade{from{opacity:0}}
 @keyframes up{from{transform:translateY(100%)}}
@@ -235,7 +223,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 <header class="intro">
   <span class="eyebrow">Activity · This week · design exploration</span>
   <h1>Tap a day, it's logged.</h1>
-  <p>Both directions drop the “What did you hit today?” sheet. One tap counts the day straight away. Techniques become an optional follow-up below the calendar, and whatever you count still feeds the technique charts in Stats. Both phones open just after tapping Friday. Tap any past day, or Replay the tap, to see it again.</p>
+  <p>Round 2. Both directions drop the “What did you hit today?” sheet. One tap counts the day straight away. Below the days, an optional follow-up lets you count techniques or tap Not now, and whatever you count still feeds the technique charts in Stats. Both phones open just after tapping Friday. Tap any past day, or Replay the tap, to see it again.</p>
   <div class="controls">
     <div class="seg" role="group" aria-label="Scenario">
       <button type="button" id="sc-plain" aria-pressed="true">Regular day</button>
@@ -250,22 +238,22 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   <section class="direction" aria-labelledby="a-title">
     <div class="dir-head">
       <span class="tag">Direction A</span>
-      <h2 id="a-title">Tally on the card</h2>
-      <p>The week card opens a small speech bubble under the day you tapped. Your techniques sit there as chips: tap one to count a hit. Nothing leaves the card.</p>
+      <h2 id="a-title">Moves row</h2>
+      <p>The week card grows a second row under the days. Your techniques use the same circles as the days, so counting a move works just like logging a day: tap it and it fills coral.</p>
     </div>
     <div class="phone" id="phone-a" data-dir="a"></div>
     <div class="stats" id="stats-a"></div>
     <div class="notes">
       <h3>How it behaves</h3>
       <ul>
-        <li>Tap a day: it fills coral with a bounce, and the bubble points at it with “Friday logged”.</li>
-        <li>Tap a chip to add one hit. A counted chip turns paper-white with a coral count and a − to take one back.</li>
-        <li>Hits save as you tap (“Saved to Stats”). Undo in the bubble removes the log and its hits.</li>
-        <li>Close it or tap another day and it folds away. Ignoring it is fine; the day is already counted.</li>
+        <li>Tap a day: it fills coral, a “Training logged · Undo” toast confirms it, and a row of technique circles opens under the days: “What landed on Friday?”</li>
+        <li>Tap a circle to count one hit. It fills coral and shows the count. The small − on it takes one back, like the ×N badge on a day.</li>
+        <li>Hits save as you tap. “Not now” folds the row away, and it turns into “Done” once you've counted something.</li>
+        <li>More techniques scroll sideways. The last circle adds a new move.</li>
       </ul>
       <div class="tradeoff">
-        <div><b>Strong at</b>Fastest possible: one tap per hit, no modes or steppers. Feels like part of the calendar.</div>
-        <div><b>Watch for</b>Grows the dark card. Chip rows get busy past about 8 techniques; we'd show recents and keep “+ Move” for the rest.</div>
+        <div><b>Strong at</b>One tap per hit. It reads as part of the calendar: same circles, same coral, no new surface.</div>
+        <div><b>Watch for</b>The dark card gets taller while it's open. Past five techniques you scroll sideways to find one.</div>
       </div>
     </div>
   </section>
@@ -273,22 +261,22 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   <section class="direction" aria-labelledby="b-title">
     <div class="dir-head">
       <span class="tag">Direction B</span>
-      <h2 id="b-title">Pull-out tray</h2>
-      <p>A white tray slides out from under the week card: “Friday's logged”, with one quiet “Add hits” button. Opening it gives the familiar counters in place, and closing it leaves a summary.</p>
+      <h2 id="b-title">Tap pad</h2>
+      <p>A full-width white card lands just below the calendar, with its own space. Each technique is a large tile with its count, and you tap a tile to count a hit. Not now clears it away.</p>
     </div>
     <div class="phone" id="phone-b" data-dir="b"></div>
     <div class="stats" id="stats-b"></div>
     <div class="notes">
       <h3>How it behaves</h3>
       <ul>
-        <li>Tap a day: it fills coral, a “Training logged · Undo” toast confirms it, and the tray slides out.</li>
-        <li>The tray asks once, softly. “Add hits” opens the − / + counters you already know, right in the tray.</li>
-        <li>Counts save as you go. Done collapses the tray to a summary such as “Heel hook ×2”, with Edit.</li>
-        <li>× or “Not now” tucks the tray away. The calendar card itself never changes size.</li>
+        <li>Tap a day: it fills coral, the toast confirms it, and the tap pad drops in under the week card: “Friday's logged. Anything land?”</li>
+        <li>Tap anywhere on a tile to count one hit. Counted tiles turn coral-tinted, with a − button in the corner.</li>
+        <li>Hits save as you tap. “Not now” becomes “Done” once you've counted something. Either one clears the card.</li>
+        <li>The calendar card never changes. The dashed tile adds a new move.</li>
       </ul>
       <div class="tradeoff">
-        <div><b>Strong at</b>Calm and clearly optional. Keeps the dark card as it is, and the counters scale to long lists.</div>
-        <div><b>Watch for</b>One extra tap (Add hits) before counting. Pushes Coming up further down while it's open.</div>
+        <div><b>Strong at</b>Easy to see and easy to hit: large targets and counts you can read at a glance. Clearly skippable.</div>
+        <div><b>Watch for</b>It adds a card above Coming up while it's open. Past six techniques the grid gets tall.</div>
       </div>
     </div>
   </section>
@@ -297,8 +285,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 <section class="foot" aria-labelledby="shared-title">
   <h2 id="shared-title">Same in both</h2>
   <ul>
-    <li><b>Planned days keep the chooser.</b> Switch to “Planned session today” and tap Friday. The sheet still offers the planned session and a quick log. The quick log option now logs immediately and closes the sheet, then the same optional technique prompt appears. Choosing the plan still goes to Complete & share.</li>
+    <li><b>Planned days keep the chooser.</b> Switch to “Planned session today” and tap Friday. The sheet still offers the planned session and a quick log. The quick log option now logs immediately and closes the sheet, then the same optional technique follow-up appears. Choosing the plan still goes to Complete & share.</li>
     <li><b>Stats stay honest.</b> Every tap creates a quick log. Hits you count attach to that log, so the existing technique charts in Stats pick them up unchanged. A tap with no hits counts the day and adds nothing to the charts.</li>
+    <li><b>Not now is always one tap away.</b> The follow-up never blocks the log. Not now (or Done after counting) clears it, and the day stays counted.</li>
     <li><b>Removing works as today.</b> The ×N badge on a day still removes the latest quick log, along with any hits on it.</li>
   </ul>
 </section>
@@ -325,7 +314,6 @@ function fresh(){
     techniques:[{id:'hh', name:'Heel hook'},{id:'bt', name:'Back take'},{id:'ab', name:'Armbar'}],
     logs: seedCounts.map(n => Array.from({length:n}, () => ({id:'s'+(seq++), hits:{}}))),
     active:null,          // {day, logId}
-    mode:'prompt',        // B: prompt | open | summary
     adding:false, draft:'',
     sheet:null,           // day index with the chooser open
     toast:null,
@@ -364,9 +352,9 @@ function quickLog(dir, day){
   const log = {id:'q'+(seq++), hits:{}};
   s.logs[day].push(log);
   s.active = {day, logId:log.id};
-  s.mode = 'prompt'; s.adding = false; s.draft = '';
+  s.adding = false; s.draft = '';
   s.fx.pop = day; s.fx.open = true;
-  if (dir === 'b') showToast(dir, 'Training logged', () => undoLog(dir, day, log.id));
+  showToast(dir, 'Training logged', () => undoLog(dir, day, log.id));
   render(dir);
 }
 function undoLog(dir, day, id){
@@ -433,93 +421,62 @@ function weekHTML(dir, s){
   return `<div class="week">
     <div class="week-h"><strong>This week</strong><span>${copy}</span></div>
     <div class="days">${WEEK.map((d,i) => dayHTML(dir, s, d, i)).join('')}</div>
-    ${dir === 'a' ? tallyHTML(s) : ''}
-    ${anyPlan && !(dir === 'a' && activeLog(s)) ? `<div class="legend">${icon('calendar')}<span>= You have a planned session</span></div>` : ''}
+    ${anyPlan ?  `<div class="legend">${icon('calendar')}<span>= You have a planned session</span></div>` : ''}
+    ${dir === 'a' ? movesHTML(s) : ''}
   </div>`;
 }
 
 /* Direction A */
-function tallyHTML(s){
+function movesHTML(s){
   const log = activeLog(s);
   if (!log) return '';
   const day = WEEK[s.active.day];
-  const caret = `calc(${(s.active.day + .5) / 7 * 100}% - 0px)`;
   const any = Object.keys(log.hits).length > 0;
-  const chips = s.techniques.map(t => {
+  const discs = s.techniques.map(t => {
     const n = log.hits[t.id] || 0;
-    if (!n) return `<span class="chip"><button type="button" class="add" data-act="hit" data-id="${t.id}" data-key="a-hit-${t.id}" aria-label="Count a ${esc(t.name)}">${esc(t.name)}</button></span>`;
-    return `<span class="chip on">
-      <button type="button" class="less" data-act="less" data-id="${t.id}" data-key="a-less-${t.id}" aria-label="One fewer ${esc(t.name)}">${icon('minus')}</button>
-      <button type="button" class="add" data-act="hit" data-id="${t.id}" data-key="a-hit-${t.id}" aria-label="Count another ${esc(t.name)}, ${n} so far">${esc(t.name)}<span class="num ${s.fx.bump === t.id ? 'bump':''}">${n}</span></button>
-    </span>`;
+    return `<div class="move ${n ? 'on' : ''}">
+      <button type="button" class="move-btn ${s.fx.bump === t.id ? 'bump':''}" data-act="hit" data-id="${t.id}" data-key="a-hit-${t.id}" aria-label="${n ? `Count another ${esc(t.name)}, ${n} so far` : `Count a ${esc(t.name)}`}">${n ? n : icon('plus')}</button>
+      <span class="label" aria-hidden="true">${esc(t.name)}</span>
+      ${n ? `<button type="button" class="less" data-act="less" data-id="${t.id}" data-key="a-less-${t.id}" aria-label="One fewer ${esc(t.name)}"><span class="mb">${icon('minus')}</span></button>` : ''}
+    </div>`;
   }).join('');
-  const add = s.adding
-    ? `<div class="newmove"><input id="a-new" data-key="a-new" aria-label="New technique" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>`
-    : `<span class="chip new"><button type="button" class="add" data-act="adding" data-key="a-adding">${icon('plus')}Move</button></span>`;
-  return `<div class="tally" style="--caret:${caret}" ${s.fx.open ? '' : 'data-still'}>
-    <div class="tally-top">
-      <span class="okdot">${icon('check')}</span>
-      <strong>${day.name} logged</strong>
-      <button type="button" class="link-btn" data-act="undo" data-key="a-undo">Undo</button>
-      <button type="button" class="x-btn" data-act="close" aria-label="Close technique tally">${icon('x')}</button>
+  const add = `<div class="move new"><button type="button" class="move-btn" data-act="adding" data-key="a-adding" aria-label="Add a new move">${icon('plus')}</button><span class="label" aria-hidden="true">New move</span></div>`;
+  return `<div class="moves">
+    <div class="moves-h">
+      <div><strong>What landed on ${day.name}?</strong><span>Optional. Tap a move to count it.</span></div>
+      <button type="button" class="quiet" data-act="close" data-key="a-close">${any ? 'Done' : 'Not now'}</button>
     </div>
-    <p>Anything land? Tap a move to count it. Optional.</p>
-    <div class="chips">${chips}${add}</div>
-    ${any ? `<div class="tally-foot"><span class="saved">${icon('circle-check')}Saved to Stats</span><button type="button" class="done-btn" data-act="close">Done</button></div>` : ''}
+    <div class="move-row">${discs}${add}</div>
+    ${s.adding ? `<div class="newmove"><input id="a-new" data-key="a-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>` : ''}
+    ${any ? `<div class="saved">${icon('circle-check')}Saved to Stats</div>` : ''}
   </div>`;
 }
 
 /* Direction B */
-function trayHTML(s){
+function padHTML(s){
   const log = activeLog(s);
   if (!log) return '';
   const day = WEEK[s.active.day];
-  const hits = s.techniques.filter(t => log.hits[t.id]);
-  const title = `${day.name}'s logged`;
-  if (s.mode === 'prompt') {
-    return `<div class="tray">
-      <div class="tray-top">
-        <span class="okdot">${icon('check')}</span>
-        <div class="tray-text"><strong>${title}</strong><span>Note what you hit? Optional.</span></div>
-        <button type="button" class="x-btn" data-act="close" aria-label="Hide">${icon('x')}</button>
-      </div>
-      <div class="tray-actions">
-        <button type="button" class="pill-inv" data-act="open" data-key="b-open">${icon('plus')}Add hits</button>
-        <button type="button" class="pill-ghost" data-act="close">Not now</button>
-      </div>
-    </div>`;
-  }
-  if (s.mode === 'summary') {
-    return `<div class="tray">
-      <div class="tray-top">
-        <span class="okdot">${icon('check')}</span>
-        <div class="tray-text"><strong>${title}</strong><span>${hits.length ? 'Saved to your Stats.' : 'No hits noted. The day still counts.'}</span></div>
-        <button type="button" class="x-btn" data-act="close" aria-label="Hide">${icon('x')}</button>
-      </div>
-      ${hits.length ? `<div class="summary">${hits.map(t => `<span>${esc(t.name)} ×${log.hits[t.id]}</span>`).join('')}</div>` : ''}
-      <div class="tray-actions"><button type="button" class="pill-ghost" data-act="open" data-key="b-edit">${icon('pencil')}Edit hits</button></div>
-    </div>`;
-  }
-  const rows = s.techniques.map(t => {
+  const any = Object.keys(log.hits).length > 0;
+  const tiles = s.techniques.map(t => {
     const n = log.hits[t.id] || 0;
-    return `<div class="row">
-      <span class="name">${esc(t.name)}</span>
-      <button type="button" class="step minus" data-act="less" data-id="${t.id}" data-key="b-less-${t.id}" ${n ? '' : 'disabled'} aria-label="One fewer ${esc(t.name)}">${icon('minus')}</button>
-      <span class="count ${n ? '' : 'zero'} ${s.fx.bump === t.id ? 'bump':''}" aria-label="${esc(t.name)}, ${n} hits">${n}</span>
-      <button type="button" class="step plus" data-act="hit" data-id="${t.id}" data-key="b-hit-${t.id}" aria-label="One more ${esc(t.name)}">${icon('plus')}</button>
+    return `<div class="tile ${n ? 'on' : ''}">
+      <button type="button" class="hit" data-act="hit" data-id="${t.id}" data-key="b-hit-${t.id}" aria-label="${n ? `Count another ${esc(t.name)}, ${n} so far` : `Count a ${esc(t.name)}`}">
+        <b>${esc(t.name)}</b><span class="n ${s.fx.bump === t.id ? 'bump':''}">${n ? n : icon('plus')}</span>
+      </button>
+      ${n ? `<button type="button" class="less" data-act="less" data-id="${t.id}" data-key="b-less-${t.id}" aria-label="One fewer ${esc(t.name)}"><span class="mb">${icon('minus')}</span></button>` : ''}
     </div>`;
   }).join('');
-  const add = s.adding
-    ? `<div class="addrow"><input id="b-new" data-key="b-new" aria-label="New technique" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" class="pill-inv" data-act="addsave">Add</button></div>`
-    : `<button type="button" class="pill-ghost" data-act="adding" data-key="b-adding" style="padding-left:0">${icon('plus')}Add technique</button>`;
-  return `<div class="tray">
-    <div class="tray-top">
+  const add = `<div class="tile add"><button type="button" class="hit" data-act="adding" data-key="b-adding">${icon('plus')}New move</button></div>`;
+  return `<div class="pad">
+    <div class="pad-h">
       <span class="okdot">${icon('check')}</span>
-      <div class="tray-text"><strong>What did you hit?</strong><span>${day.name} · counts save as you go</span></div>
+      <div><strong>${day.name}'s logged</strong><span>Anything land? Tap to count it.</span></div>
+      <button type="button" class="quiet-l" data-act="close" data-key="b-close">${any ? 'Done' : 'Not now'}</button>
     </div>
-    <div class="rows">${rows}</div>
-    ${add}
-    <div class="tray-foot"><span class="saved">${Object.keys(log.hits).length ? `${icon('circle-check')}Saved to Stats` : ''}</span><button type="button" class="pill-inv" data-act="done" data-key="b-done">Done</button></div>
+    <div class="pad-grid">${tiles}${add}</div>
+    ${s.adding ? `<div class="addrow"><input id="b-new" data-key="b-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>` : ''}
+    ${any ? `<div class="saved">${icon('circle-check')}Saved to Stats</div>` : ''}
   </div>`;
 }
 
@@ -556,7 +513,7 @@ function phoneHTML(dir){
       <span class="hbtn" aria-hidden="true">${icon('qr-code')}</span>
     </div>
     ${weekHTML(dir, s)}
-    ${dir === 'b' ? trayHTML(s) : ''}
+    ${dir === 'b' ? padHTML(s) : ''}
     <div class="coming">
       <span class="tile">${icon('calendar')}</span>
       <div><b>Coming up: Saturday open mat</b><span>Sat Nov 7 · 10:00 AM · Maya hosts</span></div>
@@ -615,10 +572,7 @@ for (const dir of ['a','b']) {
       case 'remove': removeLatest(dir, day); break;
       case 'hit': bump(dir, id, 1); break;
       case 'less': bump(dir, id, -1); break;
-      case 'undo': if (s.active) undoLog(dir, s.active.day, s.active.logId); break;
       case 'close': s.active = null; s.adding = false; render(dir); break;
-      case 'open': s.mode = 'open'; render(dir); break;
-      case 'done': s.mode = 'summary'; s.adding = false; render(dir); break;
       case 'adding': s.adding = true; s.draft = ''; render(dir); break;
       case 'addsave': addTechnique(dir); break;
       case 'toastundo': s.toast?.undo?.(); break;

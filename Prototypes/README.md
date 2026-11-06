@@ -62,12 +62,12 @@ prompter.
 
 ## Tap-to-log directions (exploration)
 
-A browser comparison of two directions where tapping a day on Activity's week card logs training immediately, with no "What did you hit today?" sheet. Counting techniques becomes an optional follow-up below the calendar. Run `python3 Prototypes/QuickLogPreview/serve.py` from the repository root and open loopback port 4177.
+A browser comparison of two directions where tapping a day on Activity's week card logs training immediately, with no "What did you hit today?" sheet. Counting techniques becomes an optional follow-up below the days, always with **Not now**. Run `python3 Prototypes/QuickLogPreview/serve.py` from the repository root and open loopback port 4177. Both phones open just after tapping Friday; **Replay the tap** shows it again.
 
-- **A · Tally on the card:** a speech-bubble panel opens inside the ink card under the tapped day. Technique chips add one hit per tap, with − to take one back and an inline Undo.
-- **B · Pull-out tray:** a white tray slides out from under the card ("Friday's logged · Add hits"). Add hits opens the existing − / + counters in place; Done collapses to a summary.
+- **A · Moves row:** the week card grows a second row of technique circles that match the day circles. Tap a circle to count a hit; it fills coral, and a small − takes one back.
+- **B · Tap pad:** a separate full-width white card lands below the calendar with a 2-column grid of technique tiles. Tap a tile to count; counted tiles turn coral-tinted with a − button.
 
-Both keep the planned-day chooser; its quick log option now logs right away and then shows the same optional prompt. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. "Planned session today" and Reset sit outside the phones. Sample data only; nothing is saved.
+Both keep the planned-day chooser; its quick log option now logs right away and then shows the same optional follow-up. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. Sample data only; nothing is saved. (Round 1's speech bubble and tucked-under tray are in git history.)
 
 ## Empty states
 
