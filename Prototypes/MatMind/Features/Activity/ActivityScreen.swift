@@ -268,7 +268,7 @@ struct PostCard: View {
                 }
                 if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
                     TrainingFocusNames(items: post.focusItems)
-                        .padding(.top, MMSpace.s1)
+                        .padding(.top, MMSpace.s5)
                 }
             }
             .padding(.horizontal, 4)
