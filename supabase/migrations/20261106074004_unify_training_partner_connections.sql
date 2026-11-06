@@ -48,7 +48,7 @@ $old$;
  target:=(payload->>'user_id')::uuid;
  if target is null or target=actor then raise exception 'Choose someone to follow'; end if;
  if coalesce((payload->>'follow')::boolean,true) then
- if not (public.are_friends(actor,target) or public.in_circle(actor,target) or public.listed_partner(actor,target)) then raise exception 'You can follow people who train with your training partners'; end if;
+ if not (exists(select 1 from public.follows f where f.follower=actor and f.followee=target) or public.are_friends(actor,target) or public.in_circle(actor,target) or public.listed_partner(actor,target)) then raise exception 'You can follow people who train with your training partners'; end if;
  perform public.connect_training_partner(target,idempotency_key);
  else
  perform pg_advisory_xact_lock(hashtextextended(least(actor,target)::text||greatest(actor,target)::text,0));
@@ -57,11 +57,21 @@ $old$;
  end if;
 $new$;
 begin
+ -- Hosted history includes the follow/invitation patch; older local chains do not.
+ if strpos(definition,old_qr)=0 then
+ old_qr:=replace(old_qr,'added you as a training partner','started following you');
+ end if;
+ if strpos(definition,old_follow)=0 then
+ old_follow:=replace(old_follow,'if not (public.are_friends(actor,target)',
+  'if not (private.is_following(target) or public.are_friends(actor,target)');
+ end if;
  if strpos(definition,old_qr)=0 or strpos(definition,old_follow)=0 then
  raise exception 'Connection command changed; review training partner migration';
  end if;
  definition:=replace(definition,old_qr,' perform public.connect_training_partner(cap.owner,idempotency_key);'||chr(10));
  definition:=replace(definition,old_follow,new_follow);
+ -- Both scans and username follows now get both edges from the shared helper.
+ definition:=replace(definition,'insert into public.follows(follower,followee) values(actor,cap.owner) on conflict do nothing;','');
  -- Blocking and connecting the same pair must serialize too.
  definition:=replace(definition,
   ' insert into public.blocks values(actor,target) on conflict do nothing;',

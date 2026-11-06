@@ -941,7 +941,7 @@ final class AppModel {
         if isLive { return }
         guard id != "me" else { return }
         following.insert(id)
-        if people[id] == nil, let person = listedPeople[id] { people[id] = person }
+        if people[id] == nil, let person = listedPeople[id] ?? usernamePeople[id] { people[id] = person }
         guard !friends.contains(where: { $0.id == id }) else { return }
         friends.insert(Friendship(id: id, weeks: Array(repeating: false, count: 9), thisWeek: .pending, best: 0, together: 0), at: 0)
     }
