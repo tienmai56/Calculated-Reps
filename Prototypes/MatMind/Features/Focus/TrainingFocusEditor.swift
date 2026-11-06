@@ -1,73 +1,115 @@
 import SwiftUI
 
-/// The same editor is used while planning and by the organizer on session details.
-struct TrainingFocusEditor: View {
-    @Binding var items: [TrainingFocus]
-    var allowsEmptyRoots = false
-    var focusOnAppear = true
-    /// Your goals, offered as one-tap focuses while planning and when editing a
-    /// session's focus. Notes and parts remain read-only references on the goal.
-    /// `nil` hides the picker.
-    var goals: [MatGoal]? = nil
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @FocusState private var focusedID: UUID?
-    @State private var removalID: UUID?
-    @State private var showRemoval = false
+/// A focus is a session checklist item; its outline and private goal references
+/// stay intact underneath. The shared checkbox supplies the app's coral state.
+struct TrainingFocusChecklist: View {
+    var items: [TrainingFocus]
+    var onToggle: ((UUID, Bool) -> Void)? = nil
+    @Environment(AppModel.self) private var mm
 
     var body: some View {
         VStack(alignment: .leading, spacing: MMSpace.s5) {
-            if let goals, !goals.isEmpty {
-                MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
-                    ForEach(goals) { goal in
-                        let picked = pickedFocusID(for: goal) != nil
-                        MMTag(goal.title, icon: picked ? "check" : "plus", selected: picked, size: .sm) { toggleGoal(goal) }
-                            .accessibilityAddTraits(picked ? .isSelected : [])
+            ForEach(items) { item in
+                HStack(alignment: .top, spacing: MMSpace.s4) {
+                    VStack(alignment: .leading, spacing: MMSpace.s3) {
+                        MMCheckbox(isOn: Binding(
+                            get: { item.isCompleted },
+                            set: { onToggle?(item.id, $0) }
+                        ), label: item.title)
+                        .strikethrough(item.isCompleted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .disabled(onToggle == nil)
+                        .accessibilityValue(item.isCompleted ? "Completed" : "Not completed")
+                        .accessibilityHint(onToggle == nil ? "Mark complete after training" : "Mark what you worked on")
+
+                        if !item.children.isEmpty {
+                            VStack(alignment: .leading, spacing: MMSpace.s2) {
+                                ForEach(TrainingFocusTree.rows(item.children)) { row in
+                                    Text(row.node.title)
+                                        .mmText(.bodyS)
+                                        .foregroundStyle(MMColor.textSecondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
+                                }
+                            }
+                            .padding(.leading, MMSpace.s8 + MMSpace.s5)
+                        }
+                        if let goal = item.linkedGoal(in: mm.goals), goal.hasReferenceContent {
+                            TrainingGoalNotes(goal: goal, initiallyExpanded: false)
+                                .padding(.leading, MMSpace.s8 + MMSpace.s5)
+                        }
                     }
                 }
-                .accessibilityElement(children: .contain)
+            }
+        }
+        .padding(MMSpace.s5)
+        .mmCardSurface()
+    }
+}
+
+/// Inline checklist editing uses the same row shape as the saved checklist.
+/// A blank first row makes the interaction visible before any focus is entered.
+struct TrainingFocusComposer: View {
+    @Binding var items: [TrainingFocus]
+    var allowsCompletion = false
+    var goals: [MatGoal] = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var focusedField: Field?
+    @State private var removalID: UUID?
+    @State private var showRemoval = false
+    @State private var editingRootID: UUID?
+
+    private enum Field: Hashable {
+        case title(UUID), description(UUID), detail(UUID)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s5) {
+            if !goals.isEmpty {
+                MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
+                    ForEach(goals) { goal in
+                        let picked = items.first { $0.linkedGoal(in: goals)?.id == goal.id }
+                        MMTag(goal.title, icon: picked == nil ? "plus" : "check", selected: picked != nil, size: .sm) {
+                            if let picked { requestRemoval(picked) }
+                            else {
+                                items = TrainingFocusTree.optionalOutline(items)
+                                items.append(TrainingFocus(title: goal.title, goalID: goal.id))
+                            }
+                        }
+                    }
+                }
                 .accessibilityLabel("Your goals")
             }
-            ForEach(items) { root in
-                VStack(spacing: 0) {
-                    ForEach(TrainingFocusTree.rows([root])) { row in
-                        editorRow(row)
+            VStack(alignment: .leading, spacing: MMSpace.s2) {
+                VStack(alignment: .leading, spacing: MMSpace.s5) {
+                    ForEach(items) { root in
+                        checklistRow(root)
                     }
-                    cardActions(root)
                 }
                 .padding(MMSpace.s5)
                 .mmCardSurface()
-            }
-            if items.isEmpty, goals?.isEmpty ?? true {
-                MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
-                    ForEach(["Guard passing", "Escapes", "Sweeps"], id: \.self) { title in
-                        MMTag(title, icon: "plus", size: .sm) { addRoot(title) }
+
+                Button { addFocus() } label: {
+                    HStack(spacing: MMSpace.s3) {
+                        MMIcon("plus", size: 14, weight: .bold)
+                        Text("Add focus").mmFont(.body, 14, .semibold, lineHeight: 1.2)
                     }
+                    .foregroundStyle(MMColor.textLink)
+                    .frame(minHeight: MMLayout.tapTarget, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Focus suggestions")
+                .buttonStyle(.plain)
             }
-            MMButton("Add a focus", variant: .secondary, iconLeft: "plus", fullWidth: true) { addRoot() }
-            if let goals, goals.isEmpty {
-                HStack(spacing: MMSpace.s3) {
-                    MMIcon("notebook-pen", size: 14, color: MMColor.textTertiary)
-                    Text("Goals you set will show up here as one-tap picks.")
-                        .mmFont(.body, 13)
-                        .foregroundStyle(MMColor.textTertiary)
-                }
-            }
-            if !TrainingFocusTree.isValid(allowsEmptyRoots ? TrainingFocusTree.optionalOutline(items) : items) {
+            if !TrainingFocusTree.isValid(TrainingFocusTree.optionalOutline(items)) {
                 Text("Name each focus, or remove the blank one.")
-                    .mmFont(.body, 13)
+                    .mmText(.bodyS)
                     .foregroundStyle(MMColor.textTertiary)
             }
         }
-        .onAppear {
-            // With goals to pick from, start on the picker instead of a blank card.
-            if let goals, !goals.isEmpty, items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
-                items = []
-            }
-            if focusOnAppear, items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
-                focusedID = items[0].id
-            }
+        .onAppear { ensureFirstRow() }
+        .onChange(of: focusedField) { _, field in
+            if field == nil { editingRootID = nil }
         }
         .alert("Remove this focus?", isPresented: $showRemoval) {
             Button("Keep it", role: .cancel) { removalID = nil }
@@ -80,110 +122,209 @@ struct TrainingFocusEditor: View {
         }
     }
 
-    private func editorRow(_ row: TrainingFocusTree.Row) -> some View {
-        HStack(alignment: .top, spacing: MMSpace.s4) {
-            MMIcon(row.depth == 0 ? "notebook-pen" : "chevron-right", size: 16, color: MMColor.textTertiary)
-                .padding(.top, MMSpace.s5)
-            VStack(alignment: .leading, spacing: 0) {
-                TextField(row.depth == 0 ? "What would you like to work on?" : "Break it down a little…",
-                          text: titleBinding(row.id), axis: .vertical)
-                    .font(MMFont.body(16, row.depth == 0 ? .bold : .regular))
-                    .foregroundStyle(MMColor.textPrimary)
-                    .tint(MMColor.accent)
-                    .lineLimit(1...4)
-                    .frame(minHeight: MMLayout.tapTarget)
-                    .focused($focusedID, equals: row.id)
-                    .accessibilityLabel(row.depth == 0 ? "Training focus" : (row.depth == 1 ? "Detail" : "Detail, level \(row.depth + 1)"))
-                    .accessibilityIdentifier("focus-title-\(row.id)")
-                if row.depth == 0, let goal = row.node.linkedGoal(in: goals ?? []), goal.hasReferenceContent {
-                    TrainingGoalNotes(goal: goal)
+    private func checklistRow(_ root: TrainingFocus) -> some View {
+        let editing = root.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || editingRootID == root.id
+            || focusedField == .title(root.id) || focusedField == .description(root.id)
+        return HStack(alignment: .top, spacing: MMSpace.s5) {
+            MMCheckbox(isOn: Binding(
+                get: { root.isCompleted },
+                set: { completed in
+                    TrainingFocusTree.update(root.id, in: &items) { $0.isCompleted = completed }
                 }
-                if row.depth >= 3 {
-                    Text("Detail · level \(row.depth + 1)")
-                        .mmFont(.body, 12)
-                        .foregroundStyle(MMColor.textTertiary)
+            ))
+            .padding(.top, MMSpace.s1)
+            .disabled(!allowsCompletion || root.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityLabel(root.title.isEmpty ? "Training focus" : root.title)
+            .accessibilityValue(root.isCompleted ? "Completed" : "Not completed")
+            .accessibilityHint(allowsCompletion ? "Mark what you worked on" : "Mark complete after training")
+
+            if editing { editableFields(root) }
+            else { summary(root) }
+
+            Menu {
+                Button("Add a detail") {
+                    editingRootID = root.id
+                    let detail = TrainingFocus()
+                    TrainingFocusTree.update(root.id, in: &items) { $0.children.append(detail) }
+                    focusedField = root.children.isEmpty ? .description(root.id) : .detail(detail.id)
                 }
+                Button("Remove focus", role: .destructive) { requestRemoval(root) }
+            } label: {
+                MMIcon("ellipsis", size: 18, color: MMColor.textTertiary)
+                    .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                    .contentShape(Rectangle())
             }
-            if row.depth > 0 {
-                MMIconButton("x", label: "Remove \(row.node.title.isEmpty ? "detail" : row.node.title)") {
-                    requestRemoval(row.node)
-                }
-            }
+            .accessibilityLabel("Options for \(root.title.isEmpty ? "focus" : root.title)")
         }
-        .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s6)
-        .id(row.id)
     }
 
-    /// One level of details: a single Add a detail per focus, plus the focus's remove button.
-    private func cardActions(_ root: TrainingFocus) -> some View {
-        HStack(spacing: MMSpace.s4) {
-            Button { addChild(to: root.id) } label: {
-                HStack(spacing: MMSpace.s2) {
-                    MMIcon("plus", size: 14)
-                    Text("Add a detail").mmFont(.body, 13, .semibold)
+    private func summary(_ root: TrainingFocus) -> some View {
+        VStack(alignment: .leading, spacing: MMSpace.s3) {
+            Button {
+                editingRootID = root.id
+                focusedField = .title(root.id)
+            } label: {
+                VStack(alignment: .leading, spacing: MMSpace.s2) {
+                    Text(root.title)
+                        .strikethrough(root.isCompleted)
+                        .mmFont(.body, 16, .bold)
+                        .foregroundStyle(MMColor.textPrimary)
+                    if root.children.isEmpty {
+                        Text("Add a description")
+                            .mmText(.bodyS)
+                            .foregroundStyle(MMColor.textTertiary)
+                    }
+                    ForEach(TrainingFocusTree.rows(root.children)) { row in
+                        Text(row.node.title)
+                            .mmText(.bodyS)
+                            .foregroundStyle(MMColor.textSecondary)
+                            .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
+                    }
                 }
-                .foregroundStyle(MMColor.textLink)
-                .frame(minHeight: MMLayout.tapTarget)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .topLeading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            Spacer(minLength: 0)
-            MMIconButton("trash-2", label: "Remove \(root.title.isEmpty ? "focus" : root.title)") {
-                requestRemoval(root)
+            .accessibilityLabel("Edit focus: \(root.title)")
+            .accessibilityHint("Edit the title and description in this row")
+            if let goal = root.linkedGoal(in: goals), goal.hasReferenceContent {
+                TrainingGoalNotes(goal: goal, initiallyExpanded: false)
             }
         }
-        .padding(.leading, 16 + MMSpace.s4)
     }
 
-    private func requestRemoval(_ node: TrainingFocus) {
-        if node.children.isEmpty {
-            remove(node.id)
-        } else {
-            removalID = node.id
-            showRemoval = true
+    private func editableFields(_ root: TrainingFocus) -> some View {
+        VStack(alignment: .leading, spacing: MMSpace.s1) {
+            TextField("Focus title", text: titleBinding(root.id), axis: .vertical)
+                .strikethrough(root.isCompleted)
+                .font(MMFont.body(16, .bold))
+                .lineLimit(1...3)
+                .frame(minHeight: MMSpace.s8)
+                .focused($focusedField, equals: .title(root.id))
+                .accessibilityLabel("Focus title")
+                .accessibilityIdentifier("focus-title-\(root.id)")
+            HStack(alignment: .top, spacing: MMSpace.s2) {
+                TextField("Add a description", text: descriptionBinding(root.id), axis: .vertical)
+                    .font(MMFont.body(13))
+                    .foregroundStyle(MMColor.textSecondary)
+                    .lineLimit(1...4)
+                    .frame(minHeight: MMSpace.s8, alignment: .topLeading)
+                    .focused($focusedField, equals: .description(root.id))
+                    .accessibilityLabel("Focus description")
+                if let first = root.children.first, root.children.count > 1 || !first.children.isEmpty {
+                    MMIconButton("x", label: "Remove description") { requestRemoval(first) }
+                }
+            }
+
+            ForEach(TrainingFocusTree.rows(root.children).dropFirst()) { row in
+                HStack(alignment: .top, spacing: MMSpace.s2) {
+                    TextField("Detail", text: titleBinding(row.id), axis: .vertical)
+                        .font(MMFont.body(13))
+                        .foregroundStyle(MMColor.textSecondary)
+                        .lineLimit(1...4)
+                        .frame(minHeight: MMLayout.tapTarget)
+                        .focused($focusedField, equals: .detail(row.id))
+                        .accessibilityLabel("Focus detail, level \(row.depth + 2)")
+                    MMIconButton("x", label: "Remove detail") { requestRemoval(row.node) }
+                }
+                .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
+            }
+            if let goal = root.linkedGoal(in: goals), goal.hasReferenceContent {
+                TrainingGoalNotes(goal: goal, initiallyExpanded: false)
+            }
         }
-    }
+        .foregroundStyle(MMColor.textPrimary)
+        .tint(MMColor.accent)
+        .submitLabel(.done)
+        .onSubmit { focusedField = nil }
 
-    private func pickedFocusID(for goal: MatGoal) -> UUID? {
-        items.first { $0.linkedGoal(in: goals ?? [])?.id == goal.id }?.id
-    }
-
-    private func toggleGoal(_ goal: MatGoal) {
-        if let id = pickedFocusID(for: goal) {
-            if let node = TrainingFocusTree.find(id, in: items) { requestRemoval(node) }
-            return
-        }
-        let item = TrainingFocus(title: goal.title, goalID: goal.id)
-        withAnimation(reduceMotion ? nil : MMMotion.bounce()) { items.append(item) }
     }
 
     private func titleBinding(_ id: UUID) -> Binding<String> {
         Binding(get: { TrainingFocusTree.find(id, in: items)?.title ?? "" },
+                set: { value in TrainingFocusTree.update(id, in: &items) { $0.title = value } })
+    }
+
+    private func descriptionBinding(_ id: UUID) -> Binding<String> {
+        Binding(get: { TrainingFocusTree.find(id, in: items)?.children.first?.title ?? "" },
                 set: { value in
-                    TrainingFocusTree.update(id, in: &items) { $0.title = value }
+                    TrainingFocusTree.update(id, in: &items) { root in
+                        root.detailDescription = value
+                    }
                 })
     }
 
-    private func addRoot(_ title: String = "") {
-        let item = TrainingFocus(title: title)
-        withAnimation(reduceMotion ? nil : MMMotion.bounce()) { items.append(item) }
-        focusedID = item.id
+    private func ensureFirstRow() {
+        if items.isEmpty { items = [TrainingFocus()] }
     }
 
-    private func addChild(to parent: UUID) {
-        let item = TrainingFocus()
-        withAnimation(reduceMotion ? nil : MMMotion.bounce()) {
-            TrainingFocusTree.update(parent, in: &items) { $0.children.append(item) }
+    private func addFocus() {
+        if let blank = items.first(where: { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.children.isEmpty }) {
+            editingRootID = blank.id
+            focusedField = .title(blank.id)
+            return
         }
-        focusedID = item.id
+        let item = TrainingFocus()
+        withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { items.append(item) }
+        editingRootID = item.id
+        focusedField = .title(item.id)
+    }
+
+    private func requestRemoval(_ node: TrainingFocus) {
+        if node.children.isEmpty { remove(node.id) }
+        else { removalID = node.id; showRemoval = true }
     }
 
     private func remove(_ id: UUID) {
-        if let subtree = TrainingFocusTree.find(id, in: items), let focusedID,
-           TrainingFocusTree.rows([subtree]).contains(where: { $0.id == focusedID }) {
-            self.focusedID = nil
-        }
+        focusedField = nil
         withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
             TrainingFocusTree.remove(id, from: &items)
+            ensureFirstRow()
+        }
+    }
+}
+
+/// Save a check through the same versioned focus update used by the editor.
+/// Render saved state, so failed requests never leave an unsaved check on screen.
+struct TrainingSessionFocusChecklist: View {
+    let session: Session
+    @Environment(AppModel.self) private var mm
+    @State private var saving = false
+
+    private var canComplete: Bool {
+        session.organizer == "me" && mm.trainingSessions(past: true).contains { $0.id == session.id }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MMSpace.s4) {
+            HStack {
+                if canComplete {
+                    Text("Mark what you worked on.").mmText(.bodyS)
+                        .foregroundStyle(MMColor.textTertiary)
+                }
+                Spacer(minLength: 0)
+                MMMeta("\(session.focusItems.filter(\.isCompleted).count)/\(session.focusItems.count)")
+                    .accessibilityLabel("\(session.focusItems.filter(\.isCompleted).count) of \(session.focusItems.count) focuses completed")
+            }
+            TrainingFocusChecklist(items: session.focusItems, onToggle: canComplete ? toggle : nil)
+                .disabled(saving || mm.busy)
+        }
+    }
+
+    private func toggle(_ id: UUID, _ completed: Bool) {
+        guard !saving, !mm.busy, canComplete,
+              var items = mm.findSession(session.id)?.focusItems else { return }
+        TrainingFocusTree.update(id, in: &items) { $0.isCompleted = completed }
+        saving = true
+        Task {
+            if let runtime = mm.runtime {
+                _ = await runtime.saveFocus(session.id, items)
+            } else {
+                mm.updateSessionFocus(session.id, items)
+            }
+            saving = false
         }
     }
 }
@@ -217,44 +358,6 @@ private struct TrainingGoalNotes: View {
             .accessibilityValue(expanded ? "Shown" : "Hidden")
             if expanded { GoalReferenceContent(goal: goal) }
         }
-    }
-}
-
-/// Session outline with read-only references to the viewer's own goals.
-/// Shared posts use TrainingFocusNames and never show these private references.
-struct TrainingFocusOutline: View {
-    var items: [TrainingFocus]
-    @Environment(AppModel.self) private var mm
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: MMSpace.s5) {
-            ForEach(TrainingFocusTree.rows(items)) { row in
-                HStack(alignment: .top, spacing: MMSpace.s4) {
-                    MMIcon(row.depth == 0 ? "notebook-pen" : "chevron-right", size: 16, color: MMColor.textTertiary)
-                        .padding(.top, MMSpace.s1)
-                    VStack(alignment: .leading, spacing: MMSpace.s2) {
-                        Text(row.node.title)
-                            .mmFont(.body, 15, row.depth == 0 ? .bold : .regular, lineHeight: 1.45)
-                            .foregroundStyle(MMColor.textPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if row.depth == 0, let goal = row.node.linkedGoal(in: mm.goals), goal.hasReferenceContent {
-                            TrainingGoalNotes(goal: goal, initiallyExpanded: false)
-                        }
-                        if row.depth >= 3 {
-                            Text("Detail · level \(row.depth + 1)")
-                                .mmFont(.body, 12)
-                                .foregroundStyle(MMColor.textTertiary)
-                        }
-                    }
-                }
-                .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s6)
-                .accessibilityElement(children: .contain)
-                .accessibilityValue("Level \(row.depth + 1)")
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(MMSpace.s6)
-        .mmCardSurface()
     }
 }
 

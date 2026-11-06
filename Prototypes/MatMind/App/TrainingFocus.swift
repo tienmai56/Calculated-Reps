@@ -8,6 +8,26 @@ struct TrainingFocus: Identifiable, Hashable, Codable {
     var children: [TrainingFocus] = []
     /// Reference only: private goal notes are never copied into a session or post.
     var goalID: String? = nil
+    /// Completion belongs to this session, not to the linked goal.
+    var isCompleted = false
+
+    /// The compact checklist description is the first saved detail. Keep the
+    /// existing outline (including IDs and deeper details) when editing it.
+    var detailDescription: String {
+        get { children.first?.title ?? "" }
+        set {
+            if children.isEmpty {
+                if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    children.append(TrainingFocus(title: newValue))
+                }
+            } else if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      children.count == 1, children[0].children.isEmpty {
+                children.removeFirst()
+            } else {
+                children[0].title = newValue
+            }
+        }
+    }
 
     func linkedGoal(in goals: [MatGoal]) -> MatGoal? {
         if let goalID { return goals.first { $0.id == goalID } }
@@ -17,6 +37,18 @@ struct TrainingFocus: Identifiable, Hashable, Codable {
             $0.title.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(name) == .orderedSame
         }
         return matches.count == 1 ? matches[0] : nil
+    }
+}
+
+extension TrainingFocus {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        title = try values.decode(String.self, forKey: .title)
+        children = try values.decode([TrainingFocus].self, forKey: .children)
+        goalID = try values.decodeIfPresent(String.self, forKey: .goalID)
+        // Outlines saved before checklists start unchecked.
+        isCompleted = try values.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
     }
 }
 

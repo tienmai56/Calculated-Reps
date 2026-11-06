@@ -18,7 +18,6 @@ struct CreateScreen: View {
     @State private var customTime = false
     @State private var chosenTime = Date()
     @State private var note = ""
-    @State private var showNote = false
     @State private var invited: [String]
     @State private var privacy = Privacy.friends.rawValue
     @State private var link: String? = nil
@@ -63,6 +62,9 @@ struct CreateScreen: View {
                         refreshCalendar()
                         mode = newMode
                         dateSelection.pastDayIndex = 0
+                        if newMode == "plan" {
+                            for index in focusItems.indices { focusItems[index].isCompleted = false }
+                        }
                     }
                 ))
                 .padding(.horizontal, 16)
@@ -88,17 +90,11 @@ struct CreateScreen: View {
                             .accessibilityLabel("Clear session title")
                         }
                     }
-                    Text("Keep this title, or make it your own.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 18)
 
                 field("When", hint: isPast ? nil : "\(dateSelection.selectedDays.count) selected") {
-                    if !isPast {
-                        Text("Pick one or more days. Same time and details for each.")
-                            .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
-                            .padding(.bottom, 12)
-                    }
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(Array(days.enumerated()), id: \.offset) { i, d in
@@ -124,29 +120,15 @@ struct CreateScreen: View {
 
                 field("Location") {
                     MMPlaceSearchField(text: $gym)
-                    MMFlowLayout(spacing: MMSpace.s4, lineSpacing: MMSpace.s4) {
-                        if !showNote {
-                            MMButton("Add a note (optional)", variant: .ghost, size: .sm, iconLeft: "plus") {
-                                withAnimation(MMMotion.easeOut()) { showNote = true }
-                            }
-                        }
-                    }
-                    .padding(.top, MMSpace.s4)
-                    .padding(.leading, -MMSpace.s4)
-                    if showNote {
-                        MMTextField(placeholder: "Gi or no-gi? Bring anything?", text: $note, multiline: true, rows: 2)
-                            .padding(.top, 12)
-                    }
                 }
 
-                field("What are we working on?", hint: "Optional") {
-                    if !pickableGoals.isEmpty {
-                        Text("Pick from your goals, or add your own.")
-                            .mmFont(.body, 13)
-                            .foregroundStyle(MMColor.textTertiary)
-                            .padding(.bottom, MMSpace.s5)
-                    }
-                    TrainingFocusEditor(items: $focusItems, allowsEmptyRoots: true, focusOnAppear: false, goals: pickableGoals)
+                field("Description", hint: "Optional") {
+                    MMTextField(placeholder: "Gi or no-gi? Bring anything?", text: $note, multiline: true, rows: 3)
+                        .accessibilityLabel("Session description")
+                }
+
+                field("What are we working on?", hint: submittedFocusItems.isEmpty ? "Optional" : "\(submittedFocusItems.filter(\.isCompleted).count)/\(submittedFocusItems.count)") {
+                    TrainingFocusComposer(items: $focusItems, allowsCompletion: isPast, goals: pickableGoals)
                 }
 
                 field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {

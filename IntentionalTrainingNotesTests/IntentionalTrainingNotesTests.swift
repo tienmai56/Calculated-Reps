@@ -1336,6 +1336,87 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(SessionNoteCodec.decode("matmind-focus-v1:broken").note, "matmind-focus-v1:broken")
     }
 
+    func testFocusCompletionRoundTripsWithDescriptionDetailsAndGoalReference() {
+        let detail = TrainingFocus(title: "Frame early")
+        let focus = [TrainingFocus(title: " Guard retention ", children: [detail], goalID: "goal", isCompleted: true),
+                     TrainingFocus(title: "Side-control escape")]
+        let restored = SessionNoteCodec.decode(SessionNoteCodec.encode(note: "No-gi class", focus: focus))
+
+        XCTAssertEqual(restored.note, "No-gi class")
+        XCTAssertEqual(restored.focus.first?.title, "Guard retention")
+        XCTAssertEqual(restored.focus.first?.id, focus.first?.id)
+        XCTAssertEqual(restored.focus.first?.children, [detail])
+        XCTAssertEqual(restored.focus.first?.goalID, "goal")
+        XCTAssertEqual(restored.focus.map(\.isCompleted), [true, false])
+        var unchecked = restored.focus
+        TrainingFocusTree.update(focus[0].id, in: &unchecked) { $0.isCompleted = false }
+        XCTAssertEqual(SessionNoteCodec.decode(SessionNoteCodec.encode(note: restored.note, focus: unchecked)).focus.map(\.isCompleted), [false, false])
+    }
+
+    func testOlderSessionFocusLoadsUnchecked() throws {
+        let legacyJSON = #"{"note":"Bring a gi","focus":[{"id":"00000000-0000-0000-0000-000000000001","title":"Guard retention","children":[{"id":"00000000-0000-0000-0000-000000000002","title":"Frame early","children":[]}]}]}"#
+        let decoded = SessionNoteCodec.decode("matmind-focus-v1:" + Data(legacyJSON.utf8).base64EncodedString())
+        XCTAssertEqual(decoded.note, "Bring a gi")
+        let root = try XCTUnwrap(decoded.focus.first)
+        XCTAssertFalse(root.isCompleted)
+        XCTAssertFalse(try XCTUnwrap(root.children.first).isCompleted)
+        XCTAssertEqual(SessionNoteCodec.decode(SessionNoteCodec.encode(note: decoded.note, focus: decoded.focus)).focus, decoded.focus)
+    }
+
+    func testInlineFocusDescriptionPreservesExistingDetailsAndCompletion() {
+        let nested = TrainingFocus(title: "Keep the frame")
+        let first = TrainingFocus(title: "Frame early", children: [nested])
+        let second = TrainingFocus(title: "Recover position")
+        var focus = TrainingFocus(title: "Guard retention", children: [first, second], goalID: "goal", isCompleted: true)
+        focus.detailDescription = "Recover the knee shield"
+        XCTAssertEqual(focus.children[0].id, first.id)
+        XCTAssertEqual(focus.children[0].children, [nested])
+        XCTAssertEqual(focus.children[1], second)
+        XCTAssertEqual(focus.goalID, "goal")
+        XCTAssertTrue(focus.isCompleted)
+        focus.detailDescription = ""
+        XCTAssertEqual(focus.children.count, 2, "Clearing text never discards existing nested details")
+        XCTAssertEqual(focus.children[0].children, [nested])
+        XCTAssertFalse(TrainingFocusTree.isValid([focus]))
+    }
+
+    func testInlineOptionalDescriptionCanBeAddedAndCleared() {
+        var focus = TrainingFocus(title: "Guard retention")
+        focus.detailDescription = " "
+        XCTAssertTrue(focus.children.isEmpty)
+        focus.detailDescription = "Frame early"
+        XCTAssertEqual(focus.children.count, 1)
+        let detailID = focus.children[0].id
+        focus.detailDescription = "Recover position"
+        XCTAssertEqual(focus.children[0].id, detailID)
+        focus.detailDescription = ""
+        XCTAssertTrue(focus.children.isEmpty)
+        XCTAssertTrue(TrainingFocusTree.isValid([focus]))
+    }
+
+    @MainActor
+    func testCheckingCompletedSessionFocusPreservesSessionAndGoal() throws {
+        let ui = AppModel(live: false)
+        var session = try XCTUnwrap(ui.findSession("s1"))
+        let goal = MatGoal(id: "checklist-goal", title: "Guard retention", parts: [GoalPart(notes: "Private goal note")])
+        ui.goals = [goal]
+        session.focusItems = [TrainingFocus(title: goal.title, children: [TrainingFocus(title: "Frame early")], goalID: goal.id)]
+        ui.upcoming.removeAll { $0.id == session.id }
+        ui.completedSessions = [session]
+        var items = session.focusItems
+        items[0].isCompleted = true
+
+        XCTAssertTrue(ui.updateSessionFocus(session.id, items))
+        var expected = session
+        expected.focusItems = items
+        XCTAssertEqual(ui.findSession(session.id), expected)
+        XCTAssertEqual(ui.goals, [goal], "Checking session work never completes or changes a goal")
+
+        items[0].isCompleted = false
+        XCTAssertTrue(ui.updateSessionFocus(session.id, items))
+        XCTAssertEqual(ui.findSession(session.id), session)
+    }
+
     func testLiveProfilePhotosLoadPrivatelyAndClearOnSignOut() async throws {
         let model = SocialAppModel()
         model.userID = "owner"

@@ -65,7 +65,8 @@ struct CompleteScreen: View {
                         .mmFont(.display, 16)
                         .padding(.top, MMLayout.sectionGap)
                         .padding(.bottom, MMSpace.s5)
-                    TrainingFocusOutline(items: s.focusItems)
+                    TrainingSessionFocusChecklist(session: s)
+                        .disabled(publishing || savingPhoto)
                 }
                 if let photo {
                     MMPhotoTile(photo: photo, height: 330, radius: 26) {
