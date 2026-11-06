@@ -745,8 +745,8 @@ private struct NotificationRow: View {
         let p = mm.person(note.who)
         let session = note.session.flatMap { sid in mm.upcoming.first { $0.id == sid } }
         HStack(alignment: .top, spacing: 12) {
-            PersonProfileButton(person: p) {
-                MMAvatar(name: p.name, photo: p.photo, size: 46)
+            // Names and avatars belong to the row's notification tap target.
+            MMAvatar(name: p.name, photo: p.photo, size: 46)
                 .overlay(alignment: .bottomTrailing) {
                     MMIcon(kindIcon.name, size: 12, weight: .bold, color: .white)
                         .frame(width: 22, height: 22)
@@ -754,7 +754,6 @@ private struct NotificationRow: View {
                         .background(Circle().fill(MMColor.bgApp).padding(-2.5))
                         .offset(x: 3, y: 3)
                 }
-            }
             VStack(alignment: .leading, spacing: 0) {
                 if note.kind == .invite, let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == note.session }) {
                     Text("\(p.firstName) invited you to train").mmFont(.body, 15, .bold)
@@ -765,10 +764,9 @@ private struct NotificationRow: View {
                     }.padding(.top, 10)
                 } else if note.kind == .invite, let s = session {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        PersonProfileButton(person: p) {
-                            Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
-                                .mmMonkey(p.monkey, size: 18)
-                        }
+                        Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                            .mmMonkey(p.monkey, size: 18)
+                            .frame(minHeight: MMLayout.tapTarget)
                         mmRich([.body(" invited you to ", 15), .body(s.title, 15, .bold)])
                     }
                     Text("\(s.day), \(s.month) \(s.date) · \(s.time) · \(s.gym)").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
@@ -785,10 +783,9 @@ private struct NotificationRow: View {
                     }
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        PersonProfileButton(person: p) {
-                            Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
-                                .mmMonkey(p.monkey, size: 18)
-                        }
+                        Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
+                            .mmMonkey(p.monkey, size: 18)
+                            .frame(minHeight: MMLayout.tapTarget)
                         Text(note.kind == .invite ? " invited you to train" : " \(note.text)").mmFont(.body, 15).foregroundStyle(MMColor.textPrimary)
                     }
                     if let quote = note.quote {
