@@ -16,6 +16,7 @@ struct TrainingFocusChecklist: View {
                             get: { item.isCompleted },
                             set: { onToggle?(item.id, $0) }
                         ), label: item.title)
+                        .strikethrough(item.isCompleted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                         .disabled(onToggle == nil)
@@ -165,6 +166,7 @@ struct TrainingFocusComposer: View {
             } label: {
                 VStack(alignment: .leading, spacing: MMSpace.s2) {
                     Text(root.title)
+                        .strikethrough(root.isCompleted)
                         .mmFont(.body, 16, .bold)
                         .foregroundStyle(MMColor.textPrimary)
                     if root.children.isEmpty {
@@ -196,6 +198,7 @@ struct TrainingFocusComposer: View {
     private func editableFields(_ root: TrainingFocus) -> some View {
         VStack(alignment: .leading, spacing: MMSpace.s1) {
             TextField("Focus title", text: titleBinding(root.id), axis: .vertical)
+                .strikethrough(root.isCompleted)
                 .font(MMFont.body(16, .bold))
                 .lineLimit(1...3)
                 .frame(minHeight: MMSpace.s8)
