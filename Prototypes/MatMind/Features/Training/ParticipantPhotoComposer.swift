@@ -80,7 +80,10 @@ struct ParticipantPhotoComposer: View {
                 do {
                     guard let data = try await pickerItem.loadTransferable(type: Data.self),
                           !Task.isCancelled, let image = UIImage(data: data),
-                          let jpeg = AppModel.goalPhotoJPEG(image) else { throw CloudError(message: "Couldn't read that photo. Choose another.") }
+                          let jpeg = AppModel.goalPhotoJPEG(image) else {
+                        if !Task.isCancelled { error = "Couldn't read that photo. Choose another." }
+                        return
+                    }
                     let url = FileManager.default.temporaryDirectory.appendingPathComponent("participant-\(UUID().uuidString).jpg")
                     try jpeg.write(to: url, options: .atomic)
                     draftFiles.append(url)
