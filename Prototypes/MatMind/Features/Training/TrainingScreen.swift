@@ -726,7 +726,7 @@ private struct SessionPhotoReminderArtwork: View {
                 .rotationEffect(.degrees(click ? -6 : -9))
                 .offset(x: 10, y: 34)
         }
-        .frame(width: 104, height: 112)
+        .frame(width: 104, height: 112, alignment: .topLeading)
     }
 }
 
@@ -775,4 +775,3 @@ private struct AttendeeRow: View {
         }
     }
 }
-
