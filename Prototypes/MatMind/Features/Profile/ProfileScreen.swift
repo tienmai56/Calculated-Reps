@@ -704,24 +704,261 @@ private func emptyNote(_ text: String) -> some View {
 
 struct NotificationsScreen: View {
     @Environment(AppModel.self) private var mm
+    @State private var section: NotificationsSection
+
+    init(startsOnInvites: Bool = false) {
+        _section = State(initialValue: startsOnInvites ? .invites : .all)
+    }
 
     var body: some View {
-        let fresh = mm.notifications.filter(\.unread)
-        let old = mm.notifications.filter { !$0.unread }
         MMScreen {
             MMHeader(title: "Notifications", leading: {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }
             })
         } content: {
-            if !fresh.isEmpty {
-                MMEyebrow("New", topPadding: 6)
-                ForEach(fresh) { n in NotificationRow(note: n) }
+            NotificationsTabs(selection: $section, inviteCount: mm.pendingTrainingInvitations.count)
+            switch section {
+            case .all: allNotifications
+            case .invites: NotificationInvites()
             }
-            MMEyebrow("Earlier")
-            ForEach(old) { n in NotificationRow(note: n) }
-            Color.clear.frame(height: 30)
         }
         .onDisappear { mm.readAll() }
+    }
+
+    @ViewBuilder
+    private var allNotifications: some View {
+        let fresh = mm.notifications.filter(\.unread)
+        let old = mm.notifications.filter { !$0.unread }
+        if !fresh.isEmpty {
+            MMEyebrow("New", topPadding: MMSpace.s7)
+            ForEach(fresh) { n in NotificationRow(note: n) }
+        }
+        MMEyebrow("Earlier", topPadding: fresh.isEmpty ? MMSpace.s7 : MMLayout.sectionGap)
+        ForEach(old) { n in NotificationRow(note: n) }
+        Color.clear.frame(height: 30)
+    }
+}
+
+enum NotificationsSection: String, CaseIterable, Identifiable {
+    case all, invites
+    var id: String { rawValue }
+    var title: String { self == .all ? "All" : "Invites" }
+}
+
+/// All | Invites across the full width, coral underline on the active one, like profile sections.
+private struct NotificationsTabs: View {
+    @Binding var selection: NotificationsSection
+    var inviteCount: Int
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(NotificationsSection.allCases) { item in
+                let on = item == selection
+                Button {
+                    withAnimation(MMMotion.easeOut(MMMotion.base)) { selection = item }
+                } label: {
+                    HStack(spacing: MMSpace.s4) {
+                        Text(item.title)
+                            .mmFont(.display, 16, on ? .extraBold : .bold, tracking: -0.015, lineHeight: 1)
+                            .foregroundStyle(on ? MMColor.textPrimary : MMColor.textTertiary)
+                        if item == .invites && inviteCount > 0 {
+                            Text("\(inviteCount)")
+                                .mmFont(.body, 12, .bold, lineHeight: 1)
+                                .foregroundStyle(MMColor.textOnAccent)
+                                .padding(.horizontal, 6)
+                                .frame(minWidth: 22, minHeight: 22)
+                                .background(Capsule().fill(MMColor.accent))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .overlay(alignment: .bottom) {
+                        if on {
+                            Capsule().fill(MMColor.accent)
+                                .frame(height: 3)
+                                .padding(.horizontal, 24)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(item == .invites && inviteCount > 0 ? "Invites, \(inviteCount) waiting" : item.title)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(MMColor.borderDefault).frame(height: 1)
+        }
+    }
+}
+
+/// Every training you were invited or added to: waiting on you, you're in, and declined.
+private struct NotificationInvites: View {
+    @Environment(AppModel.self) private var mm
+
+    var body: some View {
+        let now = Date()
+        let pending = mm.pendingTrainingInvitations
+        let joined = mm.joinedInvitations(at: now)
+        let declined = mm.declinedInvitations(at: now)
+        if pending.isEmpty && joined.isEmpty && declined.isEmpty {
+            MMEmptyState(artwork: .plan, title: "No invites\nright now",
+                         message: "When a partner invites you to train, it lands here. Rolls are better with friends.",
+                         actionTitle: "Plan a training", actionIcon: "plus") {
+                mm.go(.create())
+            }
+            .padding(.horizontal, MMSpace.s9)
+            .padding(.top, MMSpace.s6)
+        } else {
+            if !pending.isEmpty {
+                MMEyebrow("Waiting on you", topPadding: MMSpace.s7)
+                VStack(spacing: MMSpace.s5) {
+                    ForEach(pending) { invitation in PendingInviteCard(invitation: invitation) }
+                }
+                .padding(.horizontal, MMSpace.s6)
+            }
+            if !joined.isEmpty {
+                MMEyebrow("You're in", topPadding: pending.isEmpty ? MMSpace.s7 : MMLayout.sectionGap)
+                VStack(spacing: MMSpace.s5) {
+                    ForEach(joined) { session in JoinedInviteCard(session: session) }
+                }
+                .padding(.horizontal, MMSpace.s6)
+            }
+            if !declined.isEmpty {
+                Text("Declined")
+                    .mmFont(.body, 13, .bold, lineHeight: 1.2)
+                    .foregroundStyle(MMColor.textTertiary)
+                    .padding(.horizontal, 20)
+                    .padding(.top, MMLayout.sectionGap)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(declined) { session in
+                    HStack(spacing: MMSpace.s5) {
+                        Text("You passed on \(session.title)")
+                            .mmFont(.body, 14, lineHeight: 1.3)
+                            .foregroundStyle(MMColor.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Join") { mm.rsvp(session.id, .going) }
+                            .mmFont(.display, 14, .bold, lineHeight: 1)
+                            .foregroundStyle(MMColor.textLink)
+                            .frame(minWidth: MMLayout.tapTarget, minHeight: MMLayout.tapTarget)
+                            .disabled(mm.busy)
+                            .accessibilityLabel("Join \(session.title)")
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+            Color.clear.frame(height: 30)
+        }
+    }
+}
+
+/// The host's monkey on their friend-hue tint. No monkey yet: the Silverback on paper.
+struct InviteMonkeyTile: View {
+    let person: Person
+    var size: CGFloat = 52
+
+    var body: some View {
+        ZStack {
+            if let look = person.monkey {
+                MMMonkey(look: look, size: size * 0.77, label: "\(person.firstName)'s monkey")
+            } else {
+                Image("SilverbackMark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size * 0.62)
+                    .accessibilityLabel("Mat Monkey")
+            }
+        }
+        .frame(width: size, height: size)
+        .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
+            .fill(person.monkey == nil ? MMColor.paper2 : person.hue.tint))
+    }
+}
+
+/// A pending invitation: who, the session title and where. Time and guests unlock on Join.
+private struct PendingInviteCard: View {
+    @Environment(AppModel.self) private var mm
+    let invitation: TrainingInvitation
+
+    var body: some View {
+        let host = mm.person(invitation.organizer)
+        let sent = mm.notifications.first { $0.kind == .invite && $0.session == invitation.id }?.time
+        let byline: [MMRun] = [MMRun.body(host.firstName, 13, .bold), MMRun.body(" invited you", 13, color: MMColor.textSecondary)]
+            + (sent.map { [MMRun.body(" · \($0)", 13, color: MMColor.textTertiary)] } ?? [])
+        VStack(alignment: .leading, spacing: MMSpace.s3) {
+            HStack(spacing: MMSpace.s5) {
+                InviteMonkeyTile(person: host)
+                VStack(alignment: .leading, spacing: 3) {
+                    mmRich(byline)
+                        .lineLimit(1)
+                    Text(invitation.title ?? "A training with \(host.firstName)")
+                        .mmFont(.display, 17, tracking: -0.015, lineHeight: 1.15)
+                        .foregroundStyle(MMColor.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: MMSpace.s2) {
+                        if let gym = invitation.gym {
+                            MMIcon("map-pin", size: 14, color: MMColor.textTertiary)
+                            Text(gym).lineLimit(1).truncationMode(.tail)
+                        } else {
+                            Text("Join to see the details.")
+                        }
+                    }
+                    .mmFont(.body, 13, lineHeight: 1.3)
+                    .foregroundStyle(MMColor.textTertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+            HStack(spacing: MMSpace.s3) {
+                Spacer(minLength: 0)
+                MMButton("Decline", variant: .ghost, size: .sm) { mm.rsvp(invitation.id, .declined) }
+                MMButton("Join", variant: .inverse, size: .sm, iconLeft: "check") { mm.rsvp(invitation.id, .going) }
+            }
+            .disabled(mm.busy)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+        .mmCardSurface(radius: MMRadius.lg)
+    }
+}
+
+/// A session someone else invited or added you to, and you're going. Adding a partner
+/// sends them an invitation too, so both read "invited you".
+private struct JoinedInviteCard: View {
+    @Environment(AppModel.self) private var mm
+    let session: Session
+
+    var body: some View {
+        let host = mm.person(session.organizer)
+        Button { mm.go(.session(id: session.id)) } label: {
+            HStack(spacing: MMSpace.s5) {
+                InviteMonkeyTile(person: host)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: MMSpace.s4) {
+                        mmRich([.body(host.firstName, 13, .bold), .body(" invited you", 13, color: MMColor.textSecondary)])
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        MMBadge("Going", variant: .success, dot: true)
+                    }
+                    Text(session.title)
+                        .mmFont(.display, 17, tracking: -0.015, lineHeight: 1.15)
+                        .foregroundStyle(MMColor.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("\(session.day), \(session.month) \(session.date) · \(session.time) · \(session.gym)")
+                        .mmFont(.body, 13, lineHeight: 1.3)
+                        .foregroundStyle(MMColor.textTertiary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(14)
+            .mmCardSurface(radius: MMRadius.lg)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MMPressStyle())
+        .accessibilityHint("Opens the session")
     }
 }
 
@@ -756,8 +993,12 @@ private struct NotificationRow: View {
                 }
             VStack(alignment: .leading, spacing: 0) {
                 if note.kind == .invite, let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == note.session }) {
-                    Text("\(p.firstName) invited you to train").mmFont(.body, 15, .bold)
-                    Text("Accept to see the session details.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    if let title = invitation.title {
+                        mmRich([.body(p.firstName, 15, .bold), .body(" invited you to ", 15), .body(title, 15, .bold)])
+                    } else {
+                        Text("\(p.firstName) invited you to train").mmFont(.body, 15, .bold)
+                    }
+                    Text(invitation.gym ?? "Accept to see the session details.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     HStack(spacing: 8) {
                         MMButton("Decline", variant: .secondary, size: .sm) { mm.rsvp(invitation.id, .declined) }
                         MMButton("Accept", size: .sm, iconLeft: "check") { mm.rsvp(invitation.id, .going) }

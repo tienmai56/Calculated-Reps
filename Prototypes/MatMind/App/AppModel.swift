@@ -168,7 +168,22 @@ final class AppModel {
     var pendingTrainingInvitations: [TrainingInvitation] {
         let existing = Set(trainingInvitations.map(\.id))
         return trainingInvitations + upcoming.filter { $0.status(of: "me") == .invited && !existing.contains($0.id) }
-            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer) }
+            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer, title: $0.title, gym: $0.gym) }
+    }
+    /// Sessions someone else invited you to (or added you to) that you're going to, soonest first.
+    func joinedInvitations(at now: Date = Date()) -> [Session] {
+        invitationSessions(.going, at: now)
+    }
+    /// Upcoming invitations you turned down, soonest first. You can still join them.
+    func declinedInvitations(at now: Date = Date()) -> [Session] {
+        invitationSessions(.declined, at: now)
+    }
+    private func invitationSessions(_ status: RSVP, at now: Date) -> [Session] {
+        upcoming.filter { $0.organizer != "me" && $0.status(of: "me") == status && !isCompleted($0) && startDate(of: $0) > now }
+            .sorted {
+                let first = startDate(of: $0), second = startDate(of: $1)
+                return first == second ? $0.id < $1.id : first < second
+            }
     }
     var feedPosts: [Post] {
         posts.filter { $0.organizer == "me" || following.contains($0.organizer) || $0.participants.contains("me") || $0.participants.contains { following.contains($0) } }
@@ -1516,7 +1531,7 @@ final class AppModel {
         case .complete: setTab(.training); go(.complete(id: "c1"))
         case .qr: setTab(.profile); go(.qr())
         case .scan: setTab(.profile); go(.qr(scan: true))
-        case .notifications: setTab(.activity); go(.notifications)
+        case .notifications: setTab(.activity); go(.notifications())
         case .post: setTab(.activity); go(.post(id: "p1"))
         case .people: setTab(.activity); go(.people)
         case .person: setTab(.activity); go(.people); go(.person(id: "rafa"))

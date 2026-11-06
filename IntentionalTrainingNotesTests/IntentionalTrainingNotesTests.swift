@@ -311,6 +311,55 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
+    func testInvitesTabListsPendingJoinedAndDeclinedInvitations() {
+        let ui = AppModel(live: false)
+        let now = Date()
+        let start = now.addingTimeInterval(86_400)
+        func session(_ id: String, host: String, me: RSVP) -> Session {
+            Session(id: id, title: id.capitalized, day: "Mon", date: 1, month: "Jan", time: "6:00 PM", gym: "Harbor Jiu-Jitsu",
+                    organizer: host, people: [Attendee(id: host, status: .going), Attendee(id: "me", status: me)], startsAt: start)
+        }
+        ui.upcoming = [session("pending", host: "jamie", me: .invited), session("joined", host: "sarah", me: .going),
+                       session("declined", host: "marco", me: .declined), session("hosted", host: "me", me: .going)]
+        ui.completedSessions = []
+        XCTAssertEqual(ui.pendingTrainingInvitations,
+                       [TrainingInvitation(id: "pending", organizer: "jamie", title: "Pending", gym: "Harbor Jiu-Jitsu")])
+        XCTAssertEqual(ui.joinedInvitations(at: now).map(\.id), ["joined"], "Your own plans aren't invitations")
+        XCTAssertEqual(ui.declinedInvitations(at: now).map(\.id), ["declined"])
+        XCTAssertTrue(ui.joinedInvitations(at: start.addingTimeInterval(60)).isEmpty, "Started sessions leave the Invites tab")
+        ui.rsvp("pending", .going)
+        XCTAssertTrue(ui.pendingTrainingInvitations.isEmpty)
+        XCTAssertEqual(ui.joinedInvitations(at: now).map(\.id), ["joined", "pending"])
+    }
+
+    @MainActor
+    func testLiveInvitationPreviewAddsOnlyTitleAndVenue() throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "training_invitations":[{"id":"invitation","organizer":"host","organizer_name":"Sarah"},{"id":"older","organizer":"host","organizer_name":"Sarah"}],
+         "invitation_previews":[{"id":"invitation","title":"Lunch rolls","venue":"Tidewater BJJ"}]}
+        """#.utf8))
+        let ui = AppModel(live: true)
+        LiveMatMindRuntime(model: model, ui: ui).sync()
+        XCTAssertEqual(ui.pendingTrainingInvitations, [
+            TrainingInvitation(id: "invitation", organizer: "host", title: "Lunch rolls", gym: "Tidewater BJJ"),
+            TrainingInvitation(id: "older", organizer: "host"),
+        ], "Backends without a preview keep the generic invitation")
+        XCTAssertNil(ui.findSession("invitation"), "A preview never creates a session or reveals its time")
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+    }
+
+    @MainActor
+    func testNotificationsRouteCanOpenOnInvites() {
+        let ui = AppModel(live: false)
+        ui.go(.notifications(invites: true))
+        XCTAssertEqual(ui.path.last, .notifications(invites: true))
+        XCTAssertNotEqual(Route.notifications(), .notifications(invites: true))
+    }
+
+    @MainActor
     func testScanningAndFollowingBothGrantInvitePermission() {
         let ui = AppModel(live: false)
         XCTAssertFalse(ui.canInvite("lena"))
@@ -2823,7 +2872,7 @@ final class MonkeyTests: XCTestCase {
         ui.enterDemo()
         XCTAssertNil(ui.me.monkey)
         XCTAssertTrue(ui.shouldAskForMonkey, "an account without a monkey is asked on Activity")
-        ui.go(.notifications)
+        ui.go(.notifications())
         XCTAssertFalse(ui.shouldAskForMonkey, "never over a pushed screen")
         ui.back()
 
