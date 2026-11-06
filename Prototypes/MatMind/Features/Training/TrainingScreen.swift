@@ -465,11 +465,11 @@ struct SessionDetailScreen: View {
                 }
                 sessionPhotos(s)
                     .padding(.top, MMLayout.sectionGap)
-                if !s.focusItems.isEmpty || (isOrganizer && !completed) {
+                if !s.focusItems.isEmpty || isOrganizer {
                     HStack {
                         Text("What we're working on").mmFont(.display, 18)
                         Spacer()
-                        if isOrganizer && !completed {
+                        if isOrganizer {
                             MMIconButton("pencil", label: "Edit session focus") {
                                 focusDraft = s.focusItems
                                 showFocusEditor = true
@@ -636,28 +636,6 @@ struct SessionDetailScreen: View {
             MMCard(padding: MMSpace.s4) {
                 VStack(alignment: .leading, spacing: MMSpace.s4) {
                     if session.photos.isEmpty {
-                        Button {
-                            mm.go(.complete(id: session.id))
-                        } label: {
-                            VStack(spacing: MMSpace.s4) {
-                                MMIcon("camera", size: 22)
-                                    .frame(width: 44, height: 44)
-                                    .background(.white, in: Circle())
-                                Text("Proof the crew showed up")
-                                    .mmFont(.display, 16)
-                            }
-                            .foregroundStyle(MMColor.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 160)
-                            .background {
-                                let shape = RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
-                                shape.fill(MMColor.paper2)
-                                MMHatch(color: MMColor.ink900.opacity(0.06), spacing: 12, lineWidth: 1).clipShape(shape)
-                            }
-                        }
-                        .buttonStyle(MMPressStyle(scale: 0.98))
-                        .disabled(!organizer || !mm.isReadyToShare(session.id))
-                        .accessibilityLabel(organizer ? "Add a session photo" : "No session photos yet")
                         Text(organizer ? "You're the organizer, so the photos are yours to share. Your training partners will see them here." : "Photos from the organizer will show up here.")
                             .mmFont(.body, 13, lineHeight: 1.3)
                             .foregroundStyle(MMColor.textSecondary)

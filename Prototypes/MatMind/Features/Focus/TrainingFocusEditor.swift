@@ -191,8 +191,13 @@ struct TrainingFocusEditor: View {
 /// References stay on your goal and reflect its latest saved parts and notes.
 private struct TrainingGoalNotes: View {
     let goal: MatGoal
-    @State private var expanded = true
+    @State private var expanded: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(goal: MatGoal, initiallyExpanded: Bool = true) {
+        self.goal = goal
+        _expanded = State(initialValue: initiallyExpanded)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: MMSpace.s3) {
@@ -233,7 +238,7 @@ struct TrainingFocusOutline: View {
                             .foregroundStyle(MMColor.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         if row.depth == 0, let goal = row.node.linkedGoal(in: mm.goals), goal.hasReferenceContent {
-                            TrainingGoalNotes(goal: goal)
+                            TrainingGoalNotes(goal: goal, initiallyExpanded: false)
                         }
                         if row.depth >= 3 {
                             Text("Detail · level \(row.depth + 1)")

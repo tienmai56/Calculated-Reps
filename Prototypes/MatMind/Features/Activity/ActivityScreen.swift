@@ -264,9 +264,7 @@ struct PostCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(post.title).mmFont(.display, 21, tracking: -0.025, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
                 if !post.caption.isEmpty {
-                    MentionText(text: post.caption).mmFont(.body, 15, lineHeight: 1.45).foregroundStyle(MMColor.ink800)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    PostCaption(text: post.caption, postID: post.id)
                 }
                 if !TrainingFocusTree.optionalOutline(post.focusItems).isEmpty {
                     TrainingFocusNames(items: post.focusItems)
@@ -421,6 +419,84 @@ struct PostCard: View {
             try? await Task.sleep(for: .seconds(0.55))
             withAnimation(.easeOut(duration: 0.25)) { burst = false }
         }
+    }
+}
+
+/// Measure both layouts at the card's actual width, including mention styling.
+/// Keeping the measurements independent of expansion keeps the toggle visible.
+private struct PostCaption: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let text: String
+    let postID: String
+    private let previewLineLimit = 3
+    @State private var expanded = false
+    @State private var heights: [Int: CGFloat] = [:]
+
+    private var isTruncated: Bool {
+        guard let full = heights[0], let collapsed = heights[previewLineLimit] else { return false }
+        return full > collapsed + 1
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            caption(lineLimit: expanded ? nil : previewLineLimit)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(alignment: .topLeading) {
+                    ZStack(alignment: .topLeading) {
+                        measuredCaption(lineLimit: previewLineLimit)
+                        measuredCaption(lineLimit: nil)
+                    }
+                    .hidden()
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+                }
+
+            if isTruncated {
+                Button {
+                    withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
+                        expanded.toggle()
+                    }
+                } label: {
+                    Text(expanded ? "See less" : "See more")
+                        .mmFont(.body, 13, .semibold)
+                        .foregroundStyle(MMColor.textSecondary)
+                        .frame(minWidth: MMLayout.tapTarget, minHeight: MMLayout.tapTarget, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+                .accessibilityIdentifier("caption-toggle-\(postID)")
+            }
+        }
+        .onPreferenceChange(PostCaptionHeightKey.self) { heights = $0 }
+        .onChange(of: text) { _, _ in expanded = false }
+    }
+
+    private func caption(lineLimit: Int?) -> some View {
+        MentionText(text: text)
+            .mmFont(.body, 15, lineHeight: 1.45)
+            .foregroundStyle(MMColor.ink800)
+            .lineLimit(lineLimit)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func measuredCaption(lineLimit: Int?) -> some View {
+        caption(lineLimit: lineLimit)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.preference(key: PostCaptionHeightKey.self,
+                                           value: [lineLimit ?? 0: geometry.size.height])
+                }
+            }
+    }
+}
+
+private struct PostCaptionHeightKey: PreferenceKey {
+    static var defaultValue: [Int: CGFloat] = [:]
+
+    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

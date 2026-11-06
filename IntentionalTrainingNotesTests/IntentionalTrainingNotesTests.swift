@@ -971,6 +971,38 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: files[0].path), "Deleting a goal deletes its part photos")
     }
 
+    @MainActor
+    func testFocusCanBeAddedEditedAndClearedAfterCompletion() throws {
+        let ui = AppModel(live: false)
+        var session = try XCTUnwrap(ui.findSession("s1"))
+        session.focusItems = []
+        ui.upcoming.removeAll { $0.id == session.id }
+        ui.completedSessions = [session]
+        let focus = [TrainingFocus(title: "  Mount attacks ", children: [TrainingFocus(title: " Armbar ")])]
+
+        XCTAssertTrue(ui.updateSessionFocus(session.id, focus))
+        let saved = try XCTUnwrap(ui.findSession(session.id))
+        XCTAssertTrue(ui.isCompleted(saved))
+        XCTAssertEqual(saved.focusItems.first?.title, "Mount attacks")
+        XCTAssertEqual(saved.focusItems.first?.children.first?.title, "Armbar")
+        XCTAssertEqual(saved.people, session.people)
+        XCTAssertEqual(saved.note, session.note)
+        XCTAssertEqual(saved.startsAt, session.startsAt)
+        XCTAssertFalse(ui.updateSessionFocus(session.id, [TrainingFocus()]))
+        XCTAssertEqual(ui.findSession(session.id), saved)
+
+        XCTAssertTrue(ui.updateSessionFocus(session.id, [TrainingFocus(title: "Escapes")]))
+        XCTAssertEqual(ui.findSession(session.id)?.focusItems.first?.title, "Escapes")
+        XCTAssertTrue(ui.updateSessionFocus(session.id, []))
+        XCTAssertEqual(ui.findSession(session.id)?.focusItems, [])
+        XCTAssertTrue(ui.isCompleted(try XCTUnwrap(ui.findSession(session.id))))
+
+        session.organizer = "sarah"
+        ui.completedSessions = [session]
+        XCTAssertFalse(ui.updateSessionFocus(session.id, focus), "Guests cannot edit another organizer's focus")
+        XCTAssertEqual(ui.findSession(session.id), session)
+    }
+
     func testSessionEditSavesFocusAndGuestChangesWithoutResettingRSVPs() async throws {
         let ui = AppModel(live: false)
         let original = try XCTUnwrap(ui.findSession("s1"))
