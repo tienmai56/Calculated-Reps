@@ -452,6 +452,7 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.quickTrainingLogBackendAvailable = model.snapshot.quick_logs != nil && model.snapshot.training_days != nil
             && model.snapshot.log_matches != nil && model.snapshot.shared_session_ids != nil
+        ui.participantPhotosAvailable = model.snapshot.participant_photos_available == true
         ui.isSignedIn = true
         if ui.quickTrainingLogEnabled, ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
             let title = model.session(match.text("session_id"))?.text("title") ?? "your session"
@@ -502,7 +503,15 @@ final class LiveMatMindRuntime: AppRuntime {
                             .sorted {
                                 let first = $0.text("created_at"), second = $1.text("created_at")
                                 return first == second ? $0.id < $1.id : first > second
-                            }.compactMap { photos[$0.id] })
+                            }.filter { model.snapshot.participant_photos_available != true || ($0.flag("session_photo") && $0.text("owner") == row.text("organizer")) }
+                            .compactMap { photos[$0.id] },
+                           photoContributions: model.snapshot.participant_photos_available == true
+                            ? model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" && $0.flag("session_photo") }
+                                .sorted {
+                                    let firstHost = $0.text("owner") == row.text("organizer"), secondHost = $1.text("owner") == row.text("organizer")
+                                    return firstHost != secondHost ? firstHost : $0.id < $1.id
+                                }.map { SessionPhoto(id: $0.id, author: localID($0.text("owner")), source: photos[$0.id]) }
+                            : nil)
         }
         let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))
         let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
@@ -705,7 +714,7 @@ final class LiveMatMindRuntime: AppRuntime {
         sync(); return result?["id"]?.string
     }
     /// Prepare/upload once per selection. Publishing reuses a photo already saved to the session.
-    private func uploadSessionPhoto(_ sessionID: String, photo: String) async throws -> String {
+    private func uploadSessionPhoto(_ sessionID: String, photo: String, participant: Bool = false) async throws -> String {
         guard let owner = model.userID else { throw CloudError(message: "Sign in to save your photo.") }
         let source = sessionID + ":" + photo
         if let id = uploadedSessionPhotos[source] { return id }
@@ -715,7 +724,7 @@ final class LiveMatMindRuntime: AppRuntime {
         let data = try Data(contentsOf: URL(fileURLWithPath: photo))
         if mediaPhotos[sessionID] != photo { mediaKeys[sessionID] = UUID(); mediaPhotos[sessionID] = photo }
         let mediaKey = mediaKeys[sessionID] ?? UUID(); mediaKeys[sessionID] = mediaKey
-        let media = try await model.backend.command("prepare_media", payload: ["session_id": sessionID], key: mediaKey)
+        let media = try await model.backend.command(participant ? "prepare_participant_photo" : "prepare_media", payload: ["session_id": sessionID], key: mediaKey)
         guard model.userID == owner else { throw CancellationError() }
         guard let id = media["id"]?.string, let objectKey = media["object_key"]?.string else { throw CloudError(message: "Could not prepare photo.") }
         do { try await model.backend.upload(data, objectKey: objectKey) }
@@ -736,6 +745,30 @@ final class LiveMatMindRuntime: AppRuntime {
             sync()
             return true
         } catch { if model.userID == owner { model.error = error.localizedDescription }; return false }
+    }
+
+    func postParticipantPhoto(_ sessionID: String, photo: String, replacing photoID: String?) async -> Bool {
+        let owner = model.userID
+        do {
+            let id = try await uploadSessionPhoto(sessionID, photo: photo, participant: true)
+            guard model.userID == owner else { return false }
+            let payload: [String: Any] = ["session_id": sessionID, "media_id": id,
+                                          "expected_media_id": photoID.map { $0 as Any } ?? NSNull()]
+            guard await model.perform("post_participant_photo", payload, key: UUID(uuidString: id) ?? UUID()) != nil,
+                  model.userID == owner else { return false }
+            photos[id] = photo
+            sync()
+            ui.showToast("Your photo is in the session", .success)
+            return true
+        } catch { if model.userID == owner { model.error = error.localizedDescription }; return false }
+    }
+
+    func removeParticipantPhoto(_ sessionID: String, photoID: String) async -> Bool {
+        guard await model.perform("remove_participant_photo", ["session_id": sessionID, "expected_media_id": photoID],
+                                  key: UUID(uuidString: photoID) ?? UUID()) != nil else { return false }
+        sync()
+        ui.showToast("Your photo was removed")
+        return true
     }
 
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? {

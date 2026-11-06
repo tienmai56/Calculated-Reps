@@ -110,6 +110,13 @@ enum TrainingCompletionStatus: String {
     case completed = "Completed"
 }
 
+struct SessionPhoto: Identifiable, Hashable {
+    let id: String
+    let author: String
+    /// Nil while the private image is downloading; keep the author and slot visible.
+    var source: String?
+}
+
 struct Session: Identifiable, Hashable {
     let id: String
     var title: String
@@ -127,6 +134,12 @@ struct Session: Identifiable, Hashable {
     var startsAt: Date? = nil
     /// Saved session photos, including photos taken before publishing to Activity.
     var photos: [String] = []
+    /// Nil for older servers/caches and legacy demo fixtures.
+    var photoContributions: [SessionPhoto]? = nil
+
+    var sessionPhotos: [SessionPhoto] {
+        photoContributions ?? photos.map { SessionPhoto(id: $0, author: organizer, source: $0) }
+    }
 
     func status(of id: String) -> RSVP? { people.first { $0.id == id }?.status }
 

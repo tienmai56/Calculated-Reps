@@ -89,6 +89,22 @@ For a populated example, long-press the Silverback mark on Activity → States �
 
 A standalone browser companion is in `Prototypes/FocusPreview/`. Run `python3 Prototypes/FocusPreview/serve.py` from the repository root; it serves only preview assets on loopback port 4176. The browser companion mirrors the native planning form, including the original date/time, gym, note, friend, and privacy controls. The Example and Blank buttons are review controls outside the phone. Browser state is independent of the native app. The browser's completion action uses a labeled sample photo; real authentication and backend services are not connected.
 
+## Participant session photos
+
+After training, confirmed attendees can add one photo from session details.
+Photos keep main's 240pt tiles and white cards, with the author's name above each.
+**Add photo** opens a separate preview with the existing summary card, 330pt
+photo and sticky **Post photo** action. Selection stays local until posting.
+The participant's own menu offers **Replace photo** and confirmed **Remove photo**;
+removal leaves attendance intact. Focus remains above Photos, and the existing
+empty-photo reminder is retained. The host's Activity composer is separate.
+
+Long-press the Activity mark → States → **Participant photos · attended as a
+guest** to review with sample photos, including add, replace and remove. The live
+app uses the real single-image library picker and private uploads. The guest
+action remains hidden until the backend advertises the participant-photo
+migration. See [regression and rollout notes](../docs/participant-session-photos.md).
+
 ## Layout
 
 `Prototypes/MatMind/` is an Xcode *synchronized folder*: any file added there is part of the target automatically, with no project-file edits needed.

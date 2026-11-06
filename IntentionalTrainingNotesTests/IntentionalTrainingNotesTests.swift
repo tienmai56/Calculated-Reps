@@ -4,6 +4,110 @@ import SwiftUI
 @testable import IntentionalTrainingNotes
 
 final class IntentionalTrainingNotesTests: XCTestCase {
+    @MainActor
+    func testParticipantPhotoSlotPreservesTheHostPhotoAttendanceAndMemory() async throws {
+        let ui = AppModel(live: false)
+        ui.run(.participantPhotos)
+        let id = "participant-photos"
+        let original = try XCTUnwrap(ui.findSession(id))
+        let posts = ui.posts
+        XCTAssertTrue(ui.canPostParticipantPhoto(original))
+        let saved = await ui.postParticipantPhoto(id, photo: "group-class", replacing: nil)
+        XCTAssertTrue(saved)
+        let first = try XCTUnwrap(ui.findSession(id)?.sessionPhotos.first { $0.author == "me" })
+        XCTAssertEqual(ui.findSession(id)?.sessionPhotos.count, 2)
+        let stalePost = await ui.postParticipantPhoto(id, photo: "coach-help", replacing: nil)
+        XCTAssertFalse(stalePost, "A stale device cannot overwrite a photo it has not seen")
+        let changed = await ui.postParticipantPhoto(id, photo: "coach-help", replacing: first.id)
+        XCTAssertTrue(changed)
+        let second = try XCTUnwrap(ui.findSession(id)?.sessionPhotos.first { $0.author == "me" })
+        XCTAssertNotEqual(first.id, second.id)
+        XCTAssertEqual(second.source, "coach-help")
+        let other = await ui.removeParticipantPhoto(id, photoID: "roll-gi")
+        XCTAssertFalse(other, "Guests cannot remove the host photo")
+        let staleRemove = await ui.removeParticipantPhoto(id, photoID: first.id)
+        XCTAssertFalse(staleRemove)
+        let removed = await ui.removeParticipantPhoto(id, photoID: second.id)
+        XCTAssertTrue(removed)
+        let final = try XCTUnwrap(ui.findSession(id))
+        XCTAssertEqual(final.sessionPhotos.map(\.source), ["roll-gi"])
+        XCTAssertEqual(final.people, original.people)
+        XCTAssertEqual(final.focusItems, original.focusItems)
+        XCTAssertEqual(final.photos, original.photos)
+        XCTAssertEqual(ui.posts, posts, "A participant photo never creates or edits the host memory")
+    }
+
+    @MainActor
+    func testParticipantPhotosRequireElapsedTrainingAndConfirmedAttendance() throws {
+        let ui = AppModel(live: false)
+        ui.run(.participantPhotos)
+        var session = try XCTUnwrap(ui.findSession("participant-photos"))
+        let now = Date()
+        session.startsAt = now.addingTimeInterval(3600)
+        XCTAssertFalse(ui.canPostParticipantPhoto(session, now: now))
+        session.startsAt = now.addingTimeInterval(-3600)
+        for status in [RSVP.invited, .declined] {
+            session.set("me", status)
+            XCTAssertFalse(ui.canPostParticipantPhoto(session, now: now))
+        }
+        session.set("me", .going)
+        session.people[1].attended = false
+        XCTAssertFalse(ui.canPostParticipantPhoto(session, now: now))
+        session.people[1].attended = true
+        let live = AppModel(live: true)
+        XCTAssertFalse(live.canPostParticipantPhoto(session, now: now), "Old servers must not expose unsupported commands")
+        live.participantPhotosAvailable = true
+        XCTAssertTrue(live.canPostParticipantPhoto(session, now: now))
+    }
+
+    @MainActor
+    func testParticipantPhotoFailureAndAttendanceCorrectionKeepSlotsConsistent() async throws {
+        let ui = AppModel(live: false)
+        ui.run(.participantPhotos)
+        let session = try XCTUnwrap(ui.findSession("participant-photos"))
+        ui.runtime = TrainingRuntimeStub()
+        let failed = await ui.postParticipantPhoto(session.id, photo: "group-class", replacing: nil)
+        XCTAssertFalse(failed)
+        XCTAssertEqual(ui.findSession(session.id), session, "Failed uploads must leave the session intact")
+        ui.runtime = nil
+        let saved = await ui.postParticipantPhoto(session.id, photo: "group-class", replacing: nil)
+        XCTAssertTrue(saved)
+        let corrected = await ui.removeOwnTrainingAttendance(try XCTUnwrap(ui.findSession(session.id)))
+        XCTAssertTrue(corrected)
+        XCTAssertFalse(try XCTUnwrap(ui.findSession(session.id)).sessionPhotos.contains { $0.author == "me" })
+    }
+
+    @MainActor
+    func testLiveParticipantPhotosCarryAuthorsBeforeDownloadAndKeepHostComposerSeparate() async throws {
+        let model = SocialAppModel()
+        model.userID = "guest"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"participant_photos_available":true,"profiles":[],"friendships":[],
+         "sessions":[{"id":"session","organizer":"host","status":"completed","starts_at":"2026-11-04T20:00:00Z"}],
+         "participants":[{"session_id":"session","user_id":"host","rsvp":"going","attended":true},
+                         {"session_id":"session","user_id":"guest","rsvp":"going","attended":true}],
+         "posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"notifications":[],
+         "media":[{"id":"host-image","owner":"host","session_id":"session","state":"ready","session_photo":true,"object_key":"host/image.jpg"},
+                  {"id":"guest-image","owner":"guest","session_id":"session","state":"ready","session_photo":true,"object_key":"guest/image.jpg"},
+                  {"id":"replaced","owner":"guest","session_id":"session","state":"ready","session_photo":false,"object_key":"guest/old.jpg"}]}
+        """#.utf8))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui) { key, _ in Data(key.utf8) }
+        runtime.sync()
+        let loading = try XCTUnwrap(ui.findSession("session"))
+        XCTAssertEqual(loading.sessionPhotos.map(\.author), ["host", "me"])
+        XCTAssertTrue(loading.sessionPhotos.allSatisfy { $0.source == nil }, "Loading never hides an existing slot or its author")
+        await runtime.loadPhotos()
+        let loaded = try XCTUnwrap(ui.findSession("session"))
+        XCTAssertEqual(loaded.sessionPhotos.count, 2, "Detached images cannot reappear after refresh")
+        XCTAssertTrue(loaded.sessionPhotos.allSatisfy { $0.source != nil })
+        XCTAssertEqual(loaded.photos.count, 1, "The host's composer must not preselect a guest photo")
+        XCTAssertEqual(try String(contentsOfFile: XCTUnwrap(loaded.photos.first), encoding: .utf8), "host/image.jpg")
+        model.userID = nil
+        runtime.sync()
+        XCTAssertNil(ui.findSession("session"))
+    }
+
     func testNotificationDestinationsUseTheirOwnEntityIDs() {
         let cases: [(AppNotification.Kind, Route)] = [
             (.invite, .session(id: "target")), (.joined, .session(id: "target")),
@@ -2790,6 +2894,8 @@ private final class TrainingRuntimeStub: AppRuntime {
     func enableNotifications() async -> String? { nil }
     func create(_ draft: SessionDraft, key: UUID) async -> String? { nil }
     func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool { false }
+    func postParticipantPhoto(_ sessionID: String, photo: String, replacing: String?) async -> Bool { false }
+    func removeParticipantPhoto(_ sessionID: String, photoID: String) async -> Bool { false }
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? { nil }
     func saveAvatar(_ jpeg: Data) async -> Bool { false }
     func friendCode() async -> String? { nil }
