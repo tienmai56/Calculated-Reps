@@ -5,7 +5,7 @@ import SwiftUI
 struct TrainingFocusChecklist: View {
     var items: [TrainingFocus]
     var onToggle: ((UUID, Bool) -> Void)? = nil
-    var onEdit: (() -> Void)? = nil
+    var onEdit: ((UUID) -> Void)? = nil
     var onAdd: (() -> Void)? = nil
     @Environment(AppModel.self) private var mm
 
@@ -43,7 +43,7 @@ struct TrainingFocusChecklist: View {
                         }
                     }
                     if let onEdit {
-                        MMIconButton("pencil", label: "Edit \(item.title)", action: onEdit)
+                        MMIconButton("pencil", label: "Edit \(item.title)") { onEdit(item.id) }
                     }
                 }
             }
@@ -65,19 +65,23 @@ struct TrainingFocusComposer: View {
     var goals: [MatGoal] = []
     @State private var editing = false
     @State private var draft: [TrainingFocus] = []
+    @State private var editingID: UUID?
 
     var body: some View {
-        TrainingFocusChecklist(items: items, onToggle: allowsCompletion ? toggle : nil, onEdit: {
+        TrainingFocusChecklist(items: items, onToggle: allowsCompletion ? toggle : nil, onEdit: { id in
             draft = items
+            editingID = id
             editing = true
         }, onAdd: {
-            draft = items + [TrainingFocus()]
+            let item = TrainingFocus()
+            draft = items + [item]
+            editingID = item.id
             editing = true
         })
         .sheet(isPresented: $editing) {
             ScrollView {
                 MMDialogBody(title: "What are we working on?", onClose: { editing = false }) {
-                    TrainingFocusEditor(items: $draft, allowsEmptyRoots: true, goals: goals)
+                    TrainingFocusEditor(items: $draft, allowsEmptyRoots: true, initialFocusID: editingID, goals: goals)
                 } actions: {
                     EmptyView()
                 }
@@ -153,6 +157,7 @@ struct TrainingFocusEditor: View {
     @Binding var items: [TrainingFocus]
     var allowsEmptyRoots = false
     var focusOnAppear = true
+    var initialFocusID: UUID? = nil
     /// Your goals, offered as one-tap focuses while planning and when editing a
     /// session's focus. Notes and parts remain read-only references on the goal.
     /// `nil` hides the picker.
@@ -210,10 +215,12 @@ struct TrainingFocusEditor: View {
         }
         .onAppear {
             // With goals to pick from, start on the picker instead of a blank card.
-            if let goals, !goals.isEmpty, items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
+            if initialFocusID == nil, let goals, !goals.isEmpty, items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
                 items = []
             }
-            if focusOnAppear, items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
+            if let initialFocusID {
+                focusedID = initialFocusID
+            } else if focusOnAppear, items.count == 1, items[0].title.isEmpty, items[0].children.isEmpty {
                 focusedID = items[0].id
             }
         }
