@@ -30,9 +30,11 @@ The sample-data bar has seven states and **Reset**:
 - **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
   upcoming session appears below on warm paper-2, with ink text, a white calendar
   tile and a secondary **View session** button.
-  Tap any past or current day to log it at once: **Training logged · Undo**
-  replaces the card's subtitle, and **Not now** / **Log techniques** appear under
-  the days. Log techniques opens **What landed on {day}?**; counts save as you tap
+  Tap any past or current day to log it at once: **↶ Undo** appears beside
+  **This week**, keeping the title row, instruction and calendar in place, while
+  **Not now** / **Log techniques** expand the card downward under the days.
+  Undo disappears after five seconds without changing the header's height.
+  Log techniques opens **What landed on {day}?**; counts save as you tap
   and the row then summarizes them. A quick log leaves that session open. Use
   **Start plan** to simulate its start, then complete it from View session.
   Returning to Activity shows the next open session in the prompter. It stays on the selected
