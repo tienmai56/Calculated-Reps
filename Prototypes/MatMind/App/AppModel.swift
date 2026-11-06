@@ -1504,6 +1504,21 @@ extension AppModel {
             && current.status(of: "me") == .going
             && !current.people.contains { $0.id == "me" && $0.attended }
     }
+
+    /// Selecting an existing plan is navigation only. Attendance is confirmed by
+    /// the organizer in the existing composer, never by the Quick Log chooser.
+    func canOpenQuickLogPlan(_ session: Session, now: Date = Date()) -> Bool {
+        guard let current = findSession(session.id), let start = current.startsAt else { return false }
+        return start <= now && current.status(of: "me") == .going
+            && trainingCompletionStatus(current) == nil
+    }
+
+    @discardableResult func openQuickLogPlan(_ session: Session, now: Date = Date()) -> Bool {
+        guard quickTrainingLogEnabled, !busy, canOpenQuickLogPlan(session, now: now),
+              let current = findSession(session.id) else { return false }
+        go(current.organizer == "me" ? .complete(id: current.id) : .session(id: current.id))
+        return true
+    }
     func canUndoTrainingToast(_ id: UUID) -> Bool {
         quickTrainingLogEnabled && trainingUndoToastID == id && trainingUndo != nil
             && !savingTraining && !(trainingUndoSessionID.map { sharedSessionIDs.contains($0) } ?? false)

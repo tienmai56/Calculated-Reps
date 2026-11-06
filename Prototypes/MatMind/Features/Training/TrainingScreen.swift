@@ -509,7 +509,7 @@ struct SessionDetailScreen: View {
                 VStack(spacing: 8) {
                     MMBadge("Completed", variant: .success, dot: true)
                     if isOrganizer && mm.quickTrainingLogEnabled && !mm.sharedSessionIDs.contains(s.id) {
-                        MMButton("Complete & share", iconLeft: "camera", fullWidth: true) { mm.go(.complete(id: s.id)) }
+                        MMButton("Share a memory", iconLeft: "camera", fullWidth: true) { mm.go(.complete(id: s.id)) }
                     } else if !isOrganizer && s.people.contains(where: { $0.id == "me" && $0.attended }) {
                         Text("\(mm.person(s.organizer).firstName) can share a photo from this session.")
                             .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)

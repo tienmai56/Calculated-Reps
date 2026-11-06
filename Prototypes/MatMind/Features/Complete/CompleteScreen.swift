@@ -201,7 +201,7 @@ struct CompleteScreen: View {
     /// Locked until there's a photo or a note. A tap while locked doesn't error loudly:
     /// the hint turns coral and the note field takes focus, since typing is the fastest fix.
     private func publishButton(_ s: Session, people: [String]) -> some View {
-        MMButton("Publish to Activity", size: .lg, iconLeft: "send", fullWidth: true) {
+        MMButton(mm.trainingCompletionStatus(s) == nil ? "Complete & Share" : "Share a memory", size: .lg, iconLeft: "send", fullWidth: true) {
             guard canPublish else { nudge(); return }
             if let runtime = mm.runtime {
                 publishing = true

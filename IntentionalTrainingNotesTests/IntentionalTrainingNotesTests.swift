@@ -3569,3 +3569,94 @@ extension BackendSessionTests {
         XCTAssertEqual(offsets, ["0", "200"])
     }
 }
+
+
+extension TrainingCalendarTests {
+    @MainActor func testQuickLogPlanSelectionWaitsForExplicitCompletion() async throws {
+        let ui = AppModel(live: false)
+        let plan = Session(id: "quick-log-plan", title: "Open training", day: "Thu", date: 5, month: "Nov", time: "16:30", gym: "Ralph Gracie", organizer: "me",
+                           people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going), Attendee(id: "sarah", status: .invited)],
+                           note: "Work on guard retention", focusItems: [TrainingFocus(title: "Frames")], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [plan]; ui.completedSessions = []; ui.posts = []; ui.quickLogs = []; ui.toComplete = nil; ui.drafts = []
+        ui.path = []
+
+        XCTAssertTrue(ui.openQuickLogPlan(plan))
+        XCTAssertEqual(ui.path, [.complete(id: plan.id)])
+        XCTAssertEqual(ui.findSession(plan.id), plan)
+        XCTAssertNil(ui.trainingCompletionStatus(plan))
+        XCTAssertNil(ui.toast)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.completedSessions.isEmpty)
+        XCTAssertTrue(ui.posts.isEmpty)
+        ui.back()
+        XCTAssertEqual(ui.findSession(plan.id), plan, "Closing the composer leaves the plan unchanged")
+
+        XCTAssertTrue(ui.openQuickLogPlan(plan))
+        let saved = await ui.saveSessionPhoto(plan.id, photo: "training-photo")
+        XCTAssertTrue(saved)
+        var withPhoto = plan
+        withPhoto.photos = ["training-photo"]
+        XCTAssertEqual(ui.findSession(plan.id), withPhoto, "Saving a photo must preserve all plan details and attendance")
+        XCTAssertNil(ui.trainingCompletionStatus(plan))
+        XCTAssertTrue(ui.posts.isEmpty)
+        ui.back()
+        XCTAssertTrue(ui.openQuickLogPlan(plan), "A photo alone does not complete the plan")
+        let result = try XCTUnwrap(ui.publish(plan.id, photo: "training-photo", caption: "", people: plan.going))
+        XCTAssertEqual(result.post.photo, "training-photo")
+        XCTAssertEqual(result.post.focusItems, plan.focusItems)
+        XCTAssertEqual(ui.completedSessions.count, 1)
+        XCTAssertEqual(ui.completedSessions.first?.id, plan.id)
+        XCTAssertEqual(ui.completedSessions.first?.note, plan.note)
+        XCTAssertEqual(ui.completedSessions.first?.startsAt, plan.startsAt)
+        XCTAssertEqual(ui.completedSessions.first?.gym, plan.gym)
+        XCTAssertEqual(ui.completedSessions.first?.people.filter(\.attended).map(\.id), ["me", "kenji"])
+        XCTAssertEqual(ui.posts.count, 1)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.upcoming.isEmpty)
+        XCTAssertEqual(ui.trainingCompletionStatus(plan), .completed)
+        XCTAssertFalse(ui.canCompleteTraining(plan))
+        XCTAssertFalse(ui.openQuickLogPlan(plan))
+    }
+
+    @MainActor func testLiveQuickLogPlanSelectionOnlyNavigatesForHostAndGuest() {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        var writes = 0
+        runtime.command = { _, _ in writes += 1; return true }
+        var plan = Session(id: "live-plan", title: "Rolls", day: "Thu", date: 5, month: "Nov", time: "16:30", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: Date().addingTimeInterval(-60))
+        for organizer in ["me", "kenji"] {
+            plan.organizer = organizer
+            ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.path = []
+            XCTAssertTrue(ui.openQuickLogPlan(plan))
+            XCTAssertEqual(ui.path, [organizer == "me" ? .complete(id: plan.id) : .session(id: plan.id)])
+            XCTAssertEqual(ui.upcoming, [plan])
+            XCTAssertTrue(ui.completedSessions.isEmpty)
+            XCTAssertNil(ui.trainingCompletionStatus(plan))
+            XCTAssertNil(ui.trainingUndo)
+            XCTAssertFalse(ui.savingTraining)
+        }
+        XCTAssertEqual(writes, 0, "Selecting a plan must never issue an attendance or creation command")
+    }
+
+    @MainActor func testQuickLogPlanSelectionRevalidatesCurrentSession() {
+        let ui = AppModel(live: false)
+        let now = Date()
+        let plan = Session(id: "edited-plan", title: "Rolls", day: "Thu", date: 5, month: "Nov", time: "16:30", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: now.addingTimeInterval(-60))
+        ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.path = []
+        ui.upcoming[0].startsAt = now.addingTimeInterval(60)
+        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
+        ui.upcoming = [plan]
+        ui.upcoming[0].people[0].status = .declined
+        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
+        ui.upcoming = [plan]
+        ui.sharedSessionIDs.insert(plan.id)
+        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
+        ui.sharedSessionIDs = []
+        ui.upcoming = []
+        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
+        XCTAssertTrue(ui.path.isEmpty)
+    }
+}

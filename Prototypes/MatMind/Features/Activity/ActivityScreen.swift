@@ -1191,15 +1191,10 @@ struct TrainingWeekCard: View {
                 ForEach(mm.openPlans(date)) { session in
                     Button {
                         trainingSaveFailed = false
-                        Task {
-                            if await mm.markTrainingDone(session) {
-                                selected = nil
-                                mm.go(.session(id: session.id))
-                            } else if !mm.savingTraining { trainingSaveFailed = true }
-                        }
+                        if mm.openQuickLogPlan(session) { selected = nil }
                     } label: { planOption(session, now: context.date) }
                     .buttonStyle(.plain)
-                    .disabled(mm.busy || !mm.canMarkTrainingDone(session, now: context.date))
+                    .disabled(mm.busy || !mm.canOpenQuickLogPlan(session, now: context.date))
                 }
                 Button {
                     trainingSaveFailed = false
