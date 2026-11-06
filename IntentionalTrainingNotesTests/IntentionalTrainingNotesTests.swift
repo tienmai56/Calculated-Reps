@@ -3971,3 +3971,121 @@ extension TrainingCalendarTests {
         XCTAssertFalse(ui.isTrainedDay(tomorrow, planDays: planDays), "A future plan has not been trained yet")
     }
 }
+
+extension TrainingCalendarTests {
+    @MainActor private func liveQuickLogModel() -> (AppModel, TrainingRuntimeStub) {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        return (ui, runtime)
+    }
+
+    @MainActor func testOneTapLogAppearsBeforeTheLiveSaveFinishesAndRapidTapsEachCount() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        var pending: [CheckedContinuation<Bool, Never>] = []
+        var operations: [String] = []
+        let started = expectation(description: "Both saves started")
+        started.expectedFulfillmentCount = 2
+        runtime.command = { operation, _ in
+            operations.append(operation); started.fulfill()
+            return await withCheckedContinuation { pending.append($0) }
+        }
+        let day = Date()
+        let first = try XCTUnwrap(ui.logTrainingNow(day))
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [first.id], "The day fills before the server answers")
+        XCTAssertEqual(ui.toast?.message, "Training logged")
+        XCTAssertEqual(ui.toast?.inline, true)
+        XCTAssertFalse(ui.savingTraining, "A one-tap save never locks the app")
+        XCTAssertFalse(ui.busy)
+        let second = try XCTUnwrap(ui.logTrainingNow(day), "A second tap while the first is saving adds another log")
+        let saves = [ui.quickLogSaves[first.id], ui.quickLogSaves[second.id]].compactMap { $0 }
+        XCTAssertEqual(saves.count, 2)
+        await fulfillment(of: [started], timeout: 1)
+        XCTAssertEqual(operations, ["create_quick_log", "create_quick_log"])
+        pending.forEach { $0.resume(returning: true) }
+        for save in saves { let saved = await save.value; XCTAssertTrue(saved) }
+        XCTAssertEqual(ui.entryCount(day), 2)
+        XCTAssertTrue(ui.quickLogSaves.isEmpty)
+    }
+
+    @MainActor func testFailedOneTapSaveTakesTheLogBackOffWithInlineError() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in false }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 2])
+        XCTAssertNotNil(ui.quickLogHitsByID[log.id])
+        let save = try XCTUnwrap(ui.quickLogSaves[log.id])
+        let saved = await save.value
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        XCTAssertNil(ui.quickLogHitsByID[log.id], "Hits counted on a log that failed to save are dropped too")
+        XCTAssertEqual(ui.toast?.message, "Couldn't save training. Try again.")
+        XCTAssertEqual(ui.toast?.variant, .danger)
+        XCTAssertEqual(ui.toast?.inline, true)
+        XCTAssertNil(ui.trainingUndo)
+    }
+
+    @MainActor func testUndoWaitsForAPendingSaveSoTheDeleteNeverOvertakesTheCreate() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        var operations: [String] = []
+        var resume: CheckedContinuation<Bool, Never>?
+        let started = expectation(description: "Create started")
+        runtime.command = { operation, _ in
+            operations.append(operation)
+            guard operation == "create_quick_log" else { return true }
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        let toast = try XCTUnwrap(ui.toast)
+        await fulfillment(of: [started], timeout: 1)
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await Task.yield()
+        XCTAssertEqual(operations, ["create_quick_log"], "Undo waits for the create")
+        resume?.resume(returning: true)
+        await undo.value
+        XCTAssertEqual(operations, ["create_quick_log", "delete_quick_log"])
+        XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id })
+        ui.applyServerQuickLogs([])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty, "An undone log never comes back from the local list")
+    }
+
+    @MainActor func testSnapshotsKeepSavedLogsUntilTheServerReturnsThem() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        let save = try XCTUnwrap(ui.quickLogSaves[log.id])
+        _ = await save.value
+        let other = QuickLog(id: "server-log", loggedOn: TrainingCalendar.key(day), loggedAt: day.addingTimeInterval(-60), timezone: TimeZone.current.identifier)
+        ui.applyServerQuickLogs([other])
+        XCTAssertEqual(Set(ui.dayLogs(day).map(\.id)), [other.id, log.id], "A snapshot read before the save keeps the new log on screen")
+        ui.applyServerQuickLogs([other, log])
+        XCTAssertEqual(ui.dayLogs(day).count, 2, "Once returned by the server it isn't listed twice")
+        ui.applyServerQuickLogs([other])
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [other.id], "After the server has returned it, the server's list wins")
+    }
+
+    @MainActor func testAccountClearingDiscardsAPendingOneTapSave() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        var resume: CheckedContinuation<Bool, Never>?
+        let started = expectation(description: "Create started")
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        let save = try XCTUnwrap(ui.quickLogSaves[log.id])
+        await fulfillment(of: [started], timeout: 1)
+        ui.clearLiveData()
+        resume?.resume(returning: false)
+        let saved = await save.value
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.toast, "A result for the previous account shows nothing in the next one")
+        ui.applyServerQuickLogs([])
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+    }
+}

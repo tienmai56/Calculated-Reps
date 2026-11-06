@@ -416,6 +416,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var deletingPosts: Set<String> = []
     /// Comments deleted on this device whose delete is still in flight, hidden the same way.
     private var deletingComments: Set<String> = []
+    /// One quiet reload after a burst of quick logs, instead of a full reload per tap.
+    private var quickLogRefresh: Task<Void, Never>?
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -517,10 +519,10 @@ final class LiveMatMindRuntime: AppRuntime {
         let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
         ui.upcoming = sessions.filter { plannedIDs.contains($0.id) && ($0.organizer == "me" || $0.status(of: "me") != nil) }
         ui.sharedSessionIDs = Set((model.snapshot.shared_session_ids ?? []) + model.snapshot.posts.map { $0.text("session_id") })
-        ui.quickLogs = (model.snapshot.quick_logs ?? []).compactMap { row in
+        ui.applyServerQuickLogs((model.snapshot.quick_logs ?? []).compactMap { row in
             guard let at = row.date("logged_at") else { return nil }
             return QuickLog(id: row.id, loggedOn: row.text("logged_on"), loggedAt: at, timezone: row.text("timezone"))
-        }
+        })
         ui.completedSessions = sessions.filter { completedIDs.contains($0.id) }
         let rhythm = model.snapshot.rhythm_sessions ?? model.snapshot.sessions.compactMap { row -> RhythmSession? in
             guard let start = row.date("starts_at") else { return nil }
@@ -680,7 +682,13 @@ final class LiveMatMindRuntime: AppRuntime {
         let receiptKey = (body["action_id"] as? String).flatMap(UUID.init(uuidString:))
             ?? (operation == "create_quick_log" ? (body["id"] as? String).flatMap(UUID.init(uuidString:)) : nil)
             ?? UUID()
-        let result = await model.perform(operation, body, key: receiptKey, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow", "follow_username"].contains(operation))
+        // A quick log is already on the card (or about to be), so its save neither locks the app nor
+        // reloads everything; one reload follows a burst of taps.
+        let quickLog = operation == "create_quick_log"
+        let result = await model.perform(operation, body, key: receiptKey,
+                                         blocking: deleting == nil && deletingComment == nil && !quickLog && !["share_goal", "set_follow", "follow_username"].contains(operation),
+                                         refresh: !quickLog)
+        if quickLog, result != nil { scheduleQuickLogRefresh() }
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -690,6 +698,16 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         sync()
         return result != nil
+    }
+    private func scheduleQuickLogRefresh() {
+        quickLogRefresh?.cancel()
+        quickLogRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, let self, self.model.userID != nil else { return }
+            await self.model.refresh(force: true)
+            guard !Task.isCancelled else { return }
+            self.sync()
+        }
     }
     func enableNotifications() async -> String? {
         model.error = nil

@@ -971,6 +971,7 @@ struct TrainingWeekCard: View {
     @State private var removing: QuickLog?
     @State private var trainingSaveFailed = false
     @State private var followUp: QuickLogFollowUp?
+    @State private var loggedTaps = 0
     private var days: [Date] { TrainingCalendar.week(anchor) }
     var body: some View {
         let planDays = mm.rhythmPlanDays()
@@ -1024,6 +1025,11 @@ struct TrainingWeekCard: View {
             }
         }
         .onChange(of: selected) { _, _ in trainingSaveFailed = false }
+        // Felt at the same moment the day fills, and again if a save fails and the log comes back off.
+        .sensoryFeedback(.impact(weight: .light), trigger: loggedTaps)
+        .sensoryFeedback(trigger: mm.toast?.id) { _, _ in
+            isActivity && mm.toast?.inline == true && mm.toast?.variant == .danger ? SensoryFeedback.error : nil
+        }
     }
 
     @ViewBuilder
@@ -1165,7 +1171,7 @@ struct TrainingWeekCard: View {
                 .frame(maxWidth: .infinity, minHeight: 66)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(DayPressStyle())
             .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(quick) training \(quick == 1 ? "log" : "logs")\(planned ? ", planned session" : "")")
             .accessibilityHint(future ? "Future day" : "Logs training now")
             .accessibilityActions {
@@ -1221,12 +1227,12 @@ struct TrainingWeekCard: View {
             .background { Circle().fill(MMColor.ink900).padding(-2) }
     }
 
+    /// The log, its Undo and the follow-up land in the same frame as the tap; the save runs behind them.
     private func log(_ date: Date) {
-        Task {
-            guard let log = await mm.createQuickLog(date, inline: true) else { return }
-            withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
-                followUp = QuickLogFollowUp(logID: log.id, date: date)
-            }
+        guard let log = mm.logTrainingNow(date) else { return }
+        loggedTaps += 1
+        withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
+            followUp = QuickLogFollowUp(logID: log.id, date: date)
         }
     }
 
@@ -1301,6 +1307,17 @@ struct TrainingWeekCard: View {
     }
     private func clock(_ date: Date) -> String { date.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()) }
     private func names(_ s: Session) -> String { s.going.filter { $0 != "me" }.map { mm.person($0).firstName }.joined(separator: " and ") }
+}
+
+/// Touch-down feedback for a day: it dips as soon as a finger lands, before any data changes.
+private struct DayPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(MMMotion.easeOut(MMMotion.fast), value: configuration.isPressed)
+    }
 }
 
 /// After a one-tap log: two quiet options, or a summary of what was counted.
