@@ -30,18 +30,22 @@ The sample-data bar has seven states and **Reset**:
 - **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
   upcoming session appears below on warm paper-2, with ink text, a white calendar
   tile and a secondary **View session** button.
-  A quick log leaves that session open. Use **Start plan** to simulate its start,
-  then tap its date and choose the planned session to mark it done. Returning to
-  Activity shows the next open session in the prompter. It stays on the selected
+  Tap any past or current day to log it at once: **Training logged · Undo**
+  replaces the card's subtitle, and **Not now** / **Log techniques** appear under
+  the days. Log techniques opens **What landed on {day}?**; counts save as you tap
+  and the row then summarizes them. A quick log leaves that session open. Use
+  **Start plan** to simulate its start, then complete it from View session.
+  Returning to Activity shows the next open session in the prompter. It stays on the selected
   session after its start time and across tab switches until completion. Reset
   restores the original upcoming session.
 - **No quick logs:** opens Stats with no quick-log records and the Peek-a-boo invitation. Log hits opens today’s counter sheet; saving the first hits replaces the invitation with charts.
 - **Technique stats:** opens Stats with Heel hook, Armbar and Back take daily reps for this week and last week. Explicit sample data only; it never writes to an account or backend.
-- **Host plan:** tap anywhere on today’s planned day to open the chooser, even
-  after adding quick logs; completion opens session details with Complete & share.
+- **Host plan:** today has a started plan. Tapping the day logs a quick log like any
+  other day (no chooser); the calendar badge stays and the plan stays open. Complete
+  it from Training or session details with Complete & share.
 - **Guest plan:** confirm only your own attendance; the host keeps sharing control.
-- **Starts later:** the planned option is disabled, while a separate quick log works.
-- **Quick logs:** two logs today include technique hits (Heel hook 3, Armbar 1, Back take 2), so Stats shows charts instead of the monkey. today starts with ×2; tap the date to add and its count to remove.
+- **Starts later:** today's plan hasn't started; tapping the day still quick-logs.
+- **Quick logs:** two logs today include technique hits (Heel hook 3, Armbar 1, Back take 2), so Stats shows charts instead of the monkey. today starts with ×2; tap the date to add and its count to remove, on planned days too.
 
 Dates follow the device’s current day. A future open mat, completed unshared
 training, a completed-and-shared session with its sample post, and 17 weeks of

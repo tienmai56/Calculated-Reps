@@ -32,7 +32,7 @@ Open `IntentionalTrainingNotes.xcodeproj`, select `IntentionalTrainingNotes`, an
 
 **UI-only quick-log mock:** choose the **QuickTrainingLogMock** Xcode scheme to open Activity immediately with seeded data. Its state selector and Reset let you try quick logs, host/guest completion and an unstarted plan without sign-in or database calls. See [mock instructions](Prototypes/README.md#quick-training-log-ui-mock).
 
-**Quick training logging is deployed.** Migration [`20261105212524_quick_training_log.sql`](supabase/migrations/20261105212524_quick_training_log.sql) was applied to the Mat Mind project. Live accounts enable the strip, chooser and private quick logs when their next snapshot includes the feature fields. Use the regular **IntentionalTrainingNotes** scheme and refresh/restart the app for real data; **QuickTrainingLogMock** continues to use isolated seeded data.
+**Quick training logging is deployed.** Migration [`20261105212524_quick_training_log.sql`](supabase/migrations/20261105212524_quick_training_log.sql) was applied to the Mat Mind project. Live accounts enable the strip and private quick logs when their next snapshot includes the feature fields. Use the regular **IntentionalTrainingNotes** scheme and refresh/restart the app for real data; **QuickTrainingLogMock** continues to use isolated seeded data.
 
 Google sign-in setup is described in [Google sign-in setup](docs/google-sign-in-setup.md). Apple sign-in is hidden for now. Backend migrations and functions are deployed; see [deployment and validation](docs/mat-mind-v2-deployment.md) for configuration and acceptance checks.
 

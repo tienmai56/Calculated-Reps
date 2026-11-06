@@ -1,5 +1,7 @@
 # Quick training log: screens C and D
 
+> **Superseded for Activity logging (Direction C).** Tapping a day now logs it immediately, planned or not; there is no **What are you logging?** chooser, and technique counting is an optional follow-up (**Not now** / **Log techniques**). The plan-completion and merge rules below still apply. See `DESIGN.md` › Activity for the current behavior.
+
 The database migration is deployed to Mat Mind. Use the **QuickTrainingLogMock** Xcode scheme for an in-memory seeded UI with host, guest, unstarted-plan and quick-log states.
 
 Reference: canvas Page 2, `Activity-em83-6z5j.dc.html`. The current circular strip and simplified chooser remain in place. The supplied scratchpad path belonged to another workspace; this document records the implementation here.
