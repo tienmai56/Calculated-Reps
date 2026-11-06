@@ -463,8 +463,6 @@ struct SessionDetailScreen: View {
                         .padding(.horizontal, 4)
                         .padding(.top, 14)
                 }
-                sessionPhotos(s)
-                    .padding(.top, MMLayout.sectionGap)
                 if !s.focusItems.isEmpty || isOrganizer {
                     HStack {
                         Text("What we're working on").mmFont(.display, 18)
@@ -488,6 +486,8 @@ struct SessionDetailScreen: View {
                         .padding(.top, MMSpace.s4)
                     }
                 }
+                sessionPhotos(s)
+                    .padding(.top, MMLayout.sectionGap)
                 Text("Who's coming").mmFont(.display, 18)
                     .padding(.horizontal, 4)
                     .padding(.top, 22)
@@ -625,7 +625,6 @@ struct SessionDetailScreen: View {
     }
 
     private func sessionPhotos(_ session: Session) -> some View {
-        let organizer = session.organizer == "me"
         return VStack(alignment: .leading, spacing: MMSpace.s4) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Photos").mmFont(.display, 18)
@@ -633,14 +632,19 @@ struct SessionDetailScreen: View {
                 Spacer()
                 MMMeta(session.photos.isEmpty ? "None yet" : session.photos.count == 1 ? "1 photo" : "\(session.photos.count) photos")
             }
-            MMCard(padding: MMSpace.s4) {
-                VStack(alignment: .leading, spacing: MMSpace.s4) {
-                    if session.photos.isEmpty {
-                        Text(organizer ? "You're the organizer, so the photos are yours to share. Your training partners will see them here." : "Photos from the organizer will show up here.")
-                            .mmFont(.body, 13, lineHeight: 1.3)
-                            .foregroundStyle(MMColor.textSecondary)
-                            .padding(.horizontal, MMSpace.s2)
-                    } else {
+            if session.photos.isEmpty {
+                HStack(spacing: MMSpace.s5) {
+                    SessionPhotoReminderArtwork()
+                    Text("Post-roll photos land here.")
+                        .mmFont(.display, 18)
+                        .foregroundStyle(MMColor.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 128)
+            } else {
+                MMCard(padding: MMSpace.s4) {
+                    VStack(alignment: .leading, spacing: MMSpace.s4) {
                         ForEach(session.photos, id: \.self) { photo in
                             MMPhotoTile(photo: photo, height: 240, radius: MMRadius.md) { EmptyView() }
                                 .accessibilityLabel("Session photo")
@@ -661,6 +665,68 @@ struct SessionDetailScreen: View {
         .overlay(alignment: .bottom) {
             if divider { Rectangle().fill(MMColor.borderSubtle).frame(height: 1) }
         }
+    }
+}
+
+/// A decorative photo reminder, kept separate from the session's photo action.
+private struct SessionPhotoReminderArtwork: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum Phase: CaseIterable { case hidden, peek, click, nod, hold }
+
+    var body: some View {
+        Group {
+            if reduceMotion {
+                scene(.hold)
+            } else {
+                PhaseAnimator(Phase.allCases) { phase in
+                    scene(phase)
+                } animation: { phase in
+                    switch phase {
+                    case .hidden: MMMotion.easeOut(0.4).delay(1)
+                    case .peek: MMMotion.bounce(MMMotion.slow).delay(0.7)
+                    case .click: MMMotion.easeOut(0.08).delay(0.6)
+                    case .nod: MMMotion.bounce().delay(0.1)
+                    case .hold: MMMotion.easeOut().delay(0.4)
+                    }
+                }
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+
+    private func scene(_ phase: Phase) -> some View {
+        let out = phase != .hidden
+        let click = phase == .click
+        return ZStack(alignment: .topLeading) {
+            Image("SilverbackMark")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 44, height: 50)
+                .rotationEffect(.degrees(out ? (phase == .nod ? 20 : 12) : 0), anchor: .bottomLeading)
+                .offset(x: out ? 49 : 13, y: out ? 6 : 34)
+            RoundedRectangle(cornerRadius: MMRadius.xs, style: .continuous)
+                .fill(MMColor.surfaceSunken)
+                .frame(width: 56, height: 47)
+                .overlay {
+                    MMIcon("camera", size: 23, color: MMColor.textTertiary)
+                        .scaleEffect(click ? 0.86 : 1)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: MMRadius.xs, style: .continuous)
+                        .fill(MMColor.surfaceCard)
+                        .opacity(click ? 0.95 : 0)
+                }
+                .padding(MMSpace.s3)
+                .padding(.bottom, MMSpace.s4)
+                .background(MMColor.surfaceCard, in: RoundedRectangle(cornerRadius: MMRadius.sm, style: .continuous))
+                .mmShadowCard()
+                .rotationEffect(.degrees(click ? -6 : -9))
+                .offset(x: 10, y: 34)
+        }
+        .frame(width: 104, height: 112, alignment: .topLeading)
     }
 }
 
