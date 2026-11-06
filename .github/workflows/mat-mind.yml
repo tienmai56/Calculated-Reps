@@ -62,8 +62,12 @@ jobs:
           PY
       - name: Build shared prototype UI
         run: xcodebuild -scheme MatMindPrototype -derivedDataPath "$RUNNER_TEMP/MatMind" -destination "platform=iOS Simulator,id=$SIMULATOR_ID" CODE_SIGNING_ALLOWED=NO build
+      - name: Build and test
+        run: xcodebuild -scheme IntentionalTrainingNotes -derivedDataPath "$RUNNER_TEMP/MatMind" -destination "platform=iOS Simulator,id=$SIMULATOR_ID" CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO test
       - name: Capture native checklist review states
+        timeout-minutes: 5
         run: |
+          open -a Simulator --args -CurrentDeviceUDID "$SIMULATOR_ID"
           xcrun simctl boot "$SIMULATOR_ID" || true
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
           xcrun simctl status_bar "$SIMULATOR_ID" override --time '9:41' --batteryState charged --batteryLevel 100
@@ -80,12 +84,11 @@ jobs:
           done
           xcrun simctl terminate "$SIMULATOR_ID" com.tienmai.intentionaltrainingnotes.matmind
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: session-checklist-native
           path: ${{ runner.temp }}/session-checklist
           if-no-files-found: error
-      - name: Build and test
-        run: xcodebuild -scheme IntentionalTrainingNotes -derivedDataPath "$RUNNER_TEMP/MatMind" -destination "platform=iOS Simulator,id=$SIMULATOR_ID" CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO test
   database:
     runs-on: ubuntu-latest
     services:
