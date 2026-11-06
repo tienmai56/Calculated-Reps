@@ -401,6 +401,9 @@ struct SessionDetailScreen: View {
     @State private var picked: Set<String> = []
     @State private var showFocusEditor = false
     @State private var focusDraft: [TrainingFocus] = []
+    @State private var photoDraft: ParticipantPhotoDraft?
+    @State private var removingPhoto: SessionPhoto?
+    @State private var removing = false
     private var pickableGoals: [MatGoal] {
         mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
@@ -511,11 +514,23 @@ struct SessionDetailScreen: View {
                     if isOrganizer && mm.quickTrainingLogEnabled && !mm.sharedSessionIDs.contains(s.id) {
                         MMButton("Share a memory", iconLeft: "camera", fullWidth: true) { mm.go(.complete(id: s.id)) }
                     } else if !isOrganizer && s.people.contains(where: { $0.id == "me" && $0.attended }) {
-                        Text("\(mm.person(s.organizer).firstName) can share a photo from this session.")
-                            .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
-                            .multilineTextAlignment(.center)
-                        MMButton("I didn't attend", variant: .secondary) {
-                            Task { await mm.removeOwnTrainingAttendance(s) }
+                        if mm.canPostParticipantPhoto(s) {
+                            let hasPhoto = s.sessionPhotos.contains { $0.author == "me" }
+                            if !hasPhoto {
+                                Text("One photo per person, per session.")
+                                    .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+                            }
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: MMSpace.s4) { guestPhotoActions(hasPhoto: hasPhoto, session: s) }
+                                VStack(spacing: MMSpace.s4) { guestPhotoActions(hasPhoto: hasPhoto, session: s) }
+                            }
+                        } else {
+                            Text("\(mm.person(s.organizer).firstName) can share a photo from this session.")
+                                .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+                                .multilineTextAlignment(.center)
+                            MMButton("I didn't attend", variant: .secondary) {
+                                Task { await mm.removeOwnTrainingAttendance(s) }
+                            }
                         }
                     }
                 }
@@ -562,6 +577,25 @@ struct SessionDetailScreen: View {
                 MMButton("Join session", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
             }
         }
+        .sheet(item: $photoDraft) { draft in
+            ParticipantPhotoComposer(draft: draft)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(MMRadius.xl)
+                .presentationBackground(MMColor.bgApp)
+        }
+        .confirmationDialog("Remove your photo?", isPresented: Binding(get: { removingPhoto != nil }, set: { if !$0 { removingPhoto = nil } }),
+                            titleVisibility: .visible, presenting: removingPhoto) { photo in
+            Button("Remove photo", role: .destructive) {
+                removing = true
+                Task {
+                    let saved = await mm.removeParticipantPhoto(id, photoID: photo.id)
+                    removing = false
+                    if !saved { mm.showToast("Couldn't remove your photo. Reopen the session and try again.", .danger) }
+                }
+            }
+            Button("Keep photo", role: .cancel) {}
+        } message: { _ in Text("Your training attendance stays recorded.") }
         .sheet(isPresented: $showFocusEditor) {
             ScrollView {
                 MMDialogBody(title: "What are we working on?",
@@ -619,14 +653,15 @@ struct SessionDetailScreen: View {
     }
 
     private func sessionPhotos(_ session: Session) -> some View {
+        let photos = session.sessionPhotos
         return VStack(alignment: .leading, spacing: MMSpace.s4) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Photos").mmFont(.display, 18)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
-                MMMeta(session.photos.isEmpty ? "None yet" : session.photos.count == 1 ? "1 photo" : "\(session.photos.count) photos")
+                MMMeta(photos.isEmpty ? "None yet" : photos.count == 1 ? "1 photo" : "\(photos.count) photos")
             }
-            if session.photos.isEmpty {
+            if photos.isEmpty {
                 HStack(spacing: MMSpace.s5) {
                     SessionPhotoReminderArtwork()
                     Text("Post-roll photos land here.")
@@ -637,16 +672,54 @@ struct SessionDetailScreen: View {
                 }
                 .frame(minHeight: 128)
             } else {
-                MMCard(padding: MMSpace.s4) {
-                    VStack(alignment: .leading, spacing: MMSpace.s4) {
-                        ForEach(session.photos, id: \.self) { photo in
-                            MMPhotoTile(photo: photo, height: 240, radius: MMRadius.md) { EmptyView() }
-                                .accessibilityLabel("Session photo")
+                VStack(spacing: MMSpace.s8) {
+                    ForEach(photos) { photo in
+                        VStack(alignment: .leading, spacing: MMSpace.s4) {
+                            HStack(spacing: MMSpace.s4) {
+                                PersonProfileButton(person: mm.person(photo.author)) {
+                                    Text(mm.person(photo.author).name + (photo.author == "me" ? " (you)" : ""))
+                                        .mmFont(.body, 15, .bold)
+                                        .foregroundStyle(MMColor.textPrimary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                if photo.author == "me" && mm.canPostParticipantPhoto(session) {
+                                    Menu {
+                                        Button {
+                                            photoDraft = ParticipantPhotoDraft(sessionID: id, replacingPhotoID: photo.id)
+                                        } label: { Label("Replace photo", image: "repeat-2") }
+                                        Button(role: .destructive) { removingPhoto = photo } label: { Label("Remove photo", image: "trash-2") }
+                                    } label: {
+                                        MMIcon("ellipsis", size: 20)
+                                            .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .accessibilityLabel("Your photo options")
+                                    .disabled(removing || mm.busy)
+                                }
+                            }
+                            .frame(minHeight: MMLayout.tapTarget)
+                            MMPhotoTile(photo: photo.source, height: 240, radius: MMRadius.md) { EmptyView() }
+                                .accessibilityLabel("Session photo from \(mm.person(photo.author).name)")
                         }
                     }
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func guestPhotoActions(hasPhoto: Bool, session: Session) -> some View {
+        if !hasPhoto {
+            MMButton("Add photo", iconLeft: "camera") {
+                photoDraft = ParticipantPhotoDraft(sessionID: id, replacingPhotoID: nil)
+            }
+            .disabled(mm.busy || removing)
+        }
+        MMButton("I didn't attend", variant: .secondary) {
+            Task { await mm.removeOwnTrainingAttendance(session) }
+        }
+        .disabled(mm.busy || removing)
     }
 
     private func infoRow(icon: String, text: String, divider: Bool) -> some View {

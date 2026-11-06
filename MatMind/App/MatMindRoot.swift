@@ -441,6 +441,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var deletingPosts: Set<String> = []
     /// Comments deleted on this device whose delete is still in flight, hidden the same way.
     private var deletingComments: Set<String> = []
+    /// One quiet reload after a burst of quick logs, instead of a full reload per tap.
+    private var quickLogRefresh: Task<Void, Never>?
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -479,6 +481,7 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
         ui.quickTrainingLogBackendAvailable = model.snapshot.quick_logs != nil && model.snapshot.training_days != nil
             && model.snapshot.log_matches != nil && model.snapshot.shared_session_ids != nil
+        ui.participantPhotosAvailable = model.snapshot.participant_photos_available == true
         ui.isSignedIn = true
         if ui.quickTrainingLogEnabled, ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
             let title = model.session(match.text("session_id"))?.text("title") ?? "your session"
@@ -529,16 +532,24 @@ final class LiveMatMindRuntime: AppRuntime {
                             .sorted {
                                 let first = $0.text("created_at"), second = $1.text("created_at")
                                 return first == second ? $0.id < $1.id : first > second
-                            }.compactMap { photos[$0.id] })
+                            }.filter { model.snapshot.participant_photos_available != true || ($0.flag("session_photo") && $0.text("owner") == row.text("organizer")) }
+                            .compactMap { photos[$0.id] },
+                           photoContributions: model.snapshot.participant_photos_available == true
+                            ? model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" && $0.flag("session_photo") }
+                                .sorted {
+                                    let firstHost = $0.text("owner") == row.text("organizer"), secondHost = $1.text("owner") == row.text("organizer")
+                                    return firstHost != secondHost ? firstHost : $0.id < $1.id
+                                }.map { SessionPhoto(id: $0.id, author: localID($0.text("owner")), source: photos[$0.id]) }
+                            : nil)
         }
         let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))
         let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
         ui.upcoming = sessions.filter { plannedIDs.contains($0.id) && ($0.organizer == "me" || $0.status(of: "me") != nil) }
         ui.sharedSessionIDs = Set((model.snapshot.shared_session_ids ?? []) + model.snapshot.posts.map { $0.text("session_id") })
-        ui.quickLogs = (model.snapshot.quick_logs ?? []).compactMap { row in
+        ui.applyServerQuickLogs((model.snapshot.quick_logs ?? []).compactMap { row in
             guard let at = row.date("logged_at") else { return nil }
             return QuickLog(id: row.id, loggedOn: row.text("logged_on"), loggedAt: at, timezone: row.text("timezone"))
-        }
+        })
         ui.completedSessions = sessions.filter { completedIDs.contains($0.id) }
         let rhythm = model.snapshot.rhythm_sessions ?? model.snapshot.sessions.compactMap { row -> RhythmSession? in
             guard let start = row.date("starts_at") else { return nil }
@@ -705,7 +716,13 @@ final class LiveMatMindRuntime: AppRuntime {
         let receiptKey = (body["action_id"] as? String).flatMap(UUID.init(uuidString:))
             ?? (operation == "create_quick_log" ? (body["id"] as? String).flatMap(UUID.init(uuidString:)) : nil)
             ?? UUID()
-        let result = await model.perform(operation, body, key: receiptKey, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow", "follow_username"].contains(operation))
+        // A quick log is already on the card (or about to be), so its save neither locks the app nor
+        // reloads everything; one reload follows a burst of taps.
+        let quickLog = operation == "create_quick_log"
+        let result = await model.perform(operation, body, key: receiptKey,
+                                         blocking: deleting == nil && deletingComment == nil && !quickLog && !["share_goal", "set_follow", "follow_username"].contains(operation),
+                                         refresh: !quickLog)
+        if quickLog, result != nil { scheduleQuickLogRefresh() }
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -715,6 +732,16 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         sync()
         return result != nil
+    }
+    private func scheduleQuickLogRefresh() {
+        quickLogRefresh?.cancel()
+        quickLogRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, let self, self.model.userID != nil else { return }
+            await self.model.refresh(force: true)
+            guard !Task.isCancelled else { return }
+            self.sync()
+        }
     }
     func enableNotifications() async -> String? {
         model.error = nil
@@ -739,7 +766,7 @@ final class LiveMatMindRuntime: AppRuntime {
         sync(); return result?["id"]?.string
     }
     /// Prepare/upload once per selection. Publishing reuses a photo already saved to the session.
-    private func uploadSessionPhoto(_ sessionID: String, photo: String) async throws -> String {
+    private func uploadSessionPhoto(_ sessionID: String, photo: String, participant: Bool = false) async throws -> String {
         guard let owner = model.userID else { throw CloudError(message: "Sign in to save your photo.") }
         let source = sessionID + ":" + photo
         if let id = uploadedSessionPhotos[source] { return id }
@@ -749,7 +776,7 @@ final class LiveMatMindRuntime: AppRuntime {
         let data = try Data(contentsOf: URL(fileURLWithPath: photo))
         if mediaPhotos[sessionID] != photo { mediaKeys[sessionID] = UUID(); mediaPhotos[sessionID] = photo }
         let mediaKey = mediaKeys[sessionID] ?? UUID(); mediaKeys[sessionID] = mediaKey
-        let media = try await model.backend.command("prepare_media", payload: ["session_id": sessionID], key: mediaKey)
+        let media = try await model.backend.command(participant ? "prepare_participant_photo" : "prepare_media", payload: ["session_id": sessionID], key: mediaKey)
         guard model.userID == owner else { throw CancellationError() }
         guard let id = media["id"]?.string, let objectKey = media["object_key"]?.string else { throw CloudError(message: "Could not prepare photo.") }
         do { try await model.backend.upload(data, objectKey: objectKey) }
@@ -770,6 +797,30 @@ final class LiveMatMindRuntime: AppRuntime {
             sync()
             return true
         } catch { if model.userID == owner { model.error = error.localizedDescription }; return false }
+    }
+
+    func postParticipantPhoto(_ sessionID: String, photo: String, replacing photoID: String?) async -> Bool {
+        let owner = model.userID
+        do {
+            let id = try await uploadSessionPhoto(sessionID, photo: photo, participant: true)
+            guard model.userID == owner else { return false }
+            let payload: [String: Any] = ["session_id": sessionID, "media_id": id,
+                                          "expected_media_id": photoID.map { $0 as Any } ?? NSNull()]
+            guard await model.perform("post_participant_photo", payload, key: UUID(uuidString: id) ?? UUID()) != nil,
+                  model.userID == owner else { return false }
+            photos[id] = photo
+            sync()
+            ui.showToast("Your photo is in the session", .success)
+            return true
+        } catch { if model.userID == owner { model.error = error.localizedDescription }; return false }
+    }
+
+    func removeParticipantPhoto(_ sessionID: String, photoID: String) async -> Bool {
+        guard await model.perform("remove_participant_photo", ["session_id": sessionID, "expected_media_id": photoID],
+                                  key: UUID(uuidString: photoID) ?? UUID()) != nil else { return false }
+        sync()
+        ui.showToast("Your photo was removed")
+        return true
     }
 
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? {

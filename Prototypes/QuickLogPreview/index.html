@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tap-to-Log Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+/* Layout: two phones side by side, each with its rationale and a Stats readout underneath. Single light theme, matching the app (light-first). */
+:root{
+  --canvas:var(--paper-2);
+  --phone-w:390px;
+  --on-ink:var(--paper);
+  --on-ink-soft:var(--ink-200);
+  --on-ink-mute:var(--ink-300);
+  --ink-wash:rgba(250,246,239,.08);
+  --ink-line:rgba(250,246,239,.14);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{background:var(--canvas);color:var(--text-primary)}
+body{margin:0;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:transparent;border:0;padding:0;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.icon{display:inline-block;width:20px;height:20px;flex-shrink:0;-webkit-mask:var(--i) center/contain no-repeat;mask:var(--i) center/contain no-repeat;background:currentColor}
+
+/* ---------- page chrome ---------- */
+.intro{max-width:880px;margin:0 auto 24px;display:grid;gap:12px}
+.eyebrow{font:700 12px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--text-tertiary)}
+.intro h1{font:800 clamp(30px,5vw,44px)/1.02 var(--font-display);letter-spacing:-.035em;margin:0;text-wrap:balance}
+.intro p{font-size:16px;line-height:1.5;color:var(--text-secondary);margin:0;max-width:62ch}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:6px}
+.seg{display:flex;padding:4px;border-radius:var(--radius-pill);background:var(--surface-card);box-shadow:var(--shadow-card)}
+.seg button{min-height:40px;padding:0 16px;border-radius:var(--radius-pill);font:700 14px/1 var(--font-display);letter-spacing:-.01em;color:var(--text-tertiary)}
+.seg button[aria-pressed=true]{background:var(--surface-inverse);color:var(--text-inverse)}
+.ghost-btn{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);font:700 14px/1 var(--font-display);display:inline-flex;align-items:center;gap:6px;color:var(--text-primary)}
+.ghost-btn:hover{background:var(--surface-hover)}
+
+.directions{max-width:1260px;margin:0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px 28px;align-items:start}
+@media(max-width:1280px){.directions{grid-template-columns:repeat(2,minmax(0,1fr));max-width:880px}}
+@media(max-width:860px){.directions{grid-template-columns:minmax(0,1fr);max-width:var(--phone-w)}}
+.direction{display:grid;gap:16px;min-width:0}
+.dir-head{display:grid;gap:6px}
+.dir-head .tag{display:inline-flex;align-items:center;gap:6px;width:max-content;padding:5px 10px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:800 12px/1 var(--font-display);letter-spacing:.02em}
+.dir-head h2{font:800 28px/1.05 var(--font-display);letter-spacing:-.03em;margin:0}
+.dir-head p{margin:0;font-size:15px;line-height:1.45;color:var(--text-secondary)}
+
+.notes{background:var(--surface-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:18px;display:grid;gap:14px}
+.notes h3{font:800 16px/1.2 var(--font-display);margin:0;letter-spacing:-.01em}
+.notes ul{margin:0;padding:0 0 0 18px;display:grid;gap:8px;font-size:14px;line-height:1.45;color:var(--text-secondary)}
+.notes li::marker{color:var(--accent)}
+.tradeoff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tradeoff div{background:var(--surface-sunken);border-radius:var(--radius-md);padding:12px;font-size:13px;line-height:1.4;color:var(--text-secondary)}
+.tradeoff b{display:block;font:800 13px/1.2 var(--font-display);color:var(--text-primary);margin-bottom:4px}
+
+.stats{background:var(--surface-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:18px;display:grid;gap:12px}
+.stats-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.stats-head h3{font:800 16px/1.2 var(--font-display);margin:0}
+.stats-head span{font-size:12px;color:var(--text-tertiary)}
+.stat-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;font-size:14px;min-height:28px}
+.stat-row .name{font-weight:600;overflow-wrap:anywhere}
+.stat-row .n{font:800 18px/1 var(--font-display);font-variant-numeric:tabular-nums;min-width:2ch;text-align:right}
+.plus-today{font:700 11px/1 var(--font-body);padding:5px 8px;border-radius:var(--radius-pill);background:var(--accent-tint);color:var(--coral-700);white-space:nowrap}
+.plus-today.zero{visibility:hidden}
+.stats p{margin:0;font-size:13px;line-height:1.45;color:var(--text-tertiary)}
+.stat-row.bump .n{animation:pop var(--dur-slow) var(--ease-bounce)}
+
+.foot{max-width:880px;margin:40px auto 0;display:grid;gap:12px}
+.foot h2{font:800 22px/1.1 var(--font-display);letter-spacing:-.02em;margin:0}
+.foot ul{margin:0;padding-left:18px;display:grid;gap:8px;font-size:15px;line-height:1.5;color:var(--text-secondary);max-width:70ch}
+
+/* ---------- phone ---------- */
+.phone{position:relative;width:100%;max-width:var(--phone-w);height:800px;margin:0 auto;border-radius:44px;background:var(--bg-app);box-shadow:var(--shadow-float);overflow:hidden;display:flex;flex-direction:column;isolation:isolate}
+.statusbar{height:46px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0;font:700 15px/1 var(--font-body)}
+.statusbar .island{width:110px;height:30px;border-radius:20px;background:var(--ink-900)}
+.statusbar .sig{display:flex;gap:4px;align-items:center}
+.statusbar .sig i{display:block;width:4px;border-radius:2px;background:var(--ink-900)}
+.screen{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding-bottom:96px}
+.screen::-webkit-scrollbar{display:none}
+.appbar{display:flex;align-items:center;gap:8px;padding:10px 16px 12px}
+.appbar img{width:34px;height:38px}
+.appbar h1{flex:1;margin:0 0 0 4px;font:800 32px/1 var(--font-display);letter-spacing:-.035em}
+.hbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--surface-sunken);color:var(--text-primary)}
+.hbtn .icon{width:20px;height:20px}
+.hbtn.plain{background:transparent}
+
+.week{position:relative;z-index:2;margin:0 16px;padding:16px 14px 12px;border-radius:24px;background:var(--ink-900);color:var(--on-ink)}
+.week-h{padding:0 4px;display:grid;gap:4px}
+.week-h strong{font:800 18px/1.2 var(--font-display);letter-spacing:-.015em}
+.week-h span{font-size:13px;line-height:1.35;color:var(--on-ink-soft)}
+.week-h .confirm{display:flex;align-items:center;gap:6px;min-height:18px;color:var(--on-ink);font-weight:600;animation:drop var(--dur-base) var(--ease-out)}
+.week-h .confirm .icon{width:15px;height:15px;color:var(--coral-300)}
+.week-h .confirm .undo{position:relative;margin:-6px 0 -6px 4px;height:28px;padding:0 12px;border-radius:var(--radius-pill);background:rgba(250,246,239,.14);color:var(--on-ink);font:700 13px/1 var(--font-display)}
+.week-h .confirm .undo::after{content:"";position:absolute;inset:-8px -4px}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin-top:12px}
+.day{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;min-height:66px;padding-top:2px}
+.day .wd{font:600 11px/1 var(--font-body);color:var(--on-ink-mute)}
+.day.today .wd{color:var(--coral-300)}
+.day.future .wd{color:var(--ink-400)}
+.day-btn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
+.disc{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:800 16px/1 var(--font-display);background:var(--ink-wash);color:var(--on-ink);transition:background var(--dur-base) var(--ease-out)}
+.day.logged .disc{background:var(--coral-500);color:var(--white)}
+.day.today .disc{box-shadow:inset 0 0 0 2px var(--coral-500)}
+.day.future .disc{background:transparent;color:var(--ink-400);box-shadow:inset 0 0 0 1.5px var(--ink-line)}
+.day.future.planned .disc{box-shadow:none;outline:1.5px dashed rgba(250,246,239,.5);outline-offset:-1.5px}
+.day.active .disc{box-shadow:0 0 0 3px var(--ink-900),0 0 0 5px var(--coral-300)}
+.day.pop .disc{animation:pop var(--dur-slow) var(--ease-bounce)}
+.badge{position:absolute;left:calc(50% + 8px);top:14px;min-width:22px;height:22px;padding:0 3px;border-radius:11px;display:grid;place-items:center;background:var(--paper);color:var(--ink-900);font:700 9px/1 var(--font-body);box-shadow:0 0 0 2px var(--ink-900)}
+.badge-hit{position:absolute;left:calc(50% + 2px);top:9px;width:32px;height:32px;display:grid;place-items:center}
+.badge-hit .badge{position:static}
+.cal{position:absolute;left:calc(50% + 9px);width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--ink-700);color:var(--paper);box-shadow:0 0 0 2px var(--ink-900)}
+.cal .icon{width:11px;height:11px}
+.cal.top{top:14px}.cal.bottom{top:40px}
+.legend{display:flex;align-items:center;gap:6px;margin:4px 4px 0;font-size:12px;color:var(--on-ink-mute)}
+.legend .icon{width:12px;height:12px}
+
+.coming{margin:22px 16px 0;padding:16px;border-radius:24px;background:var(--surface-sunken);display:flex;gap:14px;align-items:center}
+.coming .tile{width:60px;height:64px;border-radius:18px;background:var(--surface-card);display:grid;place-items:center;flex-shrink:0;color:var(--text-secondary)}
+.coming .tile .icon{width:26px;height:26px}
+.coming b{display:block;font:800 17px/1.2 var(--font-display);letter-spacing:-.015em}
+.coming span{display:block;font-size:13px;color:var(--text-secondary);margin-top:4px}
+.caught{text-align:center;font-size:13px;line-height:1.45;color:var(--text-tertiary);padding:26px 40px 0}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:82px;background:var(--bg-app);border-top:1px solid var(--border-subtle);display:grid;grid-template-columns:repeat(5,1fr);align-items:start;padding-top:10px;z-index:3}
+.tabbar span{display:grid;justify-items:center;gap:4px;font:600 10px/1 var(--font-body);color:var(--text-tertiary)}
+.tabbar span.on{color:var(--text-primary)}
+.tabbar .icon{width:22px;height:22px}
+.tabbar .plan{width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--white);display:grid;place-items:center;margin:-6px auto 0;box-shadow:0 3px 0 var(--accent-shade)}
+
+/* ---------- Direction A: a second row of discs inside the week card ---------- */
+.moves{margin-top:10px;padding:14px 4px 0;border-top:1px solid var(--ink-line);animation:drop var(--dur-slow) var(--ease-out)}
+.moves-h{display:flex;align-items:center;gap:10px}
+.moves-h div{flex:1;min-width:0}
+.moves-h strong{display:block;font:800 16px/1.2 var(--font-display);letter-spacing:-.015em;color:var(--on-ink)}
+.moves-h div span{display:block;margin-top:3px;font-size:12px;line-height:1.3;color:var(--on-ink-mute)}
+.quiet{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:rgba(250,246,239,.12);color:var(--on-ink);font:700 14px/1 var(--font-display);letter-spacing:-.01em;flex-shrink:0}
+.move-row{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin:8px -4px 0;padding:10px 0 4px}
+.move-row::-webkit-scrollbar{display:none}
+.move{position:relative;flex:0 0 74px;display:flex;flex-direction:column;align-items:center;gap:7px}
+.move-btn{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--ink-wash);box-shadow:inset 0 0 0 1.5px var(--ink-line);color:var(--on-ink-soft);font:800 20px/1 var(--font-display);font-variant-numeric:tabular-nums;transition:background var(--dur-fast) var(--ease-out)}
+.move-btn .icon{width:20px;height:20px}
+.move.on .move-btn{background:var(--coral-500);color:var(--white);box-shadow:none}
+.move.on .move-btn.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.move.new .move-btn{background:transparent;box-shadow:none;outline:1.5px dashed rgba(250,246,239,.3);outline-offset:-1.5px}
+.move .label{font:600 11px/1.25 var(--font-body);color:var(--on-ink-soft);text-align:center;width:70px;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.move.on .label{color:var(--on-ink)}
+.move .less{position:absolute;top:-10px;left:calc(50% + 10px);width:32px;height:32px;display:grid;place-items:center}
+.move .less .mb{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--paper);color:var(--ink-900);box-shadow:0 0 0 2px var(--ink-900)}
+.move .less .icon{width:12px;height:12px}
+.newmove{display:flex;gap:8px;margin-top:10px}
+.newmove input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--ink-line);background:var(--ink-800);color:var(--on-ink);padding:0 12px;font:400 15px var(--font-body)}
+.newmove input::placeholder{color:var(--ink-400)}
+.newmove button{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:rgba(250,246,239,.14);color:var(--on-ink);font:700 14px/1 var(--font-display)}
+.newmove button:disabled{color:var(--ink-400)}
+.saved{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--on-ink-mute)}
+.saved .icon{width:14px;height:14px;color:var(--mint-500)}
+.moves .saved{margin-top:8px}
+.moves{padding-bottom:4px}
+
+/* ---------- Direction B: a separate tap-pad card below the calendar ---------- */
+.pad{margin:12px 16px 0;padding:16px;border-radius:24px;background:var(--surface-card);box-shadow:var(--shadow-card);animation:land var(--dur-slow) var(--ease-bounce)}
+.pad-h{display:flex;align-items:center;gap:12px}
+.okdot{width:36px;height:36px;border-radius:50%;background:var(--coral-500);color:var(--white);display:grid;place-items:center;flex-shrink:0}
+.okdot .icon{width:19px;height:19px}
+.pad-h div{flex:1;min-width:0}
+.pad-h strong{display:block;font:800 17px/1.2 var(--font-display);letter-spacing:-.015em}
+.pad-h div span{display:block;margin-top:2px;font-size:13px;line-height:1.3;color:var(--text-secondary)}
+.quiet-l{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:var(--surface-sunken);color:var(--text-primary);font:700 14px/1 var(--font-display);letter-spacing:-.01em;flex-shrink:0}
+.pad-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}
+.tile{position:relative;min-width:0}
+.tile .hit{width:100%;min-height:76px;border-radius:var(--radius-md);background:var(--surface-sunken);display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:8px;padding:11px 12px;text-align:left;transition:background var(--dur-fast) var(--ease-out)}
+.tile .hit b{font:800 15px/1.15 var(--font-display);letter-spacing:-.01em;overflow-wrap:anywhere;padding-right:4px}
+.tile .n{font:800 26px/1 var(--font-display);letter-spacing:-.03em;color:var(--ink-300);font-variant-numeric:tabular-nums;display:flex;align-items:center}
+.tile .n .icon{width:20px;height:20px}
+.tile.on .hit{background:var(--accent-tint)}
+.tile.on .n{color:var(--coral-700)}
+.tile .n.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.tile .less{position:absolute;right:2px;bottom:2px;width:44px;height:44px;display:grid;place-items:center}
+.tile .less .mb{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--surface-card);color:var(--ink-700);box-shadow:var(--shadow-card)}
+.tile .less .icon{width:15px;height:15px}
+.tile.add .hit{background:transparent;outline:1.5px dashed var(--border-default);outline-offset:-1.5px;flex-direction:row;align-items:center;justify-content:center;gap:6px;color:var(--text-secondary);font:700 14px/1 var(--font-display)}
+.tile.add .icon{width:17px;height:17px}
+.addrow{display:flex;gap:8px;margin-top:8px}
+.addrow input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--border-default);background:var(--surface-input);padding:0 12px;font:400 15px var(--font-body)}
+.addrow button{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--surface-sunken);color:var(--text-primary);font:700 14px/1 var(--font-display)}
+.addrow button:disabled{color:var(--text-disabled)}
+.pad .saved{margin-top:10px;color:var(--text-tertiary)}
+
+/* ---------- Direction C: one quiet line at the bottom of the week card ---------- */
+.cue{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin-top:10px;padding:8px 4px 0;border-top:1px solid var(--ink-line);animation:drop var(--dur-slow) var(--ease-out)}
+.cue-text{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font:600 13px/1.3 var(--font-body);color:var(--on-ink-soft)}
+.cue-text .icon{width:15px;height:15px;color:var(--coral-300)}
+.cue-text em{font-style:normal;font-weight:500;color:var(--on-ink-mute);overflow-wrap:anywhere}
+.cue-actions{display:flex;align-items:center;gap:2px;margin-left:auto}
+.cue-skip{min-height:44px;padding:0 10px;font:600 13px/1 var(--font-body);color:var(--on-ink-mute)}
+.cue.choices{display:grid;grid-template-columns:1fr 1.6fr;gap:8px;padding-top:12px}
+.choice-skip,.choice-log{min-height:44px;border-radius:var(--radius-pill);display:inline-flex;align-items:center;justify-content:center;gap:6px;font:700 14px/1 var(--font-display);letter-spacing:-.01em}
+.choice-skip{color:var(--on-ink-mute)}
+.choice-skip:hover{background:var(--ink-wash)}
+.choice-log{color:var(--on-ink);box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35)}
+.choice-log .icon{width:15px;height:15px}
+.choice-log.nudge{animation:nudge 1.6s var(--ease-out) .35s 2}
+.cue-x{width:44px;padding:0;display:grid;place-items:center}
+.cue-x .icon{width:16px;height:16px}
+.cue-add{position:relative;min-height:44px;display:grid;place-items:center;padding:0 2px}
+.cue-add span{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 12px;border-radius:var(--radius-pill);box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35);color:var(--on-ink);font:700 13px/1 var(--font-display);letter-spacing:-.01em}
+.cue-add .icon{width:14px;height:14px}
+.cue-add.nudge span{animation:nudge 1.6s var(--ease-out) .35s 2}
+@keyframes nudge{0%{box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35),0 0 0 0 rgba(255,92,57,.55)}70%{box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35),0 0 0 8px rgba(255,92,57,0)}100%{box-shadow:inset 0 0 0 1.5px rgba(250,246,239,.35),0 0 0 0 rgba(255,92,57,0)}}
+.rows{margin-top:4px}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
+.row:last-child{border-bottom:0}
+.row .name{flex:1;min-width:0;font:800 16px/1.2 var(--font-display);letter-spacing:-.01em;overflow-wrap:anywhere}
+.step{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
+.step.minus{background:var(--surface-sunken);color:var(--ink-500)}
+.step.minus:disabled{opacity:.45}
+.step.plus{background:var(--surface-inverse);color:var(--text-inverse)}
+.step .icon{width:18px;height:18px}
+.row .count{min-width:24px;text-align:center;font:700 16px/1 var(--font-body);font-variant-numeric:tabular-nums}
+.row .count.zero{color:var(--text-tertiary)}
+.row .count.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.sheet-sub{margin:-8px 0 8px;font-size:13px;line-height:1.4;color:var(--text-tertiary)}
+.add-move{display:inline-flex;align-items:center;gap:6px;min-height:44px;font:700 15px/1 var(--font-display);color:var(--text-primary)}
+.add-move .icon{width:17px;height:17px}
+.sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border-subtle)}
+.sheet-foot .saved{color:var(--text-tertiary)}
+.done-pill{min-height:48px;padding:0 26px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 16px/1 var(--font-display)}
+
+/* ---------- planned session prompter + feature row ---------- */
+.feature{max-width:880px;margin:56px auto 0;display:grid;grid-template-columns:minmax(0,390px) minmax(0,1fr);gap:28px 36px;align-items:start}
+.feature-text{display:grid;gap:16px;min-width:0}
+@media(max-width:860px){.feature{grid-template-columns:minmax(0,1fr);max-width:var(--phone-w)}}
+/* ---------- toast + sheet ---------- */
+.toast{position:absolute;left:16px;right:16px;bottom:96px;z-index:6;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);box-shadow:var(--shadow-float);animation:rise var(--dur-base) var(--ease-bounce)}
+.toast .icon{width:18px;height:18px;color:var(--mint-500)}
+.toast span{flex:1;min-width:0;font:600 14px/1.3 var(--font-body)}
+.toast button{min-height:36px;padding:0 14px;border-radius:var(--radius-pill);background:rgba(250,246,239,.12);font:700 14px/1 var(--font-display)}
+.scrim{position:absolute;inset:0;z-index:8;background:var(--surface-overlay);animation:fade var(--dur-base) var(--ease-out)}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:9;background:var(--surface-card);border-radius:28px 28px 0 0;box-shadow:var(--shadow-sheet);padding:10px 16px 34px;animation:up var(--dur-slow) var(--ease-out)}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--ink-200);margin:0 auto 14px}
+.sheet-h{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sheet-h h3{flex:1;margin:0;font:800 22px/1.15 var(--font-display);letter-spacing:-.02em}
+.sheet-h .hbtn{width:40px;height:40px}
+
+@keyframes pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+@keyframes drop{from{opacity:0;transform:translateY(-6px)}}
+@keyframes land{from{transform:translateY(-14px) scale(.97);opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}}
+@keyframes fade{from{opacity:0}}
+@keyframes up{from{transform:translateY(100%)}}
+@media(prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
+@media(max-width:400px){.phone{border-radius:32px;height:760px}.appbar h1{font-size:28px}.statusbar{padding:6px 22px 0}}
+</style>
+</head>
+<body>
+<header class="intro">
+  <span class="eyebrow">Activity · This week · design exploration</span>
+  <h1>Tap a day, it's logged.</h1>
+  <p>Round 3 adds a quieter option, C. In all three, tapping a day no longer opens the “What did you hit today?” sheet: one tap counts the day straight away. Below the days, an optional follow-up lets you count techniques or tap Not now, and whatever you count still feeds the technique charts in Stats. Every phone opens just after tapping Friday. Tap any past day, or Replay the tap, to see it again.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Scenario">
+      <button type="button" id="sc-plain" aria-pressed="true">Regular day</button>
+      <button type="button" id="sc-plan" aria-pressed="false">Planned session today</button>
+    </div>
+    <button type="button" class="ghost-btn" id="replay">Replay the tap</button>
+    <button type="button" class="ghost-btn" id="reset">Clear both</button>
+  </div>
+</header>
+
+<main class="directions">
+  <section class="direction" aria-labelledby="a-title">
+    <div class="dir-head">
+      <span class="tag">Direction A</span>
+      <h2 id="a-title">Moves row</h2>
+      <p>The week card grows a second row under the days. Your techniques use the same circles as the days, so counting a move works just like logging a day: tap it and it fills coral.</p>
+    </div>
+    <div class="phone" id="phone-a" data-dir="a"></div>
+    <div class="stats" id="stats-a"></div>
+    <div class="notes">
+      <h3>How it behaves</h3>
+      <ul>
+        <li>Tap a day: it fills coral, the card's subtitle turns into “Training logged · Undo” for a few seconds, and a row of technique circles opens under the days: “What landed on Friday?”</li>
+        <li>Tap a circle to count one hit. It fills coral and shows the count. The small − on it takes one back, like the ×N badge on a day.</li>
+        <li>Hits save as you tap. “Not now” folds the row away, and it turns into “Done” once you've counted something.</li>
+        <li>More techniques scroll sideways. The last circle adds a new move.</li>
+      </ul>
+      <div class="tradeoff">
+        <div><b>Strong at</b>One tap per hit. It reads as part of the calendar: same circles, same coral, no new surface.</div>
+        <div><b>Watch for</b>The dark card gets taller while it's open. Past five techniques you scroll sideways to find one.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="direction" aria-labelledby="b-title">
+    <div class="dir-head">
+      <span class="tag">Direction B</span>
+      <h2 id="b-title">Tap pad</h2>
+      <p>A full-width white card lands just below the calendar, with its own space. Each technique is a large tile with its count, and you tap a tile to count a hit. Not now clears it away.</p>
+    </div>
+    <div class="phone" id="phone-b" data-dir="b"></div>
+    <div class="stats" id="stats-b"></div>
+    <div class="notes">
+      <h3>How it behaves</h3>
+      <ul>
+        <li>Tap a day: it fills coral, “Training logged · Undo” shows in the card's subtitle, and the tap pad drops in under the week card: “Friday's logged. Anything land?”</li>
+        <li>Tap anywhere on a tile to count one hit. Counted tiles turn coral-tinted, with a − button in the corner.</li>
+        <li>Hits save as you tap. “Not now” becomes “Done” once you've counted something. Either one clears the card.</li>
+        <li>The calendar card never changes. The dashed tile adds a new move.</li>
+      </ul>
+      <div class="tradeoff">
+        <div><b>Strong at</b>Easy to see and easy to hit: large targets and counts you can read at a glance. Clearly skippable.</div>
+        <div><b>Watch for</b>It adds a card above Coming up while it's open. Past six techniques the grid gets tall.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="direction" aria-labelledby="c-title">
+    <div class="dir-head">
+      <span class="tag">Direction C · new</span>
+      <h2 id="c-title">Quiet line</h2>
+      <p>The subtle one. The coral day and “Training logged · Undo” in the card's subtitle show that you just logged. Below the days there are only two options: Not now and Log techniques. Nothing is listed and nothing opens until you ask.</p>
+    </div>
+    <div class="phone" id="phone-c" data-dir="c"></div>
+    <div class="stats" id="stats-c"></div>
+    <div class="notes">
+      <h3>How it behaves</h3>
+      <ul>
+        <li>Tap a day: it fills coral, the subtitle confirms it with Undo, and two options fade in under the days. Log techniques gives two soft coral pulses, then stays still.</li>
+        <li>Log techniques is the only way in. It opens a short sheet, “What landed on Friday?”, with the − / + counters for subs, sweeps and passes.</li>
+        <li>Counts save as you tap. After Done, the line shows what you added (“Heel hook ×2 · Armbar”) with Edit.</li>
+        <li>Not now removes the line. The card goes back to exactly how it looks today.</li>
+      </ul>
+      <div class="tradeoff">
+        <div><b>Strong at</b>Barely changes the screen. Logging stays one tap, and the invitation is easy to ignore.</div>
+        <div><b>Watch for</b>Easy to miss for new users. Counting takes two taps (Log techniques, then +), and it uses a sheet again, though only on request.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section class="feature" aria-labelledby="d-title">
+  <div class="phone" id="phone-d" data-dir="d"></div>
+  <div class="feature-text">
+    <div class="dir-head">
+      <span class="tag">Direction C · planned day</span>
+      <h2 id="d-title">Logging a planned day</h2>
+      <p>Friday has a planned session. Tapping it works exactly like any other day: one quick log, right away, with no chooser. This phone opens just after that tap.</p>
+    </div>
+    <div class="notes">
+      <h3>What you see</h3>
+      <ul>
+        <li>Friday fills coral with ×1 and keeps its calendar badge, so you can still see it was a planned day.</li>
+        <li>“Training logged · Undo” sits in the card's subtitle, and the same two options follow: Not now and Log techniques.</li>
+        <li>Only quick logs are tracked. The plan isn't counted or completed separately, so there's no second entry and no session card to manage.</li>
+      </ul>
+      <h3>Try it</h3>
+      <ul>
+        <li>Tap Friday again: it adds another quick log (×2), the same as any day. The ×N badge removes the latest one.</li>
+        <li>Saturday's session is still ahead, so that day can't be logged yet. It keeps its dashed outline and calendar badge.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="foot" aria-labelledby="shared-title">
+  <h2 id="shared-title">Same in all three</h2>
+  <ul>
+    <li><b>Planned days log the same way.</b> Tapping a day with a planned session adds a quick log right away, like any other day. There's no chooser and no separate session to track. The calendar badge stays on the day so you can still see it was planned.</li>
+    <li><b>Stats stay honest.</b> Every tap creates a quick log. Hits you count attach to that log, so the existing technique charts in Stats pick them up unchanged. A tap with no hits counts the day and adds nothing to the charts.</li>
+    <li><b>Undo sits where you tapped.</b> “Training logged · Undo” replaces the week card's subtitle for five seconds, right above the days, then the subtitle comes back. It no longer appears at the bottom of the screen.</li>
+    <li><b>Not now is always one tap away.</b> The follow-up never blocks the log. Not now (or Done after counting) clears it, and the day stays counted.</li>
+    <li><b>Removing works as today.</b> The ×N badge on a day still removes the latest quick log, along with any hits on it.</li>
+  </ul>
+</section>
+
+<script>
+const ICON_ROOT = '../../assets/icons/';
+const LOGO = '../../assets/brand/logo-mark.svg';
+const icon = (n, cls='') => `<span class="icon ${cls}" style="--i:url('${ICON_ROOT}${n}.svg')" aria-hidden="true"></span>`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const WEEK = [
+  {wd:'M', name:'Monday', date:2}, {wd:'T', name:'Tuesday', date:3}, {wd:'W', name:'Wednesday', date:4},
+  {wd:'T', name:'Thursday', date:5}, {wd:'F', name:'Friday', date:6}, {wd:'S', name:'Saturday', date:7}, {wd:'S', name:'Sunday', date:8}
+];
+const TODAY = 4;
+// Hits counted earlier this week (sample data), so Stats has a baseline.
+const EARLIER = {hh:6, bt:4, ab:3};
+let scenario = 'plain';
+let seq = 0;
+
+function fresh(){
+  const seedCounts = [4,2,5,4,0,0,0];
+  return {
+    techniques:[{id:'hh', name:'Heel hook'},{id:'bt', name:'Back take'},{id:'ab', name:'Armbar'}],
+    logs: seedCounts.map(n => Array.from({length:n}, () => ({id:'s'+(seq++), hits:{}}))),
+    active:null,          // {day, logId}
+    adding:false, draft:'',
+    toast:null,
+    fx:{}                 // one-shot animation flags
+  };
+}
+const state = {a:fresh(), b:fresh(), c:fresh(), d:fresh()};
+// Phone d is Direction C on a day that also has a planned session.
+const KIND = {a:'a', b:'b', c:'c', d:'c'};
+const DIRS = ['a','b','c','d'];
+
+const planOn = (dir, day) => (dir === 'd' || scenario === 'plan') ? (day === TODAY || day === 5) : day === 5;
+// Planned days log exactly like any other day; the calendar badge just stays as a reminder.
+const isFuture = day => day > TODAY;
+
+function totalHits(s){
+  const out = {};
+  for (const t of s.techniques) out[t.id] = 0;
+  for (const day of s.logs) for (const log of day) for (const [k,v] of Object.entries(log.hits)) out[k] = (out[k]||0) + v;
+  return out;
+}
+function activeLog(s){
+  if (!s.active) return null;
+  return s.logs[s.active.day].find(l => l.id === s.active.logId) || null;
+}
+
+/* ---------- actions ---------- */
+function tapDay(dir, day){
+  const s = state[dir];
+  if (isFuture(day)) return;
+  quickLog(dir, day);
+}
+function quickLog(dir, day){
+  const s = state[dir];
+  const log = {id:'q'+(seq++), hits:{}};
+  s.logs[day].push(log);
+  s.active = {day, logId:log.id};
+  s.adding = false; s.draft = ''; s.hitsSheet = false;
+  s.fx.pop = day; s.fx.open = true;
+  showToast(dir, 'Training logged', () => undoLog(dir, day, log.id));
+  render(dir);
+}
+function undoLog(dir, day, id){
+  const s = state[dir];
+  s.logs[day] = s.logs[day].filter(l => l.id !== id);
+  if (s.active && s.active.logId === id) s.active = null;
+  s.toast = null;
+  render(dir);
+}
+function removeLatest(dir, day){
+  const s = state[dir];
+  const log = s.logs[day].at(-1);
+  if (!log) return;
+  undoLog(dir, day, log.id);
+  showToast(dir, 'Quick log removed');
+}
+function bump(dir, id, delta){
+  const log = activeLog(state[dir]);
+  if (!log) return;
+  log.hits[id] = Math.max(0, (log.hits[id]||0) + delta);
+  if (!log.hits[id]) delete log.hits[id];
+  state[dir].fx.bump = id;
+  render(dir);
+}
+function addTechnique(dir){
+  const s = state[dir];
+  const name = s.draft.trim();
+  if (!name) return;
+  let t = s.techniques.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (!t) { t = {id:'t'+(seq++), name}; s.techniques.push(t); }
+  s.adding = false; s.draft = '';
+  bump(dir, t.id, 1);
+}
+let toastTimers = {};
+function showToast(dir, text, undo, near = true){
+  const s = state[dir];
+  s.toast = {text, undo, near};
+  clearTimeout(toastTimers[dir]);
+  toastTimers[dir] = setTimeout(() => { s.toast = null; render(dir); }, 5000);
+}
+
+/* ---------- rendering ---------- */
+function dayHTML(dir, s, d, i){
+  const count = s.logs[i].length;
+  const planned = planOn(dir, i);
+  const cls = ['day', count ? 'logged':'', i === TODAY ? 'today':'', isFuture(i) ? 'future':'', planned ? 'planned':'',
+    s.active && s.active.day === i ? 'active':'', s.fx.pop === i ? 'pop':''].filter(Boolean).join(' ');
+  const disabled = isFuture(i);
+  const label = `${d.name} November ${d.date}, ${count} training ${count === 1 ? 'entry':'entries'}${planned ? ', planned session':''}`;
+  const hint = disabled ? 'Future day' : 'Logs training now';
+  let extras = '';
+  if (count) extras += `<button type="button" class="badge-hit" data-act="remove" data-day="${i}" aria-label="Remove one quick log from ${d.name}"><span class="badge">×${count}</span></button>`;
+  if (planned) extras += `<span class="cal ${count ? 'bottom':'top'}" aria-hidden="true">${icon('calendar')}</span>`;
+  return `<div class="${cls}">
+    <span class="wd" aria-hidden="true">${d.wd}</span>
+    <button type="button" class="day-btn" data-act="day" data-day="${i}" data-key="${dir}-day-${i}" ${disabled ? 'disabled':''} aria-label="${label}" title="${hint}"><span class="disc">${d.date}</span></button>
+    ${extras}
+  </div>`;
+}
+
+function weekHTML(dir, s){
+  const anyPlan = WEEK.some((_, i) => planOn(dir, i));
+  const copy = 'Tap a day you trained. It counts right away.';
+  return `<div class="week">
+    <div class="week-h"><strong>This week</strong>${s.toast && s.toast.near
+      ? `<span class="confirm" role="status">${icon('circle-check')}${esc(s.toast.text)}${s.toast.undo ? '<button type="button" class="undo" data-act="toastundo" data-key="undo">Undo</button>' : ''}</span>`
+      : `<span>${copy}</span>`}</div>
+    <div class="days">${WEEK.map((d,i) => dayHTML(dir, s, d, i)).join('')}</div>
+    ${anyPlan ?  `<div class="legend">${icon('calendar')}<span>= You have a planned session</span></div>` : ''}
+    ${dir === 'a' ? movesHTML(s) : ''}
+    ${KIND[dir] === 'c' ? cueHTML(s) : ''}
+  </div>`;
+}
+
+/* Direction A */
+function movesHTML(s){
+  const log = activeLog(s);
+  if (!log) return '';
+  const day = WEEK[s.active.day];
+  const any = Object.keys(log.hits).length > 0;
+  const discs = s.techniques.map(t => {
+    const n = log.hits[t.id] || 0;
+    return `<div class="move ${n ? 'on' : ''}">
+      <button type="button" class="move-btn ${s.fx.bump === t.id ? 'bump':''}" data-act="hit" data-id="${t.id}" data-key="a-hit-${t.id}" aria-label="${n ? `Count another ${esc(t.name)}, ${n} so far` : `Count a ${esc(t.name)}`}">${n ? n : icon('plus')}</button>
+      <span class="label" aria-hidden="true">${esc(t.name)}</span>
+      ${n ? `<button type="button" class="less" data-act="less" data-id="${t.id}" data-key="a-less-${t.id}" aria-label="One fewer ${esc(t.name)}"><span class="mb">${icon('minus')}</span></button>` : ''}
+    </div>`;
+  }).join('');
+  const add = `<div class="move new"><button type="button" class="move-btn" data-act="adding" data-key="a-adding" aria-label="Add a new move">${icon('plus')}</button><span class="label" aria-hidden="true">New move</span></div>`;
+  return `<div class="moves">
+    <div class="moves-h">
+      <div><strong>What landed on ${day.name}?</strong><span>Optional. Tap a move to count it.</span></div>
+      <button type="button" class="quiet" data-act="close" data-key="a-close">${any ? 'Done' : 'Not now'}</button>
+    </div>
+    <div class="move-row">${discs}${add}</div>
+    ${s.adding ? `<div class="newmove"><input id="a-new" data-key="a-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave" ${s.draft.trim() ? '' : 'disabled'}>Add</button></div>` : ''}
+    ${any ? `<div class="saved">${icon('circle-check')}Saved to Stats</div>` : ''}
+  </div>`;
+}
+
+/* Direction B */
+function padHTML(s){
+  const log = activeLog(s);
+  if (!log) return '';
+  const day = WEEK[s.active.day];
+  const any = Object.keys(log.hits).length > 0;
+  const tiles = s.techniques.map(t => {
+    const n = log.hits[t.id] || 0;
+    return `<div class="tile ${n ? 'on' : ''}">
+      <button type="button" class="hit" data-act="hit" data-id="${t.id}" data-key="b-hit-${t.id}" aria-label="${n ? `Count another ${esc(t.name)}, ${n} so far` : `Count a ${esc(t.name)}`}">
+        <b>${esc(t.name)}</b><span class="n ${s.fx.bump === t.id ? 'bump':''}">${n ? n : icon('plus')}</span>
+      </button>
+      ${n ? `<button type="button" class="less" data-act="less" data-id="${t.id}" data-key="b-less-${t.id}" aria-label="One fewer ${esc(t.name)}"><span class="mb">${icon('minus')}</span></button>` : ''}
+    </div>`;
+  }).join('');
+  const add = `<div class="tile add"><button type="button" class="hit" data-act="adding" data-key="b-adding">${icon('plus')}New move</button></div>`;
+  return `<div class="pad">
+    <div class="pad-h">
+      <span class="okdot">${icon('check')}</span>
+      <div><strong>${day.name}'s logged</strong><span>Anything land? Tap to count it.</span></div>
+      <button type="button" class="quiet-l" data-act="close" data-key="b-close">${any ? 'Done' : 'Not now'}</button>
+    </div>
+    <div class="pad-grid">${tiles}${add}</div>
+    ${s.adding ? `<div class="addrow"><input id="b-new" data-key="b-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave" ${s.draft.trim() ? '' : 'disabled'}>Add</button></div>` : ''}
+    ${any ? `<div class="saved">${icon('circle-check')}Saved to Stats</div>` : ''}
+  </div>`;
+}
+
+/* Direction C */
+function cueHTML(s){
+  const log = activeLog(s);
+  if (!log) return '';
+  const day = WEEK[s.active.day];
+  const hits = s.techniques.filter(t => log.hits[t.id]);
+  if (hits.length && !s.hitsSheet) {
+    const list = hits.map(t => `${esc(t.name)}${log.hits[t.id] > 1 ? ` ×${log.hits[t.id]}` : ''}`).join(' · ');
+    return `<div class="cue" data-still>
+      <span class="cue-text">${icon('check')}<span>${list}</span></span>
+      <span class="cue-actions"><button type="button" class="cue-add" data-act="hitsopen" data-key="c-edit"><span>${icon('pencil')}Edit</span></button><button type="button" class="cue-skip cue-x" data-act="close" aria-label="Hide">${icon('x')}</button></span>
+    </div>`;
+  }
+  return `<div class="cue choices" role="group" aria-label="Optional: log techniques for ${day.name}">
+    <button type="button" class="choice-skip" data-act="close" data-key="c-skip">Not now</button>
+    <button type="button" class="choice-log ${s.fx.open ? 'nudge' : ''}" data-act="hitsopen" data-key="c-open">${icon('plus')}Log techniques</button>
+  </div>`;
+}
+function hitsSheetHTML(s){
+  const log = activeLog(s);
+  if (!s.hitsSheet || !log) return '';
+  const day = WEEK[s.active.day];
+  const any = Object.keys(log.hits).length > 0;
+  const rows = s.techniques.map(t => {
+    const n = log.hits[t.id] || 0;
+    return `<div class="row">
+      <span class="name">${esc(t.name)}</span>
+      <button type="button" class="step minus" data-act="less" data-id="${t.id}" data-key="c-less-${t.id}" ${n ? '' : 'disabled'} aria-label="One fewer ${esc(t.name)}">${icon('minus')}</button>
+      <span class="count ${n ? '' : 'zero'} ${s.fx.bump === t.id ? 'bump':''}" aria-label="${esc(t.name)}, ${n} hits">${n}</span>
+      <button type="button" class="step plus" data-act="hit" data-id="${t.id}" data-key="c-hit-${t.id}" aria-label="One more ${esc(t.name)}">${icon('plus')}</button>
+    </div>`;
+  }).join('');
+  const add = s.adding
+    ? `<div class="addrow"><input id="c-new" data-key="c-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave" ${s.draft.trim() ? '' : 'disabled'}>Add</button></div>`
+    : `<button type="button" class="add-move" data-act="adding" data-key="c-adding">${icon('plus')}Add a move</button>`;
+  return `<div class="scrim" data-act="hitsdone"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="c-sheet-title">
+    <div class="grab"></div>
+    <div class="sheet-h"><h3 id="c-sheet-title">What landed on ${day.name}?</h3><button type="button" class="hbtn" data-act="hitsdone" aria-label="Close">${icon('x')}</button></div>
+    <p class="sheet-sub">Subs, sweeps, passes. Optional, and it saves as you tap.</p>
+    <div class="rows">${rows}</div>
+    ${add}
+    <div class="sheet-foot"><span class="saved">${any ? `${icon('circle-check')}Saved to Stats` : ''}</span><button type="button" class="done-pill" data-act="hitsdone" data-key="c-done">Done</button></div>
+  </div>`;
+}
+
+function phoneHTML(dir){
+  const s = state[dir];
+  return `<div class="statusbar" aria-hidden="true"><span>12:02</span><span class="island"></span><span class="sig"><i style="height:5px"></i><i style="height:8px"></i><i style="height:11px"></i></span></div>
+  <div class="screen">
+    <div class="appbar">
+      <img src="${LOGO}" alt="">
+      <h1>Activity</h1>
+      <span class="hbtn" aria-hidden="true">${icon('search')}</span>
+      <span class="hbtn plain" aria-hidden="true">${icon('bell')}</span>
+      <span class="hbtn" aria-hidden="true">${icon('qr-code')}</span>
+    </div>
+    ${weekHTML(dir, s)}
+    ${dir === 'b' ? padHTML(s) : ''}
+    <div class="coming">
+      <span class="tile">${icon('calendar')}</span>
+      <div><b>Coming up: Saturday open mat</b><span>Sat Nov 7 · 10:00 AM · Maya hosts</span></div>
+    </div>
+    <div class="caught">You're all caught up with your crew.<br>Go make a new memory.</div>
+  </div>
+  <nav class="tabbar" aria-hidden="true">
+    <span class="on">${icon('house')}Activity</span><span>${icon('calendar')}Training</span>
+    <span><span class="plan">${icon('plus')}</span></span>
+    <span>${icon('notebook-pen')}Goals</span><span>${icon('user')}Stats</span>
+  </nav>
+  ${s.toast && !s.toast.near ? `<div class="toast" role="status">${icon('circle-check')}<span>${esc(s.toast.text)}</span>${s.toast.undo ? '<button type="button" data-act="toastundo">Undo</button>' : ''}</div>` : ''}
+  ${KIND[dir] === 'c' ? hitsSheetHTML(s) : ''}
+`;
+}
+
+function statsHTML(dir){
+  const s = state[dir];
+  const today = totalHits(s);
+  const rows = s.techniques.map(t => {
+    const base = EARLIER[t.id] || 0, add = today[t.id] || 0;
+    if (!base && !add) return '';
+    return `<div class="stat-row ${s.fx.bump === t.id ? 'bump':''}"><span class="name">${esc(t.name)}</span><span class="plus-today ${add ? '' : 'zero'}">+${add} new</span><span class="n">${base + add}</span></div>`;
+  }).join('');
+  return `<div class="stats-head"><h3>What Stats receives</h3><span>Hits this week</span></div>
+    ${rows}
+    <p>Sample data. Only techniques you choose to count reach the charts. A tap on its own logs the day and nothing else.</p>`;
+}
+
+function render(dir){
+  const phone = document.getElementById('phone-' + dir);
+  const focusKey = document.activeElement && phone.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const scroll = phone.querySelector('.screen')?.scrollTop || 0;
+  phone.innerHTML = phoneHTML(dir);
+  phone.querySelector('.screen').scrollTop = scroll;
+  const stats = document.getElementById('stats-' + dir);
+  if (stats) stats.innerHTML = statsHTML(dir);
+  const s = state[dir];
+  if (s.adding) {
+    const input = phone.querySelector('input');
+    input.focus({preventScroll:true}); input.setSelectionRange(input.value.length, input.value.length);
+  } else if (focusKey) {
+    phone.querySelector(`[data-key="${focusKey}"]`)?.focus();
+  }
+  s.fx = {};
+}
+
+/* ---------- events ---------- */
+for (const dir of DIRS) {
+  const phone = document.getElementById('phone-' + dir);
+  phone.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el || el.disabled) return;
+    const s = state[dir], day = Number(el.dataset.day), id = el.dataset.id;
+    switch (el.dataset.act) {
+      case 'day': tapDay(dir, day); break;
+      case 'remove': removeLatest(dir, day); break;
+      case 'hit': bump(dir, id, 1); break;
+      case 'less': bump(dir, id, -1); break;
+      case 'close': s.active = null; s.adding = false; s.hitsSheet = false; render(dir); break;
+      case 'hitsopen': s.hitsSheet = true; render(dir); phone.querySelector('.sheet .step.plus')?.focus({preventScroll:true}); break;
+      case 'hitsdone': s.hitsSheet = false; s.adding = false; render(dir); phone.querySelector('[data-key="c-edit"],[data-key="c-open"]')?.focus({preventScroll:true}); break;
+      case 'adding': s.adding = true; s.draft = ''; render(dir); break;
+      case 'addsave': addTechnique(dir); break;
+      case 'toastundo': s.toast?.undo?.(); break;
+    }
+  });
+  phone.addEventListener('input', e => {
+    if (!e.target.matches('input')) return;
+    state[dir].draft = e.target.value;
+    const add = e.target.nextElementSibling;
+    if (add) add.disabled = !e.target.value.trim();
+  });
+  phone.addEventListener('keydown', e => {
+    if (e.target.matches('input') && e.key === 'Enter') { e.preventDefault(); addTechnique(dir); }
+    if (e.key === 'Escape') {
+      const s = state[dir];
+      if (s.adding) { s.adding = false; render(dir); }
+      else if (s.hitsSheet) { s.hitsSheet = false; render(dir); }
+    }
+  });
+}
+
+function setScenario(next){
+  scenario = next;
+  document.getElementById('sc-plain').setAttribute('aria-pressed', next === 'plain');
+  document.getElementById('sc-plan').setAttribute('aria-pressed', next === 'plan');
+  replay();
+}
+function resetAll(){
+  for (const dir of DIRS) { state[dir] = fresh(); render(dir); }
+}
+// Start each phone just after tapping today, so the follow-up is visible without a tap.
+function replay(){
+  resetAll();
+  tapDay('a', TODAY); tapDay('b', TODAY); tapDay('c', TODAY);
+  // Phone d: Friday has a planned session and was just tapped.
+  quickLog('d', TODAY);
+}
+document.getElementById('sc-plain').addEventListener('click', () => setScenario('plain'));
+document.getElementById('sc-plan').addEventListener('click', () => setScenario('plan'));
+document.getElementById('reset').addEventListener('click', resetAll);
+document.getElementById('replay').addEventListener('click', replay);
+replay();
+</script>
+</body>
+</html>
