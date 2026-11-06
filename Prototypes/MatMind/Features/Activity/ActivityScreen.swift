@@ -1044,9 +1044,9 @@ struct TrainingWeekCard: View {
         let today = Date()
         guard days.contains(where: { TrainingCalendar.calendar.isDate($0, inSameDayAs: today) }) else { return }
         Task { @MainActor in
-            // Let the tab switch settle before presenting the sheet.
+            // Let the tab switch settle before logging and showing the follow-up.
             try? await Task.sleep(nanoseconds: 350_000_000)
-            if selected == nil { tap(today) }
+            if selected == nil { log(today) }
         }
     }
 
