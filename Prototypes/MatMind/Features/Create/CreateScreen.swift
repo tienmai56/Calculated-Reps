@@ -6,6 +6,8 @@ struct CreateScreen: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private static let times = ["6:30 AM", "12:15 PM", "6:00 PM", "7:30 PM"]
+    /// Friends shown in the invite rail before Search / See all take over.
+    private static let railLimit = 8
 
     @State private var mode: String
     @State private var name = SessionDraft.defaultTitle
@@ -22,6 +24,7 @@ struct CreateScreen: View {
     @State private var privacy = Privacy.friends.rawValue
     @State private var link: String? = nil
     @State private var focusItems: [TrainingFocus]
+    @State private var invitePicker: InvitePickerMode?
 
     init(startPast: Bool = false, friend: String? = nil, initialFocus: [TrainingFocus] = []) {
         _mode = State(initialValue: startPast ? "past" : "plan")
@@ -132,9 +135,7 @@ struct CreateScreen: View {
                 }
 
                 field(isPast ? "Who was there" : "Invite friends", hint: "\(invited.count) picked") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-                        ForEach(mm.invitees) { p in friendPick(p) }
-                    }
+                    inviteRail
                 }
 
                 if !isPast {
@@ -195,6 +196,15 @@ struct CreateScreen: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in refreshCalendar() }
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in refreshCalendar() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in refreshCalendar() }
+        .sheet(item: $invitePicker) { mode in
+            InviteFriendsSheet(
+                title: isPast ? "Who was there" : "Invite friends",
+                people: mm.invitees,
+                streaks: inviteeStreaks,
+                focusSearch: mode == .search,
+                invited: $invited
+            )
+        }
         .mmSheet(isPresented: $customTime, title: "Choose a time") {
             DatePicker("Time", selection: $chosenTime, displayedComponents: .hourAndMinute)
                 .datePickerStyle(.wheel)
@@ -285,6 +295,95 @@ struct CreateScreen: View {
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
+    private var inviteeStreaks: [String: Int] {
+        Dictionary(mm.invitees.map { ($0.id, mm.friendship($0.id)?.streak ?? 0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Streak friends first (longest streak first), then whoever you trained with most recently, then A–Z.
+    private var rankedInvitees: [Person] {
+        let streaks = inviteeStreaks
+        let sessions = mm.completedSessions.enumerated().sorted { a, b in
+            switch (a.element.startsAt, b.element.startsAt) {
+            case let (x?, y?): return x > y
+            case (.some, nil): return true
+            case (nil, .some): return false
+            case (nil, nil): return a.offset < b.offset
+            }
+        }
+        var lastTrained: [String: Int] = [:]
+        for (rank, entry) in sessions.enumerated() {
+            for id in entry.element.going where lastTrained[id] == nil { lastTrained[id] = rank }
+        }
+        return mm.invitees.sorted { a, b in
+            let sa = streaks[a.id] ?? 0, sb = streaks[b.id] ?? 0
+            if sa != sb { return sa > sb }
+            let ra = lastTrained[a.id] ?? .max, rb = lastTrained[b.id] ?? .max
+            if ra != rb { return ra < rb }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
+
+    /// One sideways row, so the section keeps the same height however many friends you have.
+    /// Friends picked from the sheet join the front of the row so they stay visible.
+    @ViewBuilder private var inviteRail: some View {
+        let ranked = rankedInvitees
+        if ranked.isEmpty {
+            Text("Follow friends to invite them here.")
+                .mmFont(.body, 14).foregroundStyle(MMColor.textTertiary)
+        } else {
+            let base = Array(ranked.prefix(Self.railLimit))
+            let baseIDs = Set(base.map(\.id))
+            let extras = invited.filter { !baseIDs.contains($0) }.map { mm.person($0) }
+            let shownIDs = baseIDs.union(extras.map(\.id))
+            let hidden = ranked.filter { !shownIDs.contains($0.id) }.count
+            let showsMore = ranked.count > Self.railLimit
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 8) {
+                    if showsMore {
+                        railTile("Search", accessibility: "Search friends") {
+                            invitePicker = .search
+                        } glyph: {
+                            MMIcon("search", size: 20, color: MMColor.textSecondary)
+                        }
+                    }
+                    ForEach(extras + base) { p in friendPick(p) }
+                    if showsMore {
+                        railTile("See all", accessibility: "See all \(ranked.count) friends") {
+                            invitePicker = .all
+                        } glyph: {
+                            if hidden > 0 {
+                                Text("+\(hidden)").mmFont(.display, 16, lineHeight: 1).foregroundStyle(MMColor.textSecondary)
+                            } else {
+                                MMIcon("users", size: 20, color: MMColor.textSecondary)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+            }
+            .padding(.horizontal, -16)
+        }
+    }
+
+    private func railTile<Glyph: View>(_ label: String, accessibility: String, action: @escaping () -> Void, @ViewBuilder glyph: () -> Glyph) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                glyph()
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(MMColor.surfaceSunken))
+                Text(label).mmFont(.body, 13, .medium, lineHeight: 1).foregroundStyle(MMColor.textSecondary)
+                    .lineLimit(1)
+            }
+            .frame(width: 64)
+        }
+        .buttonStyle(MMPressStyle(scale: 0.95))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibility)
+        .accessibilityAddTraits(.isButton)
+    }
+
     private func friendPick(_ p: Person) -> some View {
         let on = invited.contains(p.id)
         let streak = mm.friendship(p.id)?.streak ?? 0
@@ -294,7 +393,7 @@ struct CreateScreen: View {
             }
         } label: {
             VStack(spacing: 6) {
-                MMAvatar(name: p.name, size: 60)
+                MMAvatar(name: p.name, photo: p.photo, size: 52)
                     .background {
                         Circle().fill(MMColor.accent).padding(-5.5)
                             .overlay(Circle().fill(MMColor.bgApp).padding(-3))
@@ -325,10 +424,194 @@ struct CreateScreen: View {
                     }
                     .scaleEffect(on ? 1.04 : 1)
                 Text(p.firstName).mmFont(.body, 13, on ? .bold : .medium, lineHeight: 1).foregroundStyle(MMColor.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
+            .frame(width: 64)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(p.name)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+private enum InvitePickerMode: String, Identifiable {
+    case search, all
+    var id: String { rawValue }
+}
+
+/// Every friend in one A–Z list, with search. Picks apply straight away to the planning form.
+private struct InviteFriendsSheet: View {
+    let title: String
+    let people: [Person]
+    let streaks: [String: Int]
+    let focusSearch: Bool
+    @Binding var invited: [String]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private var needle: String {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return q.hasPrefix("@") ? String(q.dropFirst()) : q
+    }
+
+    private var results: [Person] {
+        let sorted = people.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let n = needle
+        guard !n.isEmpty else { return sorted }
+        return sorted.filter { p in
+            p.name.lowercased().split(whereSeparator: \.isWhitespace).contains { $0.hasPrefix(n) }
+                || p.username.lowercased().hasPrefix(n)
+        }
+    }
+
+    private var picked: [Person] {
+        invited.compactMap { id in people.first { $0.id == id } }
+    }
+
+    private var listLabel: String {
+        let n = results.count
+        if needle.isEmpty { return n == 1 ? "1 friend" : "\(n) friends" }
+        return n == 1 ? "1 match" : "\(n) matches"
+    }
+
+    private var doneTitle: String {
+        switch picked.count {
+        case 0: return "Done"
+        case 1: return "Add \(picked[0].firstName)"
+        default: return "Add \(picked.count) friends"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Text(title).mmFont(.display, 18).foregroundStyle(MMColor.ink900)
+                HStack {
+                    MMIconButton("x", label: "Close") { dismiss() }
+                    Spacer()
+                }
+            }
+            .frame(minHeight: 54)
+            .padding(.horizontal, 6)
+            .padding(.top, 10)
+
+            MMTextField(placeholder: "Search your friends", text: $query, iconLeft: "search", autoFocus: focusSearch)
+                .padding(.horizontal, 16)
+
+            if !picked.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(picked) { p in pickedChip(p) }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.top, 12)
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if results.isEmpty {
+                        VStack(spacing: 6) {
+                            Text(people.isEmpty ? "No friends yet" : "No friends by that name")
+                                .mmFont(.display, 18).foregroundStyle(MMColor.ink900)
+                            Text("Only people who follow you show up here. Have them scan your code first.")
+                                .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        Text(listLabel)
+                            .mmFont(.body, 13, .semibold, lineHeight: 1).foregroundStyle(MMColor.textTertiary)
+                            .padding(.top, 16).padding(.bottom, 4)
+                        ForEach(results) { p in row(p) }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            }
+            .scrollDismissesKeyboard(.interactively)
+
+            MMButton(doneTitle, size: .lg, fullWidth: true) { dismiss() }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+        }
+        .background(MMColor.white)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(MMRadius.xl)
+        .presentationBackground(MMColor.white)
+    }
+
+    private func toggle(_ id: String) {
+        withAnimation(MMMotion.bounce()) {
+            if invited.contains(id) { invited.removeAll { $0 == id } } else { invited.append(id) }
+        }
+    }
+
+    private func pickedChip(_ p: Person) -> some View {
+        Button { toggle(p.id) } label: {
+            HStack(spacing: 6) {
+                MMAvatar(name: p.name, photo: p.photo, size: 24)
+                Text(p.firstName).mmFont(.body, 13, .semibold, lineHeight: 1).lineLimit(1)
+                MMIcon("x", size: 14, weight: .bold, color: MMColor.paper)
+            }
+            .foregroundStyle(MMColor.paper)
+            .padding(.leading, 4)
+            .padding(.trailing, 10)
+            .frame(height: 32)
+            .background(Capsule().fill(MMColor.ink900))
+        }
+        .buttonStyle(MMPressStyle(scale: 0.95))
+        .frame(minHeight: MMLayout.tapTarget)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Remove \(p.name)")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func row(_ p: Person) -> some View {
+        let on = invited.contains(p.id)
+        let streak = streaks[p.id] ?? 0
+        return Button { toggle(p.id) } label: {
+            HStack(spacing: 12) {
+                MMAvatar(name: p.name, photo: p.photo, size: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(p.name).mmFont(.display, 16, lineHeight: 1.25).foregroundStyle(MMColor.ink900)
+                        .lineLimit(1).truncationMode(.tail)
+                    HStack(spacing: 4) {
+                        if streak > 0 {
+                            MMIcon("flame", size: 13, filled: true, color: MMColor.flame500)
+                            Text("\(streak)-week streak together")
+                        } else if !p.username.isEmpty {
+                            Text("@\(p.username)")
+                        } else if !p.gym.isEmpty {
+                            Text(p.gym)
+                        }
+                    }
+                    .mmFont(.body, 13, lineHeight: 1.3)
+                    .foregroundStyle(MMColor.textTertiary)
+                    .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                ZStack {
+                    Circle().strokeBorder(MMColor.controlBorder, lineWidth: 1.5).opacity(on ? 0 : 1)
+                    Circle().fill(MMColor.accent).opacity(on ? 1 : 0)
+                    MMIcon("check", size: 14, weight: .bold, color: .white)
+                        .opacity(on ? 1 : 0)
+                        .scaleEffect(on ? 1 : 0.5)
+                }
+                .frame(width: 24, height: 24)
+                .animation(MMMotion.bounce(), value: on)
+            }
+            .frame(minHeight: 60)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(streak > 0 ? "\(p.name), \(streak)-week streak" : p.name)
+        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
     }
 }
