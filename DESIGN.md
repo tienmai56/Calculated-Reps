@@ -2,7 +2,7 @@
 
 > **Source of truth.** Future Claude (and human) sessions should read this file first. When this file and any other doc disagree, this file wins; when this file and the token CSS disagree, the CSS in `design-system/tokens/` wins and this file should be updated.
 >
-> Version 1.3.0 · Last updated 2026-11-04
+> Version 1.4.0 · Last updated 2026-11-06
 
 ## Contents
 1. Product
@@ -26,7 +26,7 @@ One product surface: the **iOS/Android app** (390pt, light-first). Four tabs (Ac
 ### Following and session invitations
 Scanning a code and tapping Follow create the same mutual training-partner connection immediately, with no approval. Both people can see each other's activity, invite each other to train, and explicitly share notes and goals. Personal notes stay private until shared. Unfollowing removes the connection for both people; it does not block them or erase shared training history.
 
-An invitation shows the host with Accept and Decline. Accepting unlocks the session title, time, venue, notes, focus and guest list. Following, a pending invitation, or opening a session link does not reveal these details. Link previews are generic. Upcoming sessions appear only for the host and accepted guests.
+An invitation shows the host, the session title and the venue, with Join and Decline. Accepting unlocks the time, notes, focus and guest list. Following, a pending invitation, or opening a session link does not reveal those details. Link previews are generic. Upcoming sessions appear only for the host and accepted guests.
 
 ### Sources & provenance
 - Product brief pasted by the user (vision, 8 screens, 3 journeys, MVP constraints). No codebase, Figma, or brand files were provided. This is an original direction.
@@ -325,7 +325,7 @@ Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candida
 ## 8. Screens & journeys
 Tabs: **Activity** (open upcoming plans and completed sessions) · **Training** (upcoming and past) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a training**.
 
-All upcoming sessions appear under Coming up in the host's and accepted guests' Activity, ordered soonest first, including solo and friends-only plans. Followers receive a generic invitation with Accept and Decline; session tickets and details appear only after acceptance. Opening an invitation link creates a pending invitation and never accepts automatically. Declined, cancelled and completed plans leave Coming up; quick-log-enabled clients keep started plans awaiting attendance. Publishing a completed session creates a separate memory with the existing photo-or-note rule, visible to its participants and followers. Blocks revoke access. Invitation links require a Mat Monkey account.
+All upcoming sessions appear under Coming up in the host's and accepted guests' Activity, ordered soonest first, including solo and friends-only plans. Followers receive an invitation that previews the title and venue, with Join and Decline; session tickets and the remaining details appear only after acceptance. Opening an invitation link creates a pending invitation and never accepts automatically. Declined, cancelled and completed plans leave Coming up; quick-log-enabled clients keep started plans awaiting attendance. Publishing a completed session creates a separate memory with the existing photo-or-note rule, visible to its participants and followers. Blocks revoke access. Invitation links require a Mat Monkey account.
 
 | # | Screen | Prototype file |
 |---|---|---|
@@ -381,7 +381,18 @@ Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Br
 
 ### Activity feed
 
-Activity shows the private This week strip, Coming up and completed-session posts under an Activity heading. Coming up contains all hosted/joined future plans, including solo and friends-only plans, with one ticket per session and the session's own title without a “Coming up:” prefix. Quick-log-enabled clients also keep started plans awaiting attendance; a separate quick log never closes or removes them. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
+Activity shows the private This week strip, Invites (only while invitations are pending), Coming up and completed-session posts under an Activity heading. Coming up contains all hosted/joined future plans, including solo and friends-only plans, with one ticket per session and the session's own title without a “Coming up:” prefix. Quick-log-enabled clients also keep started plans awaiting attendance; a separate quick log never closes or removes them. The ink How was…? catch-up prompt lives in Training. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
+
+### Notifications: All and Invites
+
+Notifications has two full-width tabs under the header, **All** and **Invites**, with the same coral underline as the profile sections. Invites carries a coral count while invitations are waiting. All is the existing New / Earlier list; invitation rows there read "Jamie invited you to {title}" with the venue underneath, and keep Decline / Accept.
+
+- **Invites** lists every upcoming training someone else invited or added you to. **Waiting on you**: one compact white card (radius 22) per pending invitation, with the host's monkey tile, "Jamie invited you · 20m", the session title (17pt Bricolage) and a map-pin venue line, then a ghost **Decline** and an inverse **Join**. There is no overflow menu. **You're in**: accepted invitations, soonest first, with the same tile, a Going badge and "Day, Mon D · time · venue"; tapping opens the session. **Declined**: one-line rows ("You passed on {title}") with a text **Join**. Nothing waiting, joined or declined shows the plan empty state: "No invites right now" · **Plan a training**.
+- **Monkey tile:** 52pt, radius 14. The host's monkey (about 40pt) on their friend-hue 100 tint. A host without a monkey shows the Silverback mark on paper-2, never a placeholder monkey. This tile is the one place a monkey stands in for the avatar.
+- **Privacy:** before acceptance an invitation shows only the host, the title and the venue. Backends without invitation previews fall back to "A training with Jamie" · "Join to see the details."
+- **Activity › Invites:** while invitations are pending, an **Invites** section title (the same 18pt eyebrow as Coming up) sits directly below This week, above the upcoming-session prompter and Coming up. One white card (radius 22): a 56pt coral-100 tile where the Silverback peeks out of a white envelope (Lucide `mail` in coral-700), nods twice, and ducks back about every 5s (`--ease-bounce` on the pop; Reduce Motion holds the peeking pose), then "Jamie and Marco invited you", the hosts' 22pt avatar stack with "2 sessions waiting on you" (one invitation shows its title), a coral count and a chevron. Tapping opens Notifications on the Invites tab.
+
+Native: `Features/Profile/ProfileScreen.swift` (`NotificationsScreen`, `InviteMonkeyTile`), `Features/Activity/ActivityScreen.swift` (`ActivityInvitesCard`). Backend: `supabase/migrations/20261106230000_invitation_card_previews.sql` (`invitation_previews` in the snapshot).
 
 ### Week strip and quick logs (UI preview)
 
@@ -505,7 +516,7 @@ Native: `PeopleSearchScreen`, `PersonProfileScreen`, `AppModel.circle` / `follow
 
 ### Monkeys
 
-Every member can have a **monkey**: a minimal two-color face that sits **right after their name**, about the height of the text. It never replaces the avatar; photos, initials, belt rings and friend hues stay as they are. No monkey yet means just the name, with no placeholder.
+Every member can have a **monkey**: a minimal two-color face that sits **right after their name**, about the height of the text. It never replaces the avatar; photos, initials, belt rings and friend hues stay as they are. No monkey yet means just the name, with no placeholder. The one exception is the host tile on invitation cards (see Notifications: All and Invites), where a host without a monkey shows the Silverback.
 
 - **Drawing:** a round fur head, two ears with light centers, a peanut-shaped white face mask, dot eyes and a single mouth line, all drawn in the fur color. No backdrop circle, outline, blush, highlight or attire. It's a separate character from the Silverback, which is never redrawn.
 - **Options (three, nothing more):** **Mood** (Oss., Good rolls, Game face, Round six, Side-eye, Tapped), **Fur** (Midnight `ink-900`, Charcoal `ink-700`, Smoke `ink-500`, Ginger `coral-700`, Navy `sky-700`, Grape `plum-700`, Moss `mint-700`; dark tokens only, at least 3:1 on white, because the features are drawn in the fur color. Monkey fur is the one place friend-hue 700s appear outside a friendship, and a monkey's fur never signals one) and **Haircut** (Clean, Tuft, Fringe, Mohawk, Top knot, Curls). The face is always white. A monkey that isn't built yet (the invitation sheet, the Account row) is drawn in `ink-300` (`--text-disabled`), never faded with opacity.
