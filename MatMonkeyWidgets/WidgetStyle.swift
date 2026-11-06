@@ -88,9 +88,13 @@ struct WidgetPalette {
 
 extension Image {
     /// Keeps the Silverback in its own colors when the system tints the home screen (iOS 18+).
-    func brandFullColor() -> Image {
-        if #available(iOS 18.0, *) { return widgetAccentedRenderingMode(.fullColor) }
-        return self
+    @ViewBuilder
+    func brandFullColor() -> some View {
+        if #available(iOS 18.0, *) {
+            widgetAccentedRenderingMode(.fullColor)
+        } else {
+            self
+        }
     }
 }
 
@@ -159,11 +163,11 @@ struct WidgetLogo: View {
     var body: some View {
         Group {
             if palette.dark {
-                Image("SilverbackTile").brandFullColor().resizable().scaledToFit()
+                Image("SilverbackTile").resizable().brandFullColor().scaledToFit()
                     .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
             } else {
-                Image("SilverbackMark").brandFullColor().resizable().scaledToFit().frame(height: size)
+                Image("SilverbackMark").resizable().brandFullColor().scaledToFit().frame(height: size)
             }
         }
         .accessibilityHidden(true)
