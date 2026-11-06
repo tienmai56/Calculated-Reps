@@ -58,6 +58,7 @@ struct TrainingFocusComposer: View {
     @FocusState private var focusedField: Field?
     @State private var removalID: UUID?
     @State private var showRemoval = false
+    @State private var editingRootID: UUID?
 
     private enum Field: Hashable {
         case title(UUID), description(UUID), detail(UUID)
@@ -97,6 +98,9 @@ struct TrainingFocusComposer: View {
             }
         }
         .onAppear { ensureFirstRow() }
+        .onChange(of: focusedField) { _, field in
+            if field == nil { editingRootID = nil }
+        }
         .alert("Remove this focus?", isPresented: $showRemoval) {
             Button("Keep it", role: .cancel) { removalID = nil }
             Button("Remove", role: .destructive) {
@@ -109,64 +113,27 @@ struct TrainingFocusComposer: View {
     }
 
     private func checklistRow(_ root: TrainingFocus) -> some View {
-        HStack(alignment: .top, spacing: MMSpace.s5) {
+        let editing = root.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || editingRootID == root.id
+            || focusedField == .title(root.id) || focusedField == .description(root.id)
+        return HStack(alignment: .top, spacing: MMSpace.s5) {
             MMCheckbox(isOn: Binding(
                 get: { root.isCompleted },
                 set: { completed in
                     TrainingFocusTree.update(root.id, in: &items) { $0.isCompleted = completed }
                 }
             ))
-            .padding(.top, (MMLayout.tapTarget - MMSpace.s8) / 2)
+            .padding(.top, editing ? (MMLayout.tapTarget - MMSpace.s8) / 2 : MMSpace.s1)
             .disabled(!allowsCompletion || root.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel(root.title.isEmpty ? "Training focus" : root.title)
             .accessibilityValue(root.isCompleted ? "Completed" : "Not completed")
             .accessibilityHint(allowsCompletion ? "Mark what you worked on" : "Mark complete after training")
 
-            VStack(alignment: .leading, spacing: MMSpace.s1) {
-                TextField("Focus title", text: titleBinding(root.id), axis: .vertical)
-                    .font(MMFont.body(16, .bold))
-                    .lineLimit(1...3)
-                    .frame(minHeight: MMLayout.tapTarget)
-                    .focused($focusedField, equals: .title(root.id))
-                    .accessibilityLabel("Focus title")
-                    .accessibilityIdentifier("focus-title-\(root.id)")
-                HStack(alignment: .top, spacing: MMSpace.s2) {
-                    TextField("Add a description", text: descriptionBinding(root.id), axis: .vertical)
-                        .font(MMFont.body(13))
-                        .foregroundStyle(MMColor.textSecondary)
-                        .lineLimit(1...4)
-                        .frame(minHeight: MMLayout.tapTarget, alignment: .topLeading)
-                        .focused($focusedField, equals: .description(root.id))
-                        .accessibilityLabel("Focus description")
-                    if let first = root.children.first, root.children.count > 1 || !first.children.isEmpty {
-                        MMIconButton("x", label: "Remove description") { requestRemoval(first) }
-                    }
-                }
-
-                ForEach(TrainingFocusTree.rows(root.children).dropFirst()) { row in
-                    HStack(alignment: .top, spacing: MMSpace.s2) {
-                        TextField("Detail", text: titleBinding(row.id), axis: .vertical)
-                            .font(MMFont.body(13))
-                            .foregroundStyle(MMColor.textSecondary)
-                            .lineLimit(1...4)
-                            .frame(minHeight: MMLayout.tapTarget)
-                            .focused($focusedField, equals: .detail(row.id))
-                            .accessibilityLabel("Focus detail, level \(row.depth + 2)")
-                        MMIconButton("x", label: "Remove detail") { requestRemoval(row.node) }
-                    }
-                    .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
-                }
-                if let goal = root.linkedGoal(in: goals), goal.hasReferenceContent {
-                    TrainingGoalNotes(goal: goal, initiallyExpanded: false)
-                }
-            }
-            .foregroundStyle(MMColor.textPrimary)
-            .tint(MMColor.accent)
-            .submitLabel(.done)
-            .onSubmit { focusedField = nil }
+            if editing { editableFields(root) }
+            else { summary(root) }
 
             Menu {
                 Button("Add a detail") {
+                    editingRootID = root.id
                     let detail = TrainingFocus()
                     TrainingFocusTree.update(root.id, in: &items) { $0.children.append(detail) }
                     focusedField = root.children.isEmpty ? .description(root.id) : .detail(detail.id)
@@ -179,6 +146,88 @@ struct TrainingFocusComposer: View {
             }
             .accessibilityLabel("Options for \(root.title.isEmpty ? "focus" : root.title)")
         }
+    }
+
+    private func summary(_ root: TrainingFocus) -> some View {
+        VStack(alignment: .leading, spacing: MMSpace.s3) {
+            Button {
+                editingRootID = root.id
+                focusedField = .title(root.id)
+            } label: {
+                VStack(alignment: .leading, spacing: MMSpace.s2) {
+                    Text(root.title)
+                        .mmFont(.body, 16, .bold)
+                        .foregroundStyle(MMColor.textPrimary)
+                    if root.children.isEmpty {
+                        Text("Add a description")
+                            .mmText(.bodyS)
+                            .foregroundStyle(MMColor.textTertiary)
+                    }
+                    ForEach(TrainingFocusTree.rows(root.children)) { row in
+                        Text(row.node.title)
+                            .mmText(.bodyS)
+                            .foregroundStyle(MMColor.textSecondary)
+                            .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
+                    }
+                }
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .topLeading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Edit focus: \(root.title)")
+            .accessibilityHint("Edit the title and description in this row")
+            if let goal = root.linkedGoal(in: goals), goal.hasReferenceContent {
+                TrainingGoalNotes(goal: goal, initiallyExpanded: false)
+            }
+        }
+    }
+
+    private func editableFields(_ root: TrainingFocus) -> some View {
+        VStack(alignment: .leading, spacing: MMSpace.s1) {
+            TextField("Focus title", text: titleBinding(root.id), axis: .vertical)
+                .font(MMFont.body(16, .bold))
+                .lineLimit(1...3)
+                .frame(minHeight: MMLayout.tapTarget)
+                .focused($focusedField, equals: .title(root.id))
+                .accessibilityLabel("Focus title")
+                .accessibilityIdentifier("focus-title-\(root.id)")
+            HStack(alignment: .top, spacing: MMSpace.s2) {
+                TextField("Add a description", text: descriptionBinding(root.id), axis: .vertical)
+                    .font(MMFont.body(13))
+                    .foregroundStyle(MMColor.textSecondary)
+                    .lineLimit(1...4)
+                    .frame(minHeight: MMLayout.tapTarget, alignment: .topLeading)
+                    .focused($focusedField, equals: .description(root.id))
+                    .accessibilityLabel("Focus description")
+                if let first = root.children.first, root.children.count > 1 || !first.children.isEmpty {
+                    MMIconButton("x", label: "Remove description") { requestRemoval(first) }
+                }
+            }
+
+            ForEach(TrainingFocusTree.rows(root.children).dropFirst()) { row in
+                HStack(alignment: .top, spacing: MMSpace.s2) {
+                    TextField("Detail", text: titleBinding(row.id), axis: .vertical)
+                        .font(MMFont.body(13))
+                        .foregroundStyle(MMColor.textSecondary)
+                        .lineLimit(1...4)
+                        .frame(minHeight: MMLayout.tapTarget)
+                        .focused($focusedField, equals: .detail(row.id))
+                        .accessibilityLabel("Focus detail, level \(row.depth + 2)")
+                    MMIconButton("x", label: "Remove detail") { requestRemoval(row.node) }
+                }
+                .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
+            }
+            if let goal = root.linkedGoal(in: goals), goal.hasReferenceContent {
+                TrainingGoalNotes(goal: goal, initiallyExpanded: false)
+            }
+        }
+        .foregroundStyle(MMColor.textPrimary)
+        .tint(MMColor.accent)
+        .submitLabel(.done)
+        .onSubmit { focusedField = nil }
+
     }
 
     private func titleBinding(_ id: UUID) -> Binding<String> {
@@ -201,11 +250,13 @@ struct TrainingFocusComposer: View {
 
     private func addFocus() {
         if let blank = items.first(where: { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.children.isEmpty }) {
+            editingRootID = blank.id
             focusedField = .title(blank.id)
             return
         }
         let item = TrainingFocus()
         withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { items.append(item) }
+        editingRootID = item.id
         focusedField = .title(item.id)
     }
 
