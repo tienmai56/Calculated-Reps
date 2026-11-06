@@ -684,10 +684,13 @@ struct SessionDetailScreen: View {
                         MMCard(padding: MMSpace.s4) {
                             VStack(spacing: 0) {
                                 HStack(spacing: MMSpace.s4) {
-                                    Text(mm.person(photo.author).name + (photo.author == "me" ? " (you)" : ""))
-                                        .mmFont(.body, 15, .bold)
-                                        .foregroundStyle(MMColor.textPrimary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    PersonProfileButton(person: mm.person(photo.author)) {
+                                        Text(mm.person(photo.author).name + (photo.author == "me" ? " (you)" : ""))
+                                            .mmFont(.body, 15, .bold)
+                                            .foregroundStyle(MMColor.textPrimary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                     if photo.author == "me" && mm.canPostParticipantPhoto(session) {
                                         Menu {
                                             Button {

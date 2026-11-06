@@ -106,6 +106,18 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         model.userID = nil
         runtime.sync()
         XCTAssertNil(ui.findSession("session"))
+        XCTAssertFalse(ui.participantPhotosAvailable)
+    }
+
+    @MainActor
+    func testHostPreviewSelectsOneSessionPhotoWithoutPublishing() async throws {
+        let ui = AppModel(live: false)
+        let session = try XCTUnwrap(ui.toComplete)
+        let first = await ui.saveSessionPhoto(session.id, photo: "roll-gi")
+        let second = await ui.saveSessionPhoto(session.id, photo: "group-class")
+        XCTAssertTrue(first && second)
+        XCTAssertEqual(ui.findSession(session.id)?.sessionPhotos.map(\.source), ["group-class"])
+        XCTAssertFalse(ui.isCompleted(try XCTUnwrap(ui.findSession(session.id))))
     }
 
     func testNotificationDestinationsUseTheirOwnEntityIDs() {

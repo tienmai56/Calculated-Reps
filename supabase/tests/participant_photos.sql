@@ -41,6 +41,7 @@ select pg_temp.assert_photo(not exists(select 1 from public.posts where session_
 
 -- Preparing a replacement does not disturb the visible photo. Stale devices cannot overwrite it.
 select public.command('prepare_participant_photo','{"session_id":"10000000-0000-0000-0000-000000000901"}',gen_random_uuid())->>'id' as replacement \gset
+select object_key as replacement_key from public.media_assets where id=:'replacement' \gset
 insert into storage.objects(bucket_id,name) select 'session-photos',object_key from public.media_assets where id=:'replacement';
 select pg_temp.assert_photo((select session_photo from public.media_assets where id=:'guest_media'),'old photo stays visible until post');
 select pg_temp.assert_photo(pg_temp.photo_refused('post_participant_photo',jsonb_build_object('session_id','10000000-0000-0000-0000-000000000901','media_id',:'replacement')),'a second unqualified post cannot overwrite the current slot');
@@ -69,6 +70,11 @@ select pg_temp.assert_photo(not exists(select 1 from public.media_assets where i
 select public.command('complete_and_publish',jsonb_build_object('session_id','10000000-0000-0000-0000-000000000901','media_id',:'host_media','attendees',jsonb_build_array('00000000-0000-0000-0000-000000000901','00000000-0000-0000-0000-000000000902')),gen_random_uuid());
 select public.command('remove_participant_photo',jsonb_build_object('session_id','10000000-0000-0000-0000-000000000901','expected_media_id',:'host_media'),gen_random_uuid());
 select pg_temp.assert_photo((select media_id=:'host_media'::uuid from public.posts where session_id='10000000-0000-0000-0000-000000000901'),'host session removal preserves published memory');
+
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000906',true);
+select pg_temp.assert_photo(exists(select 1 from public.media_assets where id=:'host_media'),'existing host Activity audience retains its image');
+select pg_temp.assert_photo(not exists(select 1 from public.media_assets where id=:'replacement'),'Activity audience does not gain guest photo metadata');
+select pg_temp.assert_photo(not exists(select 1 from storage.objects o where o.name=:'replacement_key'),'Activity audience cannot read guest photo bytes');
 
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000902',true);
 select public.command('remove_participant_photo',jsonb_build_object('session_id','10000000-0000-0000-0000-000000000901','expected_media_id',:'replacement'),gen_random_uuid());

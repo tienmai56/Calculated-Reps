@@ -135,6 +135,7 @@ final class AppModel {
     }
 
     func clearLiveData() {
+        participantPhotosAvailable = false
         resetTrainingActions()
         quickLogs = []; sharedSessionIDs = []
 
@@ -892,7 +893,11 @@ final class AppModel {
         if let runtime { return await runtime.saveSessionPhoto(sessionID, photo: photo) }
         guard !isLive else { return false }
         updateSession(sessionID) { session in
-            if !session.photos.contains(photo) { session.photos.insert(photo, at: 0) }
+            session.photos = [photo]
+            if session.photoContributions != nil {
+                session.photoContributions = session.sessionPhotos.filter { $0.author != "me" }
+                    + [SessionPhoto(id: photo, author: "me", source: photo)]
+            }
         }
         return true
     }
@@ -937,7 +942,13 @@ final class AppModel {
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
         if isLive { return nil }
         guard var s = findSession(sessionID), s.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
-        if let photo, !s.photos.contains(photo) { s.photos.insert(photo, at: 0) }
+        if let photo {
+            s.photos = [photo]
+            if s.photoContributions != nil {
+                s.photoContributions = s.sessionPhotos.filter { $0.author != "me" }
+                    + [SessionPhoto(id: photo, author: "me", source: photo)]
+            }
+        }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
                         caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems,
