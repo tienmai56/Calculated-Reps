@@ -1022,6 +1022,22 @@ struct TrainingWeekCard: View {
             }
         }
         .onChange(of: selected) { _, _ in trainingSaveFailed = false }
+        .onAppear { openWidgetQuickLog() }
+        .onChange(of: mm.widgetQuickLogRequest) { _, _ in openWidgetQuickLog() }
+    }
+
+    /// The widget's Log training button takes the same path as tapping today here:
+    /// the Quick Log sheet, or "What are you logging?" when today has a plan.
+    private func openWidgetQuickLog() {
+        guard isActivity, mm.widgetQuickLogRequest != nil else { return }
+        mm.widgetQuickLogRequest = nil
+        let today = Date()
+        guard days.contains(where: { TrainingCalendar.calendar.isDate($0, inSameDayAs: today) }) else { return }
+        Task { @MainActor in
+            // Let the tab switch settle before presenting the sheet.
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if selected == nil { tap(today) }
+        }
     }
 
     @ViewBuilder

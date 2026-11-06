@@ -516,6 +516,15 @@ Every member can have a **monkey**: a minimal two-color face that sits **right a
 
 Native: `DesignSystem/Components/Display.swift` (`MMMonkey`, `MMMonkeyLook`, `mmMonkey`, `mmMonkeyText`), `Features/Profile/MonkeyScreens.swift`, profile setup in `MatMind/App/MatMindRoot.swift`. Backend: `supabase/migrations/20261104170000_monkey_avatars.sql`.
 
+### Home-screen widgets
+
+Two independent widget kinds, each small (5 weeks) and medium (12 weeks), with no settings: **Your rhythm** ("How much you’ve trained lately, and a one-tap way to log it.") and **Next session** ("When and where you’re training next, and who’s coming."). Code: `MatMonkeyWidgets/`; the app writes a snapshot to the App Group `group.com.tienmai.intentionaltrainingnotes` (`Prototypes/MatMind/App/WidgetBridge.swift`) and widgets only read it.
+
+- **Your rhythm:** the Stats › Your rhythm grammar at glance size: Mon–Sun columns, oldest left, coral-500 trained (one fill however many sessions), paper-3 no entry, outlined future, a 1.5pt ink ring on today. Copy: **{n} sessions this month**, then on medium **on {d} days**, **{d} days, today included** or **{d} days · twice today**. A session is any day entry behind the ×N badge (quick logs plus past sessions you hosted or joined). The only button, **Log training**, is an App Intent that opens the app on today’s Quick Log (or **What are you logging?** when today has a plan); it stays after you’ve trained. Anywhere else opens Stats › Progress. First use reads **Your rhythm starts with one log.**; accounts without Quick Log show no button.
+- **Next session:** the Training ticket stub in the organizer’s friend hue (coral when you host). Order: **Today/Tomorrow/weekday · time**, title (2 lines), gym (1 line), up to 3 avatars + N with **with Sarah, Alex & Priya**. Only sessions you host or accepted; pending invitations never appear (an empty widget may name the inviting host only). It reads **Now · until {end}** from start to end (start + 2h until sessions have end times), then moves on. Empty: Silverback + **Nothing planned yet** · **Rolls are better with friends.** + **Plan a training**. Tap opens session details.
+- **States:** placeholder (redacted), signed out (Silverback + **Sign in to see …**; sign-out clears the snapshot), stale after 6h (**As of 9:40 AM**, cloud-off). Dark maps to existing tokens (ink-900 ground, paper/ink-200 text, ink-700 empty cells, friend 700 stubs). Tinted/clear marks counts, trained cells, stubs and buttons accentable; the Silverback keeps full color. Increase Contrast moves coral fills to coral-700.
+- Design canvas: Mat Monkey Widgets (Claude design artifact). Cancelled sessions have a widget state but the snapshot omits cancelled sessions today, so they currently drop out.
+
 ## 9. Guardrails
 **Always**
 - One primary button per screen.

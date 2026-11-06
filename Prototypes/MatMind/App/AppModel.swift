@@ -144,6 +144,7 @@ final class AppModel {
         editingMonkey = false; monkeyPromptVisible = false; monkeyPromptAnswered = true; monkeyAccount = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
+        widgetQuickLogRequest = nil; widgetProfileSectionRequest = nil
     }
 
     private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
@@ -250,6 +251,11 @@ final class AppModel {
     /// "sessionId + personId" of the attendee row that just joined (plays the join animation).
     var fresh: String?
     var showDemoPanel = false
+    /// Set by a widget's Log training tap; Activity's This week card opens today's Quick Log
+    /// (or its planned-session chooser) and clears it.
+    var widgetQuickLogRequest: UUID?
+    /// Set by a Your rhythm widget tap; Profile switches to Progress and clears it.
+    var widgetProfileSectionRequest: UUID?
     /// Prototype-only entry state; this is not a Google authentication session.
     var isSignedIn = false
 

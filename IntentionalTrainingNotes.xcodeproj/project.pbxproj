@@ -117,6 +117,20 @@
 		B15F6A784CA14D3B8E070101 /* QuickLogSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070102; };
 		B15F6A784CA14D3B8E070201 /* TechniqueTrend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070202; };
 		B15F6A784CA14D3B8E070211 /* TechniqueStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070212; };
+		574944474554000000000013 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57494447455400000000000F /* WidgetSnapshot.swift */; };
+		574944474554000000000014 /* WidgetLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574944474554000000000010 /* WidgetLinks.swift */; };
+		574944474554000000000015 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574944474554000000000011 /* WidgetBridge.swift */; };
+		574944474554000000000016 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57494447455400000000000F /* WidgetSnapshot.swift */; };
+		574944474554000000000017 /* WidgetLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574944474554000000000010 /* WidgetLinks.swift */; };
+		574944474554000000000018 /* MMColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAD3F47114F1098775D008D /* MMColor.swift */; };
+		574944474554000000000019 /* MMLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D58D28CC82097FBE1DB5BD5 /* MMLayout.swift */; };
+		57494447455400000000001A /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574944474554000000000012 /* WidgetSnapshotTests.swift */; };
+		57494447455400000000000C /* MatMonkeyWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 574944474554000000000002 /* MatMonkeyWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		574944474554000000000028 /* Archivo-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 69C76BB96D5C9F671AAF3EB4 /* Archivo-Regular.ttf */; };
+		574944474554000000000029 /* Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFEC913CE37DAC65E5E79403 /* Archivo-Medium.ttf */; };
+		57494447455400000000002A /* Archivo-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C755D63629D9085C443F6B20 /* Archivo-SemiBold.ttf */; };
+		57494447455400000000002B /* Archivo-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D4176253C4E816229200FDAC /* Archivo-Bold.ttf */; };
+		57494447455400000000002C /* BricolageGrotesque-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 09FF8DEEBF13C1EF44E5C30C /* BricolageGrotesque-ExtraBold.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -127,7 +141,28 @@
 			remoteGlobalIDString = 111111111111111111111201;
 			remoteInfo = IntentionalTrainingNotes;
 		};
+		57494447455400000000000D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 111111111111111111111200 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 574944474554000000000001;
+			remoteInfo = MatMonkeyWidgets;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		57494447455400000000000B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				57494447455400000000000C /* MatMonkeyWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		FA00FA00FA00FA00FA000102 /* PreviewAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Prototypes/MatMind/PreviewAssets.xcassets"; sourceTree = SOURCE_ROOT; };
@@ -244,12 +279,36 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 		B15F6A784CA14D3B8E070102 /* QuickLogSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Activity/QuickLogSheet.swift"; sourceTree = SOURCE_ROOT; };
 		B15F6A784CA14D3B8E070202 /* TechniqueTrend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/TechniqueTrend.swift"; sourceTree = SOURCE_ROOT; };
 		B15F6A784CA14D3B8E070212 /* TechniqueStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Profile/TechniqueStats.swift"; sourceTree = SOURCE_ROOT; };
+		574944474554000000000002 /* MatMonkeyWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MatMonkeyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		57494447455400000000000F /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMonkeyWidgets/Shared/WidgetSnapshot.swift"; sourceTree = SOURCE_ROOT; };
+		574944474554000000000010 /* WidgetLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMonkeyWidgets/Shared/WidgetLinks.swift"; sourceTree = SOURCE_ROOT; };
+		574944474554000000000011 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/WidgetBridge.swift"; sourceTree = SOURCE_ROOT; };
+		574944474554000000000012 /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IntentionalTrainingNotesTests/WidgetSnapshotTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		574944474554000000000004 /* Exceptions for "MatMonkeyWidgets" folder in "MatMonkeyWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				MatMonkeyWidgets.entitlements,
+			);
+			target = 574944474554000000000001 /* MatMonkeyWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4D4D50524F544F0000000002 /* MatMind */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MatMind;
+			sourceTree = "<group>";
+		};
+		574944474554000000000003 /* MatMonkeyWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				574944474554000000000004 /* Exceptions for "MatMonkeyWidgets" folder in "MatMonkeyWidgets" target */,
+			);
+			path = MatMonkeyWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -276,6 +335,13 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		574944474554000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -288,6 +354,7 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 111111111111111111111110 /* IntentionalTrainingNotes */,
 				111111111111111111111120 /* IntentionalTrainingNotesTests */,
 				4D4D50524F544F0000000003 /* Prototypes */,
+				574944474554000000000003 /* MatMonkeyWidgets */,
 				111111111111111111111130 /* Products */,
 				1BA7460FA449B381FB01E1E4 /* Core */,
 				CFDB4B1D89C8D1D15216BF65 /* Shared */,
@@ -325,6 +392,7 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 				111111111111111111111011 /* IntentionalTrainingNotes.app */,
 				111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */,
 				4D4D50524F544F0000000001 /* MatMindPrototype.app */,
+				574944474554000000000002 /* MatMonkeyWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -579,10 +647,12 @@ F6FF680700DD860D2958E0FD,
 				111111111111111111111501 /* Sources */,
 				111111111111111111111401 /* Frameworks */,
 				111111111111111111111502 /* Resources */,
+				57494447455400000000000B /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				57494447455400000000000E /* PBXTargetDependency */,
 			);
 			name = IntentionalTrainingNotes;
 			productName = IntentionalTrainingNotes;
@@ -629,6 +699,28 @@ F6FF680700DD860D2958E0FD,
 			productReference = 4D4D50524F544F0000000001 /* MatMindPrototype.app */;
 			productType = "com.apple.product-type.application";
 		};
+		574944474554000000000001 /* MatMonkeyWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 574944474554000000000008 /* Build configuration list for PBXNativeTarget "MatMonkeyWidgets" */;
+			buildPhases = (
+				574944474554000000000005 /* Sources */,
+				574944474554000000000006 /* Frameworks */,
+				574944474554000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				574944474554000000000003 /* MatMonkeyWidgets */,
+			);
+			name = MatMonkeyWidgets;
+			packageProductDependencies = (
+			);
+			productName = MatMonkeyWidgets;
+			productReference = 574944474554000000000002 /* MatMonkeyWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -642,6 +734,9 @@ F6FF680700DD860D2958E0FD,
 						CreatedOnToolsVersion = 16.0;
 					};
 					4D4D50524F544F0000000004 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					574944474554000000000001 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 					111111111111111111111202 = {
@@ -668,6 +763,7 @@ F6FF680700DD860D2958E0FD,
 				111111111111111111111201 /* IntentionalTrainingNotes */,
 				111111111111111111111202 /* IntentionalTrainingNotesTests */,
 				4D4D50524F544F0000000004 /* MatMindPrototype */,
+				574944474554000000000001 /* MatMonkeyWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -713,6 +809,18 @@ F6FF680700DD860D2958E0FD,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		574944474554000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				574944474554000000000028 /* Archivo-Regular.ttf in Resources */,
+				574944474554000000000029 /* Archivo-Medium.ttf in Resources */,
+				57494447455400000000002A /* Archivo-SemiBold.ttf in Resources */,
+				57494447455400000000002B /* Archivo-Bold.ttf in Resources */,
+				57494447455400000000002C /* BricolageGrotesque-ExtraBold.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -720,6 +828,9 @@ F6FF680700DD860D2958E0FD,
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				574944474554000000000013 /* WidgetSnapshot.swift in Sources */,
+				574944474554000000000014 /* WidgetLinks.swift in Sources */,
+				574944474554000000000015 /* WidgetBridge.swift in Sources */,
 				1842720BC5932ACE459210FB,
 				60B79A8025ECF713E69E4B68,
 				DA38EE2FD93B0A143C11A5B6,
@@ -821,6 +932,7 @@ F6FF680700DD860D2958E0FD,
 			files = (
 				111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */,
 59C22185C8FCBF95BB4F07BA,
+				57494447455400000000001A /* WidgetSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -828,6 +940,17 @@ F6FF680700DD860D2958E0FD,
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				574944474554000000000016 /* WidgetSnapshot.swift in Sources */,
+				574944474554000000000017 /* WidgetLinks.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		574944474554000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				574944474554000000000018 /* MMColor.swift in Sources */,
+				574944474554000000000019 /* MMLayout.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -838,6 +961,11 @@ F6FF680700DD860D2958E0FD,
 			isa = PBXTargetDependency;
 			target = 111111111111111111111201 /* IntentionalTrainingNotes */;
 			targetProxy = 111111111111111111111301 /* PBXContainerItemProxy */;
+		};
+		57494447455400000000000E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 574944474554000000000001 /* MatMonkeyWidgets */;
+			targetProxy = 57494447455400000000000D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1055,6 +1183,62 @@ F6FF680700DD860D2958E0FD,
 			};
 			name = Release;
 		};
+		574944474554000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MatMonkeyWidgets/MatMonkeyWidgets.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 9R4A2F8F94;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MatMonkeyWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		57494447455400000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MatMonkeyWidgets/MatMonkeyWidgets.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 9R4A2F8F94;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MatMonkeyWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1090,6 +1274,15 @@ F6FF680700DD860D2958E0FD,
 			buildConfigurations = (
 				4D4D50524F544F0000000009 /* Debug */,
 				4D4D50524F544F000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		574944474554000000000008 /* Build configuration list for PBXNativeTarget "MatMonkeyWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				574944474554000000000009 /* Debug */,
+				57494447455400000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
