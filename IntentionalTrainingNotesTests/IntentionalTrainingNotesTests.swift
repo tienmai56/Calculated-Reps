@@ -2682,15 +2682,19 @@ final class TrainingCalendarTests: XCTestCase {
         let plan = Session(id: "p", title: "No-gi", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
                            people: [Attendee(id: "me", status: .going)], startsAt: day)
         ui.upcoming = [plan]
-        XCTAssertEqual(ui.trainingTap(day), .choose, "The calendar/history chooser keeps the open plan available")
-        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .choose, "The whole Activity day opens the chooser even with multiple quick logs")
+        XCTAssertEqual(ui.trainingTap(day), .entries, "Planned days no longer open a chooser")
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .quickLog, "A planned Activity day logs like any other day")
         ui.quickLogs = []
-        XCTAssertEqual(ui.entryCount(day), 0, "Scheduled plans never count")
-        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .choose, "An empty planned day also opens the chooser")
+        XCTAssertEqual(ui.entryCount(day), 0, "A plan is not an entry")
+        XCTAssertEqual(ui.trainingTap(day, isActivity: true), .quickLog, "An empty planned day logs straight away")
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 0, "Live rhythm dates come from the rhythm query")
+        ui.rhythmSessionDates = [day]
+        XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 1, "A started plan counts as a trained day in the rhythm")
+        ui.rhythmSessionDates = nil
         let future = TrainingCalendar.calendar.date(byAdding: .day, value: 1, to: day)!
         ui.upcoming[0].startsAt = future
         XCTAssertEqual(ui.trainingTap(future), .disabled, "A future plan cannot be logged")
-        XCTAssertEqual(ui.trainingTap(future, isActivity: true), .choose, "Future planned days can show options without logging early")
+        XCTAssertEqual(ui.trainingTap(future, isActivity: true), .disabled, "Future planned days cannot be logged early")
         XCTAssertEqual(ui.trainingTap(day), .quickLog)
         XCTAssertEqual(ui.trainingTap(day, isActivity: true), .quickLog)
         ui.upcoming = []
@@ -2854,7 +2858,7 @@ extension TrainingCalendarTests {
         XCTAssertFalse(ui.quickLogs.isEmpty)
         let completed = try XCTUnwrap(ui.completedSessions.first)
         XCTAssertFalse(ui.canCompleteTraining(completed), "A session already logged without a photo must not get a completion CTA")
-        XCTAssertFalse(ui.openPlans(Date()).isEmpty, "Today must offer the planned-session chooser")
+        XCTAssertFalse(ui.openPlans(Date()).isEmpty, "Today keeps a planned session for the calendar badge")
     }
 }
 #endif
@@ -3304,7 +3308,7 @@ extension TrainingCalendarTests {
         let logged = await ui.addQuickLog(day)
         XCTAssertTrue(logged)
         XCTAssertEqual(ui.entryCount(day), 1)
-        XCTAssertEqual(ui.trainingTap(day), .choose, "The calendar action still offers the open plan after a separate quick log")
+        XCTAssertEqual(ui.trainingTap(day), .entries, "A planned day with a quick log opens its entries like any other day")
         XCTAssertEqual(ui.upcoming.first, plan)
     }
 
@@ -3396,7 +3400,7 @@ extension TrainingCalendarTests {
                            people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
         ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.posts = []; ui.quickLogs = []; ui.drafts = []; ui.discoverableSessions = []
         ui.setTab(.activity)
-        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .choose)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .quickLog, "Tapping a planned day logs it straight away")
         await ui.addQuickLog(Date())
         await ui.addQuickLog(Date())
         XCTAssertEqual(ui.tab, .activity)
@@ -3404,8 +3408,8 @@ extension TrainingCalendarTests {
         XCTAssertTrue(ui.posts.isEmpty)
         XCTAssertEqual(ui.entryCount(Date()), 2)
         XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(Date())), 1)
-        XCTAssertEqual(ui.trainingTap(Date()), .choose)
-        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .choose, "Adding quick logs must not bypass the planned-day chooser")
+        XCTAssertEqual(ui.trainingTap(Date()), .entries)
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .quickLog, "Every tap adds a quick log, planned or not")
         XCTAssertEqual(ui.activityPlans().map(\.id), [plan.id])
         await ui.undoTrainingToast(ui.toast!.id)
         XCTAssertEqual(ui.entryCount(Date()), 1)
@@ -3413,7 +3417,7 @@ extension TrainingCalendarTests {
         await ui.markTrainingDone(plan)
         XCTAssertTrue(ui.activityPlans().isEmpty)
         XCTAssertEqual(ui.trainingTap(Date()), .entries)
-        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .quickLog, "After the plan closes, Activity returns to direct quick logging")
+        XCTAssertEqual(ui.trainingTap(Date(), isActivity: true), .quickLog, "Closing the plan doesn't change quick logging")
     }
 }
 
@@ -3429,30 +3433,30 @@ extension TrainingCalendarTests {
         await ui.addQuickLog(day)
         XCTAssertEqual(ui.entryCount(day), 3)
         XCTAssertEqual(ui.trainedDays(TrainingCalendar.week(day)), 1)
-        XCTAssertFalse(ui.canRemoveQuickLog(on: day))
+        XCTAssertTrue(ui.canRemoveQuickLog(on: day))
         let removed = await ui.removeLatestQuickLog(on: day)
-        XCTAssertFalse(removed, "A planned-session date is protected even when it also has quick logs")
-        XCTAssertEqual(ui.entryCount(day), 3)
-        XCTAssertEqual(ui.dayLogs(day).count, 2)
+        XCTAssertTrue(removed, "The badge removes a quick log, never the confirmed session")
+        XCTAssertEqual(ui.entryCount(day), 2)
+        XCTAssertEqual(ui.dayLogs(day).count, 1)
         XCTAssertEqual(ui.daySessions(day).map(\.id), [session.id])
         XCTAssertEqual(ui.posts.count, 1)
         XCTAssertTrue(ui.sharedSessionIDs.contains(session.id))
         XCTAssertTrue(ui.path.isEmpty)
     }
 
-    @MainActor func testStripRemovalDoesNothingOnPlannedDate() async {
+    @MainActor func testStripRemovesQuickLogButKeepsPlan() async {
         let ui = AppModel(live: false)
         let day = Date()
         let session = Session(id: "planned", title: "Planned rolls", day: "Wed", date: 4, month: "Nov", time: "19:00", gym: "Gym", organizer: "me",
                               people: [Attendee(id: "me", status: .going)], startsAt: day.addingTimeInterval(-60))
         let log = QuickLog(id: "private-log", loggedOn: TrainingCalendar.key(day), loggedAt: day, timezone: TimeZone.current.identifier)
         ui.upcoming = [session]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = [log]
-        XCTAssertFalse(ui.canRemoveQuickLog(on: day))
+        XCTAssertTrue(ui.canRemoveQuickLog(on: day))
         let removed = await ui.removeLatestQuickLog(on: day)
-        XCTAssertFalse(removed)
-        XCTAssertEqual(ui.quickLogs, [log])
-        XCTAssertEqual(ui.upcoming.first, session)
-        XCTAssertEqual(ui.entryCount(day), 1)
+        XCTAssertTrue(removed)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertEqual(ui.upcoming.first, session, "Removing a quick log leaves the plan open")
+        XCTAssertEqual(ui.entryCount(day), 0)
     }
 
     @MainActor func testStripRemovesNewestLogAndClearsOnlyAnEmptyDay() async {
@@ -3714,7 +3718,7 @@ extension BackendSessionTests {
 
 
 extension TrainingCalendarTests {
-    @MainActor func testQuickLogPlanSelectionWaitsForExplicitCompletion() async throws {
+    @MainActor func testPlanCompletionWaitsForExplicitPublish() async throws {
         let ui = AppModel(live: false)
         let plan = Session(id: "quick-log-plan", title: "Open training", day: "Thu", date: 5, month: "Nov", time: "16:30", gym: "Ralph Gracie", organizer: "me",
                            people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going), Attendee(id: "sarah", status: .invited)],
@@ -3722,7 +3726,7 @@ extension TrainingCalendarTests {
         ui.upcoming = [plan]; ui.completedSessions = []; ui.posts = []; ui.quickLogs = []; ui.toComplete = nil; ui.drafts = []
         ui.path = []
 
-        XCTAssertTrue(ui.openQuickLogPlan(plan))
+        ui.go(.complete(id: plan.id))
         XCTAssertEqual(ui.path, [.complete(id: plan.id)])
         XCTAssertEqual(ui.findSession(plan.id), plan)
         XCTAssertNil(ui.trainingCompletionStatus(plan))
@@ -3733,7 +3737,7 @@ extension TrainingCalendarTests {
         ui.back()
         XCTAssertEqual(ui.findSession(plan.id), plan, "Closing the composer leaves the plan unchanged")
 
-        XCTAssertTrue(ui.openQuickLogPlan(plan))
+        ui.go(.complete(id: plan.id))
         let saved = await ui.saveSessionPhoto(plan.id, photo: "training-photo")
         XCTAssertTrue(saved)
         var withPhoto = plan
@@ -3742,7 +3746,7 @@ extension TrainingCalendarTests {
         XCTAssertNil(ui.trainingCompletionStatus(plan))
         XCTAssertTrue(ui.posts.isEmpty)
         ui.back()
-        XCTAssertTrue(ui.openQuickLogPlan(plan), "A photo alone does not complete the plan")
+        XCTAssertNil(ui.trainingCompletionStatus(plan), "A photo alone does not complete the plan")
         let result = try XCTUnwrap(ui.publish(plan.id, photo: "training-photo", caption: "", people: plan.going))
         XCTAssertEqual(result.post.photo, "training-photo")
         XCTAssertEqual(result.post.focusItems, plan.focusItems)
@@ -3757,48 +3761,64 @@ extension TrainingCalendarTests {
         XCTAssertTrue(ui.upcoming.isEmpty)
         XCTAssertEqual(ui.trainingCompletionStatus(plan), .completed)
         XCTAssertFalse(ui.canCompleteTraining(plan))
-        XCTAssertFalse(ui.openQuickLogPlan(plan))
     }
+}
 
-    @MainActor func testLiveQuickLogPlanSelectionOnlyNavigatesForHostAndGuest() {
-        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
-        ui.runtime = runtime
-        ui.quickTrainingLogBackendAvailable = true
-        var writes = 0
-        runtime.command = { _, _ in writes += 1; return true }
-        var plan = Session(id: "live-plan", title: "Rolls", day: "Thu", date: 5, month: "Nov", time: "16:30", gym: "Gym", organizer: "me",
-                           people: [Attendee(id: "me", status: .going), Attendee(id: "kenji", status: .going)], startsAt: Date().addingTimeInterval(-60))
-        for organizer in ["me", "kenji"] {
-            plan.organizer = organizer
-            ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.path = []
-            XCTAssertTrue(ui.openQuickLogPlan(plan))
-            XCTAssertEqual(ui.path, [organizer == "me" ? .complete(id: plan.id) : .session(id: plan.id)])
-            XCTAssertEqual(ui.upcoming, [plan])
-            XCTAssertTrue(ui.completedSessions.isEmpty)
-            XCTAssertNil(ui.trainingCompletionStatus(plan))
-            XCTAssertNil(ui.trainingUndo)
-            XCTAssertFalse(ui.savingTraining)
-        }
-        XCTAssertEqual(writes, 0, "Selecting a plan must never issue an attendance or creation command")
-    }
-
-    @MainActor func testQuickLogPlanSelectionRevalidatesCurrentSession() {
+extension TrainingCalendarTests {
+    @MainActor func testActivityTapLogsPlannedDayAndLaterHitsFeedTechniqueCharts() async throws {
         let ui = AppModel(live: false)
-        let now = Date()
-        let plan = Session(id: "edited-plan", title: "Rolls", day: "Thu", date: 5, month: "Nov", time: "16:30", gym: "Gym", organizer: "me",
-                           people: [Attendee(id: "me", status: .going)], startsAt: now.addingTimeInterval(-60))
-        ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.path = []
-        ui.upcoming[0].startsAt = now.addingTimeInterval(60)
-        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
-        ui.upcoming = [plan]
-        ui.upcoming[0].people[0].status = .declined
-        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
-        ui.upcoming = [plan]
-        ui.sharedSessionIDs.insert(plan.id)
-        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
-        ui.sharedSessionIDs = []
-        ui.upcoming = []
-        XCTAssertFalse(ui.openQuickLogPlan(plan, now: now))
-        XCTAssertTrue(ui.path.isEmpty)
+        let plan = Session(id: "today-plan", title: "Rolls", day: "Thu", date: 5, month: "Nov", time: "07:00", gym: "Gym", organizer: "me",
+                           people: [Attendee(id: "me", status: .going)], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [plan]; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = []; ui.posts = []
+        let created = await ui.createQuickLog(Date(), inline: true)
+        let log = try XCTUnwrap(created)
+        XCTAssertEqual(ui.dayLogs(Date()).map(\.id), [log.id])
+        XCTAssertEqual(ui.toast?.inline, true, "Activity keeps Training logged · Undo on the week card")
+        XCTAssertTrue(ui.canUndoTrainingToast(try XCTUnwrap(ui.toast?.id)))
+        XCTAssertEqual(ui.upcoming.first, plan, "A quick log never completes the plan")
+        XCTAssertFalse(ui.openPlans(Date()).isEmpty, "The calendar badge stays")
+        XCTAssertNil(ui.quickLogHitsByID[log.id], "A tap alone adds nothing to the technique charts")
+
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 2, "armbar": 1, "back-take": 0])
+        XCTAssertEqual(ui.quickLogHitsByID[log.id]?.map(\.count), [2, 1])
+        let history = TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID)
+        XCTAssertEqual(history.trends.first { $0.id == "heel hook" }?.thisWeekTotal, 2)
+        XCTAssertEqual(history.trends.first { $0.id == "armbar" }?.thisWeekTotal, 1)
+
+        ui.setQuickLogHits(log.id, counts: [:])
+        XCTAssertNil(ui.quickLogHitsByID[log.id])
+        ui.setQuickLogHits("missing", counts: ["heel-hook": 1])
+        XCTAssertNil(ui.quickLogHitsByID["missing"], "Hits only attach to an existing quick log")
+    }
+
+    @MainActor func testLaterHitsKeepSnapshotsForRemovedTechniques() async throws {
+        let ui = AppModel(live: false)
+        ui.upcoming = []; ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.quickLogs = []
+        let created = await ui.createQuickLog(Date(), inline: true)
+        let log = try XCTUnwrap(created)
+        ui.setQuickLogHits(log.id, counts: ["armbar": 3])
+        ui.removeQuickLogTechnique("armbar")
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 1])
+        XCTAssertEqual(Set(ui.quickLogHitsByID[log.id]?.map(\.name) ?? []), ["Heel hook", "Armbar"])
+    }
+
+    @MainActor func testRhythmCountsQuickLogsAndStartedPlans() {
+        let ui = AppModel(live: false)
+        let calendar = TrainingCalendar.calendar, now = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: now)!
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        func plan(_ id: String, _ start: Date, organizer: String = "me", status: RSVP = .going) -> Session {
+            Session(id: id, title: "Rolls", day: "Thu", date: 5, month: "Nov", time: "07:00", gym: "Gym", organizer: organizer,
+                    people: [Attendee(id: "me", status: status), Attendee(id: "kenji", status: .going)], startsAt: start)
+        }
+        ui.upcoming = [plan("hosted", yesterday), plan("invited", twoDaysAgo, organizer: "kenji", status: .invited), plan("later", tomorrow)]
+        ui.completedSessions = []; ui.toComplete = nil; ui.drafts = []; ui.posts = []
+        ui.quickLogs = [QuickLog(id: "log", loggedOn: TrainingCalendar.key(twoDaysAgo), loggedAt: twoDaysAgo, timezone: TimeZone.current.identifier)]
+        let planDays = ui.rhythmPlanDays(now: now)
+        XCTAssertTrue(ui.isTrainedDay(yesterday, planDays: planDays), "A started plan you host counts")
+        XCTAssertTrue(ui.isTrainedDay(twoDaysAgo, planDays: planDays), "A quick log counts")
+        XCTAssertFalse(planDays.contains(calendar.startOfDay(for: twoDaysAgo)), "An unanswered invitation is not a plan of yours")
+        XCTAssertFalse(ui.isTrainedDay(tomorrow, planDays: planDays), "A future plan has not been trained yet")
     }
 }

@@ -5,12 +5,14 @@ private struct QuickLogSheetHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
-/// Shared by Activity's day strip, planned-day chooser and older-week history.
-/// List edits save immediately. Counts remain a draft until Save log succeeds.
+/// Two modes. With `logID`, Activity's "Log techniques" counts hits on a quick log that
+/// already exists, saving each tap. Without it (Stats' first log), counts stay a draft
+/// until Save log creates the log. List edits always save immediately.
 struct QuickLogSheet: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let date: Date
+    var logID: String? = nil
     var onClose: () -> Void
 
     @State private var counts: [String: Int] = [:]
@@ -29,14 +31,19 @@ struct QuickLogSheet: View {
     }
 
     private var canSave: Bool { !mm.quickLogHits(counts: counts).isEmpty && !adding && !mm.busy }
+    private var title: String {
+        logID == nil ? "What did you hit today?" : "What landed on \(date.formatted(.dateTime.weekday(.wide)))?"
+    }
 
     var body: some View {
         ScrollView {
-            MMDialogBody(title: "What did you hit today?", onClose: onClose) {
+            MMDialogBody(title: title,
+                         description: logID == nil ? nil : "Subs, sweeps, passes. Optional, and it saves as you tap.",
+                         onClose: onClose) {
                 VStack(alignment: .leading, spacing: MMSpace.s6) {
                     HStack {
                         Spacer(minLength: 0)
-                        MMButton(editing ? "Done" : "Edit", variant: .ghost) {
+                        MMButton(editing ? (logID == nil ? "Done" : "Done editing") : "Edit", variant: .ghost) {
                             withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { editing.toggle() }
                         }
                         .accessibilityLabel(editing ? "Finish editing techniques" : "Edit techniques")
@@ -51,6 +58,7 @@ struct QuickLogSheet: View {
                             withAnimation(reduceMotion ? nil : MMMotion.easeOut()) {
                                 mm.restoreQuickLogTechnique(removed.technique, at: removed.index)
                                 counts[removed.technique.id] = removed.count
+                                if let logID { mm.setQuickLogHits(logID, counts: counts) }
                                 self.removed = nil
                             }
                         }
@@ -62,9 +70,24 @@ struct QuickLogSheet: View {
                     }
                 }
             } actions: {
-                MMButton(mm.savingTraining ? "Saving…" : "Save log", fullWidth: true) { save() }
-                    .disabled(!canSave)
-                    .accessibilityIdentifier("quick-log-save")
+                if logID != nil {
+                    HStack(spacing: MMSpace.s5) {
+                        if !mm.quickLogHits(counts: counts).isEmpty {
+                            HStack(spacing: MMSpace.s2) {
+                                MMIcon("circle-check", size: 14, color: MMColor.mint500)
+                                Text("Saved to Stats").mmFont(.body, 12).foregroundStyle(MMColor.textTertiary)
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                        Spacer(minLength: 0)
+                        MMButton("Done", variant: .inverse, action: onClose)
+                            .accessibilityIdentifier("quick-log-done")
+                    }
+                } else {
+                    MMButton(mm.savingTraining ? "Saving…" : "Save log", fullWidth: true) { save() }
+                        .disabled(!canSave)
+                        .accessibilityIdentifier("quick-log-save")
+                }
             }
             .padding(.horizontal, MMLayout.gutter)
             .padding(.top, MMSpace.s8)
@@ -90,6 +113,14 @@ struct QuickLogSheet: View {
         .presentationCornerRadius(MMRadius.xl)
         .interactiveDismissDisabled(mm.savingTraining)
         .onChange(of: mm.quickLogAccount) { _, _ in onClose() }
+        // Undo or removal deletes the log being edited, so there is nothing left to count on.
+        .onChange(of: mm.quickLogs.map(\.id)) { _, ids in
+            if let logID, !ids.contains(logID) { onClose() }
+        }
+        .onAppear {
+            guard let logID else { return }
+            counts = Dictionary((mm.quickLogHitsByID[logID] ?? []).map { ($0.id, $0.count) }, uniquingKeysWith: +)
+        }
     }
 
     private var techniqueList: some View {
@@ -178,8 +209,9 @@ struct QuickLogSheet: View {
         .buttonStyle(MMPressStyle())
     }
 
+    // Secondary, so the sheet's own action (Done or Save log) stays the clear main button.
     private var confirmAdd: some View {
-        MMButton("Add technique", variant: .inverse, action: add)
+        MMButton("Add technique", variant: .secondary, action: add)
             .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
@@ -187,6 +219,7 @@ struct QuickLogSheet: View {
         withAnimation(reduceMotion ? nil : MMMotion.easeOut(MMMotion.fast)) {
             counts[id] = max(0, counts[id, default: 0] + delta)
         }
+        if let logID { mm.setQuickLogHits(logID, counts: counts) }
     }
 
     private func add() {

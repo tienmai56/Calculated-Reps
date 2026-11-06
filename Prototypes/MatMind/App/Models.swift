@@ -605,7 +605,8 @@ enum TrainingCalendar {
     }
 }
 
-enum TrainingTap: Equatable { case disabled, choose, entries, quickLog }
+/// Planned days log like any other day; their calendar badge is a reminder, not a second entry type.
+enum TrainingTap: Equatable { case disabled, entries, quickLog }
 
 /// Read-only session metadata for the private Profile calendar. This is not a new log type.
 struct RhythmSession: Codable, Equatable, Identifiable {

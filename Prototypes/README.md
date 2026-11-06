@@ -30,18 +30,22 @@ The sample-data bar has seven states and **Reset**:
 - **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
   upcoming session appears below on warm paper-2, with ink text, a white calendar
   tile and a secondary **View session** button.
-  A quick log leaves that session open. Use **Start plan** to simulate its start,
-  then tap its date and choose the planned session to mark it done. Returning to
-  Activity shows the next open session in the prompter. It stays on the selected
+  Tap any past or current day to log it at once: **Training logged · Undo**
+  replaces the card's subtitle, and **Not now** / **Log techniques** appear under
+  the days. Log techniques opens **What landed on {day}?**; counts save as you tap
+  and the row then summarizes them. A quick log leaves that session open. Use
+  **Start plan** to simulate its start, then complete it from View session.
+  Returning to Activity shows the next open session in the prompter. It stays on the selected
   session after its start time and across tab switches until completion. Reset
   restores the original upcoming session.
 - **No quick logs:** opens Stats with no quick-log records and the Peek-a-boo invitation. Log hits opens today’s counter sheet; saving the first hits replaces the invitation with charts.
 - **Technique stats:** opens Stats with Heel hook, Armbar and Back take daily reps for this week and last week. Explicit sample data only; it never writes to an account or backend.
-- **Host plan:** tap anywhere on today’s planned day to open the chooser, even
-  after adding quick logs; completion opens session details with Complete & share.
+- **Host plan:** today has a started plan. Tapping the day logs a quick log like any
+  other day (no chooser); the calendar badge stays and the plan stays open. Complete
+  it from Training or session details with Complete & share.
 - **Guest plan:** confirm only your own attendance; the host keeps sharing control.
-- **Starts later:** the planned option is disabled, while a separate quick log works.
-- **Quick logs:** two logs today include technique hits (Heel hook 3, Armbar 1, Back take 2), so Stats shows charts instead of the monkey. today starts with ×2; tap the date to add and its count to remove.
+- **Starts later:** today's plan hasn't started; tapping the day still quick-logs.
+- **Quick logs:** two logs today include technique hits (Heel hook 3, Armbar 1, Back take 2), so Stats shows charts instead of the monkey. today starts with ×2; tap the date to add and its count to remove, on planned days too.
 
 Dates follow the device’s current day. A future open mat, completed unshared
 training, a completed-and-shared session with its sample post, and 17 weeks of
@@ -59,6 +63,17 @@ completed sessions alongside the unlogged plan. The compact button is right-alig
 beside the avatars when it fits; ticket
 cards show avatars without a going-count label. Training has no standalone share
 prompter.
+
+## Tap-to-log directions (exploration)
+
+A browser comparison of three directions where tapping a day on Activity's week card logs training immediately, with no "What did you hit today?" sheet. Counting techniques becomes an optional follow-up below the days, always with **Not now**. Run `python3 Prototypes/QuickLogPreview/serve.py` from the repository root and open loopback port 4177. Both phones open just after tapping Friday; **Replay the tap** shows it again.
+
+- **A · Moves row:** the week card grows a second row of technique circles that match the day circles. Tap a circle to count a hit; it fills coral, and a small − takes one back.
+- **B · Tap pad:** a separate full-width white card lands below the calendar with a 2-column grid of technique tiles. Tap a tile to count; counted tiles turn coral-tinted with a − button.
+- **C · Quiet line:** the subtle option. Below the days, only two options fade in: **Not now** and **Log techniques** (which pulses twice). Nothing is listed or expanded until Log techniques opens a short counter sheet; afterwards the line summarizes the hits with Edit.
+- **C · planned day** (below the three phones): tapping a day with a planned session adds a quick log right away, like any other day. There's no chooser and no separate session tracking; the calendar badge stays on the day.
+
+In all three, "Training logged · Undo" replaces the week card's subtitle for five seconds, next to the tap, instead of a toast at the bottom of the screen. Planned days log the same way as any other day: no chooser, only quick logs, and the calendar badge stays. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. Sample data only; nothing is saved. (Round 1's speech bubble and tucked-under tray are in git history.)
 
 ## Empty states
 

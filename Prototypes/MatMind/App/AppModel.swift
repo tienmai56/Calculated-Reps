@@ -582,8 +582,8 @@ final class AppModel {
 
     // MARK: Feedback
 
-    func showToast(_ message: String, _ variant: MMToastVariant = .neutral) {
-        let data = MMToastData(message: message, variant: variant)
+    func showToast(_ message: String, _ variant: MMToastVariant = .neutral, inline: Bool = false) {
+        let data = MMToastData(message: message, variant: variant, inline: inline)
         toast = data
         later(2.6) { [weak self] in
             if self?.toast?.id == data.id { self?.toast = nil }
@@ -1497,13 +1497,27 @@ extension AppModel {
         }.sorted { startDate(of: $0) < startDate(of: $1) }
     }
     func entryCount(_ date: Date) -> Int { dayLogs(date).count + daySessions(date).count }
-    func trainedDays(_ week: [Date]) -> Int { week.filter { entryCount($0) > 0 }.count }
+    /// Start-of-day dates of planned sessions you host or joined whose start has passed.
+    /// The rhythm counts them as trained, like the static heatmap; live data comes from its 17-week query.
+    func rhythmPlanDays(now: Date = Date()) -> Set<Date> {
+        let calendar = TrainingCalendar.calendar
+        let dates = isLive
+            ? (rhythmSessionDates ?? [])
+            : trainingSessions(past: true, relativeTo: now)
+                .filter { $0.organizer == "me" || $0.status(of: "me") == .going }
+                .map { startDate(of: $0) }
+        return Set(dates.filter { $0 <= now }.map { calendar.startOfDay(for: $0) })
+    }
+    /// A quick log, a confirmed session or a started planned session each make a trained day.
+    func isTrainedDay(_ date: Date, planDays: Set<Date>) -> Bool {
+        entryCount(date) > 0 || planDays.contains(TrainingCalendar.calendar.startOfDay(for: date))
+    }
+    func trainedDays(_ week: [Date], planDays: Set<Date>) -> Int { week.filter { isTrainedDay($0, planDays: planDays) }.count }
+    func trainedDays(_ week: [Date], now: Date = Date()) -> Int { trainedDays(week, planDays: rhythmPlanDays(now: now)) }
+    /// Every past or current day logs straight away, planned or not. Older weeks open their entries once filled.
     func trainingTap(_ date: Date, now: Date = Date(), isActivity: Bool = false) -> TrainingTap {
-        let planned = !openPlans(date).isEmpty
         let future = TrainingCalendar.calendar.startOfDay(for: date) > TrainingCalendar.calendar.startOfDay(for: now)
-        // Activity can show a future plan's chooser without allowing an early log.
-        if future && !(isActivity && planned) { return .disabled }
-        if planned { return .choose }
+        if future { return .disabled }
         return isActivity || entryCount(date) == 0 ? .quickLog : .entries
     }
     func canMarkTrainingDone(_ session: Session, now: Date = Date()) -> Bool {
@@ -1513,26 +1527,12 @@ extension AppModel {
             && !current.people.contains { $0.id == "me" && $0.attended }
     }
 
-    /// Selecting an existing plan is navigation only. Attendance is confirmed by
-    /// the organizer in the existing composer, never by the Quick Log chooser.
-    func canOpenQuickLogPlan(_ session: Session, now: Date = Date()) -> Bool {
-        guard let current = findSession(session.id), let start = current.startsAt else { return false }
-        return start <= now && current.status(of: "me") == .going
-            && trainingCompletionStatus(current) == nil
-    }
-
-    @discardableResult func openQuickLogPlan(_ session: Session, now: Date = Date()) -> Bool {
-        guard quickTrainingLogEnabled, !busy, canOpenQuickLogPlan(session, now: now),
-              let current = findSession(session.id) else { return false }
-        go(current.organizer == "me" ? .complete(id: current.id) : .session(id: current.id))
-        return true
-    }
     func canUndoTrainingToast(_ id: UUID) -> Bool {
         quickTrainingLogEnabled && trainingUndoToastID == id && trainingUndo != nil
             && !savingTraining && !(trainingUndoSessionID.map { sharedSessionIDs.contains($0) } ?? false)
     }
-    func trainingToast(_ text: String, sessionID: String? = nil, undo: @escaping () async -> Bool) {
-        let data = MMToastData(message: text, variant: .success)
+    func trainingToast(_ text: String, sessionID: String? = nil, inline: Bool = false, undo: @escaping () async -> Bool) {
+        let data = MMToastData(message: text, variant: .success, inline: inline)
         toast = data; trainingUndo = undo; trainingUndoToastID = data.id; trainingUndoSessionID = sessionID
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(5))
@@ -1622,24 +1622,38 @@ extension AppModel {
     }
 
     @discardableResult func addQuickLog(_ date: Date, counts: [String: Int]? = nil) async -> Bool {
-        guard quickTrainingLogEnabled, !busy, !isLive || runtime != nil, trainingTap(date) != .disabled else { return false }
+        await createQuickLog(date, counts: counts) != nil
+    }
+    /// One tap logs the day. `inline` keeps "Training logged · Undo" on Activity's week card.
+    @discardableResult func createQuickLog(_ date: Date, counts: [String: Int]? = nil, inline: Bool = false) async -> QuickLog? {
+        guard quickTrainingLogEnabled, !busy, !isLive || runtime != nil, trainingTap(date) != .disabled else { return nil }
         let hits = counts.map { quickLogHits(counts: $0) } ?? []
-        guard counts == nil || !hits.isEmpty else { return false }
+        guard counts == nil || !hits.isEmpty else { return nil }
         let generation = trainingGeneration
         savingTraining = true
         defer { if generation == trainingGeneration { savingTraining = false } }
         let log = QuickLog(id: UUID().uuidString.lowercased(), loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
         if let runtime {
             let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
-            guard generation == trainingGeneration else { return false }
-            guard saved else { showToast("Couldn't save training. Try again.", .danger); return false }
+            guard generation == trainingGeneration else { return nil }
+            guard saved else { showToast("Couldn't save training. Try again.", .danger, inline: inline); return nil }
         } else { quickLogs.append(log) }
         if !hits.isEmpty {
             quickLogHitsByID[log.id] = hits
             persistQuickLogTechniques()
         }
-        trainingToast("Training logged") { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
-        return true
+        trainingToast("Training logged", inline: inline) { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
+        return log
+    }
+    /// Techniques counted after a one-tap log. Like other rep details they stay private on this device.
+    /// Hits for techniques no longer in the list keep their saved snapshot.
+    func setQuickLogHits(_ logID: String, counts: [String: Int]) {
+        guard quickTrainingLogEnabled, quickLogs.contains(where: { $0.id == logID }) else { return }
+        let listed = Set(quickLogTechniques.map(\.id))
+        let kept = (quickLogHitsByID[logID] ?? []).filter { !listed.contains($0.id) }
+        let hits = quickLogHits(counts: counts) + kept
+        quickLogHitsByID[logID] = hits.isEmpty ? nil : hits
+        persistQuickLogTechniques()
     }
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
         guard quickTrainingLogEnabled else { return false }
@@ -1668,10 +1682,10 @@ extension AppModel {
         return true
     }
     func canRemoveQuickLog(on date: Date) -> Bool {
-        trainingTap(date) != .disabled && openPlans(date).isEmpty && daySessions(date).isEmpty && !dayLogs(date).isEmpty
+        trainingTap(date) != .disabled && !dayLogs(date).isEmpty
     }
-    /// The strip removes one private log, never confirmed session attendance.
-    @discardableResult func removeLatestQuickLog(on date: Date) async -> Bool {
+    /// The strip removes one private log, never a planned session or confirmed attendance.
+    @discardableResult func removeLatestQuickLog(on date: Date, inline: Bool = false) async -> Bool {
         guard !busy, !isLive || runtime != nil, canRemoveQuickLog(on: date),
               let log = dayLogs(date).max(by: {
                   $0.loggedAt == $1.loggedAt ? $0.id < $1.id : $0.loggedAt < $1.loggedAt
@@ -1681,9 +1695,9 @@ extension AppModel {
         defer { if generation == trainingGeneration { savingTraining = false } }
         let saved = await deleteQuickLog(log.id)
         guard generation == trainingGeneration else { return false }
-        guard saved else { showToast("Couldn't remove the quick log. Try again.", .danger); return false }
+        guard saved else { showToast("Couldn't remove the quick log. Try again.", .danger, inline: inline); return false }
         trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
-        showToast("Quick log removed")
+        showToast("Quick log removed", inline: inline)
         return true
     }
     @discardableResult func markTrainingDone(_ session: Session) async -> Bool {
