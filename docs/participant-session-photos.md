@@ -23,7 +23,7 @@ current native `SessionTicket`, metadata card, `MMPhotoTile`, `MMButton`,
 
 ## Data and access
 
-Migration `20261106081940_participant_session_photos.sql` adds `session_photo`
+Migration `20261106215306_participant_session_photos.sql` adds `session_photo`
 to `media_assets`, with a partial unique index on session + owner. Existing ready
 photos are retained; the newest per person becomes their current session slot.
 Older media referenced by Activity posts remain available to that post's audience.
@@ -46,12 +46,26 @@ directly in SQL or make the bucket public.
 
 ## Rollout
 
-The PR includes a migration and does not deploy to the hosted project.
-Deploy the migration before enabling the new client. The snapshot advertises
-`participant_photos_available`; new clients hide participant writes when it is
-missing, so app and database releases may be ordered safely. Older caches still
-decode and retain the organizer-only fallback. Older clients can continue using
-the existing host save/publish commands.
+The migration was deployed to the live Mat Mind backend on November 6, 2026
+(Pacific), with the user's authorization. Its filename matches the version
+assigned by the hosted migration service; the SQL is unchanged from the tested
+implementation. The signed-in snapshot now advertises
+`participant_photos_available: true`. Rebuild/run the feature branch, then refresh
+or reopen the signed-in app to fetch that flag. A past session still requires
+an accepted RSVP and confirmed attendance for the participant photo action.
+Older caches decode and retain the organizer-only fallback until refreshed.
+Older clients can continue using the existing host save/publish commands.
+
+Hosted verification confirmed all 14 existing photos received valid slots,
+with no duplicates. Media, posts, sessions, participant and credit counts were
+unchanged. The prior command definition was preserved exactly apart from the
+three new operations, and the prior snapshot was preserved behind the wrapper.
+The bucket remains private; the unique index, ready constraint, cleanup triggers,
+authenticated dispatcher and private-helper grants were verified. A transaction
+using the authenticated role confirmed that the new client capability is true;
+it was rolled back without writing test data. Security advisories match the
+pre-deployment baseline, and no new performance findings were introduced.
+An actual device upload remains a device acceptance check.
 
 ## Regression checks
 
