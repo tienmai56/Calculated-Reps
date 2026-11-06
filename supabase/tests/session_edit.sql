@@ -57,3 +57,50 @@ select pg_temp.assert_true(pg_temp.fails($q$select public.command('edit_session_
 set local role anon;
 select pg_temp.assert_true(pg_temp.fails($q$select public.command('edit_session_details',current_setting('test.session_edit')::jsonb,gen_random_uuid())$q$),'anonymous clients cannot call editor command');
 rollback;
+
+-- Focus edits work before and after completion without reopening training.
+begin;
+create function pg_temp.assert_true(value boolean,message text) returns void language plpgsql as $$ begin if value is distinct from true then raise exception 'Assertion failed: %',message; end if; end $$;
+create function pg_temp.fails(statement text) returns boolean language plpgsql as $$ begin execute statement; return false; exception when others then return true; end $$;
+insert into auth.users(id) values ('00000000-0000-0000-0000-000000000071'),('00000000-0000-0000-0000-000000000072');
+insert into public.profiles(id,name) select id,'Focus editor' from auth.users where right(id::text,2) in ('71','72');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000071',true);
+select public.command('create_session',jsonb_build_object('title','Training','venue','Gym','timezone','UTC',
+ 'starts_at',now()-interval '1 hour','invited','[]'::jsonb),gen_random_uuid())->>'id' as sid \gset
+select set_config('test.focus_edit',jsonb_build_object('session_id',:'sid','version',1,'note','Focus before completion')::text,true);
+select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb,gen_random_uuid());
+select pg_temp.assert_true((select status='planned' and note='Focus before completion' and version=2 from public.sessions where id=:'sid'),'focus saves before completion');
+select public.command('complete_and_publish',jsonb_build_object('session_id',:'sid','attendees',
+ jsonb_build_array('00000000-0000-0000-0000-000000000071'),'caption','Good rounds'),gen_random_uuid());
+
+-- Snapshot every unrelated field and side effect to catch accidental changes.
+select set_config('test.focus_before',jsonb_build_object(
+ 'session',(select to_jsonb(s)-'note'-'version' from public.sessions s where id=:'sid'),
+ 'people',(select jsonb_agg(p) from public.session_participants p where session_id=:'sid'),
+ 'posts',(select jsonb_agg(p) from public.posts p where session_id=:'sid'),
+ 'credits',(select jsonb_agg(c) from public.friendship_session_credits c where session_id=:'sid'))::text,true);
+select set_config('test.focus_edit',jsonb_build_object('session_id',:'sid','version',(select version from public.sessions where id=:'sid'),
+ 'note','Focus after completion','title','Ignore this','starts_at',now()+interval '1 day','added_guests','[]'::jsonb)::text,true);
+select gen_random_uuid() as focus_key \gset
+select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb,:'focus_key');
+select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb,:'focus_key');
+select pg_temp.assert_true((select status='completed' and note='Focus after completion' and
+ version=(current_setting('test.focus_edit')::jsonb->>'version')::int+1 from public.sessions where id=:'sid'),'completed focus saves once on retry');
+select pg_temp.assert_true(current_setting('test.focus_before')::jsonb=jsonb_build_object(
+ 'session',(select to_jsonb(s)-'note'-'version' from public.sessions s where id=:'sid'),
+ 'people',(select jsonb_agg(p) from public.session_participants p where session_id=:'sid'),
+ 'posts',(select jsonb_agg(p) from public.posts p where session_id=:'sid'),
+ 'credits',(select jsonb_agg(c) from public.friendship_session_credits c where session_id=:'sid')),'focus edits preserve metadata, attendance, memories and credits');
+select pg_temp.assert_true(pg_temp.fails($q$select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb,gen_random_uuid())$q$),'stale focus save is rejected');
+select set_config('test.focus_edit',(current_setting('test.focus_edit')::jsonb||jsonb_build_object('version',
+ (select version from public.sessions where id=:'sid')))::text,true);
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000072',true);
+select pg_temp.assert_true(pg_temp.fails($q$select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb,gen_random_uuid())$q$),'another user cannot edit focus');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000071',true);
+select pg_temp.assert_true(pg_temp.fails($q$select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb-'note',gen_random_uuid())$q$),'missing note cannot erase focus');
+select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb||'{"note":""}',gen_random_uuid());
+select pg_temp.assert_true((select note='' and status='completed' from public.sessions where id=:'sid'),'focus can be cleared after completion');
+set local role anon;
+select pg_temp.assert_true(pg_temp.fails($q$select public.command('edit_session_focus',current_setting('test.focus_edit')::jsonb,gen_random_uuid())$q$),'anonymous users cannot edit focus');
+rollback;

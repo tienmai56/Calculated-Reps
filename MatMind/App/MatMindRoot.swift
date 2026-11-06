@@ -820,8 +820,7 @@ final class LiveMatMindRuntime: AppRuntime {
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
         guard let row = model.session(sessionID), TrainingFocusTree.isValid(items) else { return false }
         let old = SessionNoteCodec.decode(row.text("note"))
-        let result = await model.perform("edit_session", ["session_id": sessionID, "version": row.number("version"), "title": row.text("title"),
-                                                       "starts_at": row.text("starts_at"), "timezone": row.text("timezone"), "venue": row.text("venue"),
+        let result = await model.perform("edit_session_focus", ["session_id": sessionID, "version": row.number("version"),
                                                        "note": SessionNoteCodec.encode(note: old.note, focus: items)])
         sync(); return result != nil
     }
