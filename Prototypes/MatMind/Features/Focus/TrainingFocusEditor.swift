@@ -9,15 +9,14 @@ struct TrainingFocusChecklist: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MMSpace.s5) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                if index > 0 { Divider() }
+            ForEach(items) { item in
                 HStack(alignment: .top, spacing: MMSpace.s4) {
                     VStack(alignment: .leading, spacing: MMSpace.s3) {
                         MMCheckbox(isOn: Binding(
                             get: { item.isCompleted },
                             set: { onToggle?(item.id, $0) }
                         ), label: item.title)
-                        .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                         .disabled(onToggle == nil)
                         .accessibilityValue(item.isCompleted ? "Completed" : "Not completed")
@@ -43,7 +42,7 @@ struct TrainingFocusChecklist: View {
                 }
             }
         }
-        .padding(MMSpace.s6)
+        .padding(MMSpace.s5)
         .mmCardSurface()
     }
 }
@@ -81,16 +80,26 @@ struct TrainingFocusComposer: View {
                 }
                 .accessibilityLabel("Your goals")
             }
-            VStack(alignment: .leading, spacing: MMSpace.s5) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, root in
-                    if index > 0 { Divider() }
-                    checklistRow(root)
+            VStack(alignment: .leading, spacing: MMSpace.s2) {
+                VStack(alignment: .leading, spacing: MMSpace.s5) {
+                    ForEach(items) { root in
+                        checklistRow(root)
+                    }
                 }
-                Divider()
-                MMButton("Add a focus", variant: .ghost, iconLeft: "plus", fullWidth: true) { addFocus() }
+                .padding(MMSpace.s5)
+                .mmCardSurface()
+
+                Button { addFocus() } label: {
+                    HStack(spacing: MMSpace.s3) {
+                        MMIcon("plus", size: 14, weight: .bold)
+                        Text("Add focus").mmFont(.body, 14, .semibold, lineHeight: 1.2)
+                    }
+                    .foregroundStyle(MMColor.textLink)
+                    .frame(minHeight: MMLayout.tapTarget, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .padding(MMSpace.s6)
-            .mmCardSurface()
             if !TrainingFocusTree.isValid(TrainingFocusTree.optionalOutline(items)) {
                 Text("Name each focus, or remove the blank one.")
                     .mmText(.bodyS)
@@ -122,7 +131,7 @@ struct TrainingFocusComposer: View {
                     TrainingFocusTree.update(root.id, in: &items) { $0.isCompleted = completed }
                 }
             ))
-            .padding(.top, editing ? (MMLayout.tapTarget - MMSpace.s8) / 2 : MMSpace.s1)
+            .padding(.top, MMSpace.s1)
             .disabled(!allowsCompletion || root.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel(root.title.isEmpty ? "Training focus" : root.title)
             .accessibilityValue(root.isCompleted ? "Completed" : "Not completed")
@@ -189,7 +198,7 @@ struct TrainingFocusComposer: View {
             TextField("Focus title", text: titleBinding(root.id), axis: .vertical)
                 .font(MMFont.body(16, .bold))
                 .lineLimit(1...3)
-                .frame(minHeight: MMLayout.tapTarget)
+                .frame(minHeight: MMSpace.s8)
                 .focused($focusedField, equals: .title(root.id))
                 .accessibilityLabel("Focus title")
                 .accessibilityIdentifier("focus-title-\(root.id)")
@@ -198,7 +207,7 @@ struct TrainingFocusComposer: View {
                     .font(MMFont.body(13))
                     .foregroundStyle(MMColor.textSecondary)
                     .lineLimit(1...4)
-                    .frame(minHeight: MMLayout.tapTarget, alignment: .topLeading)
+                    .frame(minHeight: MMSpace.s8, alignment: .topLeading)
                     .focused($focusedField, equals: .description(root.id))
                     .accessibilityLabel("Focus description")
                 if let first = root.children.first, root.children.count > 1 || !first.children.isEmpty {
