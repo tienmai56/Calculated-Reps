@@ -67,9 +67,9 @@ A browser comparison of three directions where tapping a day on Activity's week 
 - **A · Moves row:** the week card grows a second row of technique circles that match the day circles. Tap a circle to count a hit; it fills coral, and a small − takes one back.
 - **B · Tap pad:** a separate full-width white card lands below the calendar with a 2-column grid of technique tiles. Tap a tile to count; counted tiles turn coral-tinted with a − button.
 - **C · Quiet line:** the subtle option. Below the days, only two options fade in: **Not now** and **Log techniques** (which pulses twice). Nothing is listed or expanded until Log techniques opens a short counter sheet; afterwards the line summarizes the hits with Edit.
-- **C · planned day** (below the three phones): Friday has a started plan, and Just log it was chosen in the chooser. Friday shows ×1 with its calendar badge, the plan stays in a Today card with Complete & share, and tapping Friday again brings back the chooser with "Already logged today". Completing the plan takes Friday to ×2; the ×N badge only removes quick logs.
+- **C · planned day** (below the three phones): tapping a day with a planned session adds a quick log right away, like any other day. There's no chooser and no separate session tracking; the calendar badge stays on the day.
 
-In all three, "Training logged · Undo" replaces the week card's subtitle for five seconds, next to the tap, instead of a toast at the bottom of the screen. All keep the planned-day chooser; its quick log option now logs right away and then shows the same optional follow-up. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. Sample data only; nothing is saved. (Round 1's speech bubble and tucked-under tray are in git history.)
+In all three, "Training logged · Undo" replaces the week card's subtitle for five seconds, next to the tap, instead of a toast at the bottom of the screen. Planned days log the same way as any other day: no chooser, only quick logs, and the calendar badge stays. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. Sample data only; nothing is saved. (Round 1's speech bubble and tucked-under tray are in git history.)
 
 ## Empty states
 

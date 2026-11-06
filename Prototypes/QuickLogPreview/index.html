@@ -152,7 +152,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .newmove{display:flex;gap:8px;margin-top:10px}
 .newmove input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--ink-line);background:var(--ink-800);color:var(--on-ink);padding:0 12px;font:400 15px var(--font-body)}
 .newmove input::placeholder{color:var(--ink-400)}
-.newmove button{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:var(--paper);color:var(--ink-900);font:700 14px/1 var(--font-display)}
+.newmove button{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:rgba(250,246,239,.14);color:var(--on-ink);font:700 14px/1 var(--font-display)}
+.newmove button:disabled{color:var(--ink-400)}
 .saved{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--on-ink-mute)}
 .saved .icon{width:14px;height:14px;color:var(--mint-500)}
 .moves .saved{margin-top:8px}
@@ -183,7 +184,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .tile.add .icon{width:17px;height:17px}
 .addrow{display:flex;gap:8px;margin-top:8px}
 .addrow input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--border-default);background:var(--surface-input);padding:0 12px;font:400 15px var(--font-body)}
-.addrow button{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 14px/1 var(--font-display)}
+.addrow button{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--surface-sunken);color:var(--text-primary);font:700 14px/1 var(--font-display)}
+.addrow button:disabled{color:var(--text-disabled)}
 .pad .saved{margin-top:10px;color:var(--text-tertiary)}
 
 /* ---------- Direction C: one quiet line at the bottom of the week card ---------- */
@@ -222,22 +224,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .sheet-sub{margin:-8px 0 8px;font-size:13px;line-height:1.4;color:var(--text-tertiary)}
 .add-move{display:inline-flex;align-items:center;gap:6px;min-height:44px;font:700 15px/1 var(--font-display);color:var(--text-primary)}
 .add-move .icon{width:17px;height:17px}
-.sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+.sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border-subtle)}
 .sheet-foot .saved{color:var(--text-tertiary)}
 .done-pill{min-height:48px;padding:0 26px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 16px/1 var(--font-display)}
 
 /* ---------- planned session prompter + feature row ---------- */
-.today-plan{margin:22px 16px 0;padding:16px;border-radius:24px;background:var(--surface-sunken);display:grid;gap:14px}
-.tp-top{display:flex;gap:14px;align-items:center}
-.tp-top .tile{width:56px;height:60px;border-radius:18px;background:var(--surface-card);display:grid;place-items:center;flex-shrink:0;color:var(--sky-700)}
-.tp-top .tile .icon{width:24px;height:24px}
-.tp-top div{min-width:0}
-.tp-top small{display:block;font:700 11px/1.2 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary)}
-.tp-top b{display:block;margin-top:3px;font:800 18px/1.2 var(--font-display);letter-spacing:-.015em}
-.tp-top span:not(.tile){display:block;margin-top:2px;font-size:13px;color:var(--text-secondary)}
-.secondary-pill{min-height:46px;border-radius:var(--radius-pill);background:var(--surface-card);color:var(--text-primary);box-shadow:inset 0 0 0 1.5px var(--border-default),0 3px 0 var(--ink-200);font:700 15px/1 var(--font-display);letter-spacing:-.01em}
-.secondary-pill:active{translate:0 2px;box-shadow:inset 0 0 0 1.5px var(--border-default),0 1px 0 var(--ink-200)}
-.already{margin:4px 2px 0;font-size:13px;color:var(--text-tertiary)}
 .feature{max-width:880px;margin:56px auto 0;display:grid;grid-template-columns:minmax(0,390px) minmax(0,1fr);gap:28px 36px;align-items:start}
 .feature-text{display:grid;gap:16px;min-width:0}
 @media(max-width:860px){.feature{grid-template-columns:minmax(0,1fr);max-width:var(--phone-w)}}
@@ -252,22 +243,6 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .sheet-h{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .sheet-h h3{flex:1;margin:0;font:800 22px/1.15 var(--font-display);letter-spacing:-.02em}
 .sheet-h .hbtn{width:40px;height:40px}
-.opt{display:flex;align-items:center;gap:12px;width:100%;padding:14px;border-radius:var(--radius-lg);text-align:left;margin-bottom:10px}
-.opt.plan{background:var(--surface-card);box-shadow:inset 0 0 0 1px var(--border-default),0 2px 0 rgba(29,27,24,.06)}
-.opt.quick{background:var(--surface-sunken)}
-.opt:disabled{opacity:.5}
-.opt .stub{width:48px;height:52px;border-radius:var(--radius-md);display:grid;place-items:center;align-content:center;gap:2px;flex-shrink:0}
-.opt .stub.sky{background:var(--sky-100);color:var(--sky-700)}
-.opt .stub.sky small{font:800 10px/1 var(--font-display);letter-spacing:.04em}
-.opt .stub.sky b{font:800 22px/1 var(--font-display);letter-spacing:-.03em}
-.opt .stub.coral{background:var(--coral-500);color:var(--white)}
-.opt .stub .icon{width:24px;height:24px}
-.opt .t{flex:1;min-width:0}
-.opt .t b{display:block;font:800 17px/1.2 var(--font-display);letter-spacing:-.015em}
-.opt .t span{display:block;margin-top:3px;font:500 13px/1.3 var(--font-body);color:var(--ink-700)}
-.opt .t em{display:block;margin-top:3px;font:500 12px/1.3 var(--font-body);font-style:normal;color:var(--text-tertiary)}
-.opt>.icon{width:16px;height:16px;color:var(--ink-500)}
-.changed{display:inline-block;margin-top:6px;padding:3px 8px;border-radius:var(--radius-pill);background:var(--accent-tint);color:var(--coral-700);font:700 11px/1.2 var(--font-body)}
 
 @keyframes pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
 @keyframes drop{from{opacity:0;transform:translateY(-6px)}}
@@ -370,21 +345,20 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   <div class="feature-text">
     <div class="dir-head">
       <span class="tag">Direction C · planned day</span>
-      <h2 id="d-title">Planned session and a quick log</h2>
-      <p>Friday has a planned session, Morning open mat (you host, started at 7:00 AM). Tapping Friday opened the chooser and you picked Just log it. This phone opens right after that choice.</p>
+      <h2 id="d-title">Logging a planned day</h2>
+      <p>Friday has a planned session. Tapping it works exactly like any other day: one quick log, right away, with no chooser. This phone opens just after that tap.</p>
     </div>
     <div class="notes">
       <h3>What you see</h3>
       <ul>
-        <li>Friday fills coral with ×1 and keeps its calendar badge: the quick log counts the day, and the plan is still open.</li>
+        <li>Friday fills coral with ×1 and keeps its calendar badge, so you can still see it was a planned day.</li>
         <li>“Training logged · Undo” sits in the card's subtitle, and the same two options follow: Not now and Log techniques.</li>
-        <li>The plan stays in its own Today card under the calendar, with Complete &amp; share. A quick log never completes the plan.</li>
+        <li>Only quick logs are tracked. The plan isn't counted or completed separately, so there's no second entry and no session card to manage.</li>
       </ul>
       <h3>Try it</h3>
       <ul>
-        <li>Tap Friday again. The chooser comes back with the plan and Just log it, and notes “Already logged today: a quick log at 12:02”.</li>
-        <li>Tap Complete &amp; share (or the plan in the chooser). Here it marks the session done; in the app it opens the composer. Friday goes to ×2, the calendar badge goes away, and the Today card leaves.</li>
-        <li>Tap Friday after that: with no open plan it quick-logs right away. The ×N badge only removes quick logs, never the completed session.</li>
+        <li>Tap Friday again: it adds another quick log (×2), the same as any day. The ×N badge removes the latest one.</li>
+        <li>Saturday's session is still ahead, so that day can't be logged yet. It keeps its dashed outline and calendar badge.</li>
       </ul>
     </div>
   </div>
@@ -393,7 +367,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 <section class="foot" aria-labelledby="shared-title">
   <h2 id="shared-title">Same in all three</h2>
   <ul>
-    <li><b>Planned days keep the chooser.</b> Switch to “Planned session today” and tap Friday. The sheet still offers the planned session and a quick log. The quick log option now logs immediately and closes the sheet, then the same optional technique follow-up appears. Choosing the plan still goes to Complete & share.</li>
+    <li><b>Planned days log the same way.</b> Tapping a day with a planned session adds a quick log right away, like any other day. There's no chooser and no separate session to track. The calendar badge stays on the day so you can still see it was planned.</li>
     <li><b>Stats stay honest.</b> Every tap creates a quick log. Hits you count attach to that log, so the existing technique charts in Stats pick them up unchanged. A tap with no hits counts the day and adds nothing to the charts.</li>
     <li><b>Undo sits where you tapped.</b> “Training logged · Undo” replaces the week card's subtitle for five seconds, right above the days, then the subtitle comes back. It no longer appears at the bottom of the screen.</li>
     <li><b>Not now is always one tap away.</b> The follow-up never blocks the log. Not now (or Done after counting) clears it, and the day stays counted.</li>
@@ -424,9 +398,7 @@ function fresh(){
     logs: seedCounts.map(n => Array.from({length:n}, () => ({id:'s'+(seq++), hits:{}}))),
     active:null,          // {day, logId}
     adding:false, draft:'',
-    sheet:null,           // day index with the chooser open
     toast:null,
-    planDone:false,
     fx:{}                 // one-shot animation flags
   };
 }
@@ -436,12 +408,8 @@ const KIND = {a:'a', b:'b', c:'c', d:'c'};
 const DIRS = ['a','b','c','d'];
 
 const planOn = (dir, day) => (dir === 'd' || scenario === 'plan') ? (day === TODAY || day === 5) : day === 5;
-const isPlanned = (dir, s, day) => planOn(dir, day) && !(day === TODAY && s.planDone);
-const entries = (s, day) => s.logs[day].length + (day === TODAY && s.planDone ? 1 : 0);
+// Planned days log exactly like any other day; the calendar badge just stays as a reminder.
 const isFuture = day => day > TODAY;
-const planInfo = day => day === TODAY
-  ? {title:'Morning open mat', meta:'You host · 7:00 AM with Sarah', started:true}
-  : {title:'Saturday open mat', meta:'Maya hosts · 10:00 AM', started:false};
 
 function totalHits(s){
   const out = {};
@@ -457,7 +425,6 @@ function activeLog(s){
 /* ---------- actions ---------- */
 function tapDay(dir, day){
   const s = state[dir];
-  if (isPlanned(dir, s, day)) { s.sheet = day; render(dir); return; }
   if (isFuture(day)) return;
   quickLog(dir, day);
 }
@@ -484,13 +451,6 @@ function removeLatest(dir, day){
   if (!log) return;
   undoLog(dir, day, log.id);
   showToast(dir, 'Quick log removed');
-}
-// The prototype marks the plan done; the app opens Complete & share for the host.
-function completePlan(dir){
-  const s = state[dir];
-  s.sheet = null; s.planDone = true; s.fx.pop = TODAY;
-  showToast(dir, 'Morning open mat done');
-  render(dir);
 }
 function bump(dir, id, delta){
   const log = activeLog(state[dir]);
@@ -519,16 +479,15 @@ function showToast(dir, text, undo, near = true){
 
 /* ---------- rendering ---------- */
 function dayHTML(dir, s, d, i){
-  const count = entries(s, i), quick = s.logs[i].length;
-  const planned = isPlanned(dir, s, i);
+  const count = s.logs[i].length;
+  const planned = planOn(dir, i);
   const cls = ['day', count ? 'logged':'', i === TODAY ? 'today':'', isFuture(i) ? 'future':'', planned ? 'planned':'',
     s.active && s.active.day === i ? 'active':'', s.fx.pop === i ? 'pop':''].filter(Boolean).join(' ');
-  const disabled = isFuture(i) && !planned;
+  const disabled = isFuture(i);
   const label = `${d.name} November ${d.date}, ${count} training ${count === 1 ? 'entry':'entries'}${planned ? ', planned session':''}`;
-  const hint = planned ? 'Choose the planned session or a quick log' : disabled ? 'Future day' : 'Logs training now';
+  const hint = disabled ? 'Future day' : 'Logs training now';
   let extras = '';
-  if (count && quick) extras += `<button type="button" class="badge-hit" data-act="remove" data-day="${i}" aria-label="Remove one quick log from ${d.name}"><span class="badge">×${count}</span></button>`;
-  else if (count) extras += `<span class="badge-hit" aria-hidden="true"><span class="badge">×${count}</span></span>`;
+  if (count) extras += `<button type="button" class="badge-hit" data-act="remove" data-day="${i}" aria-label="Remove one quick log from ${d.name}"><span class="badge">×${count}</span></button>`;
   if (planned) extras += `<span class="cal ${count ? 'bottom':'top'}" aria-hidden="true">${icon('calendar')}</span>`;
   return `<div class="${cls}">
     <span class="wd" aria-hidden="true">${d.wd}</span>
@@ -538,7 +497,7 @@ function dayHTML(dir, s, d, i){
 }
 
 function weekHTML(dir, s){
-  const anyPlan = WEEK.some((_, i) => isPlanned(dir, s, i));
+  const anyPlan = WEEK.some((_, i) => planOn(dir, i));
   const copy = 'Tap a day you trained. It counts right away.';
   return `<div class="week">
     <div class="week-h"><strong>This week</strong>${s.toast && s.toast.near
@@ -572,7 +531,7 @@ function movesHTML(s){
       <button type="button" class="quiet" data-act="close" data-key="a-close">${any ? 'Done' : 'Not now'}</button>
     </div>
     <div class="move-row">${discs}${add}</div>
-    ${s.adding ? `<div class="newmove"><input id="a-new" data-key="a-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>` : ''}
+    ${s.adding ? `<div class="newmove"><input id="a-new" data-key="a-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave" ${s.draft.trim() ? '' : 'disabled'}>Add</button></div>` : ''}
     ${any ? `<div class="saved">${icon('circle-check')}Saved to Stats</div>` : ''}
   </div>`;
 }
@@ -600,7 +559,7 @@ function padHTML(s){
       <button type="button" class="quiet-l" data-act="close" data-key="b-close">${any ? 'Done' : 'Not now'}</button>
     </div>
     <div class="pad-grid">${tiles}${add}</div>
-    ${s.adding ? `<div class="addrow"><input id="b-new" data-key="b-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>` : ''}
+    ${s.adding ? `<div class="addrow"><input id="b-new" data-key="b-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave" ${s.draft.trim() ? '' : 'disabled'}>Add</button></div>` : ''}
     ${any ? `<div class="saved">${icon('circle-check')}Saved to Stats</div>` : ''}
   </div>`;
 }
@@ -638,7 +597,7 @@ function hitsSheetHTML(s){
     </div>`;
   }).join('');
   const add = s.adding
-    ? `<div class="addrow"><input id="c-new" data-key="c-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>`
+    ? `<div class="addrow"><input id="c-new" data-key="c-new" aria-label="New move" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave" ${s.draft.trim() ? '' : 'disabled'}>Add</button></div>`
     : `<button type="button" class="add-move" data-act="adding" data-key="c-adding">${icon('plus')}Add a move</button>`;
   return `<div class="scrim" data-act="hitsdone"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="c-sheet-title">
@@ -648,29 +607,6 @@ function hitsSheetHTML(s){
     <div class="rows">${rows}</div>
     ${add}
     <div class="sheet-foot"><span class="saved">${any ? `${icon('circle-check')}Saved to Stats` : ''}</span><button type="button" class="done-pill" data-act="hitsdone" data-key="c-done">Done</button></div>
-  </div>`;
-}
-
-function sheetHTML(s){
-  if (s.sheet === null) return '';
-  const day = s.sheet, d = WEEK[day], p = planInfo(day);
-  const future = isFuture(day);
-  const already = s.logs[day].length;
-  return `<div class="scrim" data-act="sheetclose"></div>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-    <div class="grab"></div>
-    <div class="sheet-h"><h3 id="sheet-title">What are you logging?</h3><button type="button" class="hbtn" data-act="sheetclose" aria-label="Close">${icon('x')}</button></div>
-    <button type="button" class="opt plan" data-act="plan" ${p.started ? '' : 'disabled'}>
-      <span class="stub sky"><small>${d.name.slice(0,3).toUpperCase()}</small><b>${d.date}</b></span>
-      <span class="t"><b>${p.title}</b><span>${p.meta}</span>${p.started ? '' : `<em>Starts ${p.meta.split('· ')[1].split(' ')[0]} ${p.meta.split(' ').at(-1)}</em>`}</span>
-      ${icon('chevron-right')}
-    </button>
-    <button type="button" class="opt quick" data-act="quick" ${future ? 'disabled':''}>
-      <span class="stub coral">${icon('check')}</span>
-      <span class="t"><b>Just log it</b><span>${future ? 'You can log this once the day comes.' : 'Counts the day now. Add techniques after, if you want.'}</span>${future ? '' : '<span class="changed">Changed: logs instantly</span>'}</span>
-      ${icon('chevron-right')}
-    </button>
-    ${already ? `<p class="already">Already logged today: ${already === 1 ? 'a quick log' : `${already} quick logs`} at 12:02</p>` : ''}
   </div>`;
 }
 
@@ -687,10 +623,6 @@ function phoneHTML(dir){
     </div>
     ${weekHTML(dir, s)}
     ${dir === 'b' ? padHTML(s) : ''}
-    ${isPlanned(dir, s, TODAY) ? `<div class="today-plan">
-      <div class="tp-top"><span class="tile">${icon('calendar')}</span><div><small>Today · started 7:00 AM</small><b>Morning open mat</b><span>You host · with Sarah</span></div></div>
-      <button type="button" class="secondary-pill" data-act="plan" data-key="${dir}-complete">Complete &amp; share</button>
-    </div>` : ''}
     <div class="coming">
       <span class="tile">${icon('calendar')}</span>
       <div><b>Coming up: Saturday open mat</b><span>Sat Nov 7 · 10:00 AM · Maya hosts</span></div>
@@ -704,7 +636,7 @@ function phoneHTML(dir){
   </nav>
   ${s.toast && !s.toast.near ? `<div class="toast" role="status">${icon('circle-check')}<span>${esc(s.toast.text)}</span>${s.toast.undo ? '<button type="button" data-act="toastundo">Undo</button>' : ''}</div>` : ''}
   ${KIND[dir] === 'c' ? hitsSheetHTML(s) : ''}
-  ${sheetHTML(s)}`;
+`;
 }
 
 function statsHTML(dir){
@@ -735,7 +667,6 @@ function render(dir){
   } else if (focusKey) {
     phone.querySelector(`[data-key="${focusKey}"]`)?.focus();
   }
-  if (s.sheet !== null) phone.querySelector('.sheet .opt:not(:disabled)')?.focus({preventScroll:true});
   s.fx = {};
 }
 
@@ -757,18 +688,19 @@ for (const dir of DIRS) {
       case 'adding': s.adding = true; s.draft = ''; render(dir); break;
       case 'addsave': addTechnique(dir); break;
       case 'toastundo': s.toast?.undo?.(); break;
-      case 'sheetclose': s.sheet = null; render(dir); break;
-      case 'quick': { const d = s.sheet; s.sheet = null; quickLog(dir, d); break; }
-      case 'plan': completePlan(dir); break;
     }
   });
-  phone.addEventListener('input', e => { if (e.target.matches('input')) state[dir].draft = e.target.value; });
+  phone.addEventListener('input', e => {
+    if (!e.target.matches('input')) return;
+    state[dir].draft = e.target.value;
+    const add = e.target.nextElementSibling;
+    if (add) add.disabled = !e.target.value.trim();
+  });
   phone.addEventListener('keydown', e => {
     if (e.target.matches('input') && e.key === 'Enter') { e.preventDefault(); addTechnique(dir); }
     if (e.key === 'Escape') {
       const s = state[dir];
-      if (s.sheet !== null) { s.sheet = null; render(dir); }
-      else if (s.adding) { s.adding = false; render(dir); }
+      if (s.adding) { s.adding = false; render(dir); }
       else if (s.hitsSheet) { s.hitsSheet = false; render(dir); }
     }
   });
@@ -787,7 +719,7 @@ function resetAll(){
 function replay(){
   resetAll();
   tapDay('a', TODAY); tapDay('b', TODAY); tapDay('c', TODAY);
-  // Phone d: Friday has a started plan, and you just chose Just log it in the chooser.
+  // Phone d: Friday has a planned session and was just tapped.
   quickLog('d', TODAY);
 }
 document.getElementById('sc-plain').addEventListener('click', () => setScenario('plain'));
