@@ -868,6 +868,8 @@ final class AppModel {
             upcoming[i].focusItems = normalized
         } else if let i = drafts.firstIndex(where: { $0.id == sessionID }) {
             drafts[i].focusItems = normalized
+        } else if let i = completedSessions.firstIndex(where: { $0.id == sessionID }) {
+            completedSessions[i].focusItems = normalized
         } else if toComplete?.id == sessionID {
             toComplete?.focusItems = normalized
         } else {

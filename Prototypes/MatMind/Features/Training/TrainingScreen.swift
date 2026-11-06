@@ -465,11 +465,11 @@ struct SessionDetailScreen: View {
                 }
                 sessionPhotos(s)
                     .padding(.top, MMLayout.sectionGap)
-                if !s.focusItems.isEmpty || (isOrganizer && !completed) {
+                if !s.focusItems.isEmpty || isOrganizer {
                     HStack {
                         Text("What we're working on").mmFont(.display, 18)
                         Spacer()
-                        if isOrganizer && !completed {
+                        if isOrganizer {
                             MMIconButton("pencil", label: "Edit session focus") {
                                 focusDraft = s.focusItems
                                 showFocusEditor = true

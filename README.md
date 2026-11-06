@@ -4,6 +4,8 @@ Native SwiftUI app for planning training with partners, sharing completed sessio
 
 Navigation and cached content stay interactive during network requests. Pending saves disable their guarded controls rather than the entire app, and the loading indicator lets taps pass through. Refreshing after returning to the app runs in the background. This client fix requires a new iOS build to take effect on installed devices.
 
+Organizers can edit **What we're working on** from training details before or after completion, and add a focus to completed sessions that have none. The `20261106035447_edit_session_focus.sql` migration is deployed; the updated iOS client still needs to ship. Focus saves preserve session metadata, attendance, photos and publishing state.
+
 Taking or uploading a post-training photo saves it to the training session immediately, even before publishing to Activity. Training detail shows a Photos section for the host and accepted guests, and the share screen labels its text box **Caption**. The backend migration `20261105075631_save_session_photos.sql` is deployed; the updated iOS client still needs to be built and installed.
 
 Planning and logging a session start with **Jiu-Jitsu training** filled in as the title. The small X on the right clears it and focuses the field for a custom title. Keeping the default needs no typing; submitting a cleared title also uses **Jiu-Jitsu training**.
