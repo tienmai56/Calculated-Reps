@@ -218,6 +218,35 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
+    func testComingUpIncludesEveryCommittedFuturePlanOnceWithOrWithoutQuickLogs() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        for supportsQuickLogs in [false, true] {
+            let ui = AppModel(live: true)
+            ui.quickTrainingLogBackendAvailable = supportsQuickLogs
+            func plan(_ id: String, privacy: Privacy = .friends, organizer: String = "me",
+                      rsvp: RSVP? = .going, offset: TimeInterval = 60) -> Session {
+                Session(id: id, title: id, day: "Fri", date: 15, month: "Jan", time: "6:00 PM", gym: "Gym",
+                        organizer: organizer, privacy: privacy, people: rsvp.map { [Attendee(id: "me", status: $0)] } ?? [],
+                        startsAt: now.addingTimeInterval(offset))
+            }
+            let solo = plan("solo", offset: 30)
+            let joined = plan("joined", organizer: "friend", offset: 120)
+            let completed = plan("completed", offset: 150)
+            ui.upcoming = [joined, plan("link", privacy: .link), solo,
+                           plan("invited", organizer: "friend", rsvp: .invited),
+                           plan("declined", rsvp: .declined), plan("stranger", organizer: "friend", rsvp: nil),
+                           completed]
+            ui.discoverableSessions = [solo, joined]
+            ui.completedSessions = [completed]
+            // The nearest-session pointer must not create a second card or hide another plan.
+            ui.toComplete = solo
+            XCTAssertEqual(ui.activityPlans(at: now).map(\.id), ["solo", "link", "joined"],
+                           "All future plans belong in Coming up regardless of privacy or quick-log support")
+            XCTAssertTrue(ui.posts.isEmpty, "Listing a future plan must not publish a social post")
+        }
+    }
+
+    @MainActor
     func testOldDiscoveryCacheStaysHiddenUntilAcceptedAndLeavesAfterCompletion() throws {
         let model = SocialAppModel()
         model.userID = "owner"

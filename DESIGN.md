@@ -325,7 +325,7 @@ Prototype-level patterns (in `ui_kits/app/Shell.jsx` and `Training.jsx`, candida
 ## 8. Screens & journeys
 Tabs: **Activity** (open upcoming plans and completed sessions) · **Training** (upcoming and past) · **Goals** (what you're working on) · **Profile** (me, friends and streaks, my sessions). The center tab button is **Plan a training**.
 
-Upcoming link-visible sessions appear in the host's and accepted guests' Activity, ordered soonest first. Followers receive a generic invitation with Accept and Decline; session tickets and details appear only after acceptance. Opening an invitation link creates a pending invitation and never accepts automatically. Declined, started, cancelled and completed plans leave Coming up. Publishing a completed session creates a separate memory with the existing photo-or-note rule, visible to its participants and followers. Blocks revoke access. Invitation links require a Mat Monkey account.
+All upcoming sessions appear under Coming up in the host's and accepted guests' Activity, ordered soonest first, including solo and friends-only plans. Followers receive a generic invitation with Accept and Decline; session tickets and details appear only after acceptance. Opening an invitation link creates a pending invitation and never accepts automatically. Declined, cancelled and completed plans leave Coming up; quick-log-enabled clients keep started plans awaiting attendance. Publishing a completed session creates a separate memory with the existing photo-or-note rule, visible to its participants and followers. Blocks revoke access. Invitation links require a Mat Monkey account.
 
 | # | Screen | Prototype file |
 |---|---|---|
@@ -381,20 +381,17 @@ Native: `TrainingFocus.swift` and `Features/Focus/TrainingFocusEditor.swift`. Br
 
 ### Activity feed
 
-Activity shows the private This week strip, Coming up and completed-session posts. Coming up contains hosted/joined personal open plans, including friends-only plans and started plans awaiting attendance; a separate quick log never closes or removes them. The ink How was…? catch-up prompt lives in Training. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
+Activity shows the private This week strip, Coming up and completed-session posts under an Activity heading. Coming up contains all hosted/joined future plans, including solo and friends-only plans, with one ticket per session and the session's own title without a “Coming up:” prefix. Quick-log-enabled clients also keep started plans awaiting attendance; a separate quick log never closes or removes them. It has no friendship streak reminder cards ("8 weeks with Sarah" / "Roll together by Sunday").
 
 ### Week strip and quick logs (UI preview)
 
 The quick-log database is deployed through `20261105212524_quick_training_log.sql`. Live accounts enable the shared quick-log UI when their snapshot exposes all four feature fields. The **QuickTrainingLogMock** scheme continues to use isolated seeded data without a runtime. Older backend snapshots keep the existing Activity flow and read-only Profile heatmap; unsupported operations remain disabled.
 
-In the mock, the dark quick-log strip appears first. The calendar prompter sits
-below on paper-2, with ink-900 title, ink-700 metadata, a white calendar tile and
-a secondary View session button so quick logging retains the main emphasis.
-Initially show the closest upcoming session you host or accepted, with **Coming
-up: {title}**, its date/time/gym, and **View session**. Keep that session after its
-start and across tab switches until completion; a day-only quick log never
-completes it. Then advance to the next open session, or hide the prompter if none
-remain. Reuse the existing tilted calendar tile, 24pt card shape and layout.
+In the mock, the dark quick-log strip appears first, followed by **Coming up**
+with session tickets. Personal plans use the same list as other accepted plans;
+there is no duplicate calendar prompter above the section. Keep open plans after
+their start and across tab switches until completion; a day-only quick log never
+completes them. Social posts follow under **Activity** when posts exist.
 
 The preview Activity card uses ink-900, paper text, 24pt radius and no shadow. Its heading is **This week**, followed by **Tap a day you trained. It counts right away.** in 13pt ink-200. For five seconds after a log, that line becomes **[circle-check] Training logged** with a small paper-tint **Undo** pill (28pt, 44pt hit area), so confirmation and Undo sit next to the tap instead of in the top toast; removals show **Quick log removed** there too. There is no trained-day count. Seven equal columns have an 11pt weekday and a 40pt date circle. Days with a quick log are solid coral (Activity shows quick logs only); today has a coral ring; future dates are outlined, with a dashed outline for plans. Corner badges show ×N and/or a calendar. Below the dates, show **[calendar] = You have a planned session** in 12pt ink-300 when a plan exists.
 

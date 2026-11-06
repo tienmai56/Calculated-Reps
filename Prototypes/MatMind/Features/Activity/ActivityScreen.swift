@@ -30,7 +30,7 @@ struct ActivityScreen: View {
                     .padding(.top, MMSpace.s2)
                     .padding(.bottom, MMSpace.s6)
             }
-            if let session = prompt {
+            if let session = prompt, !plans.contains(where: { $0.id == session.id }) {
                 ReadyToShare(session: session, now: now, keepsUpcomingStyle: mm.quickTrainingLogEnabled)
                     .padding(.top, mm.quickTrainingLogEnabled ? MMSpace.s0 : MMSpace.s5)
                     .padding(.bottom, MMSpace.s5)
@@ -47,6 +47,9 @@ struct ActivityScreen: View {
                     }
                     .padding(.horizontal, MMSpace.s6)
                     .padding(.bottom, MMSpace.s6)
+                }
+                if !mm.feedPosts.isEmpty {
+                    MMEyebrow("Activity", topPadding: MMSpace.s4)
                 }
                 ForEach(mm.feedPosts) { post in
                     PostCard(post: post, highlight: post.id == mm.highlight)
@@ -131,7 +134,7 @@ private struct ReadyToShare: View {
                 .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.white).padding(-3))
                 .rotationEffect(.degrees(-4))
             VStack(alignment: .leading, spacing: 0) {
-                Text(showsPastPrompt ? "How was \(session.title)?" : "Coming up: \(session.title)")
+                Text(showsPastPrompt ? "How was \(session.title)?" : session.title)
                     .mmFont(.display, 17, lineHeight: 1.2)
                     .foregroundStyle(keepsUpcomingStyle ? MMColor.ink900 : MMColor.paper)
                 Text(shareLine)

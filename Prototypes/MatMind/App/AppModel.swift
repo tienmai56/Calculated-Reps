@@ -439,9 +439,11 @@ final class AppModel {
 
     /// Personal open plans remain in Activity until attendance is confirmed, including after their start.
     func activityPlans(at now: Date = Date()) -> [Session] {
-        (upcoming + discoverableSessions)
-            .filter { !isCompleted($0) && $0.status(of: "me") != .declined && ($0.organizer == "me" || $0.status(of: "me") == .going) && !$0.people.contains(where: { $0.id == "me" && $0.attended }) }
-            .filter { quickTrainingLogEnabled || ($0.privacy == .link && startDate(of: $0) > now) }
+        var seen: Set<String> = []
+        return (calendarSessions + discoverableSessions)
+            .filter { seen.insert($0.id).inserted }
+            .filter { trainingCompletionStatus($0) == nil && $0.status(of: "me") != .declined && $0.status(of: "me") != .invited && ($0.organizer == "me" || $0.status(of: "me") == .going) }
+            .filter { quickTrainingLogEnabled || startDate(of: $0) > now }
             .sorted {
                 let first = startDate(of: $0), second = startDate(of: $1)
                 return first == second ? $0.id < $1.id : first < second
