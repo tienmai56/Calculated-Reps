@@ -1171,19 +1171,30 @@ struct TrainingWeekCard: View {
     @ViewBuilder
     private func header(planDays: Set<Date>) -> some View {
         if isActivity {
+            let toast = mm.toast.flatMap { $0.inline ? $0 : nil }
+            let undoToast = toast.flatMap { mm.canUndoTrainingToast($0.id) ? $0 : nil }
+            // The count confirms a successful log; keep removal and failure feedback visible.
+            let confirmation = toast.flatMap { $0.message == "Training logged" ? nil : $0 }
             VStack(alignment: .leading, spacing: MMSpace.s2) {
-                Text("This week")
-                    .mmFont(.display, 18)
-                    .foregroundStyle(MMColor.paper)
-                // "Training logged · Undo" sits here, right above the tapped day, instead of at the top of the screen.
-                if let toast = mm.toast, toast.inline {
-                    inlineConfirmation(toast)
-                        .transition(.opacity)
-                } else {
+                HStack(spacing: MMSpace.s3) {
+                    Text("This week")
+                        .mmFont(.display, 18)
+                        .foregroundStyle(MMColor.paper)
+                    Spacer(minLength: MMSpace.s3)
+                    // Reserve the same space before, during and after Undo so the calendar stays put.
+                    inlineUndo(undoToast)
+                }
+                ZStack(alignment: .leading) {
                     Text("Tap a day you trained. It counts right away.")
                         .mmFont(.body, 13)
                         .foregroundStyle(MMColor.ink200)
                         .fixedSize(horizontal: false, vertical: true)
+                        .opacity(confirmation == nil ? 1 : 0)
+                        .accessibilityHidden(confirmation != nil)
+                    if let confirmation {
+                        inlineConfirmation(confirmation)
+                            .transition(.opacity)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1194,6 +1205,32 @@ struct TrainingWeekCard: View {
         }
     }
 
+    private func inlineUndo(_ toast: MMToastData?) -> some View {
+        Button {
+            guard let toast else { return }
+            Task { await mm.undoTrainingToast(toast.id) }
+        } label: {
+            HStack(spacing: MMSpace.s2) {
+                Image(systemName: "arrow.uturn.backward")
+                    .accessibilityHidden(true)
+                Text("Undo")
+            }
+            .mmFont(.display, 13, .bold, lineHeight: 1)
+            .foregroundStyle(MMColor.paper)
+            .padding(.horizontal, MMSpace.s5)
+            .frame(height: 28)
+            .background(MMColor.paper.opacity(0.14), in: Capsule())
+            .frame(minHeight: MMLayout.tapTarget)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MMPressStyle())
+        .padding(.vertical, -8)
+        .opacity(toast == nil ? 0 : 1)
+        .disabled(toast == nil || mm.busy)
+        .accessibilityHidden(toast == nil)
+        .accessibilityLabel("Undo training log")
+    }
+
     private func inlineConfirmation(_ toast: MMToastData) -> some View {
         let failed = toast.variant == .danger
         return HStack(spacing: MMSpace.s3) {
@@ -1202,21 +1239,6 @@ struct TrainingWeekCard: View {
                 .mmFont(.body, 13, .semibold)
                 .foregroundStyle(MMColor.paper)
                 .fixedSize(horizontal: false, vertical: true)
-            if mm.canUndoTrainingToast(toast.id) {
-                Button { Task { await mm.undoTrainingToast(toast.id) } } label: {
-                    Text("Undo")
-                        .mmFont(.display, 13, .bold, lineHeight: 1)
-                        .foregroundStyle(MMColor.paper)
-                        .padding(.horizontal, MMSpace.s5)
-                        .frame(height: 28)
-                        .background(MMColor.paper.opacity(0.14), in: Capsule())
-                        .frame(minHeight: MMLayout.tapTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(MMPressStyle())
-                .padding(.vertical, -8)
-                .accessibilityLabel("Undo training log")
-            }
         }
         .accessibilityElement(children: .contain)
     }
