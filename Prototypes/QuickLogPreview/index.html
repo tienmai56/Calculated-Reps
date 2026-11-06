@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tap-to-Log Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+/* Layout: two phones side by side, each with its rationale and a Stats readout underneath. Single light theme, matching the app (light-first). */
+:root{
+  --canvas:var(--paper-2);
+  --phone-w:390px;
+  --on-ink:var(--paper);
+  --on-ink-soft:var(--ink-200);
+  --on-ink-mute:var(--ink-300);
+  --ink-wash:rgba(250,246,239,.08);
+  --ink-line:rgba(250,246,239,.14);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{background:var(--canvas);color:var(--text-primary)}
+body{margin:0;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:transparent;border:0;padding:0;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.icon{display:inline-block;width:20px;height:20px;flex-shrink:0;-webkit-mask:var(--i) center/contain no-repeat;mask:var(--i) center/contain no-repeat;background:currentColor}
+
+/* ---------- page chrome ---------- */
+.intro{max-width:880px;margin:0 auto 24px;display:grid;gap:12px}
+.eyebrow{font:700 12px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--text-tertiary)}
+.intro h1{font:800 clamp(30px,5vw,44px)/1.02 var(--font-display);letter-spacing:-.035em;margin:0;text-wrap:balance}
+.intro p{font-size:16px;line-height:1.5;color:var(--text-secondary);margin:0;max-width:62ch}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:6px}
+.seg{display:flex;padding:4px;border-radius:var(--radius-pill);background:var(--surface-card);box-shadow:var(--shadow-card)}
+.seg button{min-height:40px;padding:0 16px;border-radius:var(--radius-pill);font:700 14px/1 var(--font-display);letter-spacing:-.01em;color:var(--text-tertiary)}
+.seg button[aria-pressed=true]{background:var(--surface-inverse);color:var(--text-inverse)}
+.ghost-btn{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);font:700 14px/1 var(--font-display);display:inline-flex;align-items:center;gap:6px;color:var(--text-primary)}
+.ghost-btn:hover{background:var(--surface-hover)}
+
+.directions{max-width:880px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 32px;align-items:start}
+@media(max-width:860px){.directions{grid-template-columns:minmax(0,1fr);max-width:var(--phone-w)}}
+.direction{display:grid;gap:16px;min-width:0}
+.dir-head{display:grid;gap:6px}
+.dir-head .tag{display:inline-flex;align-items:center;gap:6px;width:max-content;padding:5px 10px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:800 12px/1 var(--font-display);letter-spacing:.02em}
+.dir-head h2{font:800 28px/1.05 var(--font-display);letter-spacing:-.03em;margin:0}
+.dir-head p{margin:0;font-size:15px;line-height:1.45;color:var(--text-secondary)}
+
+.notes{background:var(--surface-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:18px;display:grid;gap:14px}
+.notes h3{font:800 16px/1.2 var(--font-display);margin:0;letter-spacing:-.01em}
+.notes ul{margin:0;padding:0 0 0 18px;display:grid;gap:8px;font-size:14px;line-height:1.45;color:var(--text-secondary)}
+.notes li::marker{color:var(--accent)}
+.tradeoff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tradeoff div{background:var(--surface-sunken);border-radius:var(--radius-md);padding:12px;font-size:13px;line-height:1.4;color:var(--text-secondary)}
+.tradeoff b{display:block;font:800 13px/1.2 var(--font-display);color:var(--text-primary);margin-bottom:4px}
+
+.stats{background:var(--surface-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:18px;display:grid;gap:12px}
+.stats-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.stats-head h3{font:800 16px/1.2 var(--font-display);margin:0}
+.stats-head span{font-size:12px;color:var(--text-tertiary)}
+.stat-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;font-size:14px;min-height:28px}
+.stat-row .name{font-weight:600;overflow-wrap:anywhere}
+.stat-row .n{font:800 18px/1 var(--font-display);font-variant-numeric:tabular-nums;min-width:2ch;text-align:right}
+.plus-today{font:700 11px/1 var(--font-body);padding:5px 8px;border-radius:var(--radius-pill);background:var(--accent-tint);color:var(--coral-700);white-space:nowrap}
+.plus-today.zero{visibility:hidden}
+.stats p{margin:0;font-size:13px;line-height:1.45;color:var(--text-tertiary)}
+.stat-row.bump .n{animation:pop var(--dur-slow) var(--ease-bounce)}
+
+.foot{max-width:880px;margin:40px auto 0;display:grid;gap:12px}
+.foot h2{font:800 22px/1.1 var(--font-display);letter-spacing:-.02em;margin:0}
+.foot ul{margin:0;padding-left:18px;display:grid;gap:8px;font-size:15px;line-height:1.5;color:var(--text-secondary);max-width:70ch}
+
+/* ---------- phone ---------- */
+.phone{position:relative;width:100%;max-width:var(--phone-w);height:800px;margin:0 auto;border-radius:44px;background:var(--bg-app);box-shadow:var(--shadow-float);overflow:hidden;display:flex;flex-direction:column;isolation:isolate}
+.statusbar{height:46px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0;font:700 15px/1 var(--font-body)}
+.statusbar .island{width:110px;height:30px;border-radius:20px;background:var(--ink-900)}
+.statusbar .sig{display:flex;gap:4px;align-items:center}
+.statusbar .sig i{display:block;width:4px;border-radius:2px;background:var(--ink-900)}
+.screen{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding-bottom:96px}
+.screen::-webkit-scrollbar{display:none}
+.appbar{display:flex;align-items:center;gap:8px;padding:10px 16px 12px}
+.appbar img{width:34px;height:38px}
+.appbar h1{flex:1;margin:0 0 0 4px;font:800 32px/1 var(--font-display);letter-spacing:-.035em}
+.hbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--surface-sunken);color:var(--text-primary)}
+.hbtn .icon{width:20px;height:20px}
+.hbtn.plain{background:transparent}
+
+.week{position:relative;z-index:2;margin:0 16px;padding:16px 14px 12px;border-radius:24px;background:var(--ink-900);color:var(--on-ink)}
+.week-h{padding:0 4px;display:grid;gap:4px}
+.week-h strong{font:800 18px/1.2 var(--font-display);letter-spacing:-.015em}
+.week-h span{font-size:13px;line-height:1.35;color:var(--on-ink-soft)}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin-top:12px}
+.day{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;min-height:66px;padding-top:2px}
+.day .wd{font:600 11px/1 var(--font-body);color:var(--on-ink-mute)}
+.day.today .wd{color:var(--coral-300)}
+.day.future .wd{color:var(--ink-400)}
+.day-btn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
+.disc{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:800 16px/1 var(--font-display);background:var(--ink-wash);color:var(--on-ink);transition:background var(--dur-base) var(--ease-out)}
+.day.logged .disc{background:var(--coral-500);color:var(--white)}
+.day.today .disc{box-shadow:inset 0 0 0 2px var(--coral-500)}
+.day.future .disc{background:transparent;color:var(--ink-400);box-shadow:inset 0 0 0 1.5px var(--ink-line)}
+.day.future.planned .disc{box-shadow:none;outline:1.5px dashed rgba(250,246,239,.5);outline-offset:-1.5px}
+.day.active .disc{box-shadow:0 0 0 3px var(--ink-900),0 0 0 5px var(--coral-300)}
+.day.pop .disc{animation:pop var(--dur-slow) var(--ease-bounce)}
+.badge{position:absolute;left:calc(50% + 8px);top:14px;min-width:22px;height:22px;padding:0 3px;border-radius:11px;display:grid;place-items:center;background:var(--paper);color:var(--ink-900);font:700 9px/1 var(--font-body);box-shadow:0 0 0 2px var(--ink-900)}
+.badge-hit{position:absolute;left:calc(50% + 2px);top:9px;width:32px;height:32px;display:grid;place-items:center}
+.badge-hit .badge{position:static}
+.cal{position:absolute;left:calc(50% + 9px);width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--ink-700);color:var(--paper);box-shadow:0 0 0 2px var(--ink-900)}
+.cal .icon{width:11px;height:11px}
+.cal.top{top:14px}.cal.bottom{top:40px}
+.legend{display:flex;align-items:center;gap:6px;margin:4px 4px 0;font-size:12px;color:var(--on-ink-mute)}
+.legend .icon{width:12px;height:12px}
+
+.coming{margin:22px 16px 0;padding:16px;border-radius:24px;background:var(--surface-sunken);display:flex;gap:14px;align-items:center}
+.coming .tile{width:60px;height:64px;border-radius:18px;background:var(--surface-card);display:grid;place-items:center;flex-shrink:0;color:var(--text-secondary)}
+.coming .tile .icon{width:26px;height:26px}
+.coming b{display:block;font:800 17px/1.2 var(--font-display);letter-spacing:-.015em}
+.coming span{display:block;font-size:13px;color:var(--text-secondary);margin-top:4px}
+.caught{text-align:center;font-size:13px;line-height:1.45;color:var(--text-tertiary);padding:26px 40px 0}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:82px;background:var(--bg-app);border-top:1px solid var(--border-subtle);display:grid;grid-template-columns:repeat(5,1fr);align-items:start;padding-top:10px;z-index:3}
+.tabbar span{display:grid;justify-items:center;gap:4px;font:600 10px/1 var(--font-body);color:var(--text-tertiary)}
+.tabbar span.on{color:var(--text-primary)}
+.tabbar .icon{width:22px;height:22px}
+.tabbar .plan{width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--white);display:grid;place-items:center;margin:-6px auto 0;box-shadow:0 3px 0 var(--accent-shade)}
+
+/* ---------- Direction A: tally inside the card ---------- */
+.tally{position:relative;margin-top:10px;padding:14px;border-radius:18px;background:var(--ink-800);animation:drop var(--dur-slow) var(--ease-out)}
+.tally::before{content:"";position:absolute;top:-7px;left:calc(var(--caret) - 7px);width:14px;height:14px;background:var(--ink-800);border-radius:3px;transform:rotate(45deg);transition:left var(--dur-base) var(--ease-out)}
+.tally-top{display:flex;align-items:center;gap:10px}
+.okdot{width:26px;height:26px;border-radius:50%;background:var(--coral-500);color:var(--white);display:grid;place-items:center;flex-shrink:0}
+.okdot .icon{width:15px;height:15px}
+.tally-top strong{flex:1;min-width:0;font:800 16px/1.2 var(--font-display);letter-spacing:-.015em}
+.link-btn{min-height:44px;padding:0 6px;font:600 13px/1 var(--font-body);color:var(--on-ink-soft);text-decoration:underline;text-underline-offset:3px}
+.x-btn{width:44px;height:44px;margin:-8px -8px -8px -4px;border-radius:50%;display:grid;place-items:center;color:var(--on-ink-soft)}
+.x-btn .icon{width:18px;height:18px}
+.tally p{margin:2px 0 12px 36px;font-size:13px;line-height:1.35;color:var(--on-ink-mute)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;min-height:44px;border-radius:var(--radius-pill);background:var(--ink-wash);box-shadow:inset 0 0 0 1px var(--ink-line);color:var(--on-ink);font:700 14px/1 var(--font-display);letter-spacing:-.01em;transition:background var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out)}
+.chip .add{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px}
+.chip .num{min-width:22px;height:22px;padding:0 6px;border-radius:11px;display:grid;place-items:center;background:var(--coral-500);color:var(--white);font:800 12px/1 var(--font-display);font-variant-numeric:tabular-nums}
+.chip .num.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.chip .less{width:36px;min-height:44px;display:grid;place-items:center;margin-left:4px;color:var(--ink-500)}
+.chip .less .icon{width:16px;height:16px}
+.chip.on{background:var(--paper);color:var(--ink-900);box-shadow:none}
+.chip.on .add{padding-left:2px}
+.chip.new{background:transparent;box-shadow:none;outline:1.5px dashed var(--ink-line);outline-offset:-1.5px;color:var(--on-ink-soft)}
+.chip.new .icon{width:16px;height:16px}
+.newmove{display:flex;gap:8px;width:100%}
+.newmove input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--ink-line);background:var(--ink-900);color:var(--on-ink);padding:0 12px;font:400 15px var(--font-body)}
+.newmove input::placeholder{color:var(--ink-400)}
+.newmove button{min-height:44px;padding:0 16px;border-radius:var(--radius-pill);background:var(--paper);color:var(--ink-900);font:700 14px/1 var(--font-display)}
+.tally-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;min-height:44px}
+.saved{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--on-ink-mute)}
+.saved .icon{width:14px;height:14px;color:var(--mint-500)}
+.done-btn{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--ink-wash);color:var(--on-ink);font:700 14px/1 var(--font-display)}
+
+/* ---------- Direction B: tray pulled out from under the card ---------- */
+.tray{position:relative;z-index:1;margin:-24px 26px 0;padding:36px 14px 14px;border-radius:0 0 22px 22px;background:var(--surface-card);box-shadow:var(--shadow-card);animation:slide var(--dur-slow) var(--ease-out)}
+.tray-top{display:flex;align-items:center;gap:12px}
+.tray .okdot{width:34px;height:34px}
+.tray .okdot .icon{width:18px;height:18px}
+.tray-text{flex:1;min-width:0}
+.tray-text strong{display:block;font:800 16px/1.2 var(--font-display);letter-spacing:-.015em}
+.tray-text span{display:block;font-size:13px;line-height:1.35;color:var(--text-secondary);margin-top:2px;overflow-wrap:anywhere}
+.tray .x-btn{color:var(--text-tertiary);align-self:flex-start;margin:-10px -10px 0 0}
+.tray-actions{display:flex;align-items:center;gap:8px;margin-top:12px}
+.pill-inv{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);font:700 15px/1 var(--font-display);letter-spacing:-.01em;display:inline-flex;align-items:center;gap:8px}
+.pill-inv .icon{width:17px;height:17px}
+.pill-ghost{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:var(--radius-pill);font:700 15px/1 var(--font-display);color:var(--text-secondary)}
+.pill-ghost .icon{width:17px;height:17px}
+.pill-ghost:hover{background:var(--surface-hover)}
+.rows{margin-top:6px}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
+.row:last-child{border-bottom:0}
+.row .name{flex:1;min-width:0;font:800 15px/1.2 var(--font-display);letter-spacing:-.01em}
+.step{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
+.step.minus{background:var(--surface-sunken);color:var(--ink-500)}
+.step.minus:disabled{opacity:.45}
+.step.plus{background:var(--surface-inverse);color:var(--text-inverse)}
+.step .icon{width:18px;height:18px}
+.row .count{min-width:24px;text-align:center;font:700 16px/1 var(--font-body);font-variant-numeric:tabular-nums}
+.row .count.zero{color:var(--text-tertiary)}
+.row .count.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
+.addrow{display:flex;gap:8px;margin-top:8px}
+.addrow input{flex:1;min-width:0;min-height:44px;border-radius:var(--radius-md);border:1.5px solid var(--border-default);background:var(--surface-input);padding:0 12px;font:400 15px var(--font-body)}
+.tray-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.tray-foot .saved{color:var(--text-tertiary)}
+.summary{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.summary span{padding:6px 10px;border-radius:var(--radius-pill);background:var(--surface-sunken);font:600 13px/1 var(--font-body)}
+
+/* ---------- toast + sheet ---------- */
+.toast{position:absolute;left:16px;right:16px;bottom:96px;z-index:6;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:var(--radius-pill);background:var(--surface-inverse);color:var(--text-inverse);box-shadow:var(--shadow-float);animation:rise var(--dur-base) var(--ease-bounce)}
+.toast .icon{width:18px;height:18px;color:var(--mint-500)}
+.toast span{flex:1;min-width:0;font:600 14px/1.3 var(--font-body)}
+.toast button{min-height:36px;padding:0 14px;border-radius:var(--radius-pill);background:rgba(250,246,239,.12);font:700 14px/1 var(--font-display)}
+.scrim{position:absolute;inset:0;z-index:8;background:var(--surface-overlay);animation:fade var(--dur-base) var(--ease-out)}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:9;background:var(--surface-card);border-radius:28px 28px 0 0;box-shadow:var(--shadow-sheet);padding:10px 16px 34px;animation:up var(--dur-slow) var(--ease-out)}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--ink-200);margin:0 auto 14px}
+.sheet-h{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sheet-h h3{flex:1;margin:0;font:800 22px/1.15 var(--font-display);letter-spacing:-.02em}
+.sheet-h .hbtn{width:40px;height:40px}
+.opt{display:flex;align-items:center;gap:12px;width:100%;padding:14px;border-radius:var(--radius-lg);text-align:left;margin-bottom:10px}
+.opt.plan{background:var(--surface-card);box-shadow:inset 0 0 0 1px var(--border-default),0 2px 0 rgba(29,27,24,.06)}
+.opt.quick{background:var(--surface-sunken)}
+.opt:disabled{opacity:.5}
+.opt .stub{width:48px;height:52px;border-radius:var(--radius-md);display:grid;place-items:center;align-content:center;gap:2px;flex-shrink:0}
+.opt .stub.sky{background:var(--sky-100);color:var(--sky-700)}
+.opt .stub.sky small{font:800 10px/1 var(--font-display);letter-spacing:.04em}
+.opt .stub.sky b{font:800 22px/1 var(--font-display);letter-spacing:-.03em}
+.opt .stub.coral{background:var(--coral-500);color:var(--white)}
+.opt .stub .icon{width:24px;height:24px}
+.opt .t{flex:1;min-width:0}
+.opt .t b{display:block;font:800 17px/1.2 var(--font-display);letter-spacing:-.015em}
+.opt .t span{display:block;margin-top:3px;font:500 13px/1.3 var(--font-body);color:var(--ink-700)}
+.opt .t em{display:block;margin-top:3px;font:500 12px/1.3 var(--font-body);font-style:normal;color:var(--text-tertiary)}
+.opt>.icon{width:16px;height:16px;color:var(--ink-500)}
+.changed{display:inline-block;margin-top:6px;padding:3px 8px;border-radius:var(--radius-pill);background:var(--accent-tint);color:var(--coral-700);font:700 11px/1.2 var(--font-body)}
+
+@keyframes pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+@keyframes drop{from{opacity:0;transform:translateY(-6px)}}
+@keyframes slide{from{transform:translateY(-36px);opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}}
+@keyframes fade{from{opacity:0}}
+@keyframes up{from{transform:translateY(100%)}}
+@media(prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
+@media(max-width:400px){.phone{border-radius:32px;height:760px}.appbar h1{font-size:28px}.statusbar{padding:6px 22px 0}}
+</style>
+</head>
+<body>
+<header class="intro">
+  <span class="eyebrow">Activity · This week · design exploration</span>
+  <h1>Tap a day, it's logged.</h1>
+  <p>Both directions drop the “What did you hit today?” sheet. One tap counts the day straight away. Techniques become an optional follow-up below the calendar, and whatever you count still feeds the technique charts in Stats. Tap Friday (or any past day) in each phone to try it.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Scenario">
+      <button type="button" id="sc-plain" aria-pressed="true">Regular day</button>
+      <button type="button" id="sc-plan" aria-pressed="false">Planned session today</button>
+    </div>
+    <button type="button" class="ghost-btn" id="reset">Reset both</button>
+  </div>
+</header>
+
+<main class="directions">
+  <section class="direction" aria-labelledby="a-title">
+    <div class="dir-head">
+      <span class="tag">Direction A</span>
+      <h2 id="a-title">Tally on the card</h2>
+      <p>The week card opens a small speech bubble under the day you tapped. Your techniques sit there as chips: tap one to count a hit. Nothing leaves the card.</p>
+    </div>
+    <div class="phone" id="phone-a" data-dir="a"></div>
+    <div class="stats" id="stats-a"></div>
+    <div class="notes">
+      <h3>How it behaves</h3>
+      <ul>
+        <li>Tap a day: it fills coral with a bounce, and the bubble points at it with “Friday logged”.</li>
+        <li>Tap a chip to add one hit. A counted chip turns paper-white with a coral count and a − to take one back.</li>
+        <li>Hits save as you tap (“Saved to Stats”). Undo in the bubble removes the log and its hits.</li>
+        <li>Close it or tap another day and it folds away. Ignoring it is fine; the day is already counted.</li>
+      </ul>
+      <div class="tradeoff">
+        <div><b>Strong at</b>Fastest possible: one tap per hit, no modes or steppers. Feels like part of the calendar.</div>
+        <div><b>Watch for</b>Grows the dark card. Chip rows get busy past about 8 techniques; we'd show recents and keep “+ Move” for the rest.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="direction" aria-labelledby="b-title">
+    <div class="dir-head">
+      <span class="tag">Direction B</span>
+      <h2 id="b-title">Pull-out tray</h2>
+      <p>A white tray slides out from under the week card: “Friday's logged”, with one quiet “Add hits” button. Opening it gives the familiar counters in place, and closing it leaves a summary.</p>
+    </div>
+    <div class="phone" id="phone-b" data-dir="b"></div>
+    <div class="stats" id="stats-b"></div>
+    <div class="notes">
+      <h3>How it behaves</h3>
+      <ul>
+        <li>Tap a day: it fills coral, a “Training logged · Undo” toast confirms it, and the tray slides out.</li>
+        <li>The tray asks once, softly. “Add hits” opens the − / + counters you already know, right in the tray.</li>
+        <li>Counts save as you go. Done collapses the tray to a summary such as “Heel hook ×2”, with Edit.</li>
+        <li>× or “Not now” tucks the tray away. The calendar card itself never changes size.</li>
+      </ul>
+      <div class="tradeoff">
+        <div><b>Strong at</b>Calm and clearly optional. Keeps the dark card as it is, and the counters scale to long lists.</div>
+        <div><b>Watch for</b>One extra tap (Add hits) before counting. Pushes Coming up further down while it's open.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section class="foot" aria-labelledby="shared-title">
+  <h2 id="shared-title">Same in both</h2>
+  <ul>
+    <li><b>Planned days keep the chooser.</b> Switch to “Planned session today” and tap Friday. The sheet still offers the planned session and a quick log. The quick log option now logs immediately and closes the sheet, then the same optional technique prompt appears. Choosing the plan still goes to Complete & share.</li>
+    <li><b>Stats stay honest.</b> Every tap creates a quick log. Hits you count attach to that log, so the existing technique charts in Stats pick them up unchanged. A tap with no hits counts the day and adds nothing to the charts.</li>
+    <li><b>Removing works as today.</b> The ×N badge on a day still removes the latest quick log, along with any hits on it.</li>
+  </ul>
+</section>
+
+<script>
+const ICON_ROOT = '../../assets/icons/';
+const LOGO = '../../assets/brand/logo-mark.svg';
+const icon = (n, cls='') => `<span class="icon ${cls}" style="--i:url('${ICON_ROOT}${n}.svg')" aria-hidden="true"></span>`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const WEEK = [
+  {wd:'M', name:'Monday', date:2}, {wd:'T', name:'Tuesday', date:3}, {wd:'W', name:'Wednesday', date:4},
+  {wd:'T', name:'Thursday', date:5}, {wd:'F', name:'Friday', date:6}, {wd:'S', name:'Saturday', date:7}, {wd:'S', name:'Sunday', date:8}
+];
+const TODAY = 4;
+// Hits counted earlier this week (sample data), so Stats has a baseline.
+const EARLIER = {hh:6, bt:4, ab:3};
+let scenario = 'plain';
+let seq = 0;
+
+function fresh(){
+  const seedCounts = [4,2,5,4,0,0,0];
+  return {
+    techniques:[{id:'hh', name:'Heel hook'},{id:'bt', name:'Back take'},{id:'ab', name:'Armbar'}],
+    logs: seedCounts.map(n => Array.from({length:n}, () => ({id:'s'+(seq++), hits:{}}))),
+    active:null,          // {day, logId}
+    mode:'prompt',        // B: prompt | open | summary
+    adding:false, draft:'',
+    sheet:null,           // day index with the chooser open
+    toast:null,
+    planDone:false,
+    fx:{}                 // one-shot animation flags
+  };
+}
+const state = {a:fresh(), b:fresh()};
+
+const planOn = day => scenario === 'plan' ? (day === TODAY || day === 5) : day === 5;
+const isFuture = day => day > TODAY;
+const planInfo = day => day === TODAY
+  ? {title:'Morning open mat', meta:'You host · 7:00 AM with Sarah', started:true}
+  : {title:'Saturday open mat', meta:'Maya hosts · 10:00 AM', started:false};
+
+function totalHits(s){
+  const out = {};
+  for (const t of s.techniques) out[t.id] = 0;
+  for (const day of s.logs) for (const log of day) for (const [k,v] of Object.entries(log.hits)) out[k] = (out[k]||0) + v;
+  return out;
+}
+function activeLog(s){
+  if (!s.active) return null;
+  return s.logs[s.active.day].find(l => l.id === s.active.logId) || null;
+}
+
+/* ---------- actions ---------- */
+function tapDay(dir, day){
+  const s = state[dir];
+  if (planOn(day)) { s.sheet = day; render(dir); return; }
+  if (isFuture(day)) return;
+  quickLog(dir, day);
+}
+function quickLog(dir, day){
+  const s = state[dir];
+  const log = {id:'q'+(seq++), hits:{}};
+  s.logs[day].push(log);
+  s.active = {day, logId:log.id};
+  s.mode = 'prompt'; s.adding = false; s.draft = '';
+  s.fx.pop = day; s.fx.open = true;
+  if (dir === 'b') showToast(dir, 'Training logged', () => undoLog(dir, day, log.id));
+  render(dir);
+}
+function undoLog(dir, day, id){
+  const s = state[dir];
+  s.logs[day] = s.logs[day].filter(l => l.id !== id);
+  if (s.active && s.active.logId === id) s.active = null;
+  s.toast = null;
+  render(dir);
+}
+function removeLatest(dir, day){
+  const s = state[dir];
+  const log = s.logs[day].at(-1);
+  if (!log) return;
+  undoLog(dir, day, log.id);
+  showToast(dir, 'Quick log removed');
+}
+function bump(dir, id, delta){
+  const log = activeLog(state[dir]);
+  if (!log) return;
+  log.hits[id] = Math.max(0, (log.hits[id]||0) + delta);
+  if (!log.hits[id]) delete log.hits[id];
+  state[dir].fx.bump = id;
+  render(dir);
+}
+function addTechnique(dir){
+  const s = state[dir];
+  const name = s.draft.trim();
+  if (!name) return;
+  let t = s.techniques.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (!t) { t = {id:'t'+(seq++), name}; s.techniques.push(t); }
+  s.adding = false; s.draft = '';
+  bump(dir, t.id, 1);
+}
+let toastTimers = {};
+function showToast(dir, text, undo){
+  const s = state[dir];
+  s.toast = {text, undo};
+  clearTimeout(toastTimers[dir]);
+  toastTimers[dir] = setTimeout(() => { s.toast = null; render(dir); }, 5000);
+}
+
+/* ---------- rendering ---------- */
+function dayHTML(dir, s, d, i){
+  const count = s.logs[i].length;
+  const planned = planOn(i) && !(i === TODAY && s.planDone);
+  const cls = ['day', count ? 'logged':'', i === TODAY ? 'today':'', isFuture(i) ? 'future':'', planned ? 'planned':'',
+    s.active && s.active.day === i ? 'active':'', s.fx.pop === i ? 'pop':''].filter(Boolean).join(' ');
+  const disabled = isFuture(i) && !planned;
+  const label = `${d.name} November ${d.date}, ${count} training ${count === 1 ? 'entry':'entries'}${planned ? ', planned session':''}`;
+  const hint = planned ? 'Choose the planned session or a quick log' : disabled ? 'Future day' : 'Logs training now';
+  let extras = '';
+  if (count) extras += `<button type="button" class="badge-hit" data-act="remove" data-day="${i}" aria-label="Remove one quick log from ${d.name}"><span class="badge">×${count}</span></button>`;
+  if (planned) extras += `<span class="cal ${count ? 'bottom':'top'}" aria-hidden="true">${icon('calendar')}</span>`;
+  return `<div class="${cls}">
+    <span class="wd" aria-hidden="true">${d.wd}</span>
+    <button type="button" class="day-btn" data-act="day" data-day="${i}" data-key="${dir}-day-${i}" ${disabled ? 'disabled':''} aria-label="${label}" title="${hint}"><span class="disc">${d.date}</span></button>
+    ${extras}
+  </div>`;
+}
+
+function weekHTML(dir, s){
+  const anyPlan = WEEK.some((_, i) => planOn(i));
+  const copy = 'Tap a day you trained. It counts right away.';
+  return `<div class="week">
+    <div class="week-h"><strong>This week</strong><span>${copy}</span></div>
+    <div class="days">${WEEK.map((d,i) => dayHTML(dir, s, d, i)).join('')}</div>
+    ${dir === 'a' ? tallyHTML(s) : ''}
+    ${anyPlan && !(dir === 'a' && activeLog(s)) ? `<div class="legend">${icon('calendar')}<span>= You have a planned session</span></div>` : ''}
+  </div>`;
+}
+
+/* Direction A */
+function tallyHTML(s){
+  const log = activeLog(s);
+  if (!log) return '';
+  const day = WEEK[s.active.day];
+  const caret = `calc(${(s.active.day + .5) / 7 * 100}% - 0px)`;
+  const any = Object.keys(log.hits).length > 0;
+  const chips = s.techniques.map(t => {
+    const n = log.hits[t.id] || 0;
+    if (!n) return `<span class="chip"><button type="button" class="add" data-act="hit" data-id="${t.id}" data-key="a-hit-${t.id}" aria-label="Count a ${esc(t.name)}">${esc(t.name)}</button></span>`;
+    return `<span class="chip on">
+      <button type="button" class="less" data-act="less" data-id="${t.id}" data-key="a-less-${t.id}" aria-label="One fewer ${esc(t.name)}">${icon('minus')}</button>
+      <button type="button" class="add" data-act="hit" data-id="${t.id}" data-key="a-hit-${t.id}" aria-label="Count another ${esc(t.name)}, ${n} so far">${esc(t.name)}<span class="num ${s.fx.bump === t.id ? 'bump':''}">${n}</span></button>
+    </span>`;
+  }).join('');
+  const add = s.adding
+    ? `<div class="newmove"><input id="a-new" data-key="a-new" aria-label="New technique" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" data-act="addsave">Add</button></div>`
+    : `<span class="chip new"><button type="button" class="add" data-act="adding" data-key="a-adding">${icon('plus')}Move</button></span>`;
+  return `<div class="tally" style="--caret:${caret}" ${s.fx.open ? '' : 'data-still'}>
+    <div class="tally-top">
+      <span class="okdot">${icon('check')}</span>
+      <strong>${day.name} logged</strong>
+      <button type="button" class="link-btn" data-act="undo" data-key="a-undo">Undo</button>
+      <button type="button" class="x-btn" data-act="close" aria-label="Close technique tally">${icon('x')}</button>
+    </div>
+    <p>Anything land? Tap a move to count it. Optional.</p>
+    <div class="chips">${chips}${add}</div>
+    ${any ? `<div class="tally-foot"><span class="saved">${icon('circle-check')}Saved to Stats</span><button type="button" class="done-btn" data-act="close">Done</button></div>` : ''}
+  </div>`;
+}
+
+/* Direction B */
+function trayHTML(s){
+  const log = activeLog(s);
+  if (!log) return '';
+  const day = WEEK[s.active.day];
+  const hits = s.techniques.filter(t => log.hits[t.id]);
+  const title = `${day.name}'s logged`;
+  if (s.mode === 'prompt') {
+    return `<div class="tray">
+      <div class="tray-top">
+        <span class="okdot">${icon('check')}</span>
+        <div class="tray-text"><strong>${title}</strong><span>Note what you hit? Optional.</span></div>
+        <button type="button" class="x-btn" data-act="close" aria-label="Hide">${icon('x')}</button>
+      </div>
+      <div class="tray-actions">
+        <button type="button" class="pill-inv" data-act="open" data-key="b-open">${icon('plus')}Add hits</button>
+        <button type="button" class="pill-ghost" data-act="close">Not now</button>
+      </div>
+    </div>`;
+  }
+  if (s.mode === 'summary') {
+    return `<div class="tray">
+      <div class="tray-top">
+        <span class="okdot">${icon('check')}</span>
+        <div class="tray-text"><strong>${title}</strong><span>${hits.length ? 'Saved to your Stats.' : 'No hits noted. The day still counts.'}</span></div>
+        <button type="button" class="x-btn" data-act="close" aria-label="Hide">${icon('x')}</button>
+      </div>
+      ${hits.length ? `<div class="summary">${hits.map(t => `<span>${esc(t.name)} ×${log.hits[t.id]}</span>`).join('')}</div>` : ''}
+      <div class="tray-actions"><button type="button" class="pill-ghost" data-act="open" data-key="b-edit">${icon('pencil')}Edit hits</button></div>
+    </div>`;
+  }
+  const rows = s.techniques.map(t => {
+    const n = log.hits[t.id] || 0;
+    return `<div class="row">
+      <span class="name">${esc(t.name)}</span>
+      <button type="button" class="step minus" data-act="less" data-id="${t.id}" data-key="b-less-${t.id}" ${n ? '' : 'disabled'} aria-label="One fewer ${esc(t.name)}">${icon('minus')}</button>
+      <span class="count ${n ? '' : 'zero'} ${s.fx.bump === t.id ? 'bump':''}" aria-label="${esc(t.name)}, ${n} hits">${n}</span>
+      <button type="button" class="step plus" data-act="hit" data-id="${t.id}" data-key="b-hit-${t.id}" aria-label="One more ${esc(t.name)}">${icon('plus')}</button>
+    </div>`;
+  }).join('');
+  const add = s.adding
+    ? `<div class="addrow"><input id="b-new" data-key="b-new" aria-label="New technique" placeholder="e.g. Triangle" value="${esc(s.draft)}" maxlength="40"><button type="button" class="pill-inv" data-act="addsave">Add</button></div>`
+    : `<button type="button" class="pill-ghost" data-act="adding" data-key="b-adding" style="padding-left:0">${icon('plus')}Add technique</button>`;
+  return `<div class="tray">
+    <div class="tray-top">
+      <span class="okdot">${icon('check')}</span>
+      <div class="tray-text"><strong>What did you hit?</strong><span>${day.name} · counts save as you go</span></div>
+    </div>
+    <div class="rows">${rows}</div>
+    ${add}
+    <div class="tray-foot"><span class="saved">${Object.keys(log.hits).length ? `${icon('circle-check')}Saved to Stats` : ''}</span><button type="button" class="pill-inv" data-act="done" data-key="b-done">Done</button></div>
+  </div>`;
+}
+
+function sheetHTML(s){
+  if (s.sheet === null) return '';
+  const day = s.sheet, d = WEEK[day], p = planInfo(day);
+  const future = isFuture(day);
+  return `<div class="scrim" data-act="sheetclose"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="grab"></div>
+    <div class="sheet-h"><h3 id="sheet-title">What are you logging?</h3><button type="button" class="hbtn" data-act="sheetclose" aria-label="Close">${icon('x')}</button></div>
+    <button type="button" class="opt plan" data-act="plan" ${p.started ? '' : 'disabled'}>
+      <span class="stub sky"><small>${d.name.slice(0,3).toUpperCase()}</small><b>${d.date}</b></span>
+      <span class="t"><b>${p.title}</b><span>${p.meta}</span>${p.started ? '' : `<em>Starts ${p.meta.split('· ')[1].split(' ')[0]} ${p.meta.split(' ').at(-1)}</em>`}</span>
+      ${icon('chevron-right')}
+    </button>
+    <button type="button" class="opt quick" data-act="quick" ${future ? 'disabled':''}>
+      <span class="stub coral">${icon('check')}</span>
+      <span class="t"><b>Just log it</b><span>${future ? 'You can log this once the day comes.' : 'Counts the day now. Add techniques after, if you want.'}</span>${future ? '' : '<span class="changed">Changed: logs instantly</span>'}</span>
+      ${icon('chevron-right')}
+    </button>
+  </div>`;
+}
+
+function phoneHTML(dir){
+  const s = state[dir];
+  return `<div class="statusbar" aria-hidden="true"><span>12:02</span><span class="island"></span><span class="sig"><i style="height:5px"></i><i style="height:8px"></i><i style="height:11px"></i></span></div>
+  <div class="screen">
+    <div class="appbar">
+      <img src="${LOGO}" alt="">
+      <h1>Activity</h1>
+      <span class="hbtn" aria-hidden="true">${icon('search')}</span>
+      <span class="hbtn plain" aria-hidden="true">${icon('bell')}</span>
+      <span class="hbtn" aria-hidden="true">${icon('qr-code')}</span>
+    </div>
+    ${weekHTML(dir, s)}
+    ${dir === 'b' ? trayHTML(s) : ''}
+    <div class="coming">
+      <span class="tile">${icon('calendar')}</span>
+      <div><b>Coming up: Saturday open mat</b><span>Sat Nov 7 · 10:00 AM · Maya hosts</span></div>
+    </div>
+    <div class="caught">You're all caught up with your crew.<br>Go make a new memory.</div>
+  </div>
+  <nav class="tabbar" aria-hidden="true">
+    <span class="on">${icon('house')}Activity</span><span>${icon('calendar')}Training</span>
+    <span><span class="plan">${icon('plus')}</span></span>
+    <span>${icon('notebook-pen')}Goals</span><span>${icon('user')}Stats</span>
+  </nav>
+  ${s.toast ? `<div class="toast" role="status">${icon('circle-check')}<span>${esc(s.toast.text)}</span>${s.toast.undo ? '<button type="button" data-act="toastundo">Undo</button>' : ''}</div>` : ''}
+  ${sheetHTML(s)}`;
+}
+
+function statsHTML(dir){
+  const s = state[dir];
+  const today = totalHits(s);
+  const rows = s.techniques.map(t => {
+    const base = EARLIER[t.id] || 0, add = today[t.id] || 0;
+    if (!base && !add) return '';
+    return `<div class="stat-row ${s.fx.bump === t.id ? 'bump':''}"><span class="name">${esc(t.name)}</span><span class="plus-today ${add ? '' : 'zero'}">+${add} new</span><span class="n">${base + add}</span></div>`;
+  }).join('');
+  return `<div class="stats-head"><h3>What Stats receives</h3><span>Hits this week</span></div>
+    ${rows}
+    <p>Sample data. Only techniques you choose to count reach the charts. A tap on its own logs the day and nothing else.</p>`;
+}
+
+function render(dir){
+  const phone = document.getElementById('phone-' + dir);
+  const focusKey = document.activeElement && phone.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const scroll = phone.querySelector('.screen')?.scrollTop || 0;
+  phone.innerHTML = phoneHTML(dir);
+  phone.querySelector('.screen').scrollTop = scroll;
+  document.getElementById('stats-' + dir).innerHTML = statsHTML(dir);
+  const s = state[dir];
+  if (s.adding) {
+    const input = phone.querySelector('input');
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+  } else if (focusKey) {
+    phone.querySelector(`[data-key="${focusKey}"]`)?.focus();
+  }
+  if (s.sheet !== null) phone.querySelector('.sheet .opt:not(:disabled)')?.focus();
+  s.fx = {};
+}
+
+/* ---------- events ---------- */
+for (const dir of ['a','b']) {
+  const phone = document.getElementById('phone-' + dir);
+  phone.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el || el.disabled) return;
+    const s = state[dir], day = Number(el.dataset.day), id = el.dataset.id;
+    switch (el.dataset.act) {
+      case 'day': tapDay(dir, day); break;
+      case 'remove': removeLatest(dir, day); break;
+      case 'hit': bump(dir, id, 1); break;
+      case 'less': bump(dir, id, -1); break;
+      case 'undo': if (s.active) undoLog(dir, s.active.day, s.active.logId); break;
+      case 'close': s.active = null; s.adding = false; render(dir); break;
+      case 'open': s.mode = 'open'; render(dir); break;
+      case 'done': s.mode = 'summary'; s.adding = false; render(dir); break;
+      case 'adding': s.adding = true; s.draft = ''; render(dir); break;
+      case 'addsave': addTechnique(dir); break;
+      case 'toastundo': s.toast?.undo?.(); break;
+      case 'sheetclose': s.sheet = null; render(dir); break;
+      case 'quick': { const d = s.sheet; s.sheet = null; quickLog(dir, d); break; }
+      case 'plan': s.sheet = null; showToast(dir, 'Opens Complete & share for Morning open mat'); render(dir); break;
+    }
+  });
+  phone.addEventListener('input', e => { if (e.target.matches('input')) state[dir].draft = e.target.value; });
+  phone.addEventListener('keydown', e => {
+    if (e.target.matches('input') && e.key === 'Enter') { e.preventDefault(); addTechnique(dir); }
+    if (e.key === 'Escape') {
+      const s = state[dir];
+      if (s.sheet !== null) { s.sheet = null; render(dir); }
+      else if (s.adding) { s.adding = false; render(dir); }
+    }
+  });
+}
+
+function setScenario(next){
+  scenario = next;
+  document.getElementById('sc-plain').setAttribute('aria-pressed', next === 'plain');
+  document.getElementById('sc-plan').setAttribute('aria-pressed', next === 'plan');
+  resetAll();
+}
+function resetAll(){
+  state.a = fresh(); state.b = fresh();
+  render('a'); render('b');
+}
+document.getElementById('sc-plain').addEventListener('click', () => setScenario('plain'));
+document.getElementById('sc-plan').addEventListener('click', () => setScenario('plan'));
+document.getElementById('reset').addEventListener('click', resetAll);
+resetAll();
+</script>
+</body>
+</html>

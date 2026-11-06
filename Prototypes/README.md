@@ -60,6 +60,15 @@ beside the avatars when it fits; ticket
 cards show avatars without a going-count label. Training has no standalone share
 prompter.
 
+## Tap-to-log directions (exploration)
+
+A browser comparison of two directions where tapping a day on Activity's week card logs training immediately, with no "What did you hit today?" sheet. Counting techniques becomes an optional follow-up below the calendar. Run `python3 Prototypes/QuickLogPreview/serve.py` from the repository root and open loopback port 4177.
+
+- **A · Tally on the card:** a speech-bubble panel opens inside the ink card under the tapped day. Technique chips add one hit per tap, with − to take one back and an inline Undo.
+- **B · Pull-out tray:** a white tray slides out from under the card ("Friday's logged · Add hits"). Add hits opens the existing − / + counters in place; Done collapses to a summary.
+
+Both keep the planned-day chooser; its quick log option now logs right away and then shows the same optional prompt. Hits attach to the tapped day's quick log, so Stats' technique charts are unchanged. "Planned session today" and Reset sit outside the phones. Sample data only; nothing is saved.
+
 ## Empty states
 
 The first-session state uses the same paper canvas, photo-memory frame, ticket stub, typography, and pill actions as the design system. Activity shows upcoming link-visible plans as well as completed memories: an empty schedule alone never clears existing posts.
