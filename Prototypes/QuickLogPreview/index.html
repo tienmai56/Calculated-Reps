@@ -125,8 +125,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .tabbar .plan{width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--white);display:grid;place-items:center;margin:-6px auto 0;box-shadow:0 3px 0 var(--accent-shade)}
 
 /* ---------- Direction A: tally inside the card ---------- */
-.tally{position:relative;margin-top:10px;padding:14px;border-radius:18px;background:var(--ink-800);animation:drop var(--dur-slow) var(--ease-out)}
-.tally::before{content:"";position:absolute;top:-7px;left:calc(var(--caret) - 7px);width:14px;height:14px;background:var(--ink-800);border-radius:3px;transform:rotate(45deg);transition:left var(--dur-base) var(--ease-out)}
+.tally{position:relative;margin-top:12px;padding:14px;border-radius:18px;background:var(--ink-700);box-shadow:0 6px 18px rgba(29,27,24,.35);animation:drop var(--dur-slow) var(--ease-out)}
+.tally::before{content:"";position:absolute;top:-8px;left:calc(var(--caret) - 9px);width:18px;height:18px;background:var(--ink-700);border-radius:3px;transform:rotate(45deg);transition:left var(--dur-base) var(--ease-out)}
 .tally-top{display:flex;align-items:center;gap:10px}
 .okdot{width:26px;height:26px;border-radius:50%;background:var(--coral-500);color:var(--white);display:grid;place-items:center;flex-shrink:0}
 .okdot .icon{width:15px;height:15px}
@@ -141,6 +141,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .chip .num{min-width:22px;height:22px;padding:0 6px;border-radius:11px;display:grid;place-items:center;background:var(--coral-500);color:var(--white);font:800 12px/1 var(--font-display);font-variant-numeric:tabular-nums}
 .chip .num.bump{animation:pop var(--dur-slow) var(--ease-bounce)}
 .chip .less{width:36px;min-height:44px;display:grid;place-items:center;margin-left:4px;color:var(--ink-500)}
+.tally .chip{background:rgba(250,246,239,.1);box-shadow:inset 0 0 0 1px rgba(250,246,239,.2)}
+.tally .chip.on{background:var(--paper);box-shadow:none}
+.tally .chip.new{background:transparent;box-shadow:none;outline-color:rgba(250,246,239,.3)}
+.tally p{color:var(--ink-200)}
 .chip .less .icon{width:16px;height:16px}
 .chip.on{background:var(--paper);color:var(--ink-900);box-shadow:none}
 .chip.on .add{padding-left:2px}
@@ -153,7 +157,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .tally-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;min-height:44px}
 .saved{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--on-ink-mute)}
 .saved .icon{width:14px;height:14px;color:var(--mint-500)}
-.done-btn{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:var(--ink-wash);color:var(--on-ink);font:700 14px/1 var(--font-display)}
+.done-btn{min-height:44px;padding:0 18px;border-radius:var(--radius-pill);background:rgba(250,246,239,.14);color:var(--on-ink);font:700 14px/1 var(--font-display)}
 
 /* ---------- Direction B: tray pulled out from under the card ---------- */
 .tray{position:relative;z-index:1;margin:-24px 26px 0;padding:36px 14px 14px;border-radius:0 0 22px 22px;background:var(--surface-card);box-shadow:var(--shadow-card);animation:slide var(--dur-slow) var(--ease-out)}
@@ -231,13 +235,14 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 <header class="intro">
   <span class="eyebrow">Activity · This week · design exploration</span>
   <h1>Tap a day, it's logged.</h1>
-  <p>Both directions drop the “What did you hit today?” sheet. One tap counts the day straight away. Techniques become an optional follow-up below the calendar, and whatever you count still feeds the technique charts in Stats. Tap Friday (or any past day) in each phone to try it.</p>
+  <p>Both directions drop the “What did you hit today?” sheet. One tap counts the day straight away. Techniques become an optional follow-up below the calendar, and whatever you count still feeds the technique charts in Stats. Both phones open just after tapping Friday. Tap any past day, or Replay the tap, to see it again.</p>
   <div class="controls">
     <div class="seg" role="group" aria-label="Scenario">
       <button type="button" id="sc-plain" aria-pressed="true">Regular day</button>
       <button type="button" id="sc-plan" aria-pressed="false">Planned session today</button>
     </div>
-    <button type="button" class="ghost-btn" id="reset">Reset both</button>
+    <button type="button" class="ghost-btn" id="replay">Replay the tap</button>
+    <button type="button" class="ghost-btn" id="reset">Clear both</button>
   </div>
 </header>
 
@@ -590,11 +595,11 @@ function render(dir){
   const s = state[dir];
   if (s.adding) {
     const input = phone.querySelector('input');
-    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+    input.focus({preventScroll:true}); input.setSelectionRange(input.value.length, input.value.length);
   } else if (focusKey) {
     phone.querySelector(`[data-key="${focusKey}"]`)?.focus();
   }
-  if (s.sheet !== null) phone.querySelector('.sheet .opt:not(:disabled)')?.focus();
+  if (s.sheet !== null) phone.querySelector('.sheet .opt:not(:disabled)')?.focus({preventScroll:true});
   s.fx = {};
 }
 
@@ -637,16 +642,22 @@ function setScenario(next){
   scenario = next;
   document.getElementById('sc-plain').setAttribute('aria-pressed', next === 'plain');
   document.getElementById('sc-plan').setAttribute('aria-pressed', next === 'plan');
-  resetAll();
+  replay();
 }
 function resetAll(){
   state.a = fresh(); state.b = fresh();
   render('a'); render('b');
 }
+// Start each phone just after tapping today, so the follow-up is visible without a tap.
+function replay(){
+  resetAll();
+  tapDay('a', TODAY); tapDay('b', TODAY);
+}
 document.getElementById('sc-plain').addEventListener('click', () => setScenario('plain'));
 document.getElementById('sc-plan').addEventListener('click', () => setScenario('plan'));
 document.getElementById('reset').addEventListener('click', resetAll);
-resetAll();
+document.getElementById('replay').addEventListener('click', replay);
+replay();
 </script>
 </body>
 </html>
