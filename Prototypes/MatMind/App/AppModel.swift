@@ -16,6 +16,8 @@ protocol AppRuntime: AnyObject {
     func enableNotifications() async -> String?
     func create(_ draft: SessionDraft, key: UUID) async -> String?
     func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool
+    func postParticipantPhoto(_ sessionID: String, photo: String, replacing: String?) async -> Bool
+    func removeParticipantPhoto(_ sessionID: String, photoID: String) async -> Bool
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult?
     /// Uploads a square JPEG (from `AppModel.avatarJPEG`) and makes it the signed-in member's profile photo.
     func saveAvatar(_ jpeg: Data) async -> Bool
@@ -39,6 +41,8 @@ protocol AppRuntime: AnyObject {
 @MainActor
 @Observable
 final class AppModel {
+    /// Live clients wait for the migration's snapshot capability before offering writes.
+    var participantPhotosAvailable = false
     var runtime: (any AppRuntime)?
 #if DEBUG
     var previewAction: (() -> Void)?
@@ -131,6 +135,7 @@ final class AppModel {
     }
 
     func clearLiveData() {
+        participantPhotosAvailable = false
         resetTrainingActions()
         quickLogs = []; sharedSessionIDs = []
 
@@ -888,15 +893,62 @@ final class AppModel {
         if let runtime { return await runtime.saveSessionPhoto(sessionID, photo: photo) }
         guard !isLive else { return false }
         updateSession(sessionID) { session in
-            if !session.photos.contains(photo) { session.photos.insert(photo, at: 0) }
+            session.photos = [photo]
+            if session.photoContributions != nil {
+                session.photoContributions = session.sessionPhotos.filter { $0.author != "me" }
+                    + [SessionPhoto(id: photo, author: "me", source: photo)]
+            }
         }
+        return true
+    }
+
+    func canPostParticipantPhoto(_ session: Session, now: Date = Date()) -> Bool {
+        (!isLive || participantPhotosAvailable) && startDate(of: session) <= now
+            && session.people.contains { $0.id == "me" && $0.status == .going && $0.attended }
+    }
+
+    @discardableResult
+    func postParticipantPhoto(_ sessionID: String, photo: String, replacing photoID: String?) async -> Bool {
+        guard let session = findSession(sessionID), canPostParticipantPhoto(session),
+              session.sessionPhotos.first(where: { $0.author == "me" })?.id == photoID else { return false }
+        if let runtime {
+            return await runtime.postParticipantPhoto(sessionID, photo: photo, replacing: photoID)
+        }
+        guard !isLive else { return false }
+        updateSession(sessionID) { session in
+            var contributions = session.sessionPhotos.filter { $0.author != "me" }
+            contributions.append(SessionPhoto(id: UUID().uuidString, author: "me", source: photo))
+            session.photoContributions = contributions
+            if session.organizer == "me" { session.photos = [photo] }
+        }
+        showToast("Your photo is in the session", .success)
+        return true
+    }
+
+    @discardableResult
+    func removeParticipantPhoto(_ sessionID: String, photoID: String) async -> Bool {
+        guard let session = findSession(sessionID), canPostParticipantPhoto(session),
+              session.sessionPhotos.contains(where: { $0.id == photoID && $0.author == "me" }) else { return false }
+        if let runtime { return await runtime.removeParticipantPhoto(sessionID, photoID: photoID) }
+        guard !isLive else { return false }
+        updateSession(sessionID) { session in
+            session.photoContributions = session.sessionPhotos.filter { $0.id != photoID }
+            if session.organizer == "me" { session.photos = [] }
+        }
+        showToast("Your photo was removed")
         return true
     }
 
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
         if isLive { return nil }
         guard var s = findSession(sessionID), s.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
-        if let photo, !s.photos.contains(photo) { s.photos.insert(photo, at: 0) }
+        if let photo {
+            s.photos = [photo]
+            if s.photoContributions != nil {
+                s.photoContributions = s.sessionPhotos.filter { $0.author != "me" }
+                    + [SessionPhoto(id: photo, author: "me", source: photo)]
+            }
+        }
         let post = Post(id: "p\(Int(Date().timeIntervalSince1970 * 1000))", organizer: "me", title: s.title, gym: s.gym,
                         date: "\(s.day), \(s.month) \(s.date)", ago: "now", photo: photo, participants: people,
                         caption: caption, likes: [], extraLikes: 0, comments: [], focusItems: s.focusItems,
@@ -1428,7 +1480,7 @@ final class AppModel {
     enum Preset: String, CaseIterable, Identifiable {
         case welcome, activity, training, create, complete, friends, qr, profile, notifications
         case people, person
-        case empty, firstSession, awaitingPhoto, focusPlan, invite, active, broken, scan, post
+        case empty, firstSession, awaitingPhoto, focusPlan, participantPhotos, invite, active, broken, scan, post
         var id: String { rawValue }
     }
 
@@ -1444,6 +1496,13 @@ final class AppModel {
         case .profile: setTab(.profile)
         case .create: setTab(.training); go(.create())
         case .focusPlan: setTab(.training); go(.create(focus: TrainingFocusTree.example))
+        case .participantPhotos:
+            let session = Session(id: "participant-photos", title: "Night training", day: "Wed", date: 4, month: "Nov", time: "8:00 PM",
+                                  gym: "Ralph Gracie Jiu-Jitsu", organizer: "sarah",
+                                  people: [Attendee(id: "sarah", status: .going, attended: true), Attendee(id: "me", status: .going, attended: true)],
+                                  focusItems: [TrainingFocus(title: "Guard passing")], startsAt: Date().addingTimeInterval(-3600), photos: ["roll-gi"])
+            completedSessions.append(session)
+            setTab(.training); go(.session(id: session.id))
         case .complete: setTab(.training); go(.complete(id: "c1"))
         case .qr: setTab(.profile); go(.qr())
         case .scan: setTab(.profile); go(.qr(scan: true))
@@ -1676,6 +1735,7 @@ extension AppModel {
         }
         guard !isLive else { return false }
         updateSession(session.id) { session in
+            session.photoContributions = session.sessionPhotos.filter { $0.author != "me" }
             for i in session.people.indices where session.people[i].id == "me" { session.people[i].attended = false }
         }
         showToast("Attendance removed")

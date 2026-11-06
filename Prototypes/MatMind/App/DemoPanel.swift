@@ -40,6 +40,7 @@ struct DemoPanel: View {
 
     private let states: [(AppModel.Preset, String)] = [
         (.focusPlan, "Plan a training · nested focus details"),
+        (.participantPhotos, "Participant photos · attended as a guest"),
         (.firstSession, "First session · no plans or shared posts"),
         (.awaitingPhoto, "Plan made · no shared photo yet"),
         (.empty, "Empty training schedule · keep activity history"), (.invite, "Pending invitation"), (.active, "Active streak"),

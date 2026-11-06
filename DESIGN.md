@@ -547,7 +547,7 @@ Native: `DesignSystem/Components/Display.swift` (`MMMonkey`, `MMMonkeyLook`, `mm
 **Product constraints (MVP)**
 - Activity shows upcoming link-visible session tickets and posts tied to completed sessions; the completion flow remains the memory composer.
 - Join sessions via invitation, direct addition, a valid link (Mat Monkey account required), or a friend's upcoming link-visible ticket in Activity. No public discovery of strangers.
-- Only the organizer can publish, edit, or delete the shared post; participants can like, comment, and remove themselves.
+- Only the organizer can publish, edit, or delete the shared Activity post; participants can like, comment, and remove themselves. Confirmed attendees can separately post one session photo each after training, replace it or remove it. Show the author's name above their photo directly on the paper canvas, with no white wrapper, inset or outer shadow. Rounded photos span the screen's content width; separate contributions by 24pt. Only the author's own entry has a menu. A participant photo does not publish an Activity post or change attendance. Photos stay below the session focus and use the existing session audience.
 - Friends connect instantly via QR, with no requests or approvals.
 
 ## 10. Working with this system (for Claude)
