@@ -401,8 +401,7 @@ struct SessionDetailScreen: View {
     @State private var picked: Set<String> = []
     @State private var showFocusEditor = false
     @State private var focusDraft: [TrainingFocus] = []
-    @State private var showPhotoComposer = false
-    @State private var replacingPhotoID: String?
+    @State private var photoDraft: ParticipantPhotoDraft?
     @State private var removingPhoto: SessionPhoto?
     @State private var removing = false
     private var pickableGoals: [MatGoal] {
@@ -578,8 +577,8 @@ struct SessionDetailScreen: View {
                 MMButton("Join session", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
             }
         }
-        .sheet(isPresented: $showPhotoComposer) {
-            ParticipantPhotoComposer(sessionID: id, replacingPhotoID: replacingPhotoID)
+        .sheet(item: $photoDraft) { draft in
+            ParticipantPhotoComposer(draft: draft)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(MMRadius.xl)
@@ -693,8 +692,7 @@ struct SessionDetailScreen: View {
                                 if photo.author == "me" && mm.canPostParticipantPhoto(session) {
                                     Menu {
                                         Button {
-                                            replacingPhotoID = photo.id
-                                            showPhotoComposer = true
+                                            photoDraft = ParticipantPhotoDraft(sessionID: id, replacingPhotoID: photo.id)
                                         } label: { Label("Replace photo", image: "repeat-2") }
                                         Button(role: .destructive) { removingPhoto = photo } label: { Label("Remove photo", image: "trash-2") }
                                     } label: {
@@ -720,8 +718,7 @@ struct SessionDetailScreen: View {
     private func guestPhotoActions(hasPhoto: Bool, session: Session) -> some View {
         if !hasPhoto {
             MMButton("Add photo", iconLeft: "camera") {
-                replacingPhotoID = nil
-                showPhotoComposer = true
+                photoDraft = ParticipantPhotoDraft(sessionID: id, replacingPhotoID: nil)
             }
             .disabled(mm.busy || removing)
         }

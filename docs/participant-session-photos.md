@@ -13,6 +13,10 @@ current native `SessionTicket`, metadata card, `MMPhotoTile`, `MMButton`,
 - The separate composer uses the single-image Photos picker. Its JPEG draft
   stays on the device until Post photo; closing discards the draft. Failed
   uploads keep the draft for retry and leave the previous photo intact.
+  Sheet presentation carries the session and expected existing photo ID in one
+  immutable draft, so Replace always opens in replacement mode, including on the
+  first presentation. Reopening creates a fresh draft; refreshing an open draft
+  does not silently change which photo it replaces.
 - Each photo shows its author's name above the image, including while the image
   downloads. Name and image sit directly on the paper canvas, with no white
   wrapper or shadow. A 24pt gap separates contributions; photos retain their

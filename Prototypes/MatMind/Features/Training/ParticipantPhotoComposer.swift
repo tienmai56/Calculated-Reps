@@ -7,8 +7,9 @@ import UIKit
 struct ParticipantPhotoComposer: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.dismiss) private var dismiss
-    let sessionID: String
-    let replacingPhotoID: String?
+    let draft: ParticipantPhotoDraft
+    private var sessionID: String { draft.sessionID }
+    private var replacingPhotoID: String? { draft.replacingPhotoID }
     @State private var library = false
     @State private var samplePicker = false
     @State private var pickerItem: PhotosPickerItem?

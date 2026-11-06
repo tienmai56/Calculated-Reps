@@ -5,6 +5,37 @@ import SwiftUI
 
 final class IntentionalTrainingNotesTests: XCTestCase {
     @MainActor
+    func testParticipantPhotoDraftKeepsItsExpectedVersionUntilReopened() async throws {
+        let ui = AppModel(live: false)
+        ui.run(.participantPhotos)
+        let add = ParticipantPhotoDraft(sessionID: "participant-photos", replacingPhotoID: nil)
+        let posted = await ui.postParticipantPhoto(add.sessionID, photo: "group-class", replacing: add.replacingPhotoID)
+        XCTAssertTrue(posted)
+        let first = try XCTUnwrap(ui.findSession(add.sessionID)?.sessionPhotos.first { $0.author == "me" })
+
+        // The same value drives sheet presentation, labels, and the expected ID on save.
+        let replacement = ParticipantPhotoDraft(sessionID: add.sessionID, replacingPhotoID: first.id)
+        let composer = ParticipantPhotoComposer(draft: replacement)
+        XCTAssertEqual(composer.draft.replacingPhotoID, first.id)
+        let saved = await ui.postParticipantPhoto(composer.draft.sessionID, photo: "coach-help",
+                                                 replacing: composer.draft.replacingPhotoID)
+        XCTAssertTrue(saved, "Opening Replace must carry the existing slot ID, including on its first presentation")
+        let second = try XCTUnwrap(ui.findSession(add.sessionID)?.sessionPhotos.first { $0.author == "me" })
+
+        // Refreshing the session must not silently retarget an already-open draft.
+        let stale = await ui.postParticipantPhoto(replacement.sessionID, photo: "group-class", replacing: replacement.replacingPhotoID)
+        XCTAssertFalse(stale)
+        XCTAssertEqual(ui.findSession(add.sessionID)?.sessionPhotos.first { $0.author == "me" }, second)
+        let reopened = ParticipantPhotoDraft(sessionID: add.sessionID, replacingPhotoID: second.id)
+        XCTAssertNotEqual(reopened.id, replacement.id, "Reopening starts a fresh sheet and photo picker")
+        let replacedAgain = await ui.postParticipantPhoto(reopened.sessionID, photo: "group-class", replacing: reopened.replacingPhotoID)
+        XCTAssertTrue(replacedAgain)
+        let photos = try XCTUnwrap(ui.findSession(add.sessionID)).sessionPhotos
+        XCTAssertEqual(photos.filter { $0.author == "me" }.count, 1)
+        XCTAssertEqual(photos.first { $0.author == "sarah" }?.source, "roll-gi")
+    }
+
+    @MainActor
     func testParticipantPhotoSlotPreservesTheHostPhotoAttendanceAndMemory() async throws {
         let ui = AppModel(live: false)
         ui.run(.participantPhotos)

@@ -117,6 +117,14 @@ struct SessionPhoto: Identifiable, Hashable {
     var source: String?
 }
 
+/// Present the sheet and its expected photo version as one immutable value.
+/// Separate presentation/selection state can open a replacement as a new post.
+struct ParticipantPhotoDraft: Identifiable {
+    let id = UUID()
+    let sessionID: String
+    let replacingPhotoID: String?
+}
+
 struct Session: Identifiable, Hashable {
     let id: String
     var title: String
