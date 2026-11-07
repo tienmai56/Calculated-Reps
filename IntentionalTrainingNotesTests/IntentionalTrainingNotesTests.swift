@@ -2727,6 +2727,53 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertTrue(model.snapshot.likes.isEmpty)
     }
 
+    @MainActor
+    func testQuickLogUndoUpdatesInTapAndMatchAcknowledgementDoesNotShowSpinner() async throws {
+        let started = expectation(description: "Match acknowledgement in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), acknowledgementStarted: started)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        model.snapshot.quick_logs = []; model.snapshot.training_days = []
+        model.snapshot.log_matches = []; model.snapshot.shared_session_ids = []
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        _ = await ui.quickLogSaves[log.id]?.value
+        let toast = try XCTUnwrap(ui.toast)
+        // A refresh can deliver a match while the quick-log Undo is still displayed.
+        model.snapshot.log_matches = [SocialRow(values: ["id": .string("match"), "session_id": .string("session")])]
+        runtime.sync()
+        let undo = try XCTUnwrap(ui.undoTrainingToastNow(toast.id))
+        XCTAssertTrue(ui.quickLogs.isEmpty, "Removal happens inside the tap, without yielding to any task")
+        XCTAssertNil(ui.toast)
+        XCTAssertFalse(model.busy)
+        await undo.value
+        await fulfillment(of: [started], timeout: 5)
+        XCTAssertFalse(model.busy, "Undo's follow-up sync must not show a spinner for bookkeeping")
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        // Repeated syncs while the acknowledgement is pending cannot resubmit it.
+        ui.trainingUndo = nil
+        runtime.sync()
+        runtime.sync()
+        await fixture.releaseAcknowledgements()
+        let deadline = Date().addingTimeInterval(5)
+        while model.snapshot.log_matches?.isEmpty == false, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.snapshot.log_matches, [])
+        let requests = await fixture.requests
+        let operations = try requests.filter { $0.url?.path == "/rest/v1/rpc/command" }.map {
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap($0.httpBody)) as? [String: Any])
+            return body["operation"] as? String
+        }
+        XCTAssertEqual(operations.filter { $0 == "acknowledge_log_match" }.count, 1)
+        XCTAssertFalse(requests.contains { $0.url?.path == "/rest/v1/rpc/snapshot" }, "Neither Undo nor acknowledgement reloads the feed")
+    }
+
     private func creationRequests() -> [SessionCreationRequest] {
         let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
                                  note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
@@ -2780,6 +2827,9 @@ private actor BackendHTTPFixture {
     private var holdLikes: Bool
     private var likeWaiters: [CheckedContinuation<Void, Never>] = []
     private var likedPosts: Set<String> = []
+    private let acknowledgementStarted: XCTestExpectation?
+    private var holdAcknowledgements: Bool
+    private var acknowledgementWaiters: [CheckedContinuation<Void, Never>] = []
     private let rhythmRows: [RhythmSession]
     private let usernameRows: [SocialRow]
     private let followUsernameStatus: Int
@@ -2790,7 +2840,8 @@ private actor BackendHTTPFixture {
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
          snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200,
-         likeStarted: XCTestExpectation? = nil, holdLikes: Bool = false, likeStatus: Int = 200) {
+         likeStarted: XCTestExpectation? = nil, holdLikes: Bool = false, likeStatus: Int = 200,
+         acknowledgementStarted: XCTestExpectation? = nil) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -2806,6 +2857,15 @@ private actor BackendHTTPFixture {
         self.likeStarted = likeStarted
         self.holdLikes = holdLikes
         self.likeStatus = likeStatus
+        self.acknowledgementStarted = acknowledgementStarted
+        self.holdAcknowledgements = acknowledgementStarted != nil
+    }
+
+    func releaseAcknowledgements() {
+        holdAcknowledgements = false
+        let waiters = acknowledgementWaiters
+        acknowledgementWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     func releaseLikes() {
@@ -2868,6 +2928,13 @@ private actor BackendHTTPFixture {
            command["operation"] as? String == "save_profile" { profileSaved = true }
         if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
            let command = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            if command["operation"] as? String == "acknowledge_log_match" {
+                if holdAcknowledgements {
+                    acknowledgementStarted?.fulfill()
+                    await withCheckedContinuation { acknowledgementWaiters.append($0) }
+                }
+                return (200, Data("{}".utf8))
+            }
             if command["operation"] as? String == "set_like", let payload = command["payload"] as? [String: Any],
                let postID = payload["post_id"] as? String, let liked = payload["liked"] as? Bool {
                 if holdLikes {
@@ -4426,9 +4493,7 @@ extension TrainingCalendarTests {
         let log = try XCTUnwrap(ui.logTrainingNow(day))
         let toast = try XCTUnwrap(ui.toast)
         await fulfillment(of: [started], timeout: 1)
-        let undo = Task { await ui.undoTrainingToast(toast.id) }
-        let deadline = Date().addingTimeInterval(1)
-        while ui.quickLogs.contains(where: { $0.id == log.id }), Date() < deadline { await Task.yield() }
+        let undo = try XCTUnwrap(ui.undoTrainingToastNow(toast.id))
         XCTAssertEqual(operations, ["create_quick_log"], "Undo waits for the create")
         XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id }, "The UI removes the log while its create is still pending")
         XCTAssertNil(ui.toast)

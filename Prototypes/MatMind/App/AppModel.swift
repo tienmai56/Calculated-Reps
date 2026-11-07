@@ -1723,23 +1723,34 @@ extension AppModel {
             self.trainingUndo = nil; self.trainingUndoToastID = nil; self.trainingUndoSessionID = nil
         }
     }
-    func undoTrainingToast(_ id: UUID) async {
-        guard canUndoTrainingToast(id), let undo = trainingUndo else { return }
-        // Quick-log Undo changes the card before either the create or delete finishes.
-        // Claim its action now so repeated taps cannot send another delete.
-        if let logID = trainingUndoQuickLogID {
-            let generation = trainingGeneration
-            let inline = toast?.inline ?? false
-            if toast?.id == id { toast = nil }
-            trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
-            let saved = await undo()
-            guard generation == trainingGeneration else { return }
-            if !saved, toast == nil, trainingUndo == nil {
-                trainingToast("Couldn't undo. Try again.", inline: inline, undo: undo)
-                trainingUndoQuickLogID = logID
+    /// Button actions apply quick-log Undo synchronously; only persistence is scheduled.
+    @discardableResult
+    func undoTrainingToastNow(_ id: UUID) -> Task<Void, Never>? {
+        guard canUndoTrainingToast(id), let undo = trainingUndo else { return nil }
+        guard let logID = trainingUndoQuickLogID else {
+            return Task { await undoTrainingToast(id) }
+        }
+        let generation = trainingGeneration
+        let inline = toast?.inline ?? false
+        if toast?.id == id { toast = nil }
+        trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
+        let deletion = beginDeletingQuickLog(logID)
+        return Task { [weak self] in
+            let saved = await deletion.value
+            guard let self, generation == self.trainingGeneration else { return }
+            if !saved, self.toast == nil, self.trainingUndo == nil {
+                self.trainingToast("Couldn't undo. Try again.", inline: inline, undo: undo)
+                self.trainingUndoQuickLogID = logID
             }
+        }
+    }
+
+    func undoTrainingToast(_ id: UUID) async {
+        if trainingUndoQuickLogID != nil {
+            await undoTrainingToastNow(id)?.value
             return
         }
+        guard canUndoTrainingToast(id), let undo = trainingUndo else { return }
         guard !busy else { return }
         let generation = trainingGeneration
         savingTraining = true
@@ -1899,9 +1910,13 @@ extension AppModel {
         persistQuickLogTechniques()
     }
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
-        guard quickTrainingLogEnabled, !isLive || runtime != nil else { return false }
-        if let pending = quickLogDeletes[id] { return await pending.value }
-        if deletedQuickLogIDs.contains(id) { return true }
+        await beginDeletingQuickLog(id).value
+    }
+
+    private func beginDeletingQuickLog(_ id: String) -> Task<Bool, Never> {
+        guard quickTrainingLogEnabled, !isLive || runtime != nil else { return Task { false } }
+        if let pending = quickLogDeletes[id] { return pending }
+        if deletedQuickLogIDs.contains(id) { return Task { true } }
         let generation = trainingGeneration
         let index = quickLogs.firstIndex { $0.id == id }
         let log = index.map { quickLogs[$0] }
@@ -1915,7 +1930,7 @@ extension AppModel {
         guard let runtime else {
             quickLogHitsByID.removeValue(forKey: id)
             persistQuickLogTechniques()
-            return true
+            return Task { true }
         }
         let task = Task { [weak self] in
             // Only the network delete waits; the log has already left the screen.
@@ -1942,7 +1957,7 @@ extension AppModel {
             return saved
         }
         quickLogDeletes[id] = task
-        return await task.value
+        return task
     }
     @discardableResult func removeOwnTrainingAttendance(_ session: Session) async -> Bool {
         guard !busy, let current = findSession(session.id),
