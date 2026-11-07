@@ -730,11 +730,16 @@ final class LiveMatMindRuntime: AppRuntime {
             ?? UUID()
         // A quick log is already on the card (or about to be), so its save neither locks the app nor
         // reloads everything; one reload follows a burst of taps.
-        let quickLog = operation == "create_quick_log"
+        let quickLog = ["create_quick_log", "delete_quick_log"].contains(operation)
         let result = await model.perform(operation, body, key: receiptKey,
                                          blocking: deleting == nil && deletingComment == nil && !quickLog && !["share_goal", "set_follow", "follow_username"].contains(operation),
                                          refresh: !quickLog)
-        if quickLog, result != nil { scheduleQuickLogRefresh() }
+        if quickLog, result != nil {
+            if operation == "delete_quick_log", let id = body["id"] as? String {
+                model.snapshot.quick_logs?.removeAll { $0.id == id }
+            }
+            scheduleQuickLogRefresh()
+        }
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {

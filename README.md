@@ -4,6 +4,8 @@ Native SwiftUI app for planning training with partners, sharing completed sessio
 
 Likes update the heart and count locally on tap, then save in the background without the global spinner or a full feed reload. Rapid taps save in order per post, older refreshes preserve the latest local choice, and failed saves restore the last confirmed state with an error. This client change requires a new iOS build.
 
+Quick-log Undo removes the log and its technique counts immediately, then deletes in the background without a spinner or full reload. If the original save is still running, the delete waits for it while the UI stays responsive. Failed deletes restore the log and offer Undo again; stale refreshes cannot bring an undone log back. This client change requires a new iOS build.
+
 Activity groups all future hosted and accepted sessions under **Coming up**, including solo and friends-only plans, with one ticket per session and no “Coming up:” title prefix. Social posts follow under **Activity**. This client change requires a new iOS build.
 
 **Invite friends** is now one sideways rail instead of a grid that grew with every friend, so **Who can join** stays in view. It shows up to 8 friends (streaks first, then who you trained with most recently); **Search** and **See all** open a sheet with every friend A–Z and a search field. This change requires a new iOS build.

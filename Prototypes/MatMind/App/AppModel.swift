@@ -222,8 +222,11 @@ final class AppModel {
     /// Live quick logs saved (or still saving) on this device that no snapshot has returned yet.
     /// A snapshot replaces the list, so these stay on screen until the server sends them back.
     @ObservationIgnored private var localQuickLogs: [String: QuickLog] = [:]
-    /// Background saves for one-tap logs, by log ID. Undo and removal wait for their save first.
+    /// Background saves for one-tap logs, by log ID. Server deletes wait for their save;
+    /// Undo and removal update the UI first.
     @ObservationIgnored private(set) var quickLogSaves: [String: Task<Bool, Never>] = [:]
+    @ObservationIgnored private var deletedQuickLogIDs: Set<String> = []
+    @ObservationIgnored private var quickLogDeletes: [String: Task<Bool, Never>] = [:]
     /// The quick log whose "Training logged" toast currently offers Undo.
     @ObservationIgnored private var trainingUndoQuickLogID: String?
 
@@ -237,6 +240,7 @@ final class AppModel {
         savingTraining = false
         trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
         localQuickLogs = [:]; quickLogSaves = [:]; trainingUndoQuickLogID = nil
+        deletedQuickLogIDs = []; quickLogDeletes = [:]
     }
 
     /// Full 17-week read, separate from the bounded Training list. nil uses the loaded session page.
@@ -1635,7 +1639,23 @@ extension AppModel {
         }
     }
     func undoTrainingToast(_ id: UUID) async {
-        guard !busy, canUndoTrainingToast(id), let undo = trainingUndo else { return }
+        guard canUndoTrainingToast(id), let undo = trainingUndo else { return }
+        // Quick-log Undo changes the card before either the create or delete finishes.
+        // Claim its action now so repeated taps cannot send another delete.
+        if let logID = trainingUndoQuickLogID {
+            let generation = trainingGeneration
+            let inline = toast?.inline ?? false
+            if toast?.id == id { toast = nil }
+            trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
+            let saved = await undo()
+            guard generation == trainingGeneration else { return }
+            if !saved, toast == nil, trainingUndo == nil {
+                trainingToast("Couldn't undo. Try again.", inline: inline, undo: undo)
+                trainingUndoQuickLogID = logID
+            }
+            return
+        }
+        guard !busy else { return }
         let generation = trainingGeneration
         savingTraining = true
         defer { if generation == trainingGeneration { savingTraining = false } }
@@ -1662,6 +1682,7 @@ extension AppModel {
             trainingGeneration = UUID()
             savingTraining = false
             trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+            deletedQuickLogIDs = []; quickLogDeletes = [:]
         }
         quickLogAccount = account
         quickLogDefaults = defaults
@@ -1739,6 +1760,7 @@ extension AppModel {
             persistQuickLogTechniques()
         }
         trainingToast("Training logged", inline: inline) { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
+        trainingUndoQuickLogID = log.id
         return log
     }
     /// Activity's one-tap log. The day, Undo and the follow-up appear in the same frame as the tap;
@@ -1770,13 +1792,16 @@ extension AppModel {
         if trainingUndoQuickLogID == id {
             trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
         }
-        showToast("Couldn't save training. Try again.", .danger, inline: true)
+        if !deletedQuickLogIDs.contains(id) { showToast("Couldn't save training. Try again.", .danger, inline: true) }
     }
     /// Live snapshots replace the list; logs saved here that the server hasn't returned yet stay.
     func applyServerQuickLogs(_ logs: [QuickLog]) {
         let serverIDs = Set(logs.map(\.id))
         localQuickLogs = localQuickLogs.filter { !serverIDs.contains($0.key) }
-        quickLogs = logs + localQuickLogs.values.sorted { $0.loggedAt == $1.loggedAt ? $0.id < $1.id : $0.loggedAt < $1.loggedAt }
+        // IDs are unique and never reused. Keep tombstones for this account's lifetime
+        // so even a read started before the delete cannot bring an undone log back.
+        quickLogs = (logs + localQuickLogs.values.sorted { $0.loggedAt == $1.loggedAt ? $0.id < $1.id : $0.loggedAt < $1.loggedAt })
+            .filter { !deletedQuickLogIDs.contains($0.id) }
     }
     /// Techniques counted after a one-tap log. Like other rep details they stay private on this device.
     /// Hits for techniques no longer in the list keep their saved snapshot.
@@ -1789,25 +1814,50 @@ extension AppModel {
         persistQuickLogTechniques()
     }
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
-        guard quickTrainingLogEnabled else { return false }
+        guard quickTrainingLogEnabled, !isLive || runtime != nil else { return false }
+        if let pending = quickLogDeletes[id] { return await pending.value }
+        if deletedQuickLogIDs.contains(id) { return true }
         let generation = trainingGeneration
-        // A one-tap save still in flight finishes first, so the delete never reaches the server before the create.
-        if let save = quickLogSaves[id] {
-            let created = await save.value
-            guard generation == trainingGeneration else { return false }
-            if !created { return true } // The failed save already took the log off the card.
+        let index = quickLogs.firstIndex { $0.id == id }
+        let log = index.map { quickLogs[$0] }
+        let hits = quickLogHitsByID[id]
+        let creation = quickLogSaves[id]
+        deletedQuickLogIDs.insert(id)
+        localQuickLogs[id] = nil
+        quickLogs.removeAll { $0.id == id }
+        // Hiding the log also removes its visible counts. Keep the private rep data
+        // until confirmation so a failed delete or app restart cannot lose it.
+        guard let runtime else {
+            quickLogHitsByID.removeValue(forKey: id)
+            persistQuickLogTechniques()
+            return true
         }
-        if let runtime {
-            guard await runtime.perform("delete_quick_log", ["id": id]), generation == trainingGeneration else { return false }
-            localQuickLogs[id] = nil
-            quickLogs.removeAll { $0.id == id }
-        } else {
-            guard !isLive else { return false }
-            quickLogs.removeAll { $0.id == id }
+        let task = Task { [weak self] in
+            // Only the network delete waits; the log has already left the screen.
+            let created = await creation?.value ?? true
+            guard let self, generation == self.trainingGeneration else { return false }
+            defer { if generation == self.trainingGeneration { self.quickLogDeletes[id] = nil } }
+            if !created { return true } // There is no server log left to delete.
+            let saved = await runtime.perform("delete_quick_log", ["id": id])
+            guard generation == self.trainingGeneration else { return false }
+            if saved {
+                self.quickLogHitsByID.removeValue(forKey: id)
+                self.persistQuickLogTechniques()
+            } else {
+                self.deletedQuickLogIDs.remove(id)
+                if let log {
+                    self.localQuickLogs[id] = log
+                    if !self.quickLogs.contains(where: { $0.id == id }) {
+                        self.quickLogs.insert(log, at: min(index ?? self.quickLogs.count, self.quickLogs.count))
+                    }
+                }
+                self.quickLogHitsByID[id] = hits
+                self.persistQuickLogTechniques()
+            }
+            return saved
         }
-        quickLogHitsByID.removeValue(forKey: id)
-        persistQuickLogTechniques()
-        return true
+        quickLogDeletes[id] = task
+        return await task.value
     }
     @discardableResult func removeOwnTrainingAttendance(_ session: Session) async -> Bool {
         guard !busy, let current = findSession(session.id),
