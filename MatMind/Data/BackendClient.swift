@@ -43,6 +43,7 @@ struct CloudCredential: Codable, Equatable, Sendable {
 struct CloudUser: Codable, Equatable, Sendable { var id: String }
 struct SocialRow: Codable, Identifiable, Equatable {
     var values: [String: ArchiveValue]
+    init(values: [String: ArchiveValue]) { self.values = values }
     var id: String { text("id").isEmpty ? [text("session_id"),text("post_id"),text("user_id"),text("friendship_id")].joined(separator:":") : text("id") }
     init(from decoder: Decoder) throws { values = try decoder.singleValueContainer().decode([String: ArchiveValue].self) }
     func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(values) }

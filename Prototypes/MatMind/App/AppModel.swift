@@ -8,6 +8,7 @@ protocol AppRuntime: AnyObject {
     func authenticate() async
     func signOut() async
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
+    func setLike(_ postID: String, liked: Bool)
     /// Someone's training partners, or nil when you can't see their list.
     func partners(of personID: String) async -> [Person]?
     func searchUsernames(_ query: String) async throws -> [Person]
@@ -704,7 +705,8 @@ final class AppModel {
     }
 
     func like(_ id: String) {
-        if isLive { send("set_like", ["post_id": id, "liked": !(post(id)?.likes.contains("me") ?? false)]); return }
+        guard let post = post(id) else { return }
+        if isLive { runtime?.setLike(id, liked: !post.likes.contains("me")); return }
         updatePost(id) { p in
             if p.likes.contains("me") { p.likes.removeAll { $0 == "me" } } else { p.likes.insert("me", at: 0) }
         }

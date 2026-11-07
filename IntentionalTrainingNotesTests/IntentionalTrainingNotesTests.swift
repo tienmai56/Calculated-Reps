@@ -2471,6 +2471,141 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertTrue(ui.usernamePeople.isEmpty)
     }
 
+    @MainActor
+    func testLikeUpdatesUIBeforeNetworkCompletesWithoutSpinnerOrReload() async throws {
+        let started = expectation(description: "Like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        model.snapshot.posts = [SocialRow(values: ["id": .string("post"), "author": .string("owner")])]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+
+        ui.like("post")
+        XCTAssertEqual(ui.post("post")?.likes, ["me"], "The tap must update before yielding to the network")
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(ui.busy)
+        runtime.sync()
+        XCTAssertEqual(ui.post("post")?.likes, ["me"], "Other UI syncs must retain the pending like")
+        await fixture.releaseLikes()
+        await save.value
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.filter { $0.url?.path == "/rest/v1/rpc/command" }.count, 1)
+        XCTAssertFalse(requests.contains { $0.url?.path == "/rest/v1/rpc/snapshot" })
+        XCTAssertEqual(ui.posts.count, 1)
+    }
+
+    @MainActor
+    func testRapidUnlikeWaitsForLikeAndKeepsLatestLocalChoice() async throws {
+        let started = expectation(description: "First like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        model.setLike("post", liked: false)
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+        let beforeRelease = await fixture.requests
+        XCTAssertEqual(beforeRelease.count, 1, "Writes for one post must not race")
+        await fixture.releaseLikes()
+        await save.value
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+        let requests = await fixture.requests
+        let choices = try requests.map {
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap($0.httpBody)) as? [String: Any])
+            return try XCTUnwrap((body["payload"] as? [String: Any])?["liked"] as? Bool)
+        }
+        XCTAssertEqual(choices, [true, false])
+        await model.refresh()
+        XCTAssertTrue(model.snapshot.likes.isEmpty, "The server must also end unliked")
+    }
+
+    @MainActor
+    func testFailedLikeRestoresOnlyOwnReaction() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStatus: 403)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let partner = SocialRow(values: ["post_id": .string("post"), "user_id": .string("partner")])
+        model.snapshot.likes = [partner]
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        XCTAssertEqual(model.snapshot.likes.count, 2)
+        await save.value
+        XCTAssertEqual(model.snapshot.likes, [partner])
+        XCTAssertNotNil(model.error)
+        XCTAssertFalse(model.busy)
+    }
+
+    @MainActor
+    func testRefreshKeepsPendingLikeUntilServerAcknowledges() async throws {
+        let likeStarted = expectation(description: "Like request in flight")
+        let snapshotStarted = expectation(description: "Older snapshot in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: snapshotStarted,
+                                         holdSnapshots: true, likeStarted: likeStarted, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let olderRead = Task { await model.refresh() }
+        await fulfillment(of: [snapshotStarted], timeout: 5)
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [likeStarted], timeout: 5)
+        await fixture.releaseSnapshots()
+        await olderRead.value
+        XCTAssertEqual(model.snapshot.likes.count, 1, "A refresh must not undo an in-flight tap")
+
+        // A second read captures the old server value while the write is still pending.
+        await model.refresh()
+        XCTAssertEqual(model.snapshot.likes.count, 1)
+        await fixture.releaseLikes()
+        await save.value
+        await model.refresh()
+        XCTAssertEqual(model.snapshot.likes.count, 1, "A fresh authoritative read confirms the saved like")
+    }
+
+    @MainActor
+    func testReadStartedBeforeLikeCannotOverwriteItsCompletedSave() async throws {
+        let started = expectation(description: "Old snapshot in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let read = Task { await model.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await save.value
+        await fixture.releaseSnapshots()
+        await read.value
+        XCTAssertEqual(model.snapshot.likes.count, 1)
+    }
+
+    @MainActor
+    func testLikeCompletionAfterLogoutCannotRestoreAccountData() async throws {
+        let started = expectation(description: "Like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        await model.logout()
+        await fixture.releaseLikes()
+        await save.value
+        XCTAssertNil(model.userID)
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+    }
+
     private func creationRequests() -> [SessionCreationRequest] {
         let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
                                  note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
@@ -2519,6 +2654,11 @@ private actor BackendHTTPFixture {
     private var holdSnapshots: Bool
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
     private var profileSaved = false
+    private let likeStarted: XCTestExpectation?
+    private let likeStatus: Int
+    private var holdLikes: Bool
+    private var likeWaiters: [CheckedContinuation<Void, Never>] = []
+    private var likedPosts: Set<String> = []
     private let rhythmRows: [RhythmSession]
     private let usernameRows: [SocialRow]
     private let followUsernameStatus: Int
@@ -2528,7 +2668,8 @@ private actor BackendHTTPFixture {
     var createdSessionCount: Int { createReceipts.count }
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
-         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200) {
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200,
+         likeStarted: XCTestExpectation? = nil, holdLikes: Bool = false, likeStatus: Int = 200) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -2541,6 +2682,16 @@ private actor BackendHTTPFixture {
         self.rhythmRows = rhythmRows
         self.usernameRows = usernameRows
         self.followUsernameStatus = followUsernameStatus
+        self.likeStarted = likeStarted
+        self.holdLikes = holdLikes
+        self.likeStatus = likeStatus
+    }
+
+    func releaseLikes() {
+        holdLikes = false
+        let waiters = likeWaiters
+        likeWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     func releaseSnapshots() {
@@ -2596,6 +2747,16 @@ private actor BackendHTTPFixture {
            command["operation"] as? String == "save_profile" { profileSaved = true }
         if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
            let command = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            if command["operation"] as? String == "set_like", let payload = command["payload"] as? [String: Any],
+               let postID = payload["post_id"] as? String, let liked = payload["liked"] as? Bool {
+                if holdLikes {
+                    likeStarted?.fulfill()
+                    await withCheckedContinuation { likeWaiters.append($0) }
+                }
+                if likeStatus != 200 { return (likeStatus, Data(#"{"message":"Like could not be saved"}"#.utf8)) }
+                if liked { likedPosts.insert(postID) } else { likedPosts.remove(postID) }
+                return (200, Data("{}".utf8))
+            }
             if command["operation"] as? String == "friend_token" {
                 return (200, try JSONSerialization.data(withJSONObject: ["token": String(repeating: "a1", count: 32)]))
             }
@@ -2617,6 +2778,7 @@ private actor BackendHTTPFixture {
         }
         if request.url?.path == "/rest/v1/rpc/snapshot" {
             var snapshot = SocialSnapshot(server_time: profileSaved ? "profile-saved" : "snapshot-loaded")
+            snapshot.likes = likedPosts.map { SocialRow(values: ["post_id": .string($0), "user_id": .string("owner")]) }
             if profileSaved {
                 snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","name":"Alex"}]"#.utf8))
             }
@@ -3093,6 +3255,7 @@ private final class TrainingRuntimeStub: AppRuntime {
     var busy = false
     var command: @MainActor (String, [String: Any]) async -> Bool = { _, _ in false }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool { await command(operation, payload) }
+    func setLike(_ postID: String, liked: Bool) { Task { _ = await command("set_like", ["post_id": postID, "liked": liked]) } }
     func authenticate() async {}
     func signOut() async {}
     func partners(of personID: String) async -> [Person]? { nil }
