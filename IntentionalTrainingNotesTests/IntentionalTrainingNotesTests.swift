@@ -47,7 +47,10 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         """#.utf8))
         let ui = AppModel(live: true)
         let runtime = LiveMatMindRuntime(model: model, ui: ui) { key, _ in Data(key.utf8) }
+        runtime.sync()
+        XCTAssertEqual(ui.findSession("session")?.mediaLoading, true)
         await runtime.loadPhotos()
+        XCTAssertEqual(ui.findSession("session")?.mediaLoading, false)
         XCTAssertTrue(ui.sessionMediaAvailable)
         let gallery = try XCTUnwrap(ui.post("post")).gallery
         XCTAssertEqual(gallery.count, 2)

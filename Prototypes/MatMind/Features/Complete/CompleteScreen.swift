@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 import UIKit
 
 /// What a shared session needs before it can be published: a photo, a note, or both.
@@ -28,6 +29,7 @@ struct CompleteScreen: View {
     @State private var media: [String] = []
     @State private var selectedMedia = 0
     @State private var initializedMedia = false
+    @State private var editedMedia = false
     @State private var publishing = false
     @State private var savingPhoto = false
     @State private var photoSaveFailed = false
@@ -72,12 +74,12 @@ struct CompleteScreen: View {
                         .disabled(publishing || savingPhoto)
                 }
                 if media.isEmpty {
-                    emptyPhoto.padding(.top, MMLayout.sectionGap)
+                    emptyPhoto.padding(.top, MMLayout.sectionGap).disabled(s.mediaLoading)
                 } else {
-                    mediaEditor.padding(.top, MMLayout.sectionGap)
+                    mediaEditor.padding(.top, MMLayout.sectionGap).disabled(s.mediaLoading)
                 }
-                if savingPhoto || loadingMedia {
-                    Text(loadingMedia ? "Loading media…" : "Saving media to session…")
+                if savingPhoto || loadingMedia || s.mediaLoading {
+                    Text(loadingMedia || s.mediaLoading ? "Loading media…" : "Saving media to session…")
                         .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
                         .padding(.top, MMSpace.s4)
                 } else if photoSaveFailed {
@@ -114,6 +116,9 @@ struct CompleteScreen: View {
         .onChange(of: canPublish) { _, ready in if ready { nudged = false } }
         .onAppear {
             if !initializedMedia { media = Array(s.photos.prefix(SessionMedia.limit)); initializedMedia = true }
+        }
+        .onChange(of: s.photos) { _, saved in
+            if !editedMedia { media = Array(saved.prefix(SessionMedia.limit)) }
         }
         .photosPicker(isPresented: $library, selection: $pickerItems,
                       maxSelectionCount: max(1, mediaLimit - media.count), selectionBehavior: .ordered,
@@ -209,7 +214,7 @@ struct CompleteScreen: View {
                 withAnimation(MMMotion.easeOut(0.3)) { result = r }
             }
         }
-        .disabled(!canPublish || publishing || savingPhoto || loadingMedia || photoSaveFailed || mm.busy)
+        .disabled(s.mediaLoading || !canPublish || publishing || savingPhoto || loadingMedia || photoSaveFailed || mm.busy)
         .overlay {
             // A disabled button swallows taps, so catch them here to point at what's missing.
             if !canPublish && !publishing && !mm.busy {
@@ -276,6 +281,7 @@ struct CompleteScreen: View {
     private var mediaLimit: Int { supportsGallery ? SessionMedia.limit : 1 }
 
     private func saveMedia() {
+        editedMedia = true
         savingPhoto = true
         photoSaveFailed = false
         let selection = media
@@ -288,6 +294,7 @@ struct CompleteScreen: View {
 
     @MainActor
     private func loadMedia(_ items: [PhotosPickerItem]) async {
+        editedMedia = true
         for item in items.prefix(max(0, mediaLimit - media.count)) {
             if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
                 if let movie = try? await item.loadTransferable(type: GoalPickedVideo.self),
