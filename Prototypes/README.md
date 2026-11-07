@@ -18,6 +18,26 @@ For visual review without Xcode, run `python3 Prototypes/WelcomePreview/serve.py
 
 All data is sample data held in memory (`App/SeedData.swift`, from `ui_kits/app/data.js`). Nothing is saved or sent anywhere.
 
+## Training invitation UI mock
+
+Choose the **TrainingInvitationMock** Xcode scheme and run on an iPhone simulator.
+It opens **Notifications → Invites** signed in as the sample member, with Jamie's pending invitation
+for **Guard passing rounds** tomorrow at 6:30 PM at North Shore Grappling.
+It uses the separate prototype app, with no sign-in or backend setup.
+
+1. Tap **View details**. Read the date/time and timezone, gym, description, focus
+   descriptions and guest list. Your status stays **Invited**; focus is read-only.
+2. Go back: the invite is still waiting. Open **Activity** and verify it appears in
+   Invites and is absent from Coming up. The bell also shows it under All and Invites. The invitation card uses the host's monkey tile, title, gym and View details only; RSVP controls appear only on the full session page. Training has no pending invitation card.
+3. Open details and **Accept**. The invitation leaves the waiting list, and the
+   session appears in Training and Activity's Coming up with your status Going.
+4. Tap **Reset invite** in the sample-data bar, then open View details and try **Decline**. The invitation
+   leaves the waiting list without adding a plan. Reset restores it for another run.
+
+The date moves with the device's current day. All responses are simulated in memory;
+relaunching or Reset invite returns to Notifications → Invites with the pending invitation. This previews the UI;
+use the database regression suite to verify the live invitation permissions.
+
 ## Quick training log UI mock
 
 Choose the **QuickTrainingLogMock** Xcode scheme and run on an iPhone simulator.
@@ -30,9 +50,11 @@ The sample-data bar has seven states and **Reset**:
 - **Upcoming prompt** (default): the ink quick-log strip comes first. The nearest
   upcoming session appears below on warm paper-2, with ink text, a white calendar
   tile and a secondary **View session** button.
-  Tap any past or current day to log it at once: **Training logged · Undo**
-  replaces the card's subtitle, and **Not now** / **Log techniques** appear under
-  the days. Log techniques opens **What landed on {day}?**; counts save as you tap
+  Tap any past or current day to log it at once: **↶ Undo** appears beside
+  **This week**, keeping the title row, instruction and calendar in place, while
+  **Not now** / **Log techniques** expand the card downward under the days.
+  Undo disappears after five seconds without changing the header's height.
+  Log techniques opens **What landed on {day}?**; counts save as you tap
   and the row then summarizes them. A quick log leaves that session open. Use
   **Start plan** to simulate its start, then complete it from View session.
   Returning to Activity shows the next open session in the prompter. It stays on the selected

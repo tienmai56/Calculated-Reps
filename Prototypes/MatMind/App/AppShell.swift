@@ -54,7 +54,7 @@ struct MMAppShell: View {
         case let .goal(id): GoalDetailScreen(id: id)
         case let .sharedGoal(id): SharedGoalScreen(id: id)
         case let .qr(scan): QRScreen(startOnScan: scan)
-        case .notifications: NotificationsScreen()
+        case .notifications(let invites): NotificationsScreen(startsOnInvites: invites)
         case .people: PeopleSearchScreen()
         case let .person(id): PersonProfileScreen(id: id)
         case let .partners(id): PartnersListScreen(id: id)

@@ -1,7 +1,8 @@
 import SwiftUI
 import UIKit
 
-struct TrainingInvitationCard: View {
+/// Compatibility state on the full session page when an older server has no details.
+private struct UnavailableTrainingInvitationCard: View {
     @Environment(AppModel.self) private var mm
     let invitation: TrainingInvitation
 
@@ -9,12 +10,16 @@ struct TrainingInvitationCard: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("\(mm.person(invitation.organizer).firstName) invited you to train")
                 .mmFont(.display, 20, .bold).foregroundStyle(MMColor.textPrimary)
-            Text("Accept to see the session details.")
+            let preview = [invitation.title, invitation.gym].compactMap { $0 }.joined(separator: " · ")
+            Text(preview.isEmpty ? "You're invited to train." : preview)
                 .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+            Text("Details aren't available yet. Try again later.")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
             HStack(spacing: 8) {
                 MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }
                 MMButton("Accept", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(invitation.id, .going) }
             }
+            .disabled(mm.busy)
         }
         .padding(16)
         .mmCardSurface(radius: 22)
@@ -54,7 +59,6 @@ struct TrainingScreen: View {
     private func training(now: Date) -> some View {
         let past = section == "past"
         let list = mm.trainingSessions(past: past, relativeTo: now).filter { $0.status(of: "me") != .invited }
-        let invites = past ? [] : mm.pendingTrainingInvitations
         let rest = list
         return MMScreen(tabPadding: true) {
             MMHeader(title: "Training", large: true, trailing: {
@@ -64,16 +68,7 @@ struct TrainingScreen: View {
         } content: {
             MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
                 .padding(MMSpace.s6)
-            if !past && !mm.pendingTrainingInvitations.isEmpty {
-                MMEyebrow("Invites", topPadding: 8)
-                VStack(spacing: 16) {
-                    ForEach(mm.pendingTrainingInvitations) { invitation in
-                        TrainingInvitationCard(invitation: invitation)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-            if list.isEmpty && (past || mm.pendingTrainingInvitations.isEmpty) {
+            if list.isEmpty {
                 if past {
                     MMEmptyState(artwork: .plan, title: "Your past training",
                                  message: "Sessions show up here once their start time has passed. No photo needed.",
@@ -92,7 +87,6 @@ struct TrainingScreen: View {
                     ForEach(rest) { s in sessionCard(s, now: now) }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, !past && !invites.isEmpty ? MMLayout.sectionGap : MMSpace.s0)
             }
         }
         .animation(MMMotion.easeOut(), value: list.map(\.id))
@@ -409,13 +403,15 @@ struct SessionDetailScreen: View {
     }
 
     var body: some View {
-        if let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == id }) {
+        if let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == id }), let session = invitation.details {
+            detail(session)
+        } else if let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == id }) {
             MMScreen {
                 MMHeader(title: "Training invitation", leading: {
                     MMIconButton("chevron-left", label: "Back") { mm.back() }
                 })
             } content: {
-                TrainingInvitationCard(invitation: invitation).padding(.horizontal, 16)
+                UnavailableTrainingInvitationCard(invitation: invitation).padding(.horizontal, 16)
             }
         } else if let s = mm.findSession(id) {
             detail(s)
@@ -440,7 +436,7 @@ struct SessionDetailScreen: View {
         let rows = s.people.filter { $0.id == s.organizer } + s.people.filter { $0.id != s.organizer }
         let addable = mm.invitees.map(\.id).filter { fid in s.status(of: fid) == nil }
         return MMScreen {
-            MMHeader(title: "", leading: {
+            MMHeader(title: mine == .invited ? "Training invitation" : "", leading: {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }
             }, trailing: {
                 if isOrganizer {
@@ -489,8 +485,10 @@ struct SessionDetailScreen: View {
                         .padding(.top, MMSpace.s4)
                     }
                 }
-                sessionPhotos(s)
-                    .padding(.top, MMLayout.sectionGap)
+                if mine != .invited {
+                    sessionPhotos(s)
+                        .padding(.top, MMLayout.sectionGap)
+                }
                 Text("Who's coming").mmFont(.display, 18)
                     .padding(.horizontal, 4)
                     .padding(.top, 22)
@@ -556,14 +554,19 @@ struct SessionDetailScreen: View {
                         MMButton("Copy link", variant: .soft, iconLeft: "link", fullWidth: true) { mm.copySessionLink(s.id) }
                     }
                 }
-            } else if mine == .invited {
+            } else if mine == .invited || mine == .declined {
                 HStack(spacing: 8) {
-                    MMButton("Decline", variant: .secondary, fullWidth: true) {
-                        mm.rsvp(s.id, .declined)
-                        mm.back()
+                    if mine == .invited {
+                        MMButton("Decline", variant: .secondary, fullWidth: true) {
+                            mm.rsvp(s.id, .declined)
+                            mm.back()
+                        }
+                    } else {
+                        MMBadge("Declined", variant: .neutral)
                     }
-                    MMButton("Join", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
+                    MMButton("Accept", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
                 }
+                .disabled(mm.busy)
             } else if mine == .going {
                 HStack(spacing: 8) {
                     MMBadge("You're going", variant: .success, dot: true, height: 34, fontSize: 14, paddingX: 14)

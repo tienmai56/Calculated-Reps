@@ -8,6 +8,7 @@ protocol AppRuntime: AnyObject {
     func authenticate() async
     func signOut() async
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool
+    func setLike(_ postID: String, liked: Bool)
     /// Someone's training partners, or nil when you can't see their list.
     func partners(of personID: String) async -> [Person]?
     func searchUsernames(_ query: String) async throws -> [Person]
@@ -55,6 +56,41 @@ final class AppModel {
     }
 #endif
 #if DEBUG || MAT_MIND_PROTOTYPE
+    static func trainingInvitationMock() -> AppModel {
+        let model = AppModel(live: false)
+        model.loadTrainingInvitationMock()
+        return model
+    }
+
+    /// A fresh pending invite for testing View details, Accept and Decline locally.
+    func loadTrainingInvitationMock(now: Date = Date()) {
+        guard !isLive, runtime == nil else { return }
+        reset()
+        let calendar = TrainingCalendar.calendar
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        let start = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: tomorrow)!
+        upcoming = [Session(
+            id: "mock-training-invitation", title: "Guard passing rounds",
+            day: start.formatted(.dateTime.weekday(.abbreviated)), date: calendar.component(.day, from: start),
+            month: start.formatted(.dateTime.month(.abbreviated)), time: start.formatted(.dateTime.hour().minute().timeZone()),
+            gym: "North Shore Grappling", organizer: "jamie", privacy: .friends,
+            people: [Attendee(id: "jamie", status: .going), Attendee(id: "sarah", status: .going),
+                     Attendee(id: "alex", status: .invited), Attendee(id: "me", status: .invited)],
+            note: "Bring your gi. We'll warm up, drill passing for 20 minutes, then finish with positional rounds.",
+            focusItems: [
+                TrainingFocus(title: "Knee-cut passing", children: [TrainingFocus(title: "Control the hip before clearing the knee")]),
+                TrainingFocus(title: "Guard retention", children: [TrainingFocus(title: "Frame early and recover inside position")]),
+            ], startsAt: start)]
+        notifications = [AppNotification(id: "mock-invite-notification", kind: .invite, who: "jamie",
+                                         session: "mock-training-invitation", time: "Just now", unread: true)]
+        posts = []; completedSessions = []; toComplete = nil; quickLogs = []
+        sharedSessionIDs = []; sharedGoals = []
+        monkeyPromptAnswered = true
+        isSignedIn = true
+        setTab(.activity)
+        go(.notifications(invites: true))
+    }
+
     private(set) var quickLogMockScenario: QuickLogMockScenario = .hostPlan
     private(set) var quickLogMockRevision = UUID()
 
@@ -149,6 +185,7 @@ final class AppModel {
         editingMonkey = false; monkeyPromptVisible = false; monkeyPromptAnswered = true; monkeyAccount = nil
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
+        widgetQuickLogRequest = nil; widgetProfileSectionRequest = nil
     }
 
     private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
@@ -168,7 +205,22 @@ final class AppModel {
     var pendingTrainingInvitations: [TrainingInvitation] {
         let existing = Set(trainingInvitations.map(\.id))
         return trainingInvitations + upcoming.filter { $0.status(of: "me") == .invited && !existing.contains($0.id) }
-            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer) }
+            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer, title: $0.title, gym: $0.gym, details: $0) }
+    }
+    /// Sessions someone else invited you to (or added you to) that you're going to, soonest first.
+    func joinedInvitations(at now: Date = Date()) -> [Session] {
+        invitationSessions(.going, at: now)
+    }
+    /// Upcoming invitations you turned down, soonest first. You can still join them.
+    func declinedInvitations(at now: Date = Date()) -> [Session] {
+        invitationSessions(.declined, at: now)
+    }
+    private func invitationSessions(_ status: RSVP, at now: Date) -> [Session] {
+        upcoming.filter { $0.organizer != "me" && $0.status(of: "me") == status && !isCompleted($0) && startDate(of: $0) > now }
+            .sorted {
+                let first = startDate(of: $0), second = startDate(of: $1)
+                return first == second ? $0.id < $1.id : first < second
+            }
     }
     var feedPosts: [Post] {
         posts.filter { $0.organizer == "me" || following.contains($0.organizer) || $0.participants.contains("me") || $0.participants.contains { following.contains($0) } }
@@ -202,6 +254,13 @@ final class AppModel {
     var trainingUndoSessionID: String?
     private(set) var savingTraining = false
     private var trainingGeneration = UUID()
+    /// Live quick logs saved (or still saving) on this device that no snapshot has returned yet.
+    /// A snapshot replaces the list, so these stay on screen until the server sends them back.
+    @ObservationIgnored private var localQuickLogs: [String: QuickLog] = [:]
+    /// Background saves for one-tap logs, by log ID. Undo and removal wait for their save first.
+    @ObservationIgnored private(set) var quickLogSaves: [String: Task<Bool, Never>] = [:]
+    /// The quick log whose "Training logged" toast currently offers Undo.
+    @ObservationIgnored private var trainingUndoQuickLogID: String?
 
     func resetTrainingActions() {
         quickLogTechniques = QuickLogTechnique.defaults
@@ -212,6 +271,7 @@ final class AppModel {
         trainingGeneration = UUID()
         savingTraining = false
         trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil
+        localQuickLogs = [:]; quickLogSaves = [:]; trainingUndoQuickLogID = nil
     }
 
     /// Full 17-week read, separate from the bounded Training list. nil uses the loaded session page.
@@ -255,6 +315,11 @@ final class AppModel {
     /// "sessionId + personId" of the attendee row that just joined (plays the join animation).
     var fresh: String?
     var showDemoPanel = false
+    /// Set by a widget's Log training tap; Activity's This week card opens today's Quick Log
+    /// (or its planned-session chooser) and clears it.
+    var widgetQuickLogRequest: UUID?
+    /// Set by a Your rhythm widget tap; Profile switches to Progress and clears it.
+    var widgetProfileSectionRequest: UUID?
     /// Prototype-only entry state; this is not a Google authentication session.
     var isSignedIn = false
 
@@ -675,7 +740,8 @@ final class AppModel {
     }
 
     func like(_ id: String) {
-        if isLive { send("set_like", ["post_id": id, "liked": !(post(id)?.likes.contains("me") ?? false)]); return }
+        guard let post = post(id) else { return }
+        if isLive { runtime?.setLike(id, liked: !post.likes.contains("me")); return }
         updatePost(id) { p in
             if p.likes.contains("me") { p.likes.removeAll { $0 == "me" } } else { p.likes.insert("me", at: 0) }
         }
@@ -1558,7 +1624,7 @@ final class AppModel {
         case .complete: setTab(.training); go(.complete(id: "c1"))
         case .qr: setTab(.profile); go(.qr())
         case .scan: setTab(.profile); go(.qr(scan: true))
-        case .notifications: setTab(.activity); go(.notifications)
+        case .notifications: setTab(.activity); go(.notifications())
         case .post: setTab(.activity); go(.post(id: "p1"))
         case .people: setTab(.activity); go(.people)
         case .person: setTab(.activity); go(.people); go(.person(id: "rafa"))
@@ -1643,6 +1709,7 @@ extension AppModel {
             && !savingTraining && !(trainingUndoSessionID.map { sharedSessionIDs.contains($0) } ?? false)
     }
     func trainingToast(_ text: String, sessionID: String? = nil, inline: Bool = false, undo: @escaping () async -> Bool) {
+        trainingUndoQuickLogID = nil
         let data = MMToastData(message: text, variant: .success, inline: inline)
         toast = data; trainingUndo = undo; trainingUndoToastID = data.id; trainingUndoSessionID = sessionID
         Task { [weak self] in
@@ -1748,6 +1815,9 @@ extension AppModel {
             let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
             guard generation == trainingGeneration else { return nil }
             guard saved else { showToast("Couldn't save training. Try again.", .danger, inline: inline); return nil }
+            // The live save skips its full reload, so show the log until the next snapshot includes it.
+            localQuickLogs[log.id] = log
+            if !quickLogs.contains(where: { $0.id == log.id }) { quickLogs.append(log) }
         } else { quickLogs.append(log) }
         if !hits.isEmpty {
             quickLogHitsByID[log.id] = hits
@@ -1755,6 +1825,43 @@ extension AppModel {
         }
         trainingToast("Training logged", inline: inline) { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
         return log
+    }
+    /// Activity's one-tap log. The day, Undo and the follow-up appear in the same frame as the tap;
+    /// the live save runs behind them without locking the app, so rapid taps each add a log.
+    /// The client-made ID is the save's idempotency key. A failed save takes the log back off the card.
+    @discardableResult func logTrainingNow(_ date: Date) -> QuickLog? {
+        guard quickTrainingLogEnabled, !isLive || runtime != nil, trainingTap(date) != .disabled else { return nil }
+        let log = QuickLog(id: UUID().uuidString.lowercased(), loggedOn: TrainingCalendar.key(date), loggedAt: Date(), timezone: TimeZone.current.identifier)
+        quickLogs.append(log)
+        if let runtime {
+            localQuickLogs[log.id] = log
+            let generation = trainingGeneration
+            quickLogSaves[log.id] = Task { [weak self] in
+                let saved = await runtime.perform("create_quick_log", ["id": log.id, "logged_on": log.loggedOn, "timezone": log.timezone])
+                guard let self, generation == self.trainingGeneration else { return false }
+                self.quickLogSaves[log.id] = nil
+                if !saved { self.rollBackQuickLog(log.id) }
+                return saved
+            }
+        }
+        trainingToast("Training logged", inline: true) { [weak self] in await self?.deleteQuickLog(log.id) ?? false }
+        trainingUndoQuickLogID = log.id
+        return log
+    }
+    private func rollBackQuickLog(_ id: String) {
+        localQuickLogs[id] = nil
+        quickLogs.removeAll { $0.id == id }
+        if quickLogHitsByID.removeValue(forKey: id) != nil { persistQuickLogTechniques() }
+        if trainingUndoQuickLogID == id {
+            trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
+        }
+        showToast("Couldn't save training. Try again.", .danger, inline: true)
+    }
+    /// Live snapshots replace the list; logs saved here that the server hasn't returned yet stay.
+    func applyServerQuickLogs(_ logs: [QuickLog]) {
+        let serverIDs = Set(logs.map(\.id))
+        localQuickLogs = localQuickLogs.filter { !serverIDs.contains($0.key) }
+        quickLogs = logs + localQuickLogs.values.sorted { $0.loggedAt == $1.loggedAt ? $0.id < $1.id : $0.loggedAt < $1.loggedAt }
     }
     /// Techniques counted after a one-tap log. Like other rep details they stay private on this device.
     /// Hits for techniques no longer in the list keep their saved snapshot.
@@ -1769,8 +1876,16 @@ extension AppModel {
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
         guard quickTrainingLogEnabled else { return false }
         let generation = trainingGeneration
+        // A one-tap save still in flight finishes first, so the delete never reaches the server before the create.
+        if let save = quickLogSaves[id] {
+            let created = await save.value
+            guard generation == trainingGeneration else { return false }
+            if !created { return true } // The failed save already took the log off the card.
+        }
         if let runtime {
             guard await runtime.perform("delete_quick_log", ["id": id]), generation == trainingGeneration else { return false }
+            localQuickLogs[id] = nil
+            quickLogs.removeAll { $0.id == id }
         } else {
             guard !isLive else { return false }
             quickLogs.removeAll { $0.id == id }

@@ -7,6 +7,8 @@ struct MatMindRoot: View {
     @State var model: SocialAppModel
     @State private var ui = AppModel(live: true)
     @State private var runtime: LiveMatMindRuntime?
+    /// A widget tap that arrived before the account finished loading.
+    @State private var pendingWidget: WidgetDestination?
     @Environment(\.scenePhase) private var phase
 #if DEBUG
     @State private var previewModel: AppModel?
@@ -62,11 +64,14 @@ struct MatMindRoot: View {
                 services.sync()
                 await services.loadPhotos()
                 openNotification()
+                if let destination = WidgetLaunchRequest.take() { pendingWidget = destination }
+                openPendingWidget()
                 if model.me != nil { await SocialPushCoordinator.register(in: model) }
                 if model.me != nil, let pending = model.pendingLink { await redeemLink(pending) }
             }
             .onChange(of: model.snapshot) { old, new in
                 runtime?.sync()
+                openPendingWidget()
                 if old.profiles != new.profiles || old.shared_goals != new.shared_goals || old.media != new.media { Task { await runtime?.loadPhotos() } }
                 if !old.profiles.contains(where: { $0.id == model.userID }), model.me != nil {
                     // Just signed in or finished profile setup: ask once for push, then keep the token current.
@@ -75,7 +80,13 @@ struct MatMindRoot: View {
                 }
             }
             .onChange(of: model.userID) { _, _ in runtime?.sync() }
+            .onReceive(NotificationCenter.default.publisher(for: WidgetLaunchRequest.notification)) { _ in
+                if let destination = WidgetLaunchRequest.take() { openWidget(destination) }
+            }
             .onChange(of: phase) { _, phase in
+                if phase == .active, let destination = WidgetLaunchRequest.take() { openWidget(destination) }
+                // Local saves (quick logs, Undo) reach the widgets even before the next refresh.
+                if phase == .background { runtime?.publishWidgets() }
                 if phase == .active { Task { await model.refresh(); await runtime?.loadPhotos() } }
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MatMindPushOpen"))) { _ in
@@ -91,6 +102,7 @@ struct MatMindRoot: View {
                 Task { await model.refresh(); await runtime?.loadPhotos() }
             }
             .onOpenURL { url in
+                if let destination = WidgetDestination(url: url) { openWidget(destination); return }
                 model.handle(url)
                 guard model.pendingLink == url else { return }
             }
@@ -117,6 +129,19 @@ struct MatMindRoot: View {
             .refreshable { await model.refresh(); await runtime?.loadPhotos() }
             .preferredColorScheme(.light)
             .tint(MMColor.accent)
+    }
+
+    /// Widget taps open existing screens once the signed-in account is ready.
+    private func openWidget(_ destination: WidgetDestination) {
+        pendingWidget = destination
+        openPendingWidget()
+    }
+
+    private func openPendingWidget() {
+        // Signed out, the request waits; the widget itself only offers sign-in then.
+        guard let destination = pendingWidget, model.userID != nil, ui.isSignedIn else { return }
+        pendingWidget = nil
+        ui.openWidget(destination)
     }
 
     private func redeemLink(_ url: URL) async {
@@ -416,6 +441,8 @@ final class LiveMatMindRuntime: AppRuntime {
     private var deletingPosts: Set<String> = []
     /// Comments deleted on this device whose delete is still in flight, hidden the same way.
     private var deletingComments: Set<String> = []
+    /// One quiet reload after a burst of quick logs, instead of a full reload per tap.
+    private var quickLogRefresh: Task<Void, Never>?
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -435,6 +462,8 @@ final class LiveMatMindRuntime: AppRuntime {
                monkey: MMMonkeyLook(code: row.text("monkey")))
     }
     func sync(now: Date = Date()) {
+        // Every exit, signed in or out, refreshes what the home-screen widgets show.
+        defer { publishWidgets(now: now) }
         if photoOwner != model.userID {
             ui.resetTrainingActions()
             ui.resetPeopleLookup()
@@ -517,10 +546,10 @@ final class LiveMatMindRuntime: AppRuntime {
         let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
         ui.upcoming = sessions.filter { plannedIDs.contains($0.id) && ($0.organizer == "me" || $0.status(of: "me") != nil) }
         ui.sharedSessionIDs = Set((model.snapshot.shared_session_ids ?? []) + model.snapshot.posts.map { $0.text("session_id") })
-        ui.quickLogs = (model.snapshot.quick_logs ?? []).compactMap { row in
+        ui.applyServerQuickLogs((model.snapshot.quick_logs ?? []).compactMap { row in
             guard let at = row.date("logged_at") else { return nil }
             return QuickLog(id: row.id, loggedOn: row.text("logged_on"), loggedAt: at, timezone: row.text("timezone"))
-        }
+        })
         ui.completedSessions = sessions.filter { completedIDs.contains($0.id) }
         let rhythm = model.snapshot.rhythm_sessions ?? model.snapshot.sessions.compactMap { row -> RhythmSession? in
             guard let start = row.date("starts_at") else { return nil }
@@ -560,11 +589,36 @@ final class LiveMatMindRuntime: AppRuntime {
             }
             return TrainingInvitation(id: row.text("id"), organizer: host)
         }
+        // Invitation details stay separate from accepted plans and training history.
+        let previews = Dictionary((model.snapshot.invitation_previews ?? []).map { ($0.text("id"), $0) }, uniquingKeysWith: { first, _ in first })
         // Old caches may still contain invited sessions; render only their invitation.
         for row in model.snapshot.sessions where row.text("organizer") != userID && model.attendees(row.id).contains(where: { $0.text("user_id") == userID && $0.text("rsvp") == "invited" }) {
             if !ui.trainingInvitations.contains(where: { $0.id == row.id }) {
                 ui.trainingInvitations.append(TrainingInvitation(id: row.id, organizer: localID(row.text("organizer"))))
             }
+        }
+        for i in ui.trainingInvitations.indices {
+            guard let preview = previews[ui.trainingInvitations[i].id] else { continue }
+            let title = preview.text("title"), venue = preview.text("venue")
+            ui.trainingInvitations[i].title = title.isEmpty ? nil : title
+            ui.trainingInvitations[i].gym = venue.isEmpty ? nil : venue
+            guard let date = preview.date("starts_at"),
+                  let value = preview.values["participants"], let data = try? JSONEncoder().encode(value),
+                  let participants = try? JSONDecoder().decode([SocialRow].self, from: data) else { continue }
+            for participant in participants {
+                let pid = localID(participant.text("user_id"))
+                if pid != "me", ui.people[pid] == nil {
+                    ui.people[pid] = Person(id: pid, name: participant.text("name"), belt: .white, stripes: 0, gym: "", hue: .coral)
+                }
+            }
+            let content = SessionNoteCodec.decode(preview.text("note"))
+            ui.trainingInvitations[i].details = Session(
+                id: preview.id, title: title, day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
+                month: dateText(date, "MMM"), time: dateText(date, "h:mm a z"), gym: venue,
+                organizer: ui.trainingInvitations[i].organizer,
+                privacy: Privacy(rawValue: preview.text("join_mode")) ?? .friends,
+                people: participants.map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
+                note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
@@ -668,6 +722,17 @@ final class LiveMatMindRuntime: AppRuntime {
         if model.userID != nil, model.me != nil, let pending = model.pendingLink { _ = await connect(pending.absoluteString) }
     }
     func signOut() async { await model.logout(); sync() }
+    /// Publishes the widget snapshot, stamped with the server time of the last fetch so
+    /// widgets can say "As of …" when the app hasn't refreshed in a while.
+    func publishWidgets(now: Date = Date()) {
+        let clock = ISO8601DateFormatter(); clock.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fetched = model.snapshot.server_time.flatMap { clock.date(from: $0) ?? ISO8601DateFormatter().date(from: $0) }
+        ui.publishWidgetSnapshot(now: now, updatedAt: fetched.map { min($0, now) } ?? now)
+    }
+    func setLike(_ postID: String, liked: Bool) {
+        model.setLike(postID, liked: liked)
+        sync()
+    }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
         if operation == "enable_notifications" { return await enableNotifications() == nil }
@@ -690,7 +755,13 @@ final class LiveMatMindRuntime: AppRuntime {
         let receiptKey = (body["action_id"] as? String).flatMap(UUID.init(uuidString:))
             ?? (operation == "create_quick_log" ? (body["id"] as? String).flatMap(UUID.init(uuidString:)) : nil)
             ?? UUID()
-        let result = await model.perform(operation, body, key: receiptKey, blocking: deleting == nil && deletingComment == nil && !["share_goal", "set_follow", "follow_username"].contains(operation))
+        // A quick log is already on the card (or about to be), so its save neither locks the app nor
+        // reloads everything; one reload follows a burst of taps.
+        let quickLog = operation == "create_quick_log"
+        let result = await model.perform(operation, body, key: receiptKey,
+                                         blocking: deleting == nil && deletingComment == nil && !quickLog && !["share_goal", "set_follow", "follow_username"].contains(operation),
+                                         refresh: !quickLog)
+        if quickLog, result != nil { scheduleQuickLogRefresh() }
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -700,6 +771,16 @@ final class LiveMatMindRuntime: AppRuntime {
         }
         sync()
         return result != nil
+    }
+    private func scheduleQuickLogRefresh() {
+        quickLogRefresh?.cancel()
+        quickLogRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, let self, self.model.userID != nil else { return }
+            await self.model.refresh(force: true)
+            guard !Task.isCancelled else { return }
+            self.sync()
+        }
     }
     func enableNotifications() async -> String? {
         model.error = nil

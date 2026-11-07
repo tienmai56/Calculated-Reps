@@ -299,15 +299,110 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testPreviewInvitationShowsNoDetailsUntilAccepted() throws {
+    func testPreviewInvitationDetailsCanOpenWithoutAnswering() throws {
         let ui = AppModel(live: false)
         let invitation = try XCTUnwrap(ui.pendingTrainingInvitations.first)
+        let details = try XCTUnwrap(invitation.details)
+        XCTAssertEqual(details.status(of: "me"), .invited)
+        ui.go(.session(id: invitation.id))
+        XCTAssertEqual(ui.pendingTrainingInvitations.first, invitation)
+        XCTAssertEqual(ui.findSession(invitation.id)?.status(of: "me"), .invited)
         XCTAssertFalse(ui.activityPlans().contains { $0.id == invitation.id })
         ui.rsvp(invitation.id, .going)
         XCTAssertFalse(ui.pendingTrainingInvitations.contains { $0.id == invitation.id })
         XCTAssertEqual(ui.findSession(invitation.id)?.status(of: "me"), .going)
         ui.rsvp(invitation.id, .declined)
         XCTAssertFalse(ui.plannedSessions.contains { $0.id == invitation.id })
+    }
+
+    @MainActor
+    func testInvitesTabListsPendingJoinedAndDeclinedInvitations() {
+        let ui = AppModel(live: false)
+        let now = Date()
+        let start = now.addingTimeInterval(86_400)
+        func session(_ id: String, host: String, me: RSVP) -> Session {
+            Session(id: id, title: id.capitalized, day: "Mon", date: 1, month: "Jan", time: "6:00 PM", gym: "Harbor Jiu-Jitsu",
+                    organizer: host, people: [Attendee(id: host, status: .going), Attendee(id: "me", status: me)], startsAt: start)
+        }
+        ui.upcoming = [session("pending", host: "jamie", me: .invited), session("joined", host: "sarah", me: .going),
+                       session("declined", host: "marco", me: .declined), session("hosted", host: "me", me: .going)]
+        ui.completedSessions = []
+        XCTAssertEqual(ui.pendingTrainingInvitations,
+                       [TrainingInvitation(id: "pending", organizer: "jamie", title: "Pending", gym: "Harbor Jiu-Jitsu", details: ui.upcoming[0])])
+        XCTAssertEqual(ui.joinedInvitations(at: now).map(\.id), ["joined"], "Your own plans aren't invitations")
+        XCTAssertEqual(ui.declinedInvitations(at: now).map(\.id), ["declined"])
+        XCTAssertTrue(ui.joinedInvitations(at: start.addingTimeInterval(60)).isEmpty, "Started sessions leave the Invites tab")
+        ui.rsvp("pending", .going)
+        XCTAssertTrue(ui.pendingTrainingInvitations.isEmpty)
+        XCTAssertEqual(ui.joinedInvitations(at: now).map(\.id), ["joined", "pending"])
+    }
+
+    @MainActor
+    func testOlderInvitationPreviewAddsOnlyTitleAndVenue() throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "training_invitations":[{"id":"invitation","organizer":"host","organizer_name":"Sarah"},{"id":"older","organizer":"host","organizer_name":"Sarah"}],
+         "invitation_previews":[{"id":"invitation","title":"Lunch rolls","venue":"Tidewater BJJ"}]}
+        """#.utf8))
+        let ui = AppModel(live: true)
+        LiveMatMindRuntime(model: model, ui: ui).sync()
+        XCTAssertEqual(ui.pendingTrainingInvitations, [
+            TrainingInvitation(id: "invitation", organizer: "host", title: "Lunch rolls", gym: "Tidewater BJJ"),
+            TrainingInvitation(id: "older", organizer: "host"),
+        ], "Backends without a preview keep the generic invitation")
+        XCTAssertNil(ui.findSession("invitation"), "An invitation is separate from accepted plans")
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+    }
+
+    @MainActor
+    func testLiveInvitationDetailsStayPendingAndSeparateFromPlans() throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "training_invitations":[{"id":"invitation","organizer":"host","organizer_name":"Sarah"}],
+         "invitation_previews":[{"id":"invitation","title":"Lunch rolls","venue":"Tidewater BJJ",
+           "starts_at":"2099-01-01T18:00:00Z","timezone":"America/Los_Angeles","join_mode":"friends",
+           "participants":[{"user_id":"host","name":"Sarah","rsvp":"going"},
+             {"user_id":"owner","name":"Dani","rsvp":"invited"},
+             {"user_id":"guest","name":"Alex","rsvp":"going"}]}]}
+        """#.utf8))
+        let focus = [TrainingFocus(title: "Knee cut", children: [TrainingFocus(title: "Control the hip")])]
+        model.snapshot.invitation_previews?[0].values["note"] = .string(SessionNoteCodec.encode(note: "Bring your gi", focus: focus))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        let invitation = try XCTUnwrap(ui.pendingTrainingInvitations.first)
+        let details = try XCTUnwrap(invitation.details)
+        XCTAssertEqual(details.title, "Lunch rolls")
+        XCTAssertEqual(details.gym, "Tidewater BJJ")
+        XCTAssertEqual(details.startsAt, model.snapshot.invitation_previews?[0].date("starts_at"))
+        XCTAssertEqual(details.note, "Bring your gi")
+        XCTAssertEqual(details.focusItems, focus)
+        XCTAssertEqual(details.people.map(\.id), ["host", "me", "guest"])
+        XCTAssertEqual(details.status(of: "me"), .invited)
+        XCTAssertEqual(ui.person("guest").name, "Alex")
+        XCTAssertTrue(details.sessionPhotos.isEmpty)
+        ui.go(.session(id: invitation.id))
+        XCTAssertEqual(ui.pendingTrainingInvitations.first, invitation, "Viewing never answers the invitation")
+        XCTAssertNil(ui.findSession(invitation.id))
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        XCTAssertEqual(ui.rhythmSessionDates, [])
+        model.snapshot.training_invitations = []
+        model.snapshot.invitation_previews = []
+        runtime.sync()
+        XCTAssertTrue(ui.pendingTrainingInvitations.isEmpty, "Revoked or declined invitations lose their details on refresh")
+    }
+
+    @MainActor
+    func testNotificationsRouteCanOpenOnInvites() {
+        let ui = AppModel(live: false)
+        ui.go(.notifications(invites: true))
+        XCTAssertEqual(ui.path.last, .notifications(invites: true))
+        XCTAssertNotEqual(Route.notifications(), .notifications(invites: true))
     }
 
     @MainActor
@@ -2497,6 +2592,141 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertTrue(ui.usernamePeople.isEmpty)
     }
 
+    @MainActor
+    func testLikeUpdatesUIBeforeNetworkCompletesWithoutSpinnerOrReload() async throws {
+        let started = expectation(description: "Like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        model.snapshot.posts = [SocialRow(values: ["id": .string("post"), "author": .string("owner")])]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+
+        ui.like("post")
+        XCTAssertEqual(ui.post("post")?.likes, ["me"], "The tap must update before yielding to the network")
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(ui.busy)
+        runtime.sync()
+        XCTAssertEqual(ui.post("post")?.likes, ["me"], "Other UI syncs must retain the pending like")
+        await fixture.releaseLikes()
+        await save.value
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.filter { $0.url?.path == "/rest/v1/rpc/command" }.count, 1)
+        XCTAssertFalse(requests.contains { $0.url?.path == "/rest/v1/rpc/snapshot" })
+        XCTAssertEqual(ui.posts.count, 1)
+    }
+
+    @MainActor
+    func testRapidUnlikeWaitsForLikeAndKeepsLatestLocalChoice() async throws {
+        let started = expectation(description: "First like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        model.setLike("post", liked: false)
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+        let beforeRelease = await fixture.requests
+        XCTAssertEqual(beforeRelease.count, 1, "Writes for one post must not race")
+        await fixture.releaseLikes()
+        await save.value
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+        let requests = await fixture.requests
+        let choices = try requests.map {
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap($0.httpBody)) as? [String: Any])
+            return try XCTUnwrap((body["payload"] as? [String: Any])?["liked"] as? Bool)
+        }
+        XCTAssertEqual(choices, [true, false])
+        await model.refresh()
+        XCTAssertTrue(model.snapshot.likes.isEmpty, "The server must also end unliked")
+    }
+
+    @MainActor
+    func testFailedLikeRestoresOnlyOwnReaction() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStatus: 403)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let partner = SocialRow(values: ["post_id": .string("post"), "user_id": .string("partner")])
+        model.snapshot.likes = [partner]
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        XCTAssertEqual(model.snapshot.likes.count, 2)
+        await save.value
+        XCTAssertEqual(model.snapshot.likes, [partner])
+        XCTAssertNotNil(model.error)
+        XCTAssertFalse(model.busy)
+    }
+
+    @MainActor
+    func testRefreshKeepsPendingLikeUntilServerAcknowledges() async throws {
+        let likeStarted = expectation(description: "Like request in flight")
+        let snapshotStarted = expectation(description: "Older snapshot in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: snapshotStarted,
+                                         holdSnapshots: true, likeStarted: likeStarted, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let olderRead = Task { await model.refresh() }
+        await fulfillment(of: [snapshotStarted], timeout: 5)
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [likeStarted], timeout: 5)
+        await fixture.releaseSnapshots()
+        await olderRead.value
+        XCTAssertEqual(model.snapshot.likes.count, 1, "A refresh must not undo an in-flight tap")
+
+        // A second read captures the old server value while the write is still pending.
+        await model.refresh()
+        XCTAssertEqual(model.snapshot.likes.count, 1)
+        await fixture.releaseLikes()
+        await save.value
+        await model.refresh()
+        XCTAssertEqual(model.snapshot.likes.count, 1, "A fresh authoritative read confirms the saved like")
+    }
+
+    @MainActor
+    func testReadStartedBeforeLikeCannotOverwriteItsCompletedSave() async throws {
+        let started = expectation(description: "Old snapshot in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let read = Task { await model.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await save.value
+        await fixture.releaseSnapshots()
+        await read.value
+        XCTAssertEqual(model.snapshot.likes.count, 1)
+    }
+
+    @MainActor
+    func testLikeCompletionAfterLogoutCannotRestoreAccountData() async throws {
+        let started = expectation(description: "Like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        await model.logout()
+        await fixture.releaseLikes()
+        await save.value
+        XCTAssertNil(model.userID)
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+    }
+
     private func creationRequests() -> [SessionCreationRequest] {
         let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
                                  note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
@@ -2545,6 +2775,11 @@ private actor BackendHTTPFixture {
     private var holdSnapshots: Bool
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
     private var profileSaved = false
+    private let likeStarted: XCTestExpectation?
+    private let likeStatus: Int
+    private var holdLikes: Bool
+    private var likeWaiters: [CheckedContinuation<Void, Never>] = []
+    private var likedPosts: Set<String> = []
     private let rhythmRows: [RhythmSession]
     private let usernameRows: [SocialRow]
     private let followUsernameStatus: Int
@@ -2554,7 +2789,8 @@ private actor BackendHTTPFixture {
     var createdSessionCount: Int { createReceipts.count }
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
-         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200) {
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200,
+         likeStarted: XCTestExpectation? = nil, holdLikes: Bool = false, likeStatus: Int = 200) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -2567,6 +2803,16 @@ private actor BackendHTTPFixture {
         self.rhythmRows = rhythmRows
         self.usernameRows = usernameRows
         self.followUsernameStatus = followUsernameStatus
+        self.likeStarted = likeStarted
+        self.holdLikes = holdLikes
+        self.likeStatus = likeStatus
+    }
+
+    func releaseLikes() {
+        holdLikes = false
+        let waiters = likeWaiters
+        likeWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     func releaseSnapshots() {
@@ -2622,6 +2868,16 @@ private actor BackendHTTPFixture {
            command["operation"] as? String == "save_profile" { profileSaved = true }
         if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
            let command = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            if command["operation"] as? String == "set_like", let payload = command["payload"] as? [String: Any],
+               let postID = payload["post_id"] as? String, let liked = payload["liked"] as? Bool {
+                if holdLikes {
+                    likeStarted?.fulfill()
+                    await withCheckedContinuation { likeWaiters.append($0) }
+                }
+                if likeStatus != 200 { return (likeStatus, Data(#"{"message":"Like could not be saved"}"#.utf8)) }
+                if liked { likedPosts.insert(postID) } else { likedPosts.remove(postID) }
+                return (200, Data("{}".utf8))
+            }
             if command["operation"] as? String == "friend_token" {
                 return (200, try JSONSerialization.data(withJSONObject: ["token": String(repeating: "a1", count: 32)]))
             }
@@ -2643,6 +2899,7 @@ private actor BackendHTTPFixture {
         }
         if request.url?.path == "/rest/v1/rpc/snapshot" {
             var snapshot = SocialSnapshot(server_time: profileSaved ? "profile-saved" : "snapshot-loaded")
+            snapshot.likes = likedPosts.map { SocialRow(values: ["post_id": .string($0), "user_id": .string("owner")]) }
             if profileSaved {
                 snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","name":"Alex"}]"#.utf8))
             }
@@ -2921,7 +3178,7 @@ final class MonkeyTests: XCTestCase {
         ui.enterDemo()
         XCTAssertNil(ui.me.monkey)
         XCTAssertTrue(ui.shouldAskForMonkey, "an account without a monkey is asked on Activity")
-        ui.go(.notifications)
+        ui.go(.notifications())
         XCTAssertFalse(ui.shouldAskForMonkey, "never over a pushed screen")
         ui.back()
 
@@ -3142,6 +3399,7 @@ private final class TrainingRuntimeStub: AppRuntime {
     var busy = false
     var command: @MainActor (String, [String: Any]) async -> Bool = { _, _ in false }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool { await command(operation, payload) }
+    func setLike(_ postID: String, liked: Bool) { Task { _ = await command("set_like", ["post_id": postID, "liked": liked]) } }
     func authenticate() async {}
     func signOut() async {}
     func partners(of personID: String) async -> [Person]? { nil }
@@ -4096,5 +4354,123 @@ extension TrainingCalendarTests {
         XCTAssertTrue(ui.isTrainedDay(twoDaysAgo, planDays: planDays), "A quick log counts")
         XCTAssertFalse(planDays.contains(calendar.startOfDay(for: twoDaysAgo)), "An unanswered invitation is not a plan of yours")
         XCTAssertFalse(ui.isTrainedDay(tomorrow, planDays: planDays), "A future plan has not been trained yet")
+    }
+}
+
+extension TrainingCalendarTests {
+    @MainActor private func liveQuickLogModel() -> (AppModel, TrainingRuntimeStub) {
+        let ui = AppModel(live: true), runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        ui.quickTrainingLogBackendAvailable = true
+        return (ui, runtime)
+    }
+
+    @MainActor func testOneTapLogAppearsBeforeTheLiveSaveFinishesAndRapidTapsEachCount() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        var pending: [CheckedContinuation<Bool, Never>] = []
+        var operations: [String] = []
+        let started = expectation(description: "Both saves started")
+        started.expectedFulfillmentCount = 2
+        runtime.command = { operation, _ in
+            operations.append(operation); started.fulfill()
+            return await withCheckedContinuation { pending.append($0) }
+        }
+        let day = Date()
+        let first = try XCTUnwrap(ui.logTrainingNow(day))
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [first.id], "The day fills before the server answers")
+        XCTAssertEqual(ui.toast?.message, "Training logged")
+        XCTAssertEqual(ui.toast?.inline, true)
+        XCTAssertFalse(ui.savingTraining, "A one-tap save never locks the app")
+        XCTAssertFalse(ui.busy)
+        let second = try XCTUnwrap(ui.logTrainingNow(day), "A second tap while the first is saving adds another log")
+        let saves = [ui.quickLogSaves[first.id], ui.quickLogSaves[second.id]].compactMap { $0 }
+        XCTAssertEqual(saves.count, 2)
+        await fulfillment(of: [started], timeout: 1)
+        XCTAssertEqual(operations, ["create_quick_log", "create_quick_log"])
+        pending.forEach { $0.resume(returning: true) }
+        for save in saves { let saved = await save.value; XCTAssertTrue(saved) }
+        XCTAssertEqual(ui.entryCount(day), 2)
+        XCTAssertTrue(ui.quickLogSaves.isEmpty)
+    }
+
+    @MainActor func testFailedOneTapSaveTakesTheLogBackOffWithInlineError() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in false }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 2])
+        XCTAssertNotNil(ui.quickLogHitsByID[log.id])
+        let save = try XCTUnwrap(ui.quickLogSaves[log.id])
+        let saved = await save.value
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        XCTAssertNil(ui.quickLogHitsByID[log.id], "Hits counted on a log that failed to save are dropped too")
+        XCTAssertEqual(ui.toast?.message, "Couldn't save training. Try again.")
+        XCTAssertEqual(ui.toast?.variant, .danger)
+        XCTAssertEqual(ui.toast?.inline, true)
+        XCTAssertNil(ui.trainingUndo)
+    }
+
+    @MainActor func testUndoWaitsForAPendingSaveSoTheDeleteNeverOvertakesTheCreate() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        var operations: [String] = []
+        var resume: CheckedContinuation<Bool, Never>?
+        let started = expectation(description: "Create started")
+        runtime.command = { operation, _ in
+            operations.append(operation)
+            guard operation == "create_quick_log" else { return true }
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        let toast = try XCTUnwrap(ui.toast)
+        await fulfillment(of: [started], timeout: 1)
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await Task.yield()
+        XCTAssertEqual(operations, ["create_quick_log"], "Undo waits for the create")
+        resume?.resume(returning: true)
+        await undo.value
+        XCTAssertEqual(operations, ["create_quick_log", "delete_quick_log"])
+        XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id })
+        ui.applyServerQuickLogs([])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty, "An undone log never comes back from the local list")
+    }
+
+    @MainActor func testSnapshotsKeepSavedLogsUntilTheServerReturnsThem() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        let save = try XCTUnwrap(ui.quickLogSaves[log.id])
+        _ = await save.value
+        let other = QuickLog(id: "server-log", loggedOn: TrainingCalendar.key(day), loggedAt: day.addingTimeInterval(-60), timezone: TimeZone.current.identifier)
+        ui.applyServerQuickLogs([other])
+        XCTAssertEqual(Set(ui.dayLogs(day).map(\.id)), [other.id, log.id], "A snapshot read before the save keeps the new log on screen")
+        ui.applyServerQuickLogs([other, log])
+        XCTAssertEqual(ui.dayLogs(day).count, 2, "Once returned by the server it isn't listed twice")
+        ui.applyServerQuickLogs([other])
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [other.id], "After the server has returned it, the server's list wins")
+    }
+
+    @MainActor func testAccountClearingDiscardsAPendingOneTapSave() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        var resume: CheckedContinuation<Bool, Never>?
+        let started = expectation(description: "Create started")
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        let save = try XCTUnwrap(ui.quickLogSaves[log.id])
+        await fulfillment(of: [started], timeout: 1)
+        ui.clearLiveData()
+        resume?.resume(returning: false)
+        let saved = await save.value
+        XCTAssertFalse(saved)
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.toast, "A result for the previous account shows nothing in the next one")
+        ui.applyServerQuickLogs([])
+        XCTAssertTrue(ui.quickLogs.isEmpty)
     }
 }

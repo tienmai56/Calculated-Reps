@@ -8,14 +8,17 @@ struct MatMindPrototypeApp: App {
     private let quickLogMock: Bool
     private let checklistReview: Bool
     private let goalNotesReview: Bool
+    private let invitationMock: Bool
 
     init() {
         _ = MMFont.registered
         let mock = ProcessInfo.processInfo.arguments.contains("--quick-log-mock")
         quickLogMock = mock
+        let invite = ProcessInfo.processInfo.arguments.contains("--training-invitation-mock")
+        invitationMock = invite
         checklistReview = ProcessInfo.processInfo.arguments.contains("--session-checklist-review")
         goalNotesReview = ProcessInfo.processInfo.arguments.contains("--goal-notes-review")
-        let preview = mock ? AppModel.quickTrainingLogMock() : AppModel(live: false)
+        let preview = invite ? AppModel.trainingInvitationMock() : mock ? AppModel.quickTrainingLogMock() : AppModel(live: false)
         preview.loadQuickLogTechniques(account: "preview")
         _model = State(initialValue: preview)
     }
@@ -25,16 +28,39 @@ struct MatMindPrototypeApp: App {
             Group {
                 if goalNotesReview { GoalNotesReview() }
                 else if checklistReview { SessionChecklistReview() }
+                else if invitationMock {
+                    VStack(spacing: 0) {
+                        TrainingInvitationMockControls()
+                        MMAppShell()
+                    }
+                }
                 else { MMAppShell() }
             }
                 .id(model.quickLogMockRevision)
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    if quickLogMock { QuickLogMockControls() }
+                    if quickLogMock && !invitationMock { QuickLogMockControls() }
                 }
                 .environment(model)
                 .preferredColorScheme(.light)
                 .tint(MMColor.accent)
         }
+    }
+}
+
+private struct TrainingInvitationMockControls: View {
+    @Environment(AppModel.self) private var mm
+
+    var body: some View {
+        HStack(spacing: MMSpace.s4) {
+            Text("Mock · Jamie invited you")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Reset invite") { mm.loadTrainingInvitationMock() }
+                .frame(minHeight: MMLayout.tapTarget)
+        }
+        .mmFont(.body, 12, .semibold)
+        .foregroundStyle(MMColor.ink900)
+        .padding(.horizontal, MMSpace.s6)
+        .background(MMColor.sun100)
     }
 }
 
