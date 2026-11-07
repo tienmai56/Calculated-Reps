@@ -390,7 +390,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         XCTAssertNil(ui.findSession(invitation.id))
         XCTAssertTrue(ui.activityPlans().isEmpty)
         XCTAssertTrue(ui.plannedSessions.isEmpty)
-        XCTAssertTrue(ui.rhythmSessionDates.isEmpty)
+        XCTAssertEqual(ui.rhythmSessionDates, [])
         model.snapshot.training_invitations = []
         model.snapshot.invitation_previews = []
         runtime.sync()
