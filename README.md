@@ -2,6 +2,8 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
+New session and goal links use `https://mymatmonkey.com/` when copied or shared to Messages and other apps. Existing Lovable invitations and native QR codes remain readable. This requires a new iOS build and publishing the matching website with `mymatmonkey.com` connected; see [shared-link rollout](website-link-handoff/README.md).
+
 Likes update the heart and count locally on tap, then save in the background without the global spinner or a full feed reload. Rapid taps save in order per post, older refreshes preserve the latest local choice, and failed saves restore the last confirmed state with an error. This client change requires a new iOS build.
 
 Activity groups all future hosted and accepted sessions under **Coming up**, including solo and friends-only plans, with one ticket per session and no “Coming up:” title prefix. Social posts follow under **Activity**. This client change requires a new iOS build.

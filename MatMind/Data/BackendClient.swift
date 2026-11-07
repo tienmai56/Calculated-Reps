@@ -416,7 +416,7 @@ enum InvitationLinks {
             guard let host, let incomingHost = components.host?.lowercased(), parts.count == 2 else { return nil }
             // Codes already displayed by older builds retain the former web host.
             // Redeem their capability locally; never open or fetch the retired site.
-            let productionHosts: Set<String> = ["matmonkey.lovable.app", "matmindbjj.lovable.app"]
+            let productionHosts: Set<String> = ["mymatmonkey.com", "matmonkey.lovable.app", "matmindbjj.lovable.app"]
             let configuredHost = host.lowercased()
             guard incomingHost == configuredHost ||
                     (productionHosts.contains(configuredHost) && productionHosts.contains(incomingHost)) else { return nil }
