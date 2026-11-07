@@ -884,7 +884,7 @@ struct InviteMonkeyTile: View {
     }
 }
 
-/// A pending invitation: who, the session title and where. Time and guests unlock on Join.
+/// A pending invitation with a separate action to inspect its details before answering.
 private struct PendingInviteCard: View {
     @Environment(AppModel.self) private var mm
     let invitation: TrainingInvitation
@@ -909,7 +909,7 @@ private struct PendingInviteCard: View {
                             MMIcon("map-pin", size: 14, color: MMColor.textTertiary)
                             Text(gym).lineLimit(1).truncationMode(.tail)
                         } else {
-                            Text("Join to see the details.")
+                            Text("You're invited to train.")
                         }
                     }
                     .mmFont(.body, 13, lineHeight: 1.3)
@@ -918,6 +918,7 @@ private struct PendingInviteCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .accessibilityElement(children: .combine)
+            MMButton("View details", variant: .secondary, size: .sm, fullWidth: true) { mm.go(.session(id: invitation.id)) }
             HStack(spacing: MMSpace.s3) {
                 Spacer(minLength: 0)
                 MMButton("Decline", variant: .ghost, size: .sm) { mm.rsvp(invitation.id, .declined) }
@@ -1007,7 +1008,8 @@ private struct NotificationRow: View {
                     } else {
                         Text("\(p.firstName) invited you to train").mmFont(.body, 15, .bold)
                     }
-                    Text(invitation.gym ?? "Accept to see the session details.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    Text(invitation.gym ?? "You're invited to train.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
+                    MMButton("View details", variant: .ghost, size: .sm) { mm.go(.session(id: invitation.id)) }
                     HStack(spacing: 8) {
                         MMButton("Decline", variant: .secondary, size: .sm) { mm.rsvp(invitation.id, .declined) }
                         MMButton("Accept", size: .sm, iconLeft: "check") { mm.rsvp(invitation.id, .going) }

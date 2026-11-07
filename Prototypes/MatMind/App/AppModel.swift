@@ -170,7 +170,7 @@ final class AppModel {
     var pendingTrainingInvitations: [TrainingInvitation] {
         let existing = Set(trainingInvitations.map(\.id))
         return trainingInvitations + upcoming.filter { $0.status(of: "me") == .invited && !existing.contains($0.id) }
-            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer, title: $0.title, gym: $0.gym) }
+            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer, title: $0.title, gym: $0.gym, details: $0) }
     }
     /// Sessions someone else invited you to (or added you to) that you're going to, soonest first.
     func joinedInvitations(at now: Date = Date()) -> [Session] {

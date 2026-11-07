@@ -589,7 +589,7 @@ final class LiveMatMindRuntime: AppRuntime {
             }
             return TrainingInvitation(id: row.text("id"), organizer: host)
         }
-        // Invitation cards preview the title and venue; nothing else until accepted.
+        // Invitation details stay separate from accepted plans and training history.
         let previews = Dictionary((model.snapshot.invitation_previews ?? []).map { ($0.text("id"), $0) }, uniquingKeysWith: { first, _ in first })
         // Old caches may still contain invited sessions; render only their invitation.
         for row in model.snapshot.sessions where row.text("organizer") != userID && model.attendees(row.id).contains(where: { $0.text("user_id") == userID && $0.text("rsvp") == "invited" }) {
@@ -602,6 +602,23 @@ final class LiveMatMindRuntime: AppRuntime {
             let title = preview.text("title"), venue = preview.text("venue")
             ui.trainingInvitations[i].title = title.isEmpty ? nil : title
             ui.trainingInvitations[i].gym = venue.isEmpty ? nil : venue
+            guard let date = preview.date("starts_at"),
+                  let value = preview.values["participants"], let data = try? JSONEncoder().encode(value),
+                  let participants = try? JSONDecoder().decode([SocialRow].self, from: data) else { continue }
+            for participant in participants {
+                let pid = localID(participant.text("user_id"))
+                if pid != "me", ui.people[pid] == nil {
+                    ui.people[pid] = Person(id: pid, name: participant.text("name"), belt: .white, stripes: 0, gym: "", hue: .coral)
+                }
+            }
+            let content = SessionNoteCodec.decode(preview.text("note"))
+            ui.trainingInvitations[i].details = Session(
+                id: preview.id, title: title, day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
+                month: dateText(date, "MMM"), time: dateText(date, "h:mm a z"), gym: venue,
+                organizer: ui.trainingInvitations[i].organizer,
+                privacy: Privacy(rawValue: preview.text("join_mode")) ?? .friends,
+                people: participants.map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
+                note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,

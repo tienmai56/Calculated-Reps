@@ -299,9 +299,14 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testPreviewInvitationShowsNoDetailsUntilAccepted() throws {
+    func testPreviewInvitationDetailsCanOpenWithoutAnswering() throws {
         let ui = AppModel(live: false)
         let invitation = try XCTUnwrap(ui.pendingTrainingInvitations.first)
+        let details = try XCTUnwrap(invitation.details)
+        XCTAssertEqual(details.status(of: "me"), .invited)
+        ui.go(.session(id: invitation.id))
+        XCTAssertEqual(ui.pendingTrainingInvitations.first, invitation)
+        XCTAssertEqual(ui.findSession(invitation.id)?.status(of: "me"), .invited)
         XCTAssertFalse(ui.activityPlans().contains { $0.id == invitation.id })
         ui.rsvp(invitation.id, .going)
         XCTAssertFalse(ui.pendingTrainingInvitations.contains { $0.id == invitation.id })
@@ -323,7 +328,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
                        session("declined", host: "marco", me: .declined), session("hosted", host: "me", me: .going)]
         ui.completedSessions = []
         XCTAssertEqual(ui.pendingTrainingInvitations,
-                       [TrainingInvitation(id: "pending", organizer: "jamie", title: "Pending", gym: "Harbor Jiu-Jitsu")])
+                       [TrainingInvitation(id: "pending", organizer: "jamie", title: "Pending", gym: "Harbor Jiu-Jitsu", details: ui.upcoming[0])])
         XCTAssertEqual(ui.joinedInvitations(at: now).map(\.id), ["joined"], "Your own plans aren't invitations")
         XCTAssertEqual(ui.declinedInvitations(at: now).map(\.id), ["declined"])
         XCTAssertTrue(ui.joinedInvitations(at: start.addingTimeInterval(60)).isEmpty, "Started sessions leave the Invites tab")
@@ -333,7 +338,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testLiveInvitationPreviewAddsOnlyTitleAndVenue() throws {
+    func testOlderInvitationPreviewAddsOnlyTitleAndVenue() throws {
         let model = SocialAppModel()
         model.userID = "owner"
         model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
@@ -347,8 +352,49 @@ final class IntentionalTrainingNotesTests: XCTestCase {
             TrainingInvitation(id: "invitation", organizer: "host", title: "Lunch rolls", gym: "Tidewater BJJ"),
             TrainingInvitation(id: "older", organizer: "host"),
         ], "Backends without a preview keep the generic invitation")
-        XCTAssertNil(ui.findSession("invitation"), "A preview never creates a session or reveals its time")
+        XCTAssertNil(ui.findSession("invitation"), "An invitation is separate from accepted plans")
         XCTAssertTrue(ui.activityPlans().isEmpty)
+    }
+
+    @MainActor
+    func testLiveInvitationDetailsStayPendingAndSeparateFromPlans() throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "training_invitations":[{"id":"invitation","organizer":"host","organizer_name":"Sarah"}],
+         "invitation_previews":[{"id":"invitation","title":"Lunch rolls","venue":"Tidewater BJJ",
+           "starts_at":"2099-01-01T18:00:00Z","timezone":"America/Los_Angeles","join_mode":"friends",
+           "participants":[{"user_id":"host","name":"Sarah","rsvp":"going"},
+             {"user_id":"owner","name":"Dani","rsvp":"invited"},
+             {"user_id":"guest","name":"Alex","rsvp":"going"}]}]}
+        """#.utf8))
+        let focus = [TrainingFocus(title: "Knee cut", children: [TrainingFocus(title: "Control the hip")])]
+        model.snapshot.invitation_previews?[0].values["note"] = .string(SessionNoteCodec.encode(note: "Bring your gi", focus: focus))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        let invitation = try XCTUnwrap(ui.pendingTrainingInvitations.first)
+        let details = try XCTUnwrap(invitation.details)
+        XCTAssertEqual(details.title, "Lunch rolls")
+        XCTAssertEqual(details.gym, "Tidewater BJJ")
+        XCTAssertEqual(details.startsAt, model.snapshot.invitation_previews?[0].date("starts_at"))
+        XCTAssertEqual(details.note, "Bring your gi")
+        XCTAssertEqual(details.focusItems, focus)
+        XCTAssertEqual(details.people.map(\.id), ["host", "me", "guest"])
+        XCTAssertEqual(details.status(of: "me"), .invited)
+        XCTAssertEqual(ui.person("guest").name, "Alex")
+        XCTAssertTrue(details.sessionPhotos.isEmpty)
+        ui.go(.session(id: invitation.id))
+        XCTAssertEqual(ui.pendingTrainingInvitations.first, invitation, "Viewing never answers the invitation")
+        XCTAssertNil(ui.findSession(invitation.id))
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        XCTAssertTrue(ui.rhythmSessionDates.isEmpty)
+        model.snapshot.training_invitations = []
+        model.snapshot.invitation_previews = []
+        runtime.sync()
+        XCTAssertTrue(ui.pendingTrainingInvitations.isEmpty, "Revoked or declined invitations lose their details on refresh")
     }
 
     @MainActor

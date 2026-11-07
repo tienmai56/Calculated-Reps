@@ -4,14 +4,21 @@ import UIKit
 struct TrainingInvitationCard: View {
     @Environment(AppModel.self) private var mm
     let invitation: TrainingInvitation
+    var showsDetailsAction = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("\(mm.person(invitation.organizer).firstName) invited you to train")
                 .mmFont(.display, 20, .bold).foregroundStyle(MMColor.textPrimary)
             let preview = [invitation.title, invitation.gym].compactMap { $0 }.joined(separator: " · ")
-            Text(preview.isEmpty ? "Accept to see the session details." : preview)
+            Text(preview.isEmpty ? "You're invited to train." : preview)
                 .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
+            if showsDetailsAction {
+                MMButton("View details", variant: .secondary, size: .sm, fullWidth: true) { mm.go(.session(id: invitation.id)) }
+            } else {
+                Text("Details aren't available yet. Try again later.")
+                    .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+            }
             HStack(spacing: 8) {
                 MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }
                 MMButton("Accept", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(invitation.id, .going) }
@@ -410,13 +417,15 @@ struct SessionDetailScreen: View {
     }
 
     var body: some View {
-        if let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == id }) {
+        if let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == id }), let session = invitation.details {
+            detail(session)
+        } else if let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == id }) {
             MMScreen {
                 MMHeader(title: "Training invitation", leading: {
                     MMIconButton("chevron-left", label: "Back") { mm.back() }
                 })
             } content: {
-                TrainingInvitationCard(invitation: invitation).padding(.horizontal, 16)
+                TrainingInvitationCard(invitation: invitation, showsDetailsAction: false).padding(.horizontal, 16)
             }
         } else if let s = mm.findSession(id) {
             detail(s)
@@ -441,7 +450,7 @@ struct SessionDetailScreen: View {
         let rows = s.people.filter { $0.id == s.organizer } + s.people.filter { $0.id != s.organizer }
         let addable = mm.invitees.map(\.id).filter { fid in s.status(of: fid) == nil }
         return MMScreen {
-            MMHeader(title: "", leading: {
+            MMHeader(title: mine == .invited ? "Training invitation" : "", leading: {
                 MMIconButton("chevron-left", label: "Back") { mm.back() }
             }, trailing: {
                 if isOrganizer {
@@ -490,8 +499,10 @@ struct SessionDetailScreen: View {
                         .padding(.top, MMSpace.s4)
                     }
                 }
-                sessionPhotos(s)
-                    .padding(.top, MMLayout.sectionGap)
+                if mine != .invited {
+                    sessionPhotos(s)
+                        .padding(.top, MMLayout.sectionGap)
+                }
                 Text("Who's coming").mmFont(.display, 18)
                     .padding(.horizontal, 4)
                     .padding(.top, 22)
@@ -563,8 +574,9 @@ struct SessionDetailScreen: View {
                         mm.rsvp(s.id, .declined)
                         mm.back()
                     }
-                    MMButton("Join", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
+                    MMButton("Accept", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
                 }
+                .disabled(mm.busy)
             } else if mine == .going {
                 HStack(spacing: 8) {
                     MMBadge("You're going", variant: .success, dot: true, height: 34, fontSize: 14, paddingX: 14)
