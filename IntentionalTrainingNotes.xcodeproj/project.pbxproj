@@ -7,117 +7,117 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FA00FA00FA00FA00FA000101 /* PreviewAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000102; };
 		01A049C2A1DE317C6E2DBB0B /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033943B6A8C0B326294C38AA /* SpeechRecognizer.swift */; };
 		01B84C0DA344D2644DC4C29B /* Bounty.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0234C4F8FEEA9BBC16BFD3B /* Bounty.swift */; };
+		09CFF7D809FA5BB1F920C67C /* Prototypes/MatMind/Resources/Fonts/Archivo-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C755D63629D9085C443F6B20 /* Prototypes/MatMind/Resources/Fonts/Archivo-SemiBold.ttf */; };
+		0D18DF5F7964D350AD729A8E /* MatMind/App/SocialAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E713E7D58AE12AB67911BEC /* MatMind/App/SocialAppModel.swift */; };
 		0DE54D7785BC7738A8F06E1C /* AppSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081949FFBAFE072E686B9F07 /* AppSessionStore.swift */; };
 		111111111111111111111101 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111001 /* AppDelegate.swift */; };
 		111111111111111111111102 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111002 /* SceneDelegate.swift */; };
 		111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111005 /* IntentionalTrainingNotesTests.swift */; };
+		17328182857ED572E024AA0A /* Prototypes/MatMind/Features/Activity/ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0C8567A23A92D8CAA5C9E70 /* Prototypes/MatMind/Features/Activity/ActivityScreen.swift */; };
+		1842720BC5932ACE459210FB /* Prototypes/MatMind/App/AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F3AF58A9C8BAFFE9919648 /* Prototypes/MatMind/App/AppModel.swift */; };
+		188A90D1373B89AE1DDF619E /* Prototypes/MatMind/DesignSystem/Components/Display.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269BA088AB8C4A410B16B32E /* Prototypes/MatMind/DesignSystem/Components/Display.swift */; };
+		1EFF6AEDF3BF46629E51351F /* Prototypes/MatMind/Features/Profile/PersonLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80A353A743A34E43A10D35E6 /* Prototypes/MatMind/Features/Profile/PersonLinks.swift */; };
 		210045E0A1D808B19738D210 /* ReflectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70B54BB9A424AA9368BCAAD5 /* ReflectionCard.swift */; };
+		22F9CC3DD270679D39C39D15 /* MatMind/Features/ProfileFriendsScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72917FBCA7D84A4D8F83691F /* MatMind/Features/ProfileFriendsScreens.swift */; };
 		28734150AA320F22865D545B /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00D9410DAE471A52E02E873C /* Formatters.swift */; };
+		28D4A732A7E2A64E59B44438 /* Prototypes/MatMind/DesignSystem/Components/Feedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FF680700DD860D2958E0FD /* Prototypes/MatMind/DesignSystem/Components/Feedback.swift */; };
+		2A7AAF37A22E06B2F714D488 /* Prototypes/MatMind/Features/Complete/CompleteScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 348BD8E8056701917AE42710 /* Prototypes/MatMind/Features/Complete/CompleteScreen.swift */; };
 		2A814716A96EBC36789392DF /* ReflectFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928B4B84ADF392A8E89DA8C8 /* ReflectFlow.swift */; };
 		2DE74EBEAE24F1090F57A7E5 /* Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B943379002E1CB5D0E1689 /* Enums.swift */; };
 		2E0746DF9E42E34E2815D37D /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2854940A7D05871D8767A0B /* RootView.swift */; };
+		2FD540DC55C0AAE96694C308 /* Prototypes/MatMind/DesignSystem/Tokens/MMTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37C9882DBABB2AC2D47FD25F /* Prototypes/MatMind/DesignSystem/Tokens/MMTypography.swift */; };
 		30354528AA4374088CE905F9 /* AppTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01874984A7A67C246DE559D8 /* AppTypography.swift */; };
 		3B544871A8D6F72180B495E2 /* BountyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E24E279FD368FAEE345E24 /* BountyViews.swift */; };
+		3E4C395C2F329E985632160A /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A2C2F87274113D274AA096EC /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-SemiBold.ttf */; };
+		3ED32CA4DBB2C3C26F1C678C /* MatMind/Archive/ArchiveZIP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CDDF1DA3C5D7017C42F345 /* MatMind/Archive/ArchiveZIP.swift */; };
+		411A6AB4383E79A834E13374 /* Prototypes/MatMind/Features/Friends/FriendsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349B61C14F9B845AB22E7FC7 /* Prototypes/MatMind/Features/Friends/FriendsScreen.swift */; };
 		4E8C4801AFA9FB9AD61499B9 /* Styles.swift in Sources */ = {isa = PBXBuildFile; fileRef = E546412F93FBD09E706BD6AB /* Styles.swift */; };
 		517745A58AD9136DFC15CF3B /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E44B2498F4434DE59E9F1E /* Typography.swift */; };
+		54D3B17953837FAD83716ADD /* Prototypes/MatMind/Resources/Fonts/Archivo-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9736CF16343FCB4B4578BA49 /* Prototypes/MatMind/Resources/Fonts/Archivo-Italic.ttf */; };
+		56E0DDC49F1697771BACDE9B /* MatMind/App/SocialPushCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AED48F3A8238BCA6049583B0 /* MatMind/App/SocialPushCoordinator.swift */; };
+		59C22185C8FCBF95BB4F07BA /* IntentionalTrainingNotesTests/LegacyArchiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F53A8B15C380716E617782C8 /* IntentionalTrainingNotesTests/LegacyArchiveTests.swift */; };
+		5D668E257A67457D6F4EAB52 /* Prototypes/MatMind/DesignSystem/Tokens/MMLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D58D28CC82097FBE1DB5BD5 /* Prototypes/MatMind/DesignSystem/Tokens/MMLayout.swift */; };
+		5F161CE40162C3983A3F930F /* Prototypes/MatMind/DesignSystem/Components/Core.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DFE4E09DC0870DE4471D2F /* Prototypes/MatMind/DesignSystem/Components/Core.swift */; };
+		60B79A8025ECF713E69E4B68 /* Prototypes/MatMind/App/AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8182F59E074E8D8CFAB263CA /* Prototypes/MatMind/App/AppShell.swift */; };
 		60DA466CBD10FC7443390CFA /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3384E529239898B88FDF77C /* ReminderScheduler.swift */; };
 		6A804283A0F9BA9984C5CD91 /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57BB4BC0A82D0D4405E29438 /* Icons.swift */; };
 		6AB447E8948674C1E59C5AE8 /* Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACD4063A060E2F84A640C3B /* Support.swift */; };
 		6D954EFFBC9F52A672B0B11E /* AddGoalSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F046496389680A172FAB118F /* AddGoalSheet.swift */; };
+		6F0A1C2D3E4F5A6B7C8D9E01 /* Prototypes/MatMind/Features/Goals/GoalsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0A1C2D3E4F5A6B7C8D9E02 /* Prototypes/MatMind/Features/Goals/GoalsScreen.swift */; };
+		6F0A1C2D3E4F5A6B7C8D9E11 /* Prototypes/MatMind/Features/Goals/GoalSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0A1C2D3E4F5A6B7C8D9E12 /* Prototypes/MatMind/Features/Goals/GoalSharing.swift */; };
 		6F6B4F55B0B20F996EB0D490 /* NotebookPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F274C908A3954EC933DE3B3 /* NotebookPersistence.swift */; };
+		713BAFBDEE7531469AD7425D /* Prototypes/MatMind/Features/Focus/TrainingFocusEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43634B8E852806B84BF3310A /* Prototypes/MatMind/Features/Focus/TrainingFocusEditor.swift */; };
 		776B444B813A67490FFD86BB /* StatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7294687A3A9918588C4CBAE /* StatView.swift */; };
 		87154057BC5D56EA900AD0D4 /* PlanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */; };
 		88A5460E97DEBB14250776BA /* HomeSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3322472B8E0B7031ACE6017B /* HomeSections.swift */; };
 		8D439B102FB0712600DCA7D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */; };
+		8D9CBD83A0B29C528FB2B452 /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 77A83EAB8FEA4C101D651A2E /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-Regular.ttf */; };
+		8E011F642F514AAEA036CD01 /* Prototypes/MatMind/Features/Create/SessionDaySelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E011F642F514AAEA036CD02 /* Prototypes/MatMind/Features/Create/SessionDaySelection.swift */; };
 		8E454FF693A12B62A5416C8F /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181B4AF9A80C2324DA2254DB /* AppColors.swift */; };
+		8F416419E76DD93937F2CDD2 /* Prototypes/MatMind/Features/Training/SessionTicket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 455C5FBC927A9FC6672D0068 /* Prototypes/MatMind/Features/Training/SessionTicket.swift */; };
 		987E4E799B2807030BAC4469 /* GoalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6853435CA176C81CBE8EFADF /* GoalListView.swift */; };
 		9A1246378C61ADCB82F8EDCF /* AuthViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EA424CA1524256815D9DF1 /* AuthViews.swift */; };
+		9BD7C9D1D6E4215CC06CA25C /* Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 422A1AEEAD6C015FED0939DF /* Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift */; };
 		9F0748E7B63DBC076357B6F9 /* NotebookStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */; };
+		A03E700ED47B80AA1D8EA3E9 /* Prototypes/MatMind/Features/Training/TrainingScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 116FCC03EA7C541189A361ED /* Prototypes/MatMind/Features/Training/TrainingScreen.swift */; };
+		A176CE812B8A4A2F9063C001 /* Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A176CE812B8A4A2F9063C002 /* Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift */; };
 		AB9247A2A29970576F5C7792 /* ReflectionQuotesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF443869EF35C5563141DBA /* ReflectionQuotesSheet.swift */; };
+		AB9B2BC30629B3A05BFD3C49 /* Prototypes/MatMind/Features/Create/CreateScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D97BD0D27AB580CB8A20980 /* Prototypes/MatMind/Features/Create/CreateScreen.swift */; };
 		ACC44ACCAB445B94738DDEA0 /* NotesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43F54D5A918709C4A93EF325 /* NotesViews.swift */; };
+		AEFAE8BCBA6A8DAFB2EBD3C0 /* Prototypes/MatMind/DesignSystem/Components/Navigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B68EAF4266303AB7F935C0F /* Prototypes/MatMind/DesignSystem/Components/Navigation.swift */; };
+		B0A7C3E1D2F4051627384901 /* Prototypes/MatMind/Features/Profile/MonkeyScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A7C3E1D2F4051627384902 /* Prototypes/MatMind/Features/Profile/MonkeyScreens.swift */; };
+		B155B7B8427288AA79E95E6E /* Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1774482F0CED9E9963BD30B1 /* Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift */; };
+		B15F6A784CA14D3B8E070101 /* Prototypes/MatMind/Features/Activity/QuickLogSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070102 /* Prototypes/MatMind/Features/Activity/QuickLogSheet.swift */; };
+		B15F6A784CA14D3B8E070201 /* Prototypes/MatMind/App/TechniqueTrend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070202 /* Prototypes/MatMind/App/TechniqueTrend.swift */; };
+		B15F6A784CA14D3B8E070211 /* Prototypes/MatMind/Features/Profile/TechniqueStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070212 /* Prototypes/MatMind/Features/Profile/TechniqueStats.swift */; };
+		B1C64B7570AA764BC692E0A9 /* Prototypes/MatMind/Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9F6A715634014148DD4B6D43 /* Prototypes/MatMind/Resources/Assets.xcassets */; };
 		B45F4CC0AB8F8930EDB010CF /* PlanTrainingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32E4759B699C4010003F9AC /* PlanTrainingView.swift */; };
 		B5584A8CB9032C9DD2406D86 /* MainAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD914323941C4EEC5FA50258 /* MainAppView.swift */; };
+		B6713412946D53F236515149 /* Prototypes/MatMind/Resources/Fonts/Archivo-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D4176253C4E816229200FDAC /* Prototypes/MatMind/Resources/Fonts/Archivo-Bold.ttf */; };
+		BAEAE9AF94C5DC808586CF54 /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 09FF8DEEBF13C1EF44E5C30C /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-ExtraBold.ttf */; };
 		BB6C43A5B9E5A882A0496919 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27384C12B79721CB36EB3316 /* SharedViews.swift */; };
 		BDD14C2F966F605858BD2F87 /* Onboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5278404089CCE534F92E5776 /* Onboarding.swift */; };
+		C17CECE33D411E2E731351C7 /* Prototypes/MatMind/Resources/Fonts/Archivo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFEC913CE37DAC65E5E79403 /* Prototypes/MatMind/Resources/Fonts/Archivo-Medium.ttf */; };
 		C39243EBA250774B3CD86259 /* SettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66F43B18776CD6B84EED920 /* SettingsViews.swift */; };
 		C9BD42D8B7BC9FD900041C27 /* MonthStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD4F4F94851A7CF714C53D76 /* MonthStats.swift */; };
 		CB6E41B5B2D8AFD2988CF741 /* TrainingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B94804BDF66C5DD8081BDB /* TrainingModels.swift */; };
+		CB8E4B28A4C0519555A163D6 /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 977657C94B85D16C36551670 /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-Bold.ttf */; };
+		CB9ED1764ABD5878E974C9DE /* MatMind/Data/BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAA0DC92F3E2740105EDE4FE /* MatMind/Data/BackendClient.swift */; };
+		CD7589E04BF5DFE71060FB40 /* Prototypes/MatMind/App/DemoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF3A4A0210818A1E7017D69 /* Prototypes/MatMind/App/DemoPanel.swift */; };
 		D067483299C7BF09D1304B25 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60F147CF8701015D9FA2778D /* HomeView.swift */; };
 		D12343ACB562C9C5EC3AF226 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B864AEBA2F969472DC6E008 /* Account.swift */; };
+		D1ED25FB9729ADB44EC11D42 /* Prototypes/MatMind/Features/Profile/ProfileScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF2FB0A9E196D362EFDEBD92 /* Prototypes/MatMind/Features/Profile/ProfileScreen.swift */; };
+		D24525CBCECE740F2822812B /* MatMind/Archive/ArchiveViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE1F184263BCA37B4842647B /* MatMind/Archive/ArchiveViews.swift */; };
 		D4654CE6B3F842E41081D5FA /* EditSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726B458897F1755CA223241C /* EditSessionView.swift */; };
 		D4A44B73BDAD8CFA931502D0 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37864580BA5D4B9811E21CC8 /* AuthService.swift */; };
+		D6FF685C0E138C404486E209 /* Prototypes/MatMind/Resources/Fonts/Archivo-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 69C76BB96D5C9F671AAF3EB4 /* Prototypes/MatMind/Resources/Fonts/Archivo-Regular.ttf */; };
+		D7F285EF93474C48B1273D01 /* Prototypes/MatMind/Features/Training/ParticipantPhotoComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F285EF93474C48B1273D02 /* Prototypes/MatMind/Features/Training/ParticipantPhotoComposer.swift */; };
+		DA38EE2FD93B0A143C11A5B6 /* Prototypes/MatMind/App/ComponentGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE9B88C33A25FA4D029D153 /* Prototypes/MatMind/App/ComponentGallery.swift */; };
+		DB6A424926194000D4A45D5C /* MatMind/Archive/LegacyArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411C0E0A78A2D7E8B74814FF /* MatMind/Archive/LegacyArchive.swift */; };
+		E4B306F2B5F6EDB2F343874D /* Prototypes/MatMind/App/TrainingFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA475D8E9179524D5255ADB4 /* Prototypes/MatMind/App/TrainingFocus.swift */; };
 		E51C4262A228ACD9BEBE661E /* KeychainAccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EC84A54BEC8701A1983BFA0 /* KeychainAccountStore.swift */; };
+		E749E3039BA705AB9E8CF0FA /* Prototypes/MatMind/App/Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E20B8D3C7F9EF3DCD41EDA /* Prototypes/MatMind/App/Models.swift */; };
+		EA2A2EB09E5B6D261ED2496B /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6C53363CF4C8897E20849676 /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-SemiBold.ttf */; };
 		EB3F49ADA11C091C3B5C0723 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5144D590323BEFB368EA1C /* ActivityView.swift */; };
+		EC53186AAA9BBC18A2A88272 /* Prototypes/MatMind/DesignSystem/Components/Forms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759B4E7DFB79C5675AC1FDB6 /* Prototypes/MatMind/DesignSystem/Components/Forms.swift */; };
+		EE38387FFCE1748F3B276B51 /* Prototypes/MatMind/App/SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D255B232A15124E9BAB02C89 /* Prototypes/MatMind/App/SeedData.swift */; };
+		F24B403108FC3A004A0CAC85 /* Prototypes/MatMind/Features/Friends/QRScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09EED90C8E8CA5985FBA5243 /* Prototypes/MatMind/Features/Friends/QRScreen.swift */; };
+		F42F550B16CA533650285E08 /* Prototypes/MatMind/DesignSystem/Patterns/Shell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B1A1CB8A20417CFC113AD89 /* Prototypes/MatMind/DesignSystem/Patterns/Shell.swift */; };
 		F53544A084814341DFAF6F37 /* GoalDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */; };
+		F59962B1578557051EE00882 /* Prototypes/MatMind/DesignSystem/Tokens/MMColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAD3F47114F1098775D008D /* Prototypes/MatMind/DesignSystem/Tokens/MMColor.swift */; };
+		F63DD9F5A0959BA66BCDD5CD /* MatMind/Features/SocialScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6EE2DADF0EBA8DFB1EFB68 /* MatMind/Features/SocialScreens.swift */; };
 		FA00FA00FA00FA00FA000001 /* Fraunces-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000003 /* Fraunces-Regular.ttf */; };
 		FA00FA00FA00FA00FA000002 /* Fraunces-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000004 /* Fraunces-Italic.ttf */; };
 		FA00FA00FA00FA00FA000005 /* Fraunces-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000007 /* Fraunces-SemiBold.ttf */; };
 		FA00FA00FA00FA00FA000006 /* Fraunces-MediumItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000008 /* Fraunces-MediumItalic.ttf */; };
 		FA00FA00FA00FA00FA000020 /* PlannedSessionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000021 /* PlannedSessionCard.swift */; };
+		FA00FA00FA00FA00FA000101 /* Prototypes/MatMind/PreviewAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA00FA00FA00FA00FA000102 /* Prototypes/MatMind/PreviewAssets.xcassets */; };
 		FB8B49B8A2B066635CB1175C /* NetworkStatusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534C4A4A8F5712500788773C /* NetworkStatusStore.swift */; };
 		FCC34BEEAFE4315EC462E806 /* EditGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34054973AF74DF97EC9FB9E7 /* EditGoalView.swift */; };
+		FDA08AA9543940DFA3D16F7A /* MatMind/App/MatMindRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BED19C66D014F69CB85DAF1 /* MatMind/App/MatMindRoot.swift */; };
 		FF9D41E4984D999850CCDA56 /* NotebookMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBD748A9B80AF0639DDEF66B /* NotebookMigration.swift */; };
-		3ED32CA4DBB2C3C26F1C678C /* ArchiveZIP.swift */ = {isa = PBXBuildFile; fileRef = 86CDDF1DA3C5D7017C42F345; };
-		D24525CBCECE740F2822812B /* ArchiveViews.swift */ = {isa = PBXBuildFile; fileRef = EE1F184263BCA37B4842647B; };
-		DB6A424926194000D4A45D5C /* LegacyArchive.swift */ = {isa = PBXBuildFile; fileRef = 411C0E0A78A2D7E8B74814FF; };
-		F42F550B16CA533650285E08 /* Shell.swift */ = {isa = PBXBuildFile; fileRef = 4B1A1CB8A20417CFC113AD89; };
-		EC53186AAA9BBC18A2A88272 /* Forms.swift */ = {isa = PBXBuildFile; fileRef = 759B4E7DFB79C5675AC1FDB6; };
-		AEFAE8BCBA6A8DAFB2EBD3C0 /* Navigation.swift */ = {isa = PBXBuildFile; fileRef = 6B68EAF4266303AB7F935C0F; };
-		5F161CE40162C3983A3F930F /* Core.swift */ = {isa = PBXBuildFile; fileRef = A8DFE4E09DC0870DE4471D2F; };
-		188A90D1373B89AE1DDF619E /* Display.swift */ = {isa = PBXBuildFile; fileRef = 269BA088AB8C4A410B16B32E; };
-		28D4A732A7E2A64E59B44438 /* Feedback.swift */ = {isa = PBXBuildFile; fileRef = F6FF680700DD860D2958E0FD; };
-		5D668E257A67457D6F4EAB52 /* MMLayout.swift */ = {isa = PBXBuildFile; fileRef = 0D58D28CC82097FBE1DB5BD5; };
-		F59962B1578557051EE00882 /* MMColor.swift */ = {isa = PBXBuildFile; fileRef = 5EAD3F47114F1098775D008D; };
-		2FD540DC55C0AAE96694C308 /* MMTypography.swift */ = {isa = PBXBuildFile; fileRef = 37C9882DBABB2AC2D47FD25F; };
-		B1C64B7570AA764BC692E0A9 /* Assets.xcassets */ = {isa = PBXBuildFile; fileRef = 9F6A715634014148DD4B6D43; };
-		D6FF685C0E138C404486E209 /* Archivo-Regular.ttf */ = {isa = PBXBuildFile; fileRef = 69C76BB96D5C9F671AAF3EB4; };
-		8D9CBD83A0B29C528FB2B452 /* JetBrainsMono-Regular.ttf */ = {isa = PBXBuildFile; fileRef = 77A83EAB8FEA4C101D651A2E; };
-		09CFF7D809FA5BB1F920C67C /* Archivo-SemiBold.ttf */ = {isa = PBXBuildFile; fileRef = C755D63629D9085C443F6B20; };
-		BAEAE9AF94C5DC808586CF54 /* BricolageGrotesque-ExtraBold.ttf */ = {isa = PBXBuildFile; fileRef = 09FF8DEEBF13C1EF44E5C30C; };
-		C17CECE33D411E2E731351C7 /* Archivo-Medium.ttf */ = {isa = PBXBuildFile; fileRef = EFEC913CE37DAC65E5E79403; };
-		3E4C395C2F329E985632160A /* BricolageGrotesque-SemiBold.ttf */ = {isa = PBXBuildFile; fileRef = A2C2F87274113D274AA096EC; };
-		EA2A2EB09E5B6D261ED2496B /* JetBrainsMono-SemiBold.ttf */ = {isa = PBXBuildFile; fileRef = 6C53363CF4C8897E20849676; };
-		54D3B17953837FAD83716ADD /* Archivo-Italic.ttf */ = {isa = PBXBuildFile; fileRef = 9736CF16343FCB4B4578BA49; };
-		B6713412946D53F236515149 /* Archivo-Bold.ttf */ = {isa = PBXBuildFile; fileRef = D4176253C4E816229200FDAC; };
-		CB8E4B28A4C0519555A163D6 /* BricolageGrotesque-Bold.ttf */ = {isa = PBXBuildFile; fileRef = 977657C94B85D16C36551670; };
-		0D18DF5F7964D350AD729A8E /* SocialAppModel.swift */ = {isa = PBXBuildFile; fileRef = 5E713E7D58AE12AB67911BEC; };
-		FDA08AA9543940DFA3D16F7A /* MatMindRoot.swift */ = {isa = PBXBuildFile; fileRef = 3BED19C66D014F69CB85DAF1; };
-		22F9CC3DD270679D39C39D15 /* ProfileFriendsScreens.swift */ = {isa = PBXBuildFile; fileRef = 72917FBCA7D84A4D8F83691F; };
-		F63DD9F5A0959BA66BCDD5CD /* SocialScreens.swift */ = {isa = PBXBuildFile; fileRef = 2C6EE2DADF0EBA8DFB1EFB68; };
-		CB9ED1764ABD5878E974C9DE /* BackendClient.swift */ = {isa = PBXBuildFile; fileRef = CAA0DC92F3E2740105EDE4FE; };
-59C22185C8FCBF95BB4F07BA = {isa = PBXBuildFile; fileRef = F53A8B15C380716E617782C8; };
-		56E0DDC49F1697771BACDE9B /* SocialPushCoordinator.swift */ = {isa = PBXBuildFile; fileRef = AED48F3A8238BCA6049583B0; };
-		1842720BC5932ACE459210FB /* AppModel.swift */ = {isa = PBXBuildFile; fileRef = F6F3AF58A9C8BAFFE9919648; };
-		60B79A8025ECF713E69E4B68 /* AppShell.swift */ = {isa = PBXBuildFile; fileRef = 8182F59E074E8D8CFAB263CA; };
-		DA38EE2FD93B0A143C11A5B6 /* ComponentGallery.swift */ = {isa = PBXBuildFile; fileRef = DEE9B88C33A25FA4D029D153; };
-		CD7589E04BF5DFE71060FB40 /* DemoPanel.swift */ = {isa = PBXBuildFile; fileRef = CBF3A4A0210818A1E7017D69; };
-		E749E3039BA705AB9E8CF0FA /* Models.swift */ = {isa = PBXBuildFile; fileRef = 52E20B8D3C7F9EF3DCD41EDA; };
-		EE38387FFCE1748F3B276B51 /* SeedData.swift */ = {isa = PBXBuildFile; fileRef = D255B232A15124E9BAB02C89; };
-		E4B306F2B5F6EDB2F343874D /* TrainingFocus.swift */ = {isa = PBXBuildFile; fileRef = CA475D8E9179524D5255ADB4; };
-		B155B7B8427288AA79E95E6E /* EmptyState.swift */ = {isa = PBXBuildFile; fileRef = 1774482F0CED9E9963BD30B1; };
-		17328182857ED572E024AA0A /* ActivityScreen.swift */ = {isa = PBXBuildFile; fileRef = E0C8567A23A92D8CAA5C9E70; };
-		2A7AAF37A22E06B2F714D488 /* CompleteScreen.swift */ = {isa = PBXBuildFile; fileRef = 348BD8E8056701917AE42710; };
-		AB9B2BC30629B3A05BFD3C49 /* CreateScreen.swift */ = {isa = PBXBuildFile; fileRef = 5D97BD0D27AB580CB8A20980; };
-		8E011F642F514AAEA036CD01 /* SessionDaySelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E011F642F514AAEA036CD02; };
-		713BAFBDEE7531469AD7425D /* TrainingFocusEditor.swift */ = {isa = PBXBuildFile; fileRef = 43634B8E852806B84BF3310A; };
-		411A6AB4383E79A834E13374 /* FriendsScreen.swift */ = {isa = PBXBuildFile; fileRef = 349B61C14F9B845AB22E7FC7; };
-		F24B403108FC3A004A0CAC85 /* QRScreen.swift */ = {isa = PBXBuildFile; fileRef = 09EED90C8E8CA5985FBA5243; };
-		D1ED25FB9729ADB44EC11D42 /* ProfileScreen.swift */ = {isa = PBXBuildFile; fileRef = CF2FB0A9E196D362EFDEBD92; };
-		8F416419E76DD93937F2CDD2 /* SessionTicket.swift */ = {isa = PBXBuildFile; fileRef = 455C5FBC927A9FC6672D0068; };
-		A03E700ED47B80AA1D8EA3E9 /* TrainingScreen.swift */ = {isa = PBXBuildFile; fileRef = 116FCC03EA7C541189A361ED; };
-		D7F285EF93474C48B1273D01 /* ParticipantPhotoComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F285EF93474C48B1273D02; };
-		6F0A1C2D3E4F5A6B7C8D9E01 /* GoalsScreen.swift */ = {isa = PBXBuildFile; fileRef = 6F0A1C2D3E4F5A6B7C8D9E02; };
-		6F0A1C2D3E4F5A6B7C8D9E11 /* GoalSharing.swift */ = {isa = PBXBuildFile; fileRef = 6F0A1C2D3E4F5A6B7C8D9E12; };
-		9BD7C9D1D6E4215CC06CA25C /* WelcomeScreen.swift */ = {isa = PBXBuildFile; fileRef = 422A1AEEAD6C015FED0939DF; };
-		A176CE812B8A4A2F9063C001 /* PlaceSearch.swift */ = {isa = PBXBuildFile; fileRef = A176CE812B8A4A2F9063C002; };
-		1EFF6AEDF3BF46629E51351F /* PersonLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80A353A743A34E43A10D35E6 /* PersonLinks.swift */; };
-		B0A7C3E1D2F4051627384901 /* MonkeyScreens.swift */ = {isa = PBXBuildFile; fileRef = B0A7C3E1D2F4051627384902; };
-		B15F6A784CA14D3B8E070101 /* QuickLogSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070102; };
-		B15F6A784CA14D3B8E070201 /* TechniqueTrend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070202; };
-		B15F6A784CA14D3B8E070211 /* TechniqueStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F6A784CA14D3B8E070212; };
 		574944474554000000000013 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57494447455400000000000F /* WidgetSnapshot.swift */; };
 		574944474554000000000014 /* WidgetLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574944474554000000000010 /* WidgetLinks.swift */; };
 		574944474554000000000015 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574944474554000000000011 /* WidgetBridge.swift */; };
@@ -166,11 +166,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		FA00FA00FA00FA00FA000102 /* PreviewAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Prototypes/MatMind/PreviewAssets.xcassets"; sourceTree = SOURCE_ROOT; };
 		00D9410DAE471A52E02E873C /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Formatters.swift; path = IntentionalTrainingNotes/Core/Foundation/Formatters.swift; sourceTree = SOURCE_ROOT; };
 		01874984A7A67C246DE559D8 /* AppTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppTypography.swift; path = IntentionalTrainingNotes/Core/DesignSystem/AppTypography.swift; sourceTree = SOURCE_ROOT; };
 		033943B6A8C0B326294C38AA /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SpeechRecognizer.swift; path = IntentionalTrainingNotes/Core/Services/SpeechRecognizer.swift; sourceTree = SOURCE_ROOT; };
 		081949FFBAFE072E686B9F07 /* AppSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppSessionStore.swift; path = IntentionalTrainingNotes/Core/Stores/AppSessionStore.swift; sourceTree = SOURCE_ROOT; };
+		09EED90C8E8CA5985FBA5243 /* Prototypes/MatMind/Features/Friends/QRScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Friends/QRScreen.swift; sourceTree = SOURCE_ROOT; };
+		09FF8DEEBF13C1EF44E5C30C /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-ExtraBold.ttf"; sourceTree = SOURCE_ROOT; };
+		0D58D28CC82097FBE1DB5BD5 /* Prototypes/MatMind/DesignSystem/Tokens/MMLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Tokens/MMLayout.swift; sourceTree = SOURCE_ROOT; };
 		0F274C908A3954EC933DE3B3 /* NotebookPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookPersistence.swift; path = IntentionalTrainingNotes/Core/Persistence/NotebookPersistence.swift; sourceTree = SOURCE_ROOT; };
 		111111111111111111111001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		111111111111111111111002 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -178,109 +180,107 @@
 		111111111111111111111006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		111111111111111111111011 /* IntentionalTrainingNotes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IntentionalTrainingNotes.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		111111111111111111111012 /* IntentionalTrainingNotesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntentionalTrainingNotesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		116FCC03EA7C541189A361ED /* Prototypes/MatMind/Features/Training/TrainingScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Training/TrainingScreen.swift; sourceTree = SOURCE_ROOT; };
+		1774482F0CED9E9963BD30B1 /* Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift; sourceTree = SOURCE_ROOT; };
 		181B4AF9A80C2324DA2254DB /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppColors.swift; path = IntentionalTrainingNotes/Core/DesignSystem/AppColors.swift; sourceTree = SOURCE_ROOT; };
+		269BA088AB8C4A410B16B32E /* Prototypes/MatMind/DesignSystem/Components/Display.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Components/Display.swift; sourceTree = SOURCE_ROOT; };
 		27384C12B79721CB36EB3316 /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedViews.swift; path = IntentionalTrainingNotes/Shared/SharedViews.swift; sourceTree = SOURCE_ROOT; };
 		28B943379002E1CB5D0E1689 /* Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Enums.swift; path = IntentionalTrainingNotes/Core/Models/Enums.swift; sourceTree = SOURCE_ROOT; };
 		2B864AEBA2F969472DC6E008 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Account.swift; path = IntentionalTrainingNotes/Core/Models/Account.swift; sourceTree = SOURCE_ROOT; };
+		2C6EE2DADF0EBA8DFB1EFB68 /* MatMind/Features/SocialScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/Features/SocialScreens.swift; sourceTree = SOURCE_ROOT; };
 		3322472B8E0B7031ACE6017B /* HomeSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeSections.swift; path = IntentionalTrainingNotes/Features/Home/HomeSections.swift; sourceTree = SOURCE_ROOT; };
 		34054973AF74DF97EC9FB9E7 /* EditGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditGoalView.swift; path = IntentionalTrainingNotes/Features/Goals/EditGoalView.swift; sourceTree = SOURCE_ROOT; };
+		348BD8E8056701917AE42710 /* Prototypes/MatMind/Features/Complete/CompleteScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Complete/CompleteScreen.swift; sourceTree = SOURCE_ROOT; };
+		349B61C14F9B845AB22E7FC7 /* Prototypes/MatMind/Features/Friends/FriendsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Friends/FriendsScreen.swift; sourceTree = SOURCE_ROOT; };
 		37864580BA5D4B9811E21CC8 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IntentionalTrainingNotes/Core/Services/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		37B94804BDF66C5DD8081BDB /* TrainingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrainingModels.swift; path = IntentionalTrainingNotes/Core/Models/TrainingModels.swift; sourceTree = SOURCE_ROOT; };
+		37C9882DBABB2AC2D47FD25F /* Prototypes/MatMind/DesignSystem/Tokens/MMTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Tokens/MMTypography.swift; sourceTree = SOURCE_ROOT; };
+		3BED19C66D014F69CB85DAF1 /* MatMind/App/MatMindRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/App/MatMindRoot.swift; sourceTree = SOURCE_ROOT; };
+		411C0E0A78A2D7E8B74814FF /* MatMind/Archive/LegacyArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/Archive/LegacyArchive.swift; sourceTree = SOURCE_ROOT; };
+		422A1AEEAD6C015FED0939DF /* Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift; sourceTree = SOURCE_ROOT; };
+		43634B8E852806B84BF3310A /* Prototypes/MatMind/Features/Focus/TrainingFocusEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Focus/TrainingFocusEditor.swift; sourceTree = SOURCE_ROOT; };
 		43F54D5A918709C4A93EF325 /* NotesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotesViews.swift; path = IntentionalTrainingNotes/Features/Notes/NotesViews.swift; sourceTree = SOURCE_ROOT; };
+		455C5FBC927A9FC6672D0068 /* Prototypes/MatMind/Features/Training/SessionTicket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Training/SessionTicket.swift; sourceTree = SOURCE_ROOT; };
+		4B1A1CB8A20417CFC113AD89 /* Prototypes/MatMind/DesignSystem/Patterns/Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Patterns/Shell.swift; sourceTree = SOURCE_ROOT; };
+		4D4D50524F544F0000000001 /* MatMindPrototype.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MatMindPrototype.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5278404089CCE534F92E5776 /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Onboarding.swift; path = IntentionalTrainingNotes/Features/Onboarding/Onboarding.swift; sourceTree = SOURCE_ROOT; };
+		52E20B8D3C7F9EF3DCD41EDA /* Prototypes/MatMind/App/Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/Models.swift; sourceTree = SOURCE_ROOT; };
 		534C4A4A8F5712500788773C /* NetworkStatusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NetworkStatusStore.swift; path = IntentionalTrainingNotes/Core/Services/NetworkStatusStore.swift; sourceTree = SOURCE_ROOT; };
 		57BB4BC0A82D0D4405E29438 /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Icons.swift; path = IntentionalTrainingNotes/Core/DesignSystem/Icons.swift; sourceTree = SOURCE_ROOT; };
+		5D97BD0D27AB580CB8A20980 /* Prototypes/MatMind/Features/Create/CreateScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Create/CreateScreen.swift; sourceTree = SOURCE_ROOT; };
+		5E713E7D58AE12AB67911BEC /* MatMind/App/SocialAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/App/SocialAppModel.swift; sourceTree = SOURCE_ROOT; };
+		5EAD3F47114F1098775D008D /* Prototypes/MatMind/DesignSystem/Tokens/MMColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Tokens/MMColor.swift; sourceTree = SOURCE_ROOT; };
 		5EC84A54BEC8701A1983BFA0 /* KeychainAccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeychainAccountStore.swift; path = IntentionalTrainingNotes/Core/Persistence/KeychainAccountStore.swift; sourceTree = SOURCE_ROOT; };
 		5F5144D590323BEFB368EA1C /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ActivityView.swift; path = IntentionalTrainingNotes/Shared/ActivityView.swift; sourceTree = SOURCE_ROOT; };
 		60F147CF8701015D9FA2778D /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = IntentionalTrainingNotes/Features/Home/HomeView.swift; sourceTree = SOURCE_ROOT; };
 		6853435CA176C81CBE8EFADF /* GoalListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoalListView.swift; path = IntentionalTrainingNotes/Features/Goals/GoalListView.swift; sourceTree = SOURCE_ROOT; };
+		69C76BB96D5C9F671AAF3EB4 /* Prototypes/MatMind/Resources/Fonts/Archivo-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Regular.ttf"; sourceTree = SOURCE_ROOT; };
+		6B68EAF4266303AB7F935C0F /* Prototypes/MatMind/DesignSystem/Components/Navigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Components/Navigation.swift; sourceTree = SOURCE_ROOT; };
+		6C53363CF4C8897E20849676 /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/JetBrainsMono-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
+		6F0A1C2D3E4F5A6B7C8D9E02 /* Prototypes/MatMind/Features/Goals/GoalsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Goals/GoalsScreen.swift; sourceTree = SOURCE_ROOT; };
+		6F0A1C2D3E4F5A6B7C8D9E12 /* Prototypes/MatMind/Features/Goals/GoalSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Goals/GoalSharing.swift; sourceTree = SOURCE_ROOT; };
 		70B54BB9A424AA9368BCAAD5 /* ReflectionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReflectionCard.swift; path = IntentionalTrainingNotes/Features/Reflect/ReflectionCard.swift; sourceTree = SOURCE_ROOT; };
 		726B458897F1755CA223241C /* EditSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditSessionView.swift; path = IntentionalTrainingNotes/Features/Plan/EditSessionView.swift; sourceTree = SOURCE_ROOT; };
+		72917FBCA7D84A4D8F83691F /* MatMind/Features/ProfileFriendsScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/Features/ProfileFriendsScreens.swift; sourceTree = SOURCE_ROOT; };
+		759B4E7DFB79C5675AC1FDB6 /* Prototypes/MatMind/DesignSystem/Components/Forms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Components/Forms.swift; sourceTree = SOURCE_ROOT; };
+		77A83EAB8FEA4C101D651A2E /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/JetBrainsMono-Regular.ttf"; sourceTree = SOURCE_ROOT; };
+		80A353A743A34E43A10D35E6 /* Prototypes/MatMind/Features/Profile/PersonLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Profile/PersonLinks.swift; sourceTree = SOURCE_ROOT; };
+		8182F59E074E8D8CFAB263CA /* Prototypes/MatMind/App/AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/AppShell.swift; sourceTree = SOURCE_ROOT; };
+		86CDDF1DA3C5D7017C42F345 /* MatMind/Archive/ArchiveZIP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/Archive/ArchiveZIP.swift; sourceTree = SOURCE_ROOT; };
 		8ACD4063A060E2F84A640C3B /* Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Support.swift; path = IntentionalTrainingNotes/Core/Models/Support.swift; sourceTree = SOURCE_ROOT; };
 		8D439B0F2FB0712600DCA7D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8E011F642F514AAEA036CD02 /* Prototypes/MatMind/Features/Create/SessionDaySelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Create/SessionDaySelection.swift; sourceTree = SOURCE_ROOT; };
 		928B4B84ADF392A8E89DA8C8 /* ReflectFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReflectFlow.swift; path = IntentionalTrainingNotes/Features/Reflect/ReflectFlow.swift; sourceTree = SOURCE_ROOT; };
+		9736CF16343FCB4B4578BA49 /* Prototypes/MatMind/Resources/Fonts/Archivo-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Italic.ttf"; sourceTree = SOURCE_ROOT; };
+		977657C94B85D16C36551670 /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-Bold.ttf"; sourceTree = SOURCE_ROOT; };
+		9F6A715634014148DD4B6D43 /* Prototypes/MatMind/Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Prototypes/MatMind/Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		A176CE812B8A4A2F9063C002 /* Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift; sourceTree = SOURCE_ROOT; };
 		A2854940A7D05871D8767A0B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = IntentionalTrainingNotes/App/RootView.swift; sourceTree = SOURCE_ROOT; };
+		A2C2F87274113D274AA096EC /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
 		A32E4759B699C4010003F9AC /* PlanTrainingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlanTrainingView.swift; path = IntentionalTrainingNotes/Features/Plan/PlanTrainingView.swift; sourceTree = SOURCE_ROOT; };
 		A4EA424CA1524256815D9DF1 /* AuthViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthViews.swift; path = IntentionalTrainingNotes/App/AuthViews.swift; sourceTree = SOURCE_ROOT; };
+		A8DFE4E09DC0870DE4471D2F /* Prototypes/MatMind/DesignSystem/Components/Core.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Components/Core.swift; sourceTree = SOURCE_ROOT; };
 		AD4F4F94851A7CF714C53D76 /* MonthStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MonthStats.swift; path = IntentionalTrainingNotes/Features/Stats/MonthStats.swift; sourceTree = SOURCE_ROOT; };
+		AED48F3A8238BCA6049583B0 /* MatMind/App/SocialPushCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/App/SocialPushCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		B0A7C3E1D2F4051627384902 /* Prototypes/MatMind/Features/Profile/MonkeyScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Profile/MonkeyScreens.swift; sourceTree = SOURCE_ROOT; };
+		B15F6A784CA14D3B8E070102 /* Prototypes/MatMind/Features/Activity/QuickLogSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Activity/QuickLogSheet.swift; sourceTree = SOURCE_ROOT; };
+		B15F6A784CA14D3B8E070202 /* Prototypes/MatMind/App/TechniqueTrend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/TechniqueTrend.swift; sourceTree = SOURCE_ROOT; };
+		B15F6A784CA14D3B8E070212 /* Prototypes/MatMind/Features/Profile/TechniqueStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Profile/TechniqueStats.swift; sourceTree = SOURCE_ROOT; };
 		B7294687A3A9918588C4CBAE /* StatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StatView.swift; path = IntentionalTrainingNotes/Features/Stats/StatView.swift; sourceTree = SOURCE_ROOT; };
 		B8E24E279FD368FAEE345E24 /* BountyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BountyViews.swift; path = IntentionalTrainingNotes/Features/Bounty/BountyViews.swift; sourceTree = SOURCE_ROOT; };
 		C0C54DC883CF40FD83AEE754 /* GoalDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GoalDetailView.swift; path = IntentionalTrainingNotes/Features/Goals/GoalDetailView.swift; sourceTree = SOURCE_ROOT; };
 		C1CF40F5AAB7DF206F5732D6 /* NotebookStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookStore.swift; path = IntentionalTrainingNotes/Core/Stores/NotebookStore.swift; sourceTree = SOURCE_ROOT; };
 		C3384E529239898B88FDF77C /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReminderScheduler.swift; path = IntentionalTrainingNotes/Core/Services/ReminderScheduler.swift; sourceTree = SOURCE_ROOT; };
+		C755D63629D9085C443F6B20 /* Prototypes/MatMind/Resources/Fonts/Archivo-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
+		CA475D8E9179524D5255ADB4 /* Prototypes/MatMind/App/TrainingFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/TrainingFocus.swift; sourceTree = SOURCE_ROOT; };
+		CAA0DC92F3E2740105EDE4FE /* MatMind/Data/BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/Data/BackendClient.swift; sourceTree = SOURCE_ROOT; };
+		CBF3A4A0210818A1E7017D69 /* Prototypes/MatMind/App/DemoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/DemoPanel.swift; sourceTree = SOURCE_ROOT; };
 		CDF443869EF35C5563141DBA /* ReflectionQuotesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReflectionQuotesSheet.swift; path = IntentionalTrainingNotes/Features/Stats/ReflectionQuotesSheet.swift; sourceTree = SOURCE_ROOT; };
+		CF2FB0A9E196D362EFDEBD92 /* Prototypes/MatMind/Features/Profile/ProfileScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Profile/ProfileScreen.swift; sourceTree = SOURCE_ROOT; };
+		D255B232A15124E9BAB02C89 /* Prototypes/MatMind/App/SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/SeedData.swift; sourceTree = SOURCE_ROOT; };
+		D4176253C4E816229200FDAC /* Prototypes/MatMind/Resources/Fonts/Archivo-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Bold.ttf"; sourceTree = SOURCE_ROOT; };
 		D66F43B18776CD6B84EED920 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsViews.swift; path = IntentionalTrainingNotes/Features/Settings/SettingsViews.swift; sourceTree = SOURCE_ROOT; };
+		D7F285EF93474C48B1273D02 /* Prototypes/MatMind/Features/Training/ParticipantPhotoComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Training/ParticipantPhotoComposer.swift; sourceTree = SOURCE_ROOT; };
 		DD914323941C4EEC5FA50258 /* MainAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MainAppView.swift; path = IntentionalTrainingNotes/App/MainAppView.swift; sourceTree = SOURCE_ROOT; };
+		DEE9B88C33A25FA4D029D153 /* Prototypes/MatMind/App/ComponentGallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/ComponentGallery.swift; sourceTree = SOURCE_ROOT; };
+		E0C8567A23A92D8CAA5C9E70 /* Prototypes/MatMind/Features/Activity/ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/Features/Activity/ActivityScreen.swift; sourceTree = SOURCE_ROOT; };
 		E546412F93FBD09E706BD6AB /* Styles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Styles.swift; path = IntentionalTrainingNotes/Core/DesignSystem/Styles.swift; sourceTree = SOURCE_ROOT; };
 		E7E44B2498F4434DE59E9F1E /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Typography.swift; path = IntentionalTrainingNotes/Core/Foundation/Typography.swift; sourceTree = SOURCE_ROOT; };
+		EE1F184263BCA37B4842647B /* MatMind/Archive/ArchiveViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatMind/Archive/ArchiveViews.swift; sourceTree = SOURCE_ROOT; };
+		EFEC913CE37DAC65E5E79403 /* Prototypes/MatMind/Resources/Fonts/Archivo-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Medium.ttf"; sourceTree = SOURCE_ROOT; };
 		F0234C4F8FEEA9BBC16BFD3B /* Bounty.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Bounty.swift; path = IntentionalTrainingNotes/Core/Models/Bounty.swift; sourceTree = SOURCE_ROOT; };
 		F046496389680A172FAB118F /* AddGoalSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddGoalSheet.swift; path = IntentionalTrainingNotes/Features/Goals/AddGoalSheet.swift; sourceTree = SOURCE_ROOT; };
 		F30C4D91B29F8BB1AB03AF90 /* PlanListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlanListView.swift; path = IntentionalTrainingNotes/Features/Plan/PlanListView.swift; sourceTree = SOURCE_ROOT; };
+		F53A8B15C380716E617782C8 /* IntentionalTrainingNotesTests/LegacyArchiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentionalTrainingNotesTests/LegacyArchiveTests.swift; sourceTree = SOURCE_ROOT; };
+		F6F3AF58A9C8BAFFE9919648 /* Prototypes/MatMind/App/AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/App/AppModel.swift; sourceTree = SOURCE_ROOT; };
+		F6FF680700DD860D2958E0FD /* Prototypes/MatMind/DesignSystem/Components/Feedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prototypes/MatMind/DesignSystem/Components/Feedback.swift; sourceTree = SOURCE_ROOT; };
 		FA00FA00FA00FA00FA000003 /* Fraunces-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Regular.ttf"; sourceTree = "<group>"; };
 		FA00FA00FA00FA00FA000004 /* Fraunces-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-Italic.ttf"; sourceTree = "<group>"; };
 		FA00FA00FA00FA00FA000007 /* Fraunces-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-SemiBold.ttf"; sourceTree = "<group>"; };
 		FA00FA00FA00FA00FA000008 /* Fraunces-MediumItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-MediumItalic.ttf"; sourceTree = "<group>"; };
 		FA00FA00FA00FA00FA000021 /* PlannedSessionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PlannedSessionCard.swift; path = IntentionalTrainingNotes/Features/Home/PlannedSessionCard.swift; sourceTree = SOURCE_ROOT; };
+		FA00FA00FA00FA00FA000102 /* Prototypes/MatMind/PreviewAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Prototypes/MatMind/PreviewAssets.xcassets; sourceTree = SOURCE_ROOT; };
 		FBD748A9B80AF0639DDEF66B /* NotebookMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotebookMigration.swift; path = IntentionalTrainingNotes/Core/Persistence/NotebookMigration.swift; sourceTree = SOURCE_ROOT; };
-		86CDDF1DA3C5D7017C42F345 /* ArchiveZIP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/Archive/ArchiveZIP.swift"; sourceTree = SOURCE_ROOT; };
-		EE1F184263BCA37B4842647B /* ArchiveViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/Archive/ArchiveViews.swift"; sourceTree = SOURCE_ROOT; };
-		411C0E0A78A2D7E8B74814FF /* LegacyArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/Archive/LegacyArchive.swift"; sourceTree = SOURCE_ROOT; };
-		4B1A1CB8A20417CFC113AD89 /* Shell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Patterns/Shell.swift"; sourceTree = SOURCE_ROOT; };
-		759B4E7DFB79C5675AC1FDB6 /* Forms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Components/Forms.swift"; sourceTree = SOURCE_ROOT; };
-		6B68EAF4266303AB7F935C0F /* Navigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Components/Navigation.swift"; sourceTree = SOURCE_ROOT; };
-		A8DFE4E09DC0870DE4471D2F /* Core.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Components/Core.swift"; sourceTree = SOURCE_ROOT; };
-		269BA088AB8C4A410B16B32E /* Display.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Components/Display.swift"; sourceTree = SOURCE_ROOT; };
-		F6FF680700DD860D2958E0FD /* Feedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Components/Feedback.swift"; sourceTree = SOURCE_ROOT; };
-		0D58D28CC82097FBE1DB5BD5 /* MMLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Tokens/MMLayout.swift"; sourceTree = SOURCE_ROOT; };
-		5EAD3F47114F1098775D008D /* MMColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Tokens/MMColor.swift"; sourceTree = SOURCE_ROOT; };
-		37C9882DBABB2AC2D47FD25F /* MMTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Tokens/MMTypography.swift"; sourceTree = SOURCE_ROOT; };
-		9F6A715634014148DD4B6D43 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Prototypes/MatMind/Resources/Assets.xcassets"; sourceTree = SOURCE_ROOT; };
-		69C76BB96D5C9F671AAF3EB4 /* Archivo-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Regular.ttf"; sourceTree = SOURCE_ROOT; };
-		77A83EAB8FEA4C101D651A2E /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/JetBrainsMono-Regular.ttf"; sourceTree = SOURCE_ROOT; };
-		C755D63629D9085C443F6B20 /* Archivo-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
-		09FF8DEEBF13C1EF44E5C30C /* BricolageGrotesque-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-ExtraBold.ttf"; sourceTree = SOURCE_ROOT; };
-		EFEC913CE37DAC65E5E79403 /* Archivo-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Medium.ttf"; sourceTree = SOURCE_ROOT; };
-		A2C2F87274113D274AA096EC /* BricolageGrotesque-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
-		6C53363CF4C8897E20849676 /* JetBrainsMono-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/JetBrainsMono-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
-		9736CF16343FCB4B4578BA49 /* Archivo-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Italic.ttf"; sourceTree = SOURCE_ROOT; };
-		D4176253C4E816229200FDAC /* Archivo-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/Archivo-Bold.ttf"; sourceTree = SOURCE_ROOT; };
-		977657C94B85D16C36551670 /* BricolageGrotesque-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-Bold.ttf"; sourceTree = SOURCE_ROOT; };
-		5E713E7D58AE12AB67911BEC /* SocialAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/App/SocialAppModel.swift"; sourceTree = SOURCE_ROOT; };
-		3BED19C66D014F69CB85DAF1 /* MatMindRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/App/MatMindRoot.swift"; sourceTree = SOURCE_ROOT; };
-		72917FBCA7D84A4D8F83691F /* ProfileFriendsScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/Features/ProfileFriendsScreens.swift"; sourceTree = SOURCE_ROOT; };
-		2C6EE2DADF0EBA8DFB1EFB68 /* SocialScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/Features/SocialScreens.swift"; sourceTree = SOURCE_ROOT; };
-		CAA0DC92F3E2740105EDE4FE /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/Data/BackendClient.swift"; sourceTree = SOURCE_ROOT; };
-F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IntentionalTrainingNotesTests/LegacyArchiveTests.swift"; sourceTree = SOURCE_ROOT; };
-		AED48F3A8238BCA6049583B0 /* SocialPushCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMind/App/SocialPushCoordinator.swift"; sourceTree = SOURCE_ROOT; };
-		4D4D50524F544F0000000001 /* MatMindPrototype.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MatMindPrototype.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		F6F3AF58A9C8BAFFE9919648 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/AppModel.swift"; sourceTree = SOURCE_ROOT; };
-		8182F59E074E8D8CFAB263CA /* AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/AppShell.swift"; sourceTree = SOURCE_ROOT; };
-		DEE9B88C33A25FA4D029D153 /* ComponentGallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/ComponentGallery.swift"; sourceTree = SOURCE_ROOT; };
-		CBF3A4A0210818A1E7017D69 /* DemoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/DemoPanel.swift"; sourceTree = SOURCE_ROOT; };
-		52E20B8D3C7F9EF3DCD41EDA /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/Models.swift"; sourceTree = SOURCE_ROOT; };
-		D255B232A15124E9BAB02C89 /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/SeedData.swift"; sourceTree = SOURCE_ROOT; };
-		CA475D8E9179524D5255ADB4 /* TrainingFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/TrainingFocus.swift"; sourceTree = SOURCE_ROOT; };
-		1774482F0CED9E9963BD30B1 /* EmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift"; sourceTree = SOURCE_ROOT; };
-		E0C8567A23A92D8CAA5C9E70 /* ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Activity/ActivityScreen.swift"; sourceTree = SOURCE_ROOT; };
-		348BD8E8056701917AE42710 /* CompleteScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Complete/CompleteScreen.swift"; sourceTree = SOURCE_ROOT; };
-		5D97BD0D27AB580CB8A20980 /* CreateScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Create/CreateScreen.swift"; sourceTree = SOURCE_ROOT; };
-		8E011F642F514AAEA036CD02 /* SessionDaySelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Create/SessionDaySelection.swift"; sourceTree = SOURCE_ROOT; };
-		43634B8E852806B84BF3310A /* TrainingFocusEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Focus/TrainingFocusEditor.swift"; sourceTree = SOURCE_ROOT; };
-		349B61C14F9B845AB22E7FC7 /* FriendsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Friends/FriendsScreen.swift"; sourceTree = SOURCE_ROOT; };
-		09EED90C8E8CA5985FBA5243 /* QRScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Friends/QRScreen.swift"; sourceTree = SOURCE_ROOT; };
-		CF2FB0A9E196D362EFDEBD92 /* ProfileScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Profile/ProfileScreen.swift"; sourceTree = SOURCE_ROOT; };
-		455C5FBC927A9FC6672D0068 /* SessionTicket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Training/SessionTicket.swift"; sourceTree = SOURCE_ROOT; };
-		116FCC03EA7C541189A361ED /* TrainingScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Training/TrainingScreen.swift"; sourceTree = SOURCE_ROOT; };
-		D7F285EF93474C48B1273D02 /* ParticipantPhotoComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Training/ParticipantPhotoComposer.swift"; sourceTree = SOURCE_ROOT; };
-		6F0A1C2D3E4F5A6B7C8D9E02 /* GoalsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Goals/GoalsScreen.swift"; sourceTree = SOURCE_ROOT; };
-		6F0A1C2D3E4F5A6B7C8D9E12 /* GoalSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Goals/GoalSharing.swift"; sourceTree = SOURCE_ROOT; };
-		422A1AEEAD6C015FED0939DF /* WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift"; sourceTree = SOURCE_ROOT; };
-		A176CE812B8A4A2F9063C002 /* PlaceSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift"; sourceTree = SOURCE_ROOT; };
-		80A353A743A34E43A10D35E6 /* PersonLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Profile/PersonLinks.swift"; sourceTree = SOURCE_ROOT; };
-		B0A7C3E1D2F4051627384902 /* MonkeyScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Profile/MonkeyScreens.swift"; sourceTree = SOURCE_ROOT; };
-		B15F6A784CA14D3B8E070102 /* QuickLogSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Activity/QuickLogSheet.swift"; sourceTree = SOURCE_ROOT; };
-		B15F6A784CA14D3B8E070202 /* TechniqueTrend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/App/TechniqueTrend.swift"; sourceTree = SOURCE_ROOT; };
-		B15F6A784CA14D3B8E070212 /* TechniqueStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Prototypes/MatMind/Features/Profile/TechniqueStats.swift"; sourceTree = SOURCE_ROOT; };
 		574944474554000000000002 /* MatMonkeyWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MatMonkeyWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		57494447455400000000000F /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMonkeyWidgets/Shared/WidgetSnapshot.swift"; sourceTree = SOURCE_ROOT; };
 		574944474554000000000010 /* WidgetLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MatMonkeyWidgets/Shared/WidgetLinks.swift"; sourceTree = SOURCE_ROOT; };
@@ -350,10 +350,9 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 		111111111111111111111100 = {
 			isa = PBXGroup;
 			children = (
-				AABBCC001122334455667788,
-
+				AABBCC001122334455667788 /* Shared Mat Monkey UI */,
 				623B40E977DD64F13398B39C /* Mat Monkey v2 */,
-111111111111111111111110 /* IntentionalTrainingNotes */,
+				111111111111111111111110 /* IntentionalTrainingNotes */,
 				111111111111111111111120 /* IntentionalTrainingNotesTests */,
 				4D4D50524F544F0000000003 /* Prototypes */,
 				574944474554000000000003 /* MatMonkeyWidgets */,
@@ -365,6 +364,7 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 				AD4F4F94851A7CF714C53D76 /* MonthStats.swift */,
 				B7294687A3A9918588C4CBAE /* StatView.swift */,
 				CDF443869EF35C5563141DBA /* ReflectionQuotesSheet.swift */,
+				8D19FBE8309E8F45007F067E /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -443,6 +443,40 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 			path = IntentionalTrainingNotes/App;
 			sourceTree = "<group>";
 		};
+		4D4D50524F544F0000000003 /* Prototypes */ = {
+			isa = PBXGroup;
+			children = (
+				4D4D50524F544F0000000002 /* MatMind */,
+			);
+			path = Prototypes;
+			sourceTree = "<group>";
+		};
+		623B40E977DD64F13398B39C /* Mat Monkey v2 */ = {
+			isa = PBXGroup;
+			children = (
+				A176CE812B8A4A2F9063C002 /* Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift */,
+				3BED19C66D014F69CB85DAF1 /* MatMind/App/MatMindRoot.swift */,
+				5E713E7D58AE12AB67911BEC /* MatMind/App/SocialAppModel.swift */,
+				AED48F3A8238BCA6049583B0 /* MatMind/App/SocialPushCoordinator.swift */,
+				EE1F184263BCA37B4842647B /* MatMind/Archive/ArchiveViews.swift */,
+				86CDDF1DA3C5D7017C42F345 /* MatMind/Archive/ArchiveZIP.swift */,
+				411C0E0A78A2D7E8B74814FF /* MatMind/Archive/LegacyArchive.swift */,
+				CAA0DC92F3E2740105EDE4FE /* MatMind/Data/BackendClient.swift */,
+				72917FBCA7D84A4D8F83691F /* MatMind/Features/ProfileFriendsScreens.swift */,
+				2C6EE2DADF0EBA8DFB1EFB68 /* MatMind/Features/SocialScreens.swift */,
+				A8DFE4E09DC0870DE4471D2F /* Prototypes/MatMind/DesignSystem/Components/Core.swift */,
+				269BA088AB8C4A410B16B32E /* Prototypes/MatMind/DesignSystem/Components/Display.swift */,
+				F6FF680700DD860D2958E0FD /* Prototypes/MatMind/DesignSystem/Components/Feedback.swift */,
+				759B4E7DFB79C5675AC1FDB6 /* Prototypes/MatMind/DesignSystem/Components/Forms.swift */,
+				6B68EAF4266303AB7F935C0F /* Prototypes/MatMind/DesignSystem/Components/Navigation.swift */,
+				4B1A1CB8A20417CFC113AD89 /* Prototypes/MatMind/DesignSystem/Patterns/Shell.swift */,
+				5EAD3F47114F1098775D008D /* Prototypes/MatMind/DesignSystem/Tokens/MMColor.swift */,
+				0D58D28CC82097FBE1DB5BD5 /* Prototypes/MatMind/DesignSystem/Tokens/MMLayout.swift */,
+				37C9882DBABB2AC2D47FD25F /* Prototypes/MatMind/DesignSystem/Tokens/MMTypography.swift */,
+			);
+			name = "Mat Monkey v2";
+			sourceTree = "<group>";
+		};
 		66064CC59AD8BB6424B02960 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
@@ -480,6 +514,26 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 			path = IntentionalTrainingNotes/Core/Persistence;
 			sourceTree = "<group>";
 		};
+		8D19FBE8309E8F45007F067E /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				9F6A715634014148DD4B6D43 /* Prototypes/MatMind/Resources/Assets.xcassets */,
+				FA00FA00FA00FA00FA000102 /* Prototypes/MatMind/PreviewAssets.xcassets */,
+				69C76BB96D5C9F671AAF3EB4 /* Prototypes/MatMind/Resources/Fonts/Archivo-Regular.ttf */,
+				77A83EAB8FEA4C101D651A2E /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-Regular.ttf */,
+				C755D63629D9085C443F6B20 /* Prototypes/MatMind/Resources/Fonts/Archivo-SemiBold.ttf */,
+				09FF8DEEBF13C1EF44E5C30C /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-ExtraBold.ttf */,
+				EFEC913CE37DAC65E5E79403 /* Prototypes/MatMind/Resources/Fonts/Archivo-Medium.ttf */,
+				A2C2F87274113D274AA096EC /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-SemiBold.ttf */,
+				6C53363CF4C8897E20849676 /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-SemiBold.ttf */,
+				9736CF16343FCB4B4578BA49 /* Prototypes/MatMind/Resources/Fonts/Archivo-Italic.ttf */,
+				D4176253C4E816229200FDAC /* Prototypes/MatMind/Resources/Fonts/Archivo-Bold.ttf */,
+				977657C94B85D16C36551670 /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-Bold.ttf */,
+				F53A8B15C380716E617782C8 /* IntentionalTrainingNotesTests/LegacyArchiveTests.swift */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		91C747AE99802A03AA47D652 /* Services */ = {
 			isa = PBXGroup;
 			children = (
@@ -512,6 +566,40 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 			);
 			name = Settings;
 			path = IntentionalTrainingNotes/Features/Settings;
+			sourceTree = "<group>";
+		};
+		AABBCC001122334455667788 /* Shared Mat Monkey UI */ = {
+			isa = PBXGroup;
+			children = (
+				F6F3AF58A9C8BAFFE9919648 /* Prototypes/MatMind/App/AppModel.swift */,
+				8182F59E074E8D8CFAB263CA /* Prototypes/MatMind/App/AppShell.swift */,
+				DEE9B88C33A25FA4D029D153 /* Prototypes/MatMind/App/ComponentGallery.swift */,
+				CBF3A4A0210818A1E7017D69 /* Prototypes/MatMind/App/DemoPanel.swift */,
+				52E20B8D3C7F9EF3DCD41EDA /* Prototypes/MatMind/App/Models.swift */,
+				D255B232A15124E9BAB02C89 /* Prototypes/MatMind/App/SeedData.swift */,
+				CA475D8E9179524D5255ADB4 /* Prototypes/MatMind/App/TrainingFocus.swift */,
+				1774482F0CED9E9963BD30B1 /* Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift */,
+				E0C8567A23A92D8CAA5C9E70 /* Prototypes/MatMind/Features/Activity/ActivityScreen.swift */,
+				B15F6A784CA14D3B8E070102 /* Prototypes/MatMind/Features/Activity/QuickLogSheet.swift */,
+				B15F6A784CA14D3B8E070212 /* Prototypes/MatMind/Features/Profile/TechniqueStats.swift */,
+				B15F6A784CA14D3B8E070202 /* Prototypes/MatMind/App/TechniqueTrend.swift */,
+				348BD8E8056701917AE42710 /* Prototypes/MatMind/Features/Complete/CompleteScreen.swift */,
+				5D97BD0D27AB580CB8A20980 /* Prototypes/MatMind/Features/Create/CreateScreen.swift */,
+				8E011F642F514AAEA036CD02 /* Prototypes/MatMind/Features/Create/SessionDaySelection.swift */,
+				43634B8E852806B84BF3310A /* Prototypes/MatMind/Features/Focus/TrainingFocusEditor.swift */,
+				349B61C14F9B845AB22E7FC7 /* Prototypes/MatMind/Features/Friends/FriendsScreen.swift */,
+				09EED90C8E8CA5985FBA5243 /* Prototypes/MatMind/Features/Friends/QRScreen.swift */,
+				CF2FB0A9E196D362EFDEBD92 /* Prototypes/MatMind/Features/Profile/ProfileScreen.swift */,
+				B0A7C3E1D2F4051627384902 /* Prototypes/MatMind/Features/Profile/MonkeyScreens.swift */,
+				80A353A743A34E43A10D35E6 /* Prototypes/MatMind/Features/Profile/PersonLinks.swift */,
+				455C5FBC927A9FC6672D0068 /* Prototypes/MatMind/Features/Training/SessionTicket.swift */,
+				116FCC03EA7C541189A361ED /* Prototypes/MatMind/Features/Training/TrainingScreen.swift */,
+				D7F285EF93474C48B1273D02 /* Prototypes/MatMind/Features/Training/ParticipantPhotoComposer.swift */,
+				6F0A1C2D3E4F5A6B7C8D9E02 /* Prototypes/MatMind/Features/Goals/GoalsScreen.swift */,
+				6F0A1C2D3E4F5A6B7C8D9E12 /* Prototypes/MatMind/Features/Goals/GoalSharing.swift */,
+				422A1AEEAD6C015FED0939DF /* Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift */,
+			);
+			name = "Shared Mat Monkey UI";
 			sourceTree = "<group>";
 		};
 		C701433EBA85D547B2720218 /* Home */ = {
@@ -609,36 +697,6 @@ F53A8B15C380716E617782C8 = {isa = PBXFileReference; lastKnownFileType = sourceco
 			path = Fonts;
 			sourceTree = "<group>";
 		};
-623B40E977DD64F13398B39C = {isa = PBXGroup; name = "Mat Monkey v2"; sourceTree = "<group>"; children = (
-A176CE812B8A4A2F9063C002,
-3BED19C66D014F69CB85DAF1,
-5E713E7D58AE12AB67911BEC,
-AED48F3A8238BCA6049583B0,
-EE1F184263BCA37B4842647B,
-86CDDF1DA3C5D7017C42F345,
-411C0E0A78A2D7E8B74814FF,
-CAA0DC92F3E2740105EDE4FE,
-72917FBCA7D84A4D8F83691F,
-2C6EE2DADF0EBA8DFB1EFB68,
-A8DFE4E09DC0870DE4471D2F,
-269BA088AB8C4A410B16B32E,
-F6FF680700DD860D2958E0FD,
-759B4E7DFB79C5675AC1FDB6,
-6B68EAF4266303AB7F935C0F,
-4B1A1CB8A20417CFC113AD89,
-5EAD3F47114F1098775D008D,
-0D58D28CC82097FBE1DB5BD5,
-37C9882DBABB2AC2D47FD25F,
-); };
-		4D4D50524F544F0000000003 /* Prototypes */ = {
-			isa = PBXGroup;
-			children = (
-				4D4D50524F544F0000000002 /* MatMind */,
-			);
-			path = Prototypes;
-			sourceTree = "<group>";
-		};
-		AABBCC001122334455667788 /* Shared Mat Monkey UI */ = {isa = PBXGroup; children = (F6F3AF58A9C8BAFFE9919648,8182F59E074E8D8CFAB263CA,DEE9B88C33A25FA4D029D153,CBF3A4A0210818A1E7017D69,52E20B8D3C7F9EF3DCD41EDA,D255B232A15124E9BAB02C89,CA475D8E9179524D5255ADB4,1774482F0CED9E9963BD30B1,E0C8567A23A92D8CAA5C9E70,B15F6A784CA14D3B8E070102,B15F6A784CA14D3B8E070212,B15F6A784CA14D3B8E070202,348BD8E8056701917AE42710,5D97BD0D27AB580CB8A20980,8E011F642F514AAEA036CD02,43634B8E852806B84BF3310A,349B61C14F9B845AB22E7FC7,09EED90C8E8CA5985FBA5243,CF2FB0A9E196D362EFDEBD92,B0A7C3E1D2F4051627384902,80A353A743A34E43A10D35E6,455C5FBC927A9FC6672D0068,116FCC03EA7C541189A361ED,D7F285EF93474C48B1273D02,6F0A1C2D3E4F5A6B7C8D9E02,6F0A1C2D3E4F5A6B7C8D9E12,422A1AEEAD6C015FED0939DF,); name = "Shared Mat Monkey UI"; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -755,9 +813,9 @@ F6FF680700DD860D2958E0FD,
 				Base,
 			);
 			mainGroup = 111111111111111111111100;
-			preferredProjectObjectVersion = 77;
 			packageReferences = (
 			);
+			preferredProjectObjectVersion = 77;
 			productRefGroup = 111111111111111111111130 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -780,20 +838,18 @@ F6FF680700DD860D2958E0FD,
 				FA00FA00FA00FA00FA000002 /* Fraunces-Italic.ttf in Resources */,
 				FA00FA00FA00FA00FA000005 /* Fraunces-SemiBold.ttf in Resources */,
 				FA00FA00FA00FA00FA000006 /* Fraunces-MediumItalic.ttf in Resources */,
-				B1C64B7570AA764BC692E0A9 /* Assets.xcassets */,
-				FA00FA00FA00FA00FA000101 /* PreviewAssets.xcassets in Resources */,
-				D6FF685C0E138C404486E209 /* Archivo-Regular.ttf */,
-				8D9CBD83A0B29C528FB2B452 /* JetBrainsMono-Regular.ttf */,
-				09CFF7D809FA5BB1F920C67C /* Archivo-SemiBold.ttf */,
-				BAEAE9AF94C5DC808586CF54 /* BricolageGrotesque-ExtraBold.ttf */,
-				C17CECE33D411E2E731351C7 /* Archivo-Medium.ttf */,
-				3E4C395C2F329E985632160A /* BricolageGrotesque-SemiBold.ttf */,
-				EA2A2EB09E5B6D261ED2496B /* JetBrainsMono-SemiBold.ttf */,
-				54D3B17953837FAD83716ADD /* Archivo-Italic.ttf */,
-				B6713412946D53F236515149 /* Archivo-Bold.ttf */,
-				CB8E4B28A4C0519555A163D6 /* BricolageGrotesque-Bold.ttf */,
-
-
+				B1C64B7570AA764BC692E0A9 /* Prototypes/MatMind/Resources/Assets.xcassets in Resources */,
+				FA00FA00FA00FA00FA000101 /* Prototypes/MatMind/PreviewAssets.xcassets in Resources */,
+				D6FF685C0E138C404486E209 /* Prototypes/MatMind/Resources/Fonts/Archivo-Regular.ttf in Resources */,
+				8D9CBD83A0B29C528FB2B452 /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-Regular.ttf in Resources */,
+				09CFF7D809FA5BB1F920C67C /* Prototypes/MatMind/Resources/Fonts/Archivo-SemiBold.ttf in Resources */,
+				BAEAE9AF94C5DC808586CF54 /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-ExtraBold.ttf in Resources */,
+				C17CECE33D411E2E731351C7 /* Prototypes/MatMind/Resources/Fonts/Archivo-Medium.ttf in Resources */,
+				3E4C395C2F329E985632160A /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-SemiBold.ttf in Resources */,
+				EA2A2EB09E5B6D261ED2496B /* Prototypes/MatMind/Resources/Fonts/JetBrainsMono-SemiBold.ttf in Resources */,
+				54D3B17953837FAD83716ADD /* Prototypes/MatMind/Resources/Fonts/Archivo-Italic.ttf in Resources */,
+				B6713412946D53F236515149 /* Prototypes/MatMind/Resources/Fonts/Archivo-Bold.ttf in Resources */,
+				CB8E4B28A4C0519555A163D6 /* Prototypes/MatMind/Resources/Fonts/BricolageGrotesque-Bold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -833,32 +889,32 @@ F6FF680700DD860D2958E0FD,
 				574944474554000000000013 /* WidgetSnapshot.swift in Sources */,
 				574944474554000000000014 /* WidgetLinks.swift in Sources */,
 				574944474554000000000015 /* WidgetBridge.swift in Sources */,
-				1842720BC5932ACE459210FB,
-				60B79A8025ECF713E69E4B68,
-				DA38EE2FD93B0A143C11A5B6,
-				CD7589E04BF5DFE71060FB40,
-				E749E3039BA705AB9E8CF0FA,
-				EE38387FFCE1748F3B276B51,
-				E4B306F2B5F6EDB2F343874D,
-				B155B7B8427288AA79E95E6E,
-				17328182857ED572E024AA0A,
-				B15F6A784CA14D3B8E070101 /* QuickLogSheet.swift in Sources */,
-				B15F6A784CA14D3B8E070211 /* TechniqueStats.swift in Sources */,
-				B15F6A784CA14D3B8E070201 /* TechniqueTrend.swift in Sources */,
-				2A7AAF37A22E06B2F714D488,
-				AB9B2BC30629B3A05BFD3C49,
-				8E011F642F514AAEA036CD01 /* SessionDaySelection.swift in Sources */,
-				713BAFBDEE7531469AD7425D,
-				411A6AB4383E79A834E13374,
-				F24B403108FC3A004A0CAC85,
-				D1ED25FB9729ADB44EC11D42,
-				1EFF6AEDF3BF46629E51351F /* PersonLinks.swift in Sources */,
-				8F416419E76DD93937F2CDD2,
-				A03E700ED47B80AA1D8EA3E9,
-				D7F285EF93474C48B1273D01 /* ParticipantPhotoComposer.swift in Sources */,
-				6F0A1C2D3E4F5A6B7C8D9E01 /* GoalsScreen.swift in Sources */,
-				6F0A1C2D3E4F5A6B7C8D9E11 /* GoalSharing.swift in Sources */,
-				9BD7C9D1D6E4215CC06CA25C,
+				1842720BC5932ACE459210FB /* Prototypes/MatMind/App/AppModel.swift in Sources */,
+				60B79A8025ECF713E69E4B68 /* Prototypes/MatMind/App/AppShell.swift in Sources */,
+				DA38EE2FD93B0A143C11A5B6 /* Prototypes/MatMind/App/ComponentGallery.swift in Sources */,
+				CD7589E04BF5DFE71060FB40 /* Prototypes/MatMind/App/DemoPanel.swift in Sources */,
+				E749E3039BA705AB9E8CF0FA /* Prototypes/MatMind/App/Models.swift in Sources */,
+				EE38387FFCE1748F3B276B51 /* Prototypes/MatMind/App/SeedData.swift in Sources */,
+				E4B306F2B5F6EDB2F343874D /* Prototypes/MatMind/App/TrainingFocus.swift in Sources */,
+				B155B7B8427288AA79E95E6E /* Prototypes/MatMind/DesignSystem/Patterns/EmptyState.swift in Sources */,
+				17328182857ED572E024AA0A /* Prototypes/MatMind/Features/Activity/ActivityScreen.swift in Sources */,
+				B15F6A784CA14D3B8E070101 /* Prototypes/MatMind/Features/Activity/QuickLogSheet.swift in Sources */,
+				B15F6A784CA14D3B8E070211 /* Prototypes/MatMind/Features/Profile/TechniqueStats.swift in Sources */,
+				B15F6A784CA14D3B8E070201 /* Prototypes/MatMind/App/TechniqueTrend.swift in Sources */,
+				2A7AAF37A22E06B2F714D488 /* Prototypes/MatMind/Features/Complete/CompleteScreen.swift in Sources */,
+				AB9B2BC30629B3A05BFD3C49 /* Prototypes/MatMind/Features/Create/CreateScreen.swift in Sources */,
+				8E011F642F514AAEA036CD01 /* Prototypes/MatMind/Features/Create/SessionDaySelection.swift in Sources */,
+				713BAFBDEE7531469AD7425D /* Prototypes/MatMind/Features/Focus/TrainingFocusEditor.swift in Sources */,
+				411A6AB4383E79A834E13374 /* Prototypes/MatMind/Features/Friends/FriendsScreen.swift in Sources */,
+				F24B403108FC3A004A0CAC85 /* Prototypes/MatMind/Features/Friends/QRScreen.swift in Sources */,
+				D1ED25FB9729ADB44EC11D42 /* Prototypes/MatMind/Features/Profile/ProfileScreen.swift in Sources */,
+				1EFF6AEDF3BF46629E51351F /* Prototypes/MatMind/Features/Profile/PersonLinks.swift in Sources */,
+				8F416419E76DD93937F2CDD2 /* Prototypes/MatMind/Features/Training/SessionTicket.swift in Sources */,
+				A03E700ED47B80AA1D8EA3E9 /* Prototypes/MatMind/Features/Training/TrainingScreen.swift in Sources */,
+				D7F285EF93474C48B1273D01 /* Prototypes/MatMind/Features/Training/ParticipantPhotoComposer.swift in Sources */,
+				6F0A1C2D3E4F5A6B7C8D9E01 /* Prototypes/MatMind/Features/Goals/GoalsScreen.swift in Sources */,
+				6F0A1C2D3E4F5A6B7C8D9E11 /* Prototypes/MatMind/Features/Goals/GoalSharing.swift in Sources */,
+				9BD7C9D1D6E4215CC06CA25C /* Prototypes/MatMind/Features/Welcome/WelcomeScreen.swift in Sources */,
 
 				111111111111111111111101 /* AppDelegate.swift in Sources */,
 				111111111111111111111102 /* SceneDelegate.swift in Sources */,
@@ -906,26 +962,26 @@ F6FF680700DD860D2958E0FD,
 				C9BD42D8B7BC9FD900041C27 /* MonthStats.swift in Sources */,
 				776B444B813A67490FFD86BB /* StatView.swift in Sources */,
 				AB9247A2A29970576F5C7792 /* ReflectionQuotesSheet.swift in Sources */,
-				3ED32CA4DBB2C3C26F1C678C /* ArchiveZIP.swift */,
-				D24525CBCECE740F2822812B /* ArchiveViews.swift */,
-				DB6A424926194000D4A45D5C /* LegacyArchive.swift */,
-				F42F550B16CA533650285E08 /* Shell.swift */,
-				EC53186AAA9BBC18A2A88272 /* Forms.swift */,
-				A176CE812B8A4A2F9063C001 /* PlaceSearch.swift */,
-				B0A7C3E1D2F4051627384901 /* MonkeyScreens.swift */,
-				AEFAE8BCBA6A8DAFB2EBD3C0 /* Navigation.swift */,
-				5F161CE40162C3983A3F930F /* Core.swift */,
-				188A90D1373B89AE1DDF619E /* Display.swift */,
-				28D4A732A7E2A64E59B44438 /* Feedback.swift */,
-				5D668E257A67457D6F4EAB52 /* MMLayout.swift */,
-				F59962B1578557051EE00882 /* MMColor.swift */,
-				2FD540DC55C0AAE96694C308 /* MMTypography.swift */,
-				0D18DF5F7964D350AD729A8E /* SocialAppModel.swift */,
-				FDA08AA9543940DFA3D16F7A /* MatMindRoot.swift */,
-				22F9CC3DD270679D39C39D15 /* ProfileFriendsScreens.swift */,
-				F63DD9F5A0959BA66BCDD5CD /* SocialScreens.swift */,
-				CB9ED1764ABD5878E974C9DE /* BackendClient.swift */,
-				56E0DDC49F1697771BACDE9B /* SocialPushCoordinator.swift */,
+				3ED32CA4DBB2C3C26F1C678C /* MatMind/Archive/ArchiveZIP.swift in Sources */,
+				D24525CBCECE740F2822812B /* MatMind/Archive/ArchiveViews.swift in Sources */,
+				DB6A424926194000D4A45D5C /* MatMind/Archive/LegacyArchive.swift in Sources */,
+				F42F550B16CA533650285E08 /* Prototypes/MatMind/DesignSystem/Patterns/Shell.swift in Sources */,
+				EC53186AAA9BBC18A2A88272 /* Prototypes/MatMind/DesignSystem/Components/Forms.swift in Sources */,
+				A176CE812B8A4A2F9063C001 /* Prototypes/MatMind/DesignSystem/Components/PlaceSearch.swift in Sources */,
+				B0A7C3E1D2F4051627384901 /* Prototypes/MatMind/Features/Profile/MonkeyScreens.swift in Sources */,
+				AEFAE8BCBA6A8DAFB2EBD3C0 /* Prototypes/MatMind/DesignSystem/Components/Navigation.swift in Sources */,
+				5F161CE40162C3983A3F930F /* Prototypes/MatMind/DesignSystem/Components/Core.swift in Sources */,
+				188A90D1373B89AE1DDF619E /* Prototypes/MatMind/DesignSystem/Components/Display.swift in Sources */,
+				28D4A732A7E2A64E59B44438 /* Prototypes/MatMind/DesignSystem/Components/Feedback.swift in Sources */,
+				5D668E257A67457D6F4EAB52 /* Prototypes/MatMind/DesignSystem/Tokens/MMLayout.swift in Sources */,
+				F59962B1578557051EE00882 /* Prototypes/MatMind/DesignSystem/Tokens/MMColor.swift in Sources */,
+				2FD540DC55C0AAE96694C308 /* Prototypes/MatMind/DesignSystem/Tokens/MMTypography.swift in Sources */,
+				0D18DF5F7964D350AD729A8E /* MatMind/App/SocialAppModel.swift in Sources */,
+				FDA08AA9543940DFA3D16F7A /* MatMind/App/MatMindRoot.swift in Sources */,
+				22F9CC3DD270679D39C39D15 /* MatMind/Features/ProfileFriendsScreens.swift in Sources */,
+				F63DD9F5A0959BA66BCDD5CD /* MatMind/Features/SocialScreens.swift in Sources */,
+				CB9ED1764ABD5878E974C9DE /* MatMind/Data/BackendClient.swift in Sources */,
+				56E0DDC49F1697771BACDE9B /* MatMind/App/SocialPushCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -934,7 +990,7 @@ F6FF680700DD860D2958E0FD,
 			buildActionMask = 2147483647;
 			files = (
 				111111111111111111111105 /* IntentionalTrainingNotesTests.swift in Sources */,
-59C22185C8FCBF95BB4F07BA,
+				59C22185C8FCBF95BB4F07BA /* IntentionalTrainingNotesTests/LegacyArchiveTests.swift in Sources */,
 				57494447455400000000001A /* WidgetSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1028,7 +1084,9 @@ F6FF680700DD860D2958E0FD,
 		111111111111111111111711 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MatMind/Configuration/MatMind.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
@@ -1046,21 +1104,23 @@ F6FF680700DD860D2958E0FD,
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = MatMind/Configuration/MatMind.entitlements;
-				APS_ENVIRONMENT = development;
 			};
 			name = Debug;
 		};
 		111111111111111111111712 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				EXCLUDED_SOURCE_FILE_NAMES = "$(inherited) PreviewAssets.xcassets";
+				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MatMind/Configuration/MatMind.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 9R4A2F8F94;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"$(inherited)",
+					PreviewAssets.xcassets,
+				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = IntentionalTrainingNotes/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1074,9 +1134,6 @@ F6FF680700DD860D2958E0FD,
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = MatMind/Configuration/MatMind.entitlements;
-				APS_ENVIRONMENT = production;
 			};
 			name = Release;
 		};
@@ -1123,7 +1180,7 @@ F6FF680700DD860D2958E0FD,
 		4D4D50524F544F0000000009 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) MAT_MIND_PROTOTYPE";
+				ASSETCATALOG_COMPILER_APPICON_NAME = PreviewAppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -1133,7 +1190,6 @@ F6FF680700DD860D2958E0FD,
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mat Monkey Proto";
 				INFOPLIST_KEY_CFBundleName = "Mat Monkey";
-				ASSETCATALOG_COMPILER_APPICON_NAME = PreviewAppIcon;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -1147,6 +1203,7 @@ F6FF680700DD860D2958E0FD,
 				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.matmind;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) MAT_MIND_PROTOTYPE";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -1156,7 +1213,7 @@ F6FF680700DD860D2958E0FD,
 		4D4D50524F544F000000000A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) MAT_MIND_PROTOTYPE";
+				ASSETCATALOG_COMPILER_APPICON_NAME = PreviewAppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -1166,7 +1223,6 @@ F6FF680700DD860D2958E0FD,
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Mat Monkey Proto";
 				INFOPLIST_KEY_CFBundleName = "Mat Monkey";
-				ASSETCATALOG_COMPILER_APPICON_NAME = PreviewAppIcon;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -1180,6 +1236,7 @@ F6FF680700DD860D2958E0FD,
 				PRODUCT_BUNDLE_IDENTIFIER = com.tienmai.intentionaltrainingnotes.matmind;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) MAT_MIND_PROTOTYPE";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
