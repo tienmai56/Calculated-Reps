@@ -1,4 +1,5 @@
 import SwiftUI
+import AVKit
 
 // Prototype-level patterns from `ui_kits/app/Shell.jsx`
 // (candidates for promotion into the design system).
@@ -326,6 +327,7 @@ extension EnvironmentValues {
 /// Live photos must be private local files. Bundled photos require explicit preview mode.
 struct MMPhoto: View {
     let source: String
+    @State private var videoPoster: UIImage?
     @Environment(\.allowsSamplePhotos) private var allowsSamplePhotos
 
     static func image(source: String, allowsSamplePhotos: Bool) -> UIImage? {
@@ -338,11 +340,143 @@ struct MMPhoto: View {
 
     var body: some View {
         Group {
-            if let image = Self.image(source: source, allowsSamplePhotos: allowsSamplePhotos) {
+            if SessionMedia.isVideo(source) {
+                if let videoPoster { Image(uiImage: videoPoster).resizable() }
+                else { MMColor.paper3 }
+            } else if let image = Self.image(source: source, allowsSamplePhotos: allowsSamplePhotos) {
                 Image(uiImage: image).resizable()
             } else {
                 Color.clear
             }
+        }
+        .task(id: source) {
+            guard SessionMedia.isVideo(source) else { return }
+            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: URL(fileURLWithPath: source)))
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 600, height: 600)
+            if let frame = try? await generator.image(at: .zero) { videoPoster = UIImage(cgImage: frame.image) }
+        }
+    }
+}
+
+// MARK: - Session media
+
+/// One preview shared by the composer, Activity, detail and training photos.
+/// Video files are private local downloads; playback is always an explicit tap.
+struct MMSessionMediaTile: View {
+    let source: String
+    var height: CGFloat = 300
+    var radius: CGFloat = 20
+    @State private var poster: UIImage?
+    @State private var duration = ""
+    @State private var playing = false
+
+    var body: some View {
+        Group {
+            if SessionMedia.isVideo(source) {
+                Button { playing = true } label: {
+                    MMColor.paper3
+                        .overlay { if let poster { Image(uiImage: poster).resizable().scaledToFill() } }
+                        .frame(height: height).clipped()
+                        .overlay {
+                            MMIcon("play", size: height < 100 ? 20 : 32, filled: true, color: .white)
+                                .padding(height < 100 ? 8 : 16).background(.black.opacity(0.45), in: Circle())
+                        }
+                        .overlay(alignment: .bottomTrailing) {
+                            if !duration.isEmpty {
+                                Text(duration).mmFont(.body, 12, .semibold).foregroundStyle(.white)
+                                    .padding(5).background(.black.opacity(0.6), in: Capsule()).padding(8)
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: radius))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Play video" + (duration.isEmpty ? "" : ", " + duration))
+                .task(id: source) {
+                    let asset = AVURLAsset(url: URL(fileURLWithPath: source))
+                    let generator = AVAssetImageGenerator(asset: asset)
+                    generator.appliesPreferredTrackTransform = true
+                    generator.maximumSize = CGSize(width: 1200, height: 1200)
+                    if let frame = try? await generator.image(at: .zero) { poster = UIImage(cgImage: frame.image) }
+                    if let time = try? await asset.load(.duration), time.seconds.isFinite {
+                        let seconds = max(0, Int(time.seconds))
+                        duration = String(format: "%d:%02d", seconds / 60, seconds % 60)
+                    }
+                }
+                .sheet(isPresented: $playing) { MMSessionVideoPlayer(source: source) }
+            } else {
+                MMPhotoTile(photo: source, height: height, radius: radius)
+            }
+        }
+    }
+}
+
+private struct MMSessionVideoPlayer: View {
+    let source: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+    var body: some View {
+        NavigationStack {
+            VideoPlayer(player: player)
+                .onAppear { player = AVPlayer(url: URL(fileURLWithPath: source)); player?.play() }
+                .onDisappear { player?.pause(); player = nil }
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+struct MMSessionGallery: View {
+    let sources: [String]
+    var height: CGFloat = 300
+    var gym: String = ""
+    var onPhotoTap: (() -> Void)? = nil
+    var onPhotoDoubleTap: (() -> Void)? = nil
+    @State private var page = 0
+
+    var body: some View {
+        if !sources.isEmpty {
+            VStack(spacing: 8) {
+                TabView(selection: $page) {
+                    ForEach(Array(sources.enumerated()), id: \.offset) { index, source in
+                        MMSessionMediaTile(source: source, height: height)
+                            .overlay {
+                                if !SessionMedia.isVideo(source) {
+                                    Color.clear.contentShape(Rectangle())
+                                        .onTapGesture(count: 2) { onPhotoDoubleTap?() }
+                                        .onTapGesture { onPhotoTap?() }
+                                }
+                            }
+                            .overlay(alignment: .bottomLeading) {
+                                if !gym.isEmpty { MMTapeLabel(text: gym).padding(12).allowsHitTesting(false) }
+                            }
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: height)
+                .overlay(alignment: .topTrailing) {
+                    if sources.count > 1 {
+                        Text("\(min(page + 1, sources.count))/\(sources.count)")
+                            .mmFont(.body, 13, .semibold).foregroundStyle(.white)
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.black.opacity(0.55), in: Capsule()).padding(12)
+                            .allowsHitTesting(false)
+                    }
+                }
+                if sources.count > 1 {
+                    HStack(spacing: 6) {
+                        ForEach(sources.indices, id: \.self) { index in
+                            Button { page = index } label: {
+                                Circle().fill(index == page ? MMColor.accent : MMColor.ink200).frame(width: 6, height: 6)
+                                    .frame(width: 24, height: 30)
+                            }
+                            .accessibilityLabel("Media \(index + 1) of \(sources.count)")
+                            .accessibilityAddTraits(index == page ? .isSelected : [])
+                        }
+                    }
+                }
+            }
+            .onChange(of: sources) { _, _ in page = min(page, max(0, sources.count - 1)) }
         }
     }
 }

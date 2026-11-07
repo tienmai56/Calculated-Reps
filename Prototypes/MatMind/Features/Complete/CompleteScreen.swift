@@ -23,12 +23,15 @@ struct CompleteScreen: View {
 
     @State private var library = false
     @State private var camera = false
-    @State private var pickerItem: PhotosPickerItem?
+    @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var loadingMedia = false
+    @State private var media: [String] = []
+    @State private var selectedMedia = 0
+    @State private var initializedMedia = false
     @State private var publishing = false
     @State private var savingPhoto = false
     @State private var photoSaveFailed = false
     @State private var removed: Set<String> = []
-    @State private var photo: String? = nil
     @State private var showRoll = false
     @State private var caption = ""
     @State private var result: PublishResult? = nil
@@ -37,7 +40,7 @@ struct CompleteScreen: View {
     @State private var noteFocus = 0
 
     private var hasWords: Bool { ShareRule.hasWords(caption) }
-    private var canPublish: Bool { ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) }
+    private var canPublish: Bool { ShareRule.canPublish(hasPhoto: !media.isEmpty, caption: caption) }
 
     var body: some View {
         if let result {
@@ -68,34 +71,20 @@ struct CompleteScreen: View {
                     TrainingSessionFocusChecklist(session: s)
                         .disabled(publishing || savingPhoto)
                 }
-                if let photo {
-                    MMPhotoTile(photo: photo, height: 330, radius: 26) {
-                        ZStack {
-                            MMTapeLabel(text: s.gym)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                                .padding(.leading, 12)
-                                .padding(.bottom, 14)
-                            MMIconButton("repeat-2", variant: .overlay, size: 40, label: "Change photo") { choosePhoto() }
-                                .disabled(savingPhoto || publishing)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                                .padding(12)
-                        }
-                    }
-                    .padding(.top, MMLayout.sectionGap)
-                    .transition(.scale(scale: 0.85).combined(with: .opacity))
+                if media.isEmpty {
+                    emptyPhoto.padding(.top, MMLayout.sectionGap)
                 } else {
-                    emptyPhoto
-                        .padding(.top, MMLayout.sectionGap)
+                    mediaEditor.padding(.top, MMLayout.sectionGap)
                 }
-                if savingPhoto {
-                    Text("Saving photo to session…")
+                if savingPhoto || loadingMedia {
+                    Text(loadingMedia ? "Loading media…" : "Saving media to session…")
                         .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
                         .padding(.top, MMSpace.s4)
-                } else if photoSaveFailed, let photo {
-                    MMButton("Retry saving photo", variant: .secondary, size: .sm, iconLeft: "repeat-2") { savePhoto(photo) }
+                } else if photoSaveFailed {
+                    MMButton("Retry saving media", variant: .secondary, size: .sm, iconLeft: "repeat-2") { saveMedia() }
                         .padding(.top, MMSpace.s4)
                 }
-                MMTextField(label: "Caption", placeholder: photo == nil ? "What happened on the mat? @tag a partner" : "Add a few words? @tag a partner",
+                MMTextField(label: "Caption", placeholder: media.isEmpty ? "What happened on the mat? @tag a partner" : "Add a few words? @tag a partner",
                             text: $caption, multiline: true, rows: 2, focusRequest: noteFocus)
                     .padding(.top, 16)
                 MentionSuggestions(text: $caption, people: mm.mentionCandidates(including: people))
@@ -123,12 +112,16 @@ struct CompleteScreen: View {
             .animation(MMMotion.easeOut(MMMotion.fast), value: nudged)
         }
         .onChange(of: canPublish) { _, ready in if ready { nudged = false } }
-        .onAppear { if photo == nil { photo = s.photos.first } }
-        .onChange(of: s.photos) { _, saved in if photo == nil { photo = saved.first } }
-        .photosPicker(isPresented: $library, selection: $pickerItem, matching: .images)
-        .task(id: pickerItem) {
-            guard let pickerItem, let data = try? await pickerItem.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
-            storePhoto(image)
+        .onAppear {
+            if !initializedMedia { media = Array(s.photos.prefix(SessionMedia.limit)); initializedMedia = true }
+        }
+        .photosPicker(isPresented: $library, selection: $pickerItems,
+                      maxSelectionCount: max(1, mediaLimit - media.count), selectionBehavior: .ordered,
+                      matching: supportsGallery ? .any(of: [.images, .videos]) : .images)
+        .onChange(of: pickerItems) { _, items in
+            guard !items.isEmpty else { return }
+            loadingMedia = true
+            Task { await loadMedia(items) }
         }
         .sheet(isPresented: $camera) {
             MMTrainingCamera { image in if let image { storePhoto(image) }; camera = false }
@@ -137,8 +130,9 @@ struct CompleteScreen: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                 ForEach(mm.cameraRoll, id: \.self) { name in
                     Button {
-                        withAnimation(MMMotion.bounce(MMMotion.slow)) { photo = name }
-                        savePhoto(name)
+                        guard media.count < mediaLimit, !media.contains(name) else { return }
+                        withAnimation(MMMotion.bounce(MMMotion.slow)) { media.append(name); selectedMedia = media.count - 1 }
+                        saveMedia()
                         showRoll = false
                     } label: {
                         Color.clear
@@ -148,7 +142,7 @@ struct CompleteScreen: View {
                             .overlay {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .stroke(MMColor.accent, lineWidth: 3)
-                                    .opacity(photo == name ? 1 : 0)
+                                    .opacity(media.contains(name) ? 1 : 0)
                             }
                     }
                     .buttonStyle(MMPressStyle(scale: 0.96))
@@ -207,15 +201,15 @@ struct CompleteScreen: View {
             if let runtime = mm.runtime {
                 publishing = true
                 Task {
-                    let published = await runtime.publish(s.id, photo: photo, caption: caption, people: people)
+                    let published = await runtime.publish(s.id, media: media, caption: caption, people: people)
                     publishing = false
                     if let published { withAnimation(MMMotion.easeOut(0.3)) { result = published } }
                 }
-            } else if let r = mm.publish(s.id, photo: photo, caption: caption, people: people) {
+            } else if let r = mm.publish(s.id, media: media, caption: caption, people: people) {
                 withAnimation(MMMotion.easeOut(0.3)) { result = r }
             }
         }
-        .disabled(!canPublish || publishing || savingPhoto || mm.busy)
+        .disabled(!canPublish || publishing || savingPhoto || loadingMedia || photoSaveFailed || mm.busy)
         .overlay {
             // A disabled button swallows taps, so catch them here to point at what's missing.
             if !canPublish && !publishing && !mm.busy {
@@ -225,21 +219,21 @@ struct CompleteScreen: View {
                     .accessibilityHidden(true)
             }
         }
-        .accessibilityHint(canPublish ? "" : "Add a photo or a few words first")
+        .accessibilityHint(canPublish ? "" : "Add a photo, video or a few words first")
     }
 
     private func nudge() {
         nudged = true
         noteFocus += 1
-        AccessibilityNotification.Announcement("Add a photo or a few words first").post()
+        AccessibilityNotification.Announcement("Add a photo, video or a few words first").post()
     }
 
     /// One line above Publish that states the rule up front, then confirms what's in.
     private var hintContent: (icon: String, text: String, color: Color) {
-        if nudged && !canPublish { return ("circle-alert", "Add a photo or a few words first", MMColor.coral700) }
-        if !canPublish { return ("info", "Add a photo, a few words, or both to share", MMColor.textSecondary) }
-        if photo != nil && hasWords { return ("circle-check", "Photo and words. The crew's going to love it.", MMColor.mint700) }
-        if photo != nil { return ("circle-check", "Photo's in. Words are a bonus.", MMColor.mint700) }
+        if nudged && !canPublish { return ("circle-alert", "Add a photo, video or a few words first", MMColor.coral700) }
+        if !canPublish { return ("info", "Add a photo, video or a few words to share", MMColor.textSecondary) }
+        if !media.isEmpty && hasWords { return ("circle-check", "Media and words. Ready to share.", MMColor.mint700) }
+        if !media.isEmpty { return ("circle-check", "Media is in. Words are a bonus.", MMColor.mint700) }
         return ("circle-check", "Words are in. A photo's a bonus.", MMColor.mint700)
     }
 
@@ -258,6 +252,7 @@ struct CompleteScreen: View {
     }
 
     private func choosePhoto() {
+        guard media.count < mediaLimit, !savingPhoto, !loadingMedia else { return }
         if mm.isLive { library = true } else { showRoll = true }
     }
 
@@ -268,25 +263,100 @@ struct CompleteScreen: View {
         let normalized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
         guard let data = normalized.jpegData(compressionQuality: 0.8) else { return }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("training-\(UUID().uuidString).jpg")
-        do { try data.write(to: url, options: .atomic); photo = url.path; savePhoto(url.path) }
+        do {
+            guard media.count < mediaLimit else { return }
+            try data.write(to: url, options: .atomic)
+            media.append(url.path); selectedMedia = media.count - 1
+            if !loadingMedia { saveMedia() }
+        }
         catch { mm.showToast("Could not save that photo. Please try again.") }
     }
 
-    private func savePhoto(_ source: String) {
+    private var supportsGallery: Bool { !mm.isLive || mm.sessionMediaAvailable }
+    private var mediaLimit: Int { supportsGallery ? SessionMedia.limit : 1 }
+
+    private func saveMedia() {
         savingPhoto = true
         photoSaveFailed = false
-        // Keep saving if the organizer closes the composer after taking the photo.
+        let selection = media
         Task {
-            let saved = await mm.saveSessionPhoto(id, photo: source)
+            let saved = await mm.saveSessionMedia(id, media: selection)
             savingPhoto = false
             photoSaveFailed = !saved
         }
     }
 
+    @MainActor
+    private func loadMedia(_ items: [PhotosPickerItem]) async {
+        for item in items.prefix(max(0, mediaLimit - media.count)) {
+            if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+                if let movie = try? await item.loadTransferable(type: GoalPickedVideo.self),
+                   let size = try? movie.file.url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                   size <= SessionMedia.maxVideoBytes {
+                    let destination = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("session-\(UUID().uuidString).\(movie.file.url.pathExtension)")
+                    do {
+                        try FileManager.default.copyItem(at: movie.file.url, to: destination)
+                        media.append(destination.path); selectedMedia = media.count - 1
+                    } catch { mm.showToast("That video couldn't be read") }
+                } else { mm.showToast("Choose an MP4, MOV or M4V video under 50 MB") }
+            } else if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+                storePhoto(image)
+            } else { mm.showToast("That photo couldn't be read") }
+        }
+        pickerItems = []
+        loadingMedia = false
+        saveMedia()
+    }
+
+    private var mediaEditor: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Photos & videos").mmFont(.display, 18)
+                Spacer()
+                MMMeta("\(media.count)/\(mediaLimit)")
+            }
+            MMSessionMediaTile(source: media[min(selectedMedia, media.count - 1)], height: 280, radius: 26)
+                .overlay(alignment: .topTrailing) {
+                    Text("\(min(selectedMedia + 1, media.count))/\(media.count)")
+                        .mmFont(.body, 13, .semibold).foregroundStyle(.white)
+                        .padding(8).background(.black.opacity(0.55), in: Capsule()).padding(12)
+                }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(media.enumerated()), id: \.offset) { index, source in
+                        MMColor.paper3.frame(width: 76, height: 76)
+                            .overlay { MMSessionMediaTile(source: source, height: 76, radius: 12).allowsHitTesting(false) }
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(index == selectedMedia ? MMColor.accent : .clear, lineWidth: 2) }
+                            .contentShape(Rectangle()).onTapGesture { selectedMedia = index }
+                            .accessibilityLabel("Preview media \(index + 1)")
+                            .overlay(alignment: .topTrailing) {
+                                MMIconButton("x", variant: .overlay, size: 32, label: "Remove media \(index + 1)") {
+                                    media.remove(at: index); selectedMedia = min(selectedMedia, max(0, media.count - 1)); saveMedia()
+                                }
+                            }
+                    }
+                    if media.count < mediaLimit {
+                        Button { choosePhoto() } label: {
+                            VStack(spacing: 4) { MMIcon("plus", size: 22); Text("Add").mmFont(.body, 13) }
+                                .frame(width: 76, height: 76)
+                                .background(MMColor.paper2, in: RoundedRectangle(cornerRadius: 12))
+                                .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(MMColor.ink200, style: StrokeStyle(lineWidth: 1.5, dash: [5])) }
+                        }.buttonStyle(.plain).accessibilityLabel("Add photos or videos")
+                    }
+                }
+            }
+            Text(media.count == mediaLimit ? "Limit reached · Remove an item to add another" : "Up to 5 photos and videos total")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+        }
+        .disabled(savingPhoto || publishing || loadingMedia)
+    }
+
     private var emptyPhoto: some View {
         VStack(spacing: 14) {
-            Text("Grab the post-training photo").mmFont(.display, 22, tracking: -0.03, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
-            Text("Sweaty, smiling, slightly crooked. That's the one.").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
+            Text("Save the post-training moments").mmFont(.display, 22, tracking: -0.03, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
+            Text("Add up to 5 photos and videos from the mat.").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary)
             HStack(spacing: 8) {
                 // Once there are words, Publish is the screen's one primary button.
                 MMButton("Take photo", variant: hasWords ? .secondary : .primary, iconLeft: "camera") {
@@ -297,6 +367,7 @@ struct CompleteScreen: View {
             }
             .padding(.top, 4)
         }
+        .disabled(savingPhoto || publishing || loadingMedia)
         .multilineTextAlignment(.center)
         .padding(24)
         .frame(maxWidth: .infinity)

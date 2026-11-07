@@ -5,6 +5,66 @@ import SwiftUI
 
 final class IntentionalTrainingNotesTests: XCTestCase {
     @MainActor
+    func testMixedSessionGalleryLimitOrderAndCaptionOnlyPublishing() async throws {
+        let ui = AppModel(live: false)
+        let session = try XCTUnwrap(ui.toComplete)
+        let sources = ["/tmp/one.jpg", "/tmp/two.mp4", "/tmp/three.mov", "/tmp/four.jpg", "/tmp/five.m4v"]
+        let saved = await ui.saveSessionMedia(session.id, media: sources)
+        XCTAssertTrue(saved)
+        XCTAssertEqual(ui.findSession(session.id)?.photos, sources)
+        XCTAssertFalse(ui.isCompleted(try XCTUnwrap(ui.findSession(session.id))))
+        XCTAssertFalse(SessionMedia.valid(sources + ["/tmp/six.jpg"]))
+        let refused = await ui.saveSessionMedia(session.id, media: sources + ["/tmp/six.jpg"])
+        XCTAssertFalse(refused)
+        XCTAssertEqual(ui.findSession(session.id)?.photos, sources)
+        XCTAssertNil(ui.publish(session.id, media: sources + ["/tmp/six.jpg"], caption: "", people: session.going))
+        let result = try XCTUnwrap(ui.publish(session.id, media: sources, caption: "", people: session.going))
+        XCTAssertEqual(result.post.gallery, sources)
+        XCTAssertEqual(ui.post(result.post.id)?.gallery, sources)
+        XCTAssertEqual(ui.findSession(session.id)?.photos, sources)
+        let cleared = await ui.saveSessionMedia(session.id, media: [])
+        XCTAssertTrue(cleared)
+        XCTAssertEqual(ui.post(result.post.id)?.gallery, sources, "Changing the session never changes a published gallery")
+        let captionOnly = AppModel(live: false)
+        let other = try XCTUnwrap(captionOnly.toComplete)
+        XCTAssertNotNil(captionOnly.publish(other.id, media: [], caption: "Great rounds", people: other.going))
+        XCTAssertFalse(SessionMedia.valid(["same.jpg", "same.jpg"]))
+        XCTAssertTrue(SessionMedia.isVideo("/tmp/two.MOV"))
+        XCTAssertEqual(SessionMedia.contentType("/tmp/two.MOV"), "video/quicktime")
+    }
+
+    @MainActor
+    func testLiveGalleryHydratesOrderedVideoFilesAndFallsBackForNullLegacySelection() async throws {
+        let model = SocialAppModel()
+        model.userID = "host"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"session_media_available":true,"participant_photos_available":true,
+         "profiles":[],"friendships":[],"participants":[],"tags":[],"likes":[],"comments":[],"credits":[],"notifications":[],
+         "sessions":[{"id":"session","organizer":"host","status":"completed","starts_at":"2026-11-04T20:00:00Z","media_ids":["video","image"]}],
+         "posts":[{"id":"post","session_id":"session","author":"host","media_id":"video","media_ids":["video","image"]}],
+         "media":[{"id":"image","owner":"host","session_id":"session","state":"ready","session_photo":false,"object_key":"host/image.jpg"},
+                  {"id":"video","owner":"host","session_id":"session","state":"ready","session_photo":true,"object_key":"host/video.mp4"}]}
+        """#.utf8))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui) { key, _ in Data(key.utf8) }
+        await runtime.loadPhotos()
+        XCTAssertTrue(ui.sessionMediaAvailable)
+        let gallery = try XCTUnwrap(ui.post("post")).gallery
+        XCTAssertEqual(gallery.count, 2)
+        XCTAssertTrue(SessionMedia.isVideo(gallery[0]))
+        XCTAssertFalse(SessionMedia.isVideo(gallery[1]))
+        XCTAssertEqual(ui.findSession("session")?.photos, gallery)
+        XCTAssertEqual(ui.findSession("session")?.sessionPhotos.map(\.source), gallery.map(Optional.some))
+        model.snapshot.sessions[0].values["media_ids"] = .null
+        runtime.sync()
+        XCTAssertEqual(ui.findSession("session")?.photos.count, 1, "NULL keeps the old single-photo slot")
+        model.userID = nil
+        runtime.sync()
+        XCTAssertFalse(ui.sessionMediaAvailable)
+        XCTAssertTrue(ui.posts.isEmpty)
+    }
+
+    @MainActor
     func testParticipantPhotoDraftKeepsItsExpectedVersionUntilReopened() async throws {
         let ui = AppModel(live: false)
         ui.run(.participantPhotos)

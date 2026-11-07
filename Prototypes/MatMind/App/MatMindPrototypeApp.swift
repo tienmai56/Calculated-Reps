@@ -8,18 +8,29 @@ struct MatMindPrototypeApp: App {
     private let quickLogMock: Bool
     private let checklistReview: Bool
     private let goalNotesReview: Bool
+    private let mediaReview: Bool
     private let invitationMock: Bool
 
     init() {
         _ = MMFont.registered
         let mock = ProcessInfo.processInfo.arguments.contains("--quick-log-mock")
         quickLogMock = mock
+        mediaReview = ProcessInfo.processInfo.arguments.contains("--session-media-review")
         let invite = ProcessInfo.processInfo.arguments.contains("--training-invitation-mock")
         invitationMock = invite
         checklistReview = ProcessInfo.processInfo.arguments.contains("--session-checklist-review")
         goalNotesReview = ProcessInfo.processInfo.arguments.contains("--goal-notes-review")
         let preview = invite ? AppModel.trainingInvitationMock() : mock ? AppModel.quickTrainingLogMock() : AppModel(live: false)
         preview.loadQuickLogTechniques(account: "preview")
+        if mediaReview { preview.enterDemo() }
+        if mediaReview, let session = preview.toComplete {
+            let sources = ["roll-gi", "group-class", "coach-help"]
+            preview.toComplete?.photos = sources
+            if ProcessInfo.processInfo.arguments.contains("--activity") {
+                _ = preview.publish(session.id, media: sources, caption: "Good rounds. Better company.", people: session.going)
+                preview.tab = .activity
+            } else { preview.path = [.complete(id: session.id)] }
+        }
         _model = State(initialValue: preview)
     }
 

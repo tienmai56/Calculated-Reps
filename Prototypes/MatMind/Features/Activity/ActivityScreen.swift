@@ -373,29 +373,13 @@ struct PostCard: View {
             .padding(.top, 2)
             .padding(.bottom, 12)
 
-            MMPhotoTile(photo: post.photo, height: 300, radius: 20) {
-                ZStack {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2) { doubleTap() }
-                        .onTapGesture { mm.go(.post(id: post.id)) }
-                    MMTapeLabel(text: post.gym)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(.leading, 12)
-                        .padding(.bottom, 14)
-                        .allowsHitTesting(false)
-                    MMAvatarStack(people: post.participants.map { mm.person($0).avatar }, size: 30, ring: .white)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                        .padding(12)
-                        .allowsHitTesting(false)
+            MMSessionGallery(sources: post.gallery, gym: post.gym,
+                             onPhotoTap: { mm.go(.post(id: post.id)) }, onPhotoDoubleTap: { doubleTap() })
+                .overlay {
                     MMIcon("heart", size: 88, filled: true, color: .white)
                         .shadow(color: .black.opacity(0.2), radius: 8)
-                        .scaleEffect(burst ? 1 : 0.2)
-                        .opacity(burst ? 1 : 0)
-                        .allowsHitTesting(false)
+                        .scaleEffect(burst ? 1 : 0.2).opacity(burst ? 1 : 0).allowsHitTesting(false)
                 }
-            }
-            .accessibilityLabel("Photo from \(post.title). Double tap to like.")
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(post.title).mmFont(.display, 21, tracking: -0.025, lineHeight: 1.15).foregroundStyle(MMColor.ink900)
@@ -675,12 +659,7 @@ struct PostDetailScreen: View {
             })
         } content: {
             VStack(alignment: .leading, spacing: 0) {
-                MMPhotoTile(photo: post.photo, height: 340, radius: 24) {
-                    MMTapeLabel(text: post.gym)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(.leading, 12)
-                        .padding(.bottom, 14)
-                }
+                MMSessionGallery(sources: post.gallery, height: 340, gym: post.gym)
                 VStack(alignment: .leading, spacing: 0) {
                     PersonText([
                         .body("\(post.date)\(post.timeText.map { " · \($0)" } ?? "") · organized by ", 13, .semibold, color: MMColor.textTertiary),

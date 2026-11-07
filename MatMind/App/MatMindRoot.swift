@@ -532,23 +532,14 @@ final class LiveMatMindRuntime: AppRuntime {
                            privacy: Privacy(rawValue: row.text("join_mode")) ?? .friends,
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited, attended: $0.flag("attended")) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date,
-                           photos: model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" }
-                            .sorted {
-                                let first = $0.text("created_at"), second = $1.text("created_at")
-                                return first == second ? $0.id < $1.id : first > second
-                            }.filter { model.snapshot.participant_photos_available != true || ($0.flag("session_photo") && $0.text("owner") == row.text("organizer")) }
-                            .compactMap { photos[$0.id] },
-                           photoContributions: model.snapshot.participant_photos_available == true
-                            ? model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" && $0.flag("session_photo") }
-                                .sorted {
-                                    let firstHost = $0.text("owner") == row.text("organizer"), secondHost = $1.text("owner") == row.text("organizer")
-                                    return firstHost != secondHost ? firstHost : $0.id < $1.id
-                                }.map { SessionPhoto(id: $0.id, author: localID($0.text("owner")), source: photos[$0.id]) }
-                            : nil)
+                           photos: sessionMedia(row).sources,
+                           photoContributions: sessionMedia(row).contributions)
+
         }
         let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))
         let completedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "completed" }.map(\.id))
         ui.upcoming = sessions.filter { plannedIDs.contains($0.id) && ($0.organizer == "me" || $0.status(of: "me") != nil) }
+        ui.sessionMediaAvailable = model.snapshot.session_media_available == true
         ui.sharedSessionIDs = Set((model.snapshot.shared_session_ids ?? []) + model.snapshot.posts.map { $0.text("session_id") })
         ui.applyServerQuickLogs((model.snapshot.quick_logs ?? []).compactMap { row in
             guard let at = row.date("logged_at") else { return nil }
@@ -572,7 +563,7 @@ final class LiveMatMindRuntime: AppRuntime {
                         caption: row.text("caption"), likes: model.snapshot.likes.filter { $0.text("post_id") == row.id }.map { localID($0.text("user_id")) }, extraLikes: 0,
                         comments: model.snapshot.comments.filter { $0.text("post_id") == row.id && !deletingComments.contains($0.id) }.map { Comment(who: localID($0.text("author")), text: $0.text("body"), cloudID: $0.id, createdAt: $0.date("created_at")) },
                         focusItems: model.session(row.text("session_id")).map { SessionNoteCodec.decode($0.text("note")).focus } ?? [],
-                        occurredAt: date)
+                        occurredAt: date, media: (row.values["media_ids"]?.strings ?? []).compactMap { photos[$0] })
         }
         ui.toComplete = ui.upcoming.filter { session in
             session.organizer == "me" && (session.startsAt ?? .distantFuture) <= now
@@ -630,6 +621,28 @@ final class LiveMatMindRuntime: AppRuntime {
                             time: RelativeDateTimeFormatter().localizedString(for: row.date("created_at") ?? Date(), relativeTo: Date()), unread: row.text("read_at").isEmpty)
         }
     }
+    private func sessionMedia(_ row: SocialRow) -> (sources: [String], contributions: [SessionPhoto]?) {
+        let ready = model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" }
+        let galleryIDs: [String]?
+        if case .array(let values)? = row.values["media_ids"] { galleryIDs = values.compactMap(\.string) }
+        else { galleryIDs = nil }
+        let legacyHost = ready.sorted {
+            let a = $0.text("created_at"), b = $1.text("created_at")
+            return a == b ? $0.id < $1.id : a > b
+        }.filter { model.snapshot.participant_photos_available != true || ($0.flag("session_photo") && $0.text("owner") == row.text("organizer")) }
+        let sources = galleryIDs?.compactMap { photos[$0] } ?? legacyHost.compactMap { photos[$0.id] }
+        guard model.snapshot.participant_photos_available == true else { return (sources, nil) }
+        var contributions = ready.filter { $0.flag("session_photo") && (galleryIDs == nil || $0.text("owner") != row.text("organizer")) }
+            .sorted {
+                let a = $0.text("owner") == row.text("organizer"), b = $1.text("owner") == row.text("organizer")
+                return a != b ? a : $0.id < $1.id
+            }.map { SessionPhoto(id: $0.id, author: localID($0.text("owner")), source: photos[$0.id]) }
+        if let galleryIDs {
+            contributions.insert(contentsOf: galleryIDs.map { SessionPhoto(id: $0, author: localID(row.text("organizer")), source: photos[$0]) }, at: 0)
+        }
+        return (sources, contributions)
+    }
+
     func loadPhotos() async {
         sync()
         guard let owner = model.userID else { return }
@@ -637,7 +650,8 @@ final class LiveMatMindRuntime: AppRuntime {
             do {
                 let data = try await imageLoader(row.text("object_key"), "session-photos")
                 guard model.userID == owner else { return }
-                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-\(row.id).jpg")
+                let ext = URL(fileURLWithPath: row.text("object_key")).pathExtension
+                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-\(row.id).\(ext)")
                 try data.write(to: path, options: .atomic); photos[row.id] = path.path
             } catch { continue }
         }
@@ -828,12 +842,15 @@ final class LiveMatMindRuntime: AppRuntime {
             $0.text("session_id") == sessionID && $0.text("owner") == owner && photos[$0.id] == photo
         }) { return saved.id }
         let data = try Data(contentsOf: URL(fileURLWithPath: photo))
+        guard data.count <= (SessionMedia.isVideo(photo) ? SessionMedia.maxVideoBytes : 10 * 1024 * 1024) else {
+            throw CloudError(message: "Choose a smaller file (videos up to 50 MB).")
+        }
         if mediaPhotos[sessionID] != photo { mediaKeys[sessionID] = UUID(); mediaPhotos[sessionID] = photo }
         let mediaKey = mediaKeys[sessionID] ?? UUID(); mediaKeys[sessionID] = mediaKey
-        let media = try await model.backend.command(participant ? "prepare_participant_photo" : "prepare_media", payload: ["session_id": sessionID], key: mediaKey)
+        let media = try await model.backend.command(participant ? "prepare_participant_photo" : model.snapshot.session_media_available == true ? "prepare_session_media" : "prepare_media", payload: ["session_id": sessionID, "content_type": SessionMedia.contentType(photo)], key: mediaKey)
         guard model.userID == owner else { throw CancellationError() }
         guard let id = media["id"]?.string, let objectKey = media["object_key"]?.string else { throw CloudError(message: "Could not prepare photo.") }
-        do { try await model.backend.upload(data, objectKey: objectKey) }
+        do { try await model.backend.upload(data, objectKey: objectKey, contentType: SessionMedia.contentType(photo)) }
         catch { let existing = try await model.backend.image(key: objectKey); guard existing == data else { throw error } }
         guard model.userID == owner else { throw CancellationError() }
         uploadedSessionPhotos[source] = id
@@ -877,19 +894,52 @@ final class LiveMatMindRuntime: AppRuntime {
         return true
     }
 
+    func saveSessionMedia(_ sessionID: String, media: [String]) async -> Bool {
+        guard SessionMedia.valid(media) else { return false }
+        guard model.snapshot.session_media_available == true else {
+            if media.count == 1, let photo = media.first, !SessionMedia.isVideo(photo) { return await saveSessionPhoto(sessionID, photo: photo) }
+            model.error = "Update the server to save a photo/video gallery."
+            return false
+        }
+        let owner = model.userID
+        do {
+            var ids: [String] = []
+            for source in media {
+                ids.append(try await uploadSessionPhoto(sessionID, photo: source))
+                guard model.userID == owner else { return false }
+            }
+            guard await model.perform("save_session_media", ["session_id": sessionID, "media_ids": ids]) != nil,
+                  model.userID == owner else { return false }
+            for (id, source) in zip(ids, media) { photos[id] = source }
+            sync()
+            return true
+        } catch { if model.userID == owner { model.error = error.localizedDescription }; return false }
+    }
+
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) async -> PublishResult? {
-        guard ui.findSession(sessionID)?.organizer == "me", ShareRule.canPublish(hasPhoto: photo != nil, caption: caption) else { return nil }
+        await publish(sessionID, media: photo.map { [$0] } ?? [], caption: caption, people: people)
+    }
+
+    func publish(_ sessionID: String, media: [String], caption: String, people: [String]) async -> PublishResult? {
+        guard SessionMedia.valid(media), ui.findSession(sessionID)?.organizer == "me", ShareRule.canPublish(hasPhoto: !media.isEmpty, caption: caption) else { return nil }
         let before = ui.friends
         do {
             var payload: [String: Any] = ["session_id": sessionID, "caption": caption, "attendees": people.map(cloudID)]
-            if let photo {
-                payload["media_id"] = try await uploadSessionPhoto(sessionID, photo: photo)
+            let owner = model.userID
+            var ids: [String] = []
+            for source in media {
+                ids.append(try await uploadSessionPhoto(sessionID, photo: source))
+                guard model.userID == owner else { return nil }
             }
-            let request = caption + "|" + people.sorted().joined(separator: ",") + "|" + (photo ?? "")
+            if model.snapshot.session_media_available == true { payload["media_ids"] = ids }
+            else if ids.count <= 1, !media.contains(where: SessionMedia.isVideo) { payload["media_id"] = ids.first }
+            else { throw CloudError(message: "Update the server to publish a gallery.") }
+            let request = caption + "|" + people.sorted().joined(separator: ",") + "|" + media.joined(separator: ",")
             if publishRequests[sessionID] != request { publishKeys[sessionID] = UUID(); publishRequests[sessionID] = request }
             let key = publishKeys[sessionID] ?? UUID(); publishKeys[sessionID] = key
-            guard let result = await model.perform("complete_and_publish", payload, key: key), let id = result["id"]?.string else { return nil }
+            guard let result = await model.perform("complete_and_publish", payload, key: key), let id = result["id"]?.string, model.userID == owner else { return nil }
             await loadPhotos()
+            guard model.userID == owner else { return nil }
             guard let post = ui.post(id) else { model.error = "Published. Refresh Activity to see your post."; return nil }
             let ticks = ui.friends.compactMap { friend -> StreakTick? in
                 guard let old = before.first(where: { $0.id == friend.id }), friend.streak > old.streak else { return nil }

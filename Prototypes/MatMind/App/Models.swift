@@ -76,6 +76,10 @@ struct Post: Identifiable, Hashable {
     /// Start time text (e.g. "6:00 PM"). Live posts derive it from `occurredAt`.
     var time: String? = nil
 
+    /// Ordered photos and videos. Older posts keep using `photo`.
+    var media: [String] = []
+    var gallery: [String] { media.isEmpty ? photo.map { [$0] } ?? [] : media }
+
     var timeText: String? {
         if let time { return time }
         guard let occurredAt else { return nil }
@@ -691,4 +695,24 @@ struct ProfileRhythmHistory {
     func isTrained(_ date: Date) -> Bool { trained.contains(calendar.startOfDay(for: date)) }
     func isFuture(_ date: Date) -> Bool { calendar.startOfDay(for: date) > calendar.startOfDay(for: now) }
     var visibleCount: Int { weeks.flatMap { $0 }.filter(isTrained).count }
+}
+
+/// The composer and server share one combined limit, regardless of media type.
+enum SessionMedia {
+    static let limit = 5
+    static let maxVideoBytes = 50 * 1024 * 1024
+    static func isVideo(_ source: String) -> Bool {
+        ["mp4", "mov", "m4v"].contains(URL(fileURLWithPath: source).pathExtension.lowercased())
+    }
+    static func contentType(_ source: String) -> String {
+        switch URL(fileURLWithPath: source).pathExtension.lowercased() {
+        case "mp4": "video/mp4"
+        case "mov": "video/quicktime"
+        case "m4v": "video/x-m4v"
+        default: "image/jpeg"
+        }
+    }
+    static func valid(_ sources: [String]) -> Bool {
+        sources.count <= limit && Set(sources).count == sources.count
+    }
 }
