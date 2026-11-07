@@ -417,13 +417,22 @@ struct TrainingFocusNames: View {
             .accessibilityHint(expanded ? "Hide technique names" : "Show technique names")
 
             if expanded {
-                VStack(alignment: .leading, spacing: MMSpace.s4) {
-                    ForEach(Array(titles.enumerated()), id: \.offset) { _, title in
-                        Text(title)
-                            .mmText(.bodyS, .medium)
-                            .foregroundStyle(MMColor.textPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: MMSpace.s2) {
+                    ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            // Quiet order marker: muted, tabular digits, fixed column so titles align.
+                            Text(String(format: "%02d", index + 1))
+                                .mmText(.caption, .medium)
+                                .monospacedDigit()
+                                .foregroundStyle(MMColor.textTertiary)
+                                .frame(width: MMSpace.s8, alignment: .leading)
+                                .accessibilityHidden(true)
+                            Text(title)
+                                .mmText(.bodyS, .medium)
+                                .foregroundStyle(MMColor.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                 }
                 .padding(.bottom, MMSpace.s5)
