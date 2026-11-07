@@ -711,7 +711,8 @@ private struct GoalPartCard: View {
                         .mmFont(.display, 17, lineHeight: 1.2)
                         .foregroundStyle(MMColor.textPrimary).tint(MMColor.accent)
                         .accessibilityLabel("Objective")
-                    MMIconButton("chevron-up", label: "Close part", action: onToggle)
+                    MMIconButton("chevron-down", label: "Close part", action: onToggle)
+                        .rotationEffect(.degrees(180))
                     MMIconButton("trash-2", label: "Remove part") { requestRemove() }
                         .disabled(part.isLoadingMedia)
                 }
