@@ -478,11 +478,16 @@ struct MatGoalEditorSheet: View {
     var body: some View {
         ScrollView {
             MMDialogBody(title: isNew ? "Add a goal" : "Edit goal",
-                         description: "Name it the way you'd say it on the mat. Be as specific as you like.",
                          onClose: { dismiss() }) {
                 VStack(alignment: .leading, spacing: MMLayout.sectionGap) {
-                    MMTextField(label: "What are you working on?", placeholder: "Single leg from standing",
-                                text: $draft.title, autoFocus: isNew)
+                    VStack(alignment: .leading, spacing: MMSpace.s4) {
+                        Text("Goal")
+                            .mmText(.titleM)
+                            .foregroundStyle(MMColor.textPrimary)
+                            .accessibilityAddTraits(.isHeader)
+                        MMTextField(placeholder: "Single leg from standing", text: $draft.title, autoFocus: isNew)
+                            .accessibilityLabel("Goal")
+                    }
                     if showsGoalNotes {
                         MMTextField(label: "Notes", placeholder: "Notes", text: $draft.notes, multiline: true, rows: 4)
                     }
@@ -492,7 +497,6 @@ struct MatGoalEditorSheet: View {
                             .padding(.leading, -10)
                     }
                 }
-                .padding(.top, MMSpace.s4)
             } actions: {
                 EmptyView()
             }
@@ -641,7 +645,7 @@ struct GoalPartsEditor: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Break it down")
-                    .mmFont(.display, 18, lineHeight: 1.2)
+                    .mmText(.titleM)
                     .foregroundStyle(MMColor.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
@@ -650,9 +654,6 @@ struct GoalPartsEditor: View {
                         .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
             }
-            Text("Add a note for each detail. Attach links, photos, and videos that explain it.")
-                .mmFont(.body, 13, lineHeight: 1.4)
-                .foregroundStyle(MMColor.textTertiary)
             ForEach($parts) { $part in
                 let id = part.id
                 GoalPartCard(part: $part, isOpen: openID == id,

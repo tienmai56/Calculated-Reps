@@ -179,7 +179,7 @@ Validation: CI builds `MatMindPrototype` and builds/tests `IntentionalTrainingNo
 
 ## Goal parts
 
-**Add a goal** asks what you're working on, then **Break it down** splits it into parts (e.g. "Grip on the near leg", "Head position"). Parts are components of the goal, not steps: there are no numbers, no order to follow and nothing to tick off. Each part has its own name, free-form notes, one YouTube (or other) link and photos.
+**Add a goal** shows **Goal** and **Break it down** with matching 18pt title typography and no explanatory paragraphs. The goal field keeps its example placeholder, and **Add a part** splits it into parts (e.g. "Grip on the near leg", "Head position"). Parts are components of the goal, not steps: there are no numbers, no order to follow and nothing to tick off. Each part has its own name, free-form notes, one YouTube (or other) link and photos.
 
 One part card is open at a time; the others show a summary such as "2 notes · 1 video · 3 photos". Touch and hold a closed card to move it up or down or remove it. **Add photos** opens the photo library in multi-select (up to 20 per part, kept in the order picked). Tapping a thumbnail opens the photos full screen: swipe or use the filmstrip, and **Remove photo** takes it out with a few seconds to undo. Links with a timestamp (`t=102`, `t=1m42s`) show where the clip starts.
 

@@ -476,6 +476,8 @@ Sharing works like a session invite. Goals has two segmented tabs under the titl
 
 Native: `Features/Goals/GoalsScreen.swift`, `Features/Goals/GoalSharing.swift`, `Features/Training/TrainingScreen.swift`, `MatGoal` and `SharedGoal` in `App/Models.swift`.
 
+**Goal editor sheet:** the **Add a goal** / **Edit goal** header leads directly into **Goal** and **Break it down**, both using the `titleM` typography token (18pt Bricolage Grotesque). The goal field keeps its example placeholder; the parts section offers **Add a part**. Omit the introductory paragraph and the instructions about adding notes and attachments. Keep the sticky **Add goal** / **Save goal** action and the existing part editor controls.
+
 ### External shared-link previews
 
 Training-session links show a useful summary before opening the app: session title,
