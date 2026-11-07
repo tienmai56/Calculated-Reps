@@ -7,6 +7,7 @@ struct MatMindPrototypeApp: App {
     @State private var model: AppModel
     private let quickLogMock: Bool
     private let checklistReview: Bool
+    private let goalNotesReview: Bool
     private let invitationMock: Bool
 
     init() {
@@ -16,6 +17,7 @@ struct MatMindPrototypeApp: App {
         let invite = ProcessInfo.processInfo.arguments.contains("--training-invitation-mock")
         invitationMock = invite
         checklistReview = ProcessInfo.processInfo.arguments.contains("--session-checklist-review")
+        goalNotesReview = ProcessInfo.processInfo.arguments.contains("--goal-notes-review")
         let preview = invite ? AppModel.trainingInvitationMock() : mock ? AppModel.quickTrainingLogMock() : AppModel(live: false)
         preview.loadQuickLogTechniques(account: "preview")
         _model = State(initialValue: preview)
@@ -24,7 +26,8 @@ struct MatMindPrototypeApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if checklistReview { SessionChecklistReview() }
+                if goalNotesReview { GoalNotesReview() }
+                else if checklistReview { SessionChecklistReview() }
                 else if invitationMock {
                     VStack(spacing: 0) {
                         TrainingInvitationMockControls()
@@ -58,6 +61,22 @@ private struct TrainingInvitationMockControls: View {
         .foregroundStyle(MMColor.ink900)
         .padding(.horizontal, MMSpace.s6)
         .background(MMColor.sun100)
+    }
+}
+
+/// The production goal editor, with isolated review data in the prototype target.
+private struct GoalNotesReview: View {
+    var body: some View {
+        MatGoalEditorSheet(draft: MatGoal(id: "goal-notes-review", title: "Single leg from standing", parts: [
+            GoalPart(id: "setup", title: "Setup & level change", noteItems: [
+                GoalNote(id: "entry", text: "Collar tie, snap them down, shoot when their head comes back up. Step in first, don’t reach.",
+                         links: ["https://youtu.be/example"], photos: ["roll-gi", "coach-help"]),
+                GoalNote(id: "corner", text: "Hips under me before I lift. Turn the corner, don’t run straight.", photos: ["floor-drill"])
+            ]),
+            GoalPart(id: "finish", title: "Finish: run the pipe", noteItems: [
+                GoalNote(id: "pipe", text: "Keep their leg high and circle toward the heel.", links: ["https://example.com/finish"])
+            ])
+        ]), isNew: true)
     }
 }
 

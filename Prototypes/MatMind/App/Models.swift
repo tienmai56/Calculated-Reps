@@ -371,8 +371,7 @@ struct MatGoal: Identifiable, Hashable, Codable {
     /// Reference photos: asset names in the preview, or paths relative to `photoRoot`.
     var photos: [String] = []
     /// The goal broken down into parts (grip, head position, …). Not steps: there is
-    /// no order to follow and nothing to tick off. Each part has its own notes,
-    /// one video link and any number of photos.
+    /// no order to follow and nothing to tick off. Each note owns its references.
     var parts: [GoalPart] = []
 
     enum CodingKeys: String, CodingKey {
@@ -411,7 +410,8 @@ struct MatGoal: Identifiable, Hashable, Codable {
     }
 
     /// Every photo file the goal owns, its own and its parts'.
-    var allPhotos: [String] { photos + parts.flatMap(\.photos) }
+    var allPhotos: [String] { photos + parts.flatMap { $0.resolvedNotes.flatMap(\.photos) } }
+    var allMedia: [String] { allPhotos + parts.flatMap { $0.resolvedNotes.flatMap(\.videos) } }
 
     var hasReferenceContent: Bool {
         !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -459,14 +459,30 @@ struct SharedGoal: Identifiable, Hashable {
 
     /// "3 parts · 1 video · 4 photos · 2 links": what's inside, for invitations.
     var contentsSummary: String {
-        let videos = parts.filter { !$0.link.isEmpty }.count
-        let photoCount = photos.count + parts.reduce(0) { $0 + $1.photos.count }
+        let entries = parts.flatMap(\.resolvedNotes)
+        let videos = entries.flatMap(\.videos).count
+        let photoCount = photos.count + entries.flatMap(\.photos).count
+        let linkCount = links.count + entries.flatMap(\.links).count
         var bits: [String] = []
         if !parts.isEmpty { bits.append(parts.count == 1 ? "1 part" : "\(parts.count) parts") }
         if videos > 0 { bits.append(videos == 1 ? "1 video" : "\(videos) videos") }
         if photoCount > 0 { bits.append(photoCount == 1 ? "1 photo" : "\(photoCount) photos") }
-        if !links.isEmpty { bits.append(links.count == 1 ? "1 link" : "\(links.count) links") }
+        if linkCount > 0 { bits.append(linkCount == 1 ? "1 link" : "\(linkCount) links") }
         return bits.joined(separator: " · ")
+    }
+}
+
+/// One detail and the references that explain it. Media paths are relative to photoRoot.
+struct GoalNote: Identifiable, Hashable, Codable {
+    var id: String = UUID().uuidString.lowercased()
+    var text: String = ""
+    var links: [String] = []
+    var photos: [String] = []
+    var videos: [String] = []
+
+    var isBlank: Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && links.isEmpty && photos.isEmpty && videos.isEmpty
     }
 }
 
@@ -474,19 +490,21 @@ struct SharedGoal: Identifiable, Hashable {
 struct GoalPart: Identifiable, Hashable, Codable {
     var id: String
     var title: String = ""
-    /// Free-form notes.
+    /// Legacy part-level content. New edits use noteItems; older saves still decode.
     var notes: String = ""
     /// One reference video (usually YouTube). Empty when there isn't one.
     var link: String = ""
     /// Paths relative to `MatGoal.photoRoot` (asset names in the preview).
     var photos: [String] = []
+    var noteItems: [GoalNote] = []
 
-    init(id: String = GoalPart.newID(), title: String = "", notes: String = "", link: String = "", photos: [String] = []) {
+    init(id: String = GoalPart.newID(), title: String = "", notes: String = "", link: String = "", photos: [String] = [], noteItems: [GoalNote] = []) {
         self.id = id
         self.title = title
         self.notes = notes
         self.link = link
         self.photos = photos
+        self.noteItems = noteItems
     }
 
     init(from decoder: Decoder) throws {
@@ -496,6 +514,7 @@ struct GoalPart: Identifiable, Hashable, Codable {
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         link = try c.decodeIfPresent(String.self, forKey: .link) ?? ""
         photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
+        noteItems = try c.decodeIfPresent([GoalNote].self, forKey: .noteItems) ?? []
     }
 
     static func newID() -> String { "p" + UUID().uuidString.lowercased() }
@@ -503,17 +522,38 @@ struct GoalPart: Identifiable, Hashable, Codable {
     /// Nothing typed or added at all; such parts are dropped on save.
     var isBlank: Bool {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && link.isEmpty && photos.isEmpty
+            && resolvedNotes.allSatisfy(\.isBlank)
     }
 
-    /// "2 notes · 1 video · 3 photos" for a closed part card.
+    /// Preserve the old note and reference pile together, without guessing associations.
+    /// The deterministic ID keeps a legacy note stable across reads and edits.
+    var resolvedNotes: [GoalNote] {
+        if !noteItems.isEmpty { return noteItems }
+        let legacy = GoalNote(id: id + "-note", text: notes,
+                              links: link.isEmpty ? [] : [link], photos: photos)
+        return legacy.isBlank ? [] : [legacy]
+    }
+
+    var contentsSummary: String {
+        Self.summary(noteCount: resolvedNotes.filter { !$0.isBlank }.count,
+                     linkCount: resolvedNotes.flatMap(\.links).count,
+                     photoCount: resolvedNotes.flatMap(\.photos).count,
+                     videoCount: resolvedNotes.flatMap(\.videos).count)
+    }
+
+    static func summary(noteCount: Int, linkCount: Int, photoCount: Int, videoCount: Int) -> String {
+        let counts = [(noteCount, "note"), (linkCount, "link"), (photoCount, "photo"), (videoCount, "video")]
+        let bits = counts.compactMap { count, name in count > 0 ? "\(count) \(name)\(count == 1 ? "" : "s")" : nil }
+        return bits.isEmpty ? "Nothing added yet" : bits.joined(separator: " · ")
+    }
+
+    /// Legacy summary helper for callers that still hold part-level content.
     static func summary(notes: String, hasLink: Bool, photoCount: Int) -> String {
         var bits: [String] = []
         let lines = notes.split(whereSeparator: \.isNewline)
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
         if lines > 0 { bits.append(lines == 1 ? "1 note" : "\(lines) notes") }
-        if hasLink { bits.append("1 video") }
+        if hasLink { bits.append("1 link") }
         if photoCount > 0 { bits.append(photoCount == 1 ? "1 photo" : "\(photoCount) photos") }
         return bits.isEmpty ? "Nothing added yet" : bits.joined(separator: " · ")
     }
@@ -523,34 +563,6 @@ struct GoalPart: Identifiable, Hashable, Codable {
         guard let host = URL(string: link)?.host?.lowercased() else { return link }
         if host.hasSuffix("youtube.com") || host == "youtu.be" { return "YouTube video" }
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-    }
-
-    /// The start time in a video link (`t=102`, `t=1m42s`, `start=102`) as "1:42", or nil.
-    static func linkStart(_ link: String) -> String? {
-        guard let items = URLComponents(string: link)?.queryItems,
-              let raw = items.first(where: { $0.name == "t" || $0.name == "start" })?.value?.lowercased(),
-              !raw.isEmpty else { return nil }
-        var seconds = 0
-        if let plain = Int(raw.hasSuffix("s") ? String(raw.dropLast()) : raw) {
-            seconds = plain
-        } else {
-            var number = ""
-            for ch in raw {
-                if ch.isNumber { number.append(ch); continue }
-                guard let n = Int(number) else { return nil }
-                switch ch {
-                case "h": seconds += n * 3600
-                case "m": seconds += n * 60
-                case "s": seconds += n
-                default: return nil
-                }
-                number = ""
-            }
-            guard number.isEmpty else { return nil }
-        }
-        guard seconds > 0 else { return nil }
-        let h = seconds / 3600, m = (seconds % 3600) / 60, s = seconds % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 }
 

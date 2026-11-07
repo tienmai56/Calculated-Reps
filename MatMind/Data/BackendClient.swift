@@ -254,8 +254,8 @@ actor BackendClient {
     func comments(post: String, before: SocialRow) async throws -> [SocialRow] {
         try JSONDecoder().decode([SocialRow].self,from:await request(path:"rest/v1/rpc/comment_page",body:["target_post":post,"before_time":before.text("created_at"),"before_id":before.id]))
     }
-    func upload(_ data: Data, objectKey: String, bucket: String = "session-photos") async throws {
-        _ = try await request(path:"storage/v1/object/\(bucket)/" + objectKey, body:nil, bytes:data, contentType:"image/jpeg")
+    func upload(_ data: Data, objectKey: String, bucket: String = "session-photos", contentType: String = "image/jpeg") async throws {
+        _ = try await request(path:"storage/v1/object/\(bucket)/" + objectKey, body:nil, bytes:data, contentType:contentType)
     }
     func image(key: String, bucket: String = "session-photos") async throws -> Data {
         try await request(path:"storage/v1/object/authenticated/\(bucket)/" + key, body:nil)
