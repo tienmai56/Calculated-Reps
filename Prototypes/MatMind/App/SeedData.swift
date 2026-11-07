@@ -8,13 +8,13 @@ enum SeedData {
 
     static let people: [String: Person] = [
         "sarah": Person(id: "sarah", name: "Sarah Lee", belt: .blue, stripes: 3, gym: "Tidewater BJJ", hue: .sky, username: "sarah",
-                        monkey: MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .topknot)),
+                        monkey: MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .topknot, head: .headband, eyes: .shades)),
         "alex": Person(id: "alex", name: "Alex Moreno", belt: .white, stripes: 3, gym: "Tidewater BJJ", hue: .mint, username: "alex",
                         monkey: MMMonkeyLook(mood: .side, fur: .midnight, haircut: .fringe)),
         "priya": Person(id: "priya", name: "Priya Nair", belt: .blue, stripes: 1, gym: "Tidewater BJJ", hue: .sun, username: "priya",
                         monkey: MMMonkeyLook(mood: .happy, fur: .smoke, haircut: .curls)),
         "kenji": Person(id: "kenji", name: "Kenji Ito", belt: .purple, stripes: 0, gym: "Tidewater BJJ", hue: .plum, username: "kenji",
-                        monkey: MMMonkeyLook(mood: .focused, fur: .charcoal, haircut: .mohawk)),
+                        monkey: MMMonkeyLook(mood: .focused, fur: .charcoal, haircut: .mohawk, head: .earguards, mouth: .mouthguard)),
         "jamie": Person(id: "jamie", name: "Jamie Cole", belt: .brown, stripes: 1, gym: "North Shore Grappling", hue: .plum, username: "jamie",
                         monkey: MMMonkeyLook(mood: .tired, fur: .midnight, haircut: .tuft)),
         "marco": Person(id: "marco", name: "Marco Silva", belt: .black, stripes: 2, gym: "Harbor Jiu-Jitsu", hue: .coral, username: "marco",

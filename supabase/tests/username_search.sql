@@ -37,7 +37,7 @@ select pg_temp.assert_username(public.search_usernames('lookup_903')='[]','under
 select pg_temp.assert_username(public.search_usernames('lookup_me')='[]','self is omitted');
 select pg_temp.assert_username(public.search_usernames('lookup_904')='[]' and public.search_usernames('lookup_905')='[]','blocks in either direction are omitted');
 select pg_temp.assert_username((select array_agg(k order by k) from jsonb_object_keys(public.search_usernames('lookup_902')->0) k)
- =array['belt','gym','id','monkey','name','stripes','username'],'lookup returns only minimal profile fields');
+ =array['belt','gym','id','monkey','monkey_extras','name','stripes','username'],'lookup returns only minimal profile fields');
 select pg_temp.assert_username(not exists(select 1 from public.profiles where id='00000000-0000-0000-0000-000000000902'),'lookup does not widen profile RLS');
 select pg_temp.assert_username(not exists(select 1 from public.friendships) and not exists(select 1 from public.follows),'search has no connection side effects');
 select pg_temp.assert_username(not public.can_post('00000000-0000-0000-0000-000000000951'),'search alone grants no activity access');

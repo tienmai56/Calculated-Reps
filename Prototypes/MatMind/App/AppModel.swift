@@ -27,6 +27,7 @@ protocol AppRuntime: AnyObject {
     func sessionInvitationURL(_ sessionID: String) async -> URL?
     func copySessionLink(_ sessionID: String) async
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
+    func saveFocusCompletion(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool
     func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,
                      focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool
     /// Creates or updates the shared copy of one of your goals (photos included) and
@@ -36,6 +37,12 @@ protocol AppRuntime: AnyObject {
     func copyGoalLink(_ sharedID: String) async -> Bool
     func scannerView(found: @escaping (String) -> Void) -> AnyView
     func exportView() -> AnyView
+}
+
+extension AppRuntime {
+    func saveFocusCompletion(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
+        await saveFocus(sessionID, items)
+    }
 }
 
 /// Shared UI state. Live models start empty; only an explicit preview model loads fixtures.
@@ -265,7 +272,12 @@ final class AppModel {
     /// The quick log whose "Training logged" toast currently offers Undo.
     @ObservationIgnored private var trainingUndoQuickLogID: String?
 
+    private var pendingFocusChecks: [String: [UUID: Bool]] = [:]
+    @ObservationIgnored private(set) var focusCheckSaves: [String: Task<Void, Never>] = [:]
+
     func resetTrainingActions() {
+        for task in focusCheckSaves.values { task.cancel() }
+        focusCheckSaves = [:]; pendingFocusChecks = [:]
         quickLogTechniques = QuickLogTechnique.defaults
         quickLogHitsByID = [:]
         quickLogAccount = nil
@@ -711,7 +723,7 @@ final class AppModel {
                 showToast("Still saving your profile. Try again in a moment.")
                 return false
             }
-            guard await runtime.perform("set_monkey", ["monkey": look.code]) else { return false }
+            guard await runtime.perform("set_monkey", ["monkey": look.code, "extras": look.extrasCode]) else { return false }
         }
         me.monkey = look
         answerMonkeyPrompt()
@@ -934,6 +946,60 @@ final class AppModel {
             }
         }
         return id
+    }
+
+    /// Pending checks survive navigation and overlay refreshes until the versioned save finishes.
+    func displayedFocusItems(for session: Session) -> [TrainingFocus] {
+        var items = session.focusItems
+        for (id, completed) in pendingFocusChecks[session.id] ?? [:] {
+            TrainingFocusTree.update(id, in: &items) { $0.isCompleted = completed }
+        }
+        return items
+    }
+
+    func setSessionFocusCompleted(_ sessionID: String, itemID: UUID, completed: Bool) {
+        guard let session = findSession(sessionID), session.organizer == "me",
+              trainingSessions(past: true).contains(where: { $0.id == sessionID }),
+              session.focusItems.contains(where: { $0.id == itemID }) else { return }
+        guard let runtime else {
+            updateSession(sessionID) { session in
+                TrainingFocusTree.update(itemID, in: &session.focusItems) { $0.isCompleted = completed }
+            }
+            return
+        }
+        pendingFocusChecks[sessionID, default: [:]][itemID] = completed
+        guard focusCheckSaves[sessionID] == nil else { return }
+        let generation = trainingGeneration
+        focusCheckSaves[sessionID] = Task { [weak self] in
+            guard let self else { return }
+            defer { if generation == trainingGeneration { focusCheckSaves[sessionID] = nil } }
+            // One in-flight versioned write per session. Each following write starts from
+            // the refreshed outline, preserving edits to titles, details and linked goals.
+            while !Task.isCancelled, generation == trainingGeneration,
+                  let checks = pendingFocusChecks[sessionID], !checks.isEmpty,
+                  let session = findSession(sessionID) {
+                var items = session.focusItems
+                for (id, completed) in checks {
+                    TrainingFocusTree.update(id, in: &items) { $0.isCompleted = completed }
+                }
+                let saved = await runtime.saveFocusCompletion(sessionID, items)
+                guard !Task.isCancelled, generation == trainingGeneration else { return }
+                guard saved else {
+                    pendingFocusChecks[sessionID] = nil
+                    showToast("Couldn't save your checks. Please try again.", .danger)
+                    return
+                }
+                updateSession(sessionID) { session in
+                    for (id, completed) in checks {
+                        TrainingFocusTree.update(id, in: &session.focusItems) { $0.isCompleted = completed }
+                    }
+                }
+                for (id, completed) in checks where pendingFocusChecks[sessionID]?[id] == completed {
+                    pendingFocusChecks[sessionID]?[id] = nil
+                }
+            }
+            if generation == trainingGeneration { pendingFocusChecks[sessionID] = nil }
+        }
     }
 
     @discardableResult
@@ -1723,23 +1789,34 @@ extension AppModel {
             self.trainingUndo = nil; self.trainingUndoToastID = nil; self.trainingUndoSessionID = nil
         }
     }
-    func undoTrainingToast(_ id: UUID) async {
-        guard canUndoTrainingToast(id), let undo = trainingUndo else { return }
-        // Quick-log Undo changes the card before either the create or delete finishes.
-        // Claim its action now so repeated taps cannot send another delete.
-        if let logID = trainingUndoQuickLogID {
-            let generation = trainingGeneration
-            let inline = toast?.inline ?? false
-            if toast?.id == id { toast = nil }
-            trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
-            let saved = await undo()
-            guard generation == trainingGeneration else { return }
-            if !saved, toast == nil, trainingUndo == nil {
-                trainingToast("Couldn't undo. Try again.", inline: inline, undo: undo)
-                trainingUndoQuickLogID = logID
+    /// Button actions apply quick-log Undo synchronously; only persistence is scheduled.
+    @discardableResult
+    func undoTrainingToastNow(_ id: UUID) -> Task<Void, Never>? {
+        guard canUndoTrainingToast(id), let undo = trainingUndo else { return nil }
+        guard let logID = trainingUndoQuickLogID else {
+            return Task { await undoTrainingToast(id) }
+        }
+        let generation = trainingGeneration
+        let inline = toast?.inline ?? false
+        if toast?.id == id { toast = nil }
+        trainingUndo = nil; trainingUndoToastID = nil; trainingUndoSessionID = nil; trainingUndoQuickLogID = nil
+        let deletion = beginDeletingQuickLog(logID)
+        return Task { [weak self] in
+            let saved = await deletion.value
+            guard let self, generation == self.trainingGeneration else { return }
+            if !saved, self.toast == nil, self.trainingUndo == nil {
+                self.trainingToast("Couldn't undo. Try again.", inline: inline, undo: undo)
+                self.trainingUndoQuickLogID = logID
             }
+        }
+    }
+
+    func undoTrainingToast(_ id: UUID) async {
+        if trainingUndoQuickLogID != nil {
+            await undoTrainingToastNow(id)?.value
             return
         }
+        guard canUndoTrainingToast(id), let undo = trainingUndo else { return }
         guard !busy else { return }
         let generation = trainingGeneration
         savingTraining = true
@@ -1899,9 +1976,13 @@ extension AppModel {
         persistQuickLogTechniques()
     }
     @discardableResult func deleteQuickLog(_ id: String) async -> Bool {
-        guard quickTrainingLogEnabled, !isLive || runtime != nil else { return false }
-        if let pending = quickLogDeletes[id] { return await pending.value }
-        if deletedQuickLogIDs.contains(id) { return true }
+        await beginDeletingQuickLog(id).value
+    }
+
+    private func beginDeletingQuickLog(_ id: String) -> Task<Bool, Never> {
+        guard quickTrainingLogEnabled, !isLive || runtime != nil else { return Task { false } }
+        if let pending = quickLogDeletes[id] { return pending }
+        if deletedQuickLogIDs.contains(id) { return Task { true } }
         let generation = trainingGeneration
         let index = quickLogs.firstIndex { $0.id == id }
         let log = index.map { quickLogs[$0] }
@@ -1915,7 +1996,7 @@ extension AppModel {
         guard let runtime else {
             quickLogHitsByID.removeValue(forKey: id)
             persistQuickLogTechniques()
-            return true
+            return Task { true }
         }
         let task = Task { [weak self] in
             // Only the network delete waits; the log has already left the screen.
@@ -1942,7 +2023,7 @@ extension AppModel {
             return saved
         }
         quickLogDeletes[id] = task
-        return await task.value
+        return task
     }
     @discardableResult func removeOwnTrainingAttendance(_ session: Session) async -> Bool {
         guard !busy, let current = findSession(session.id),

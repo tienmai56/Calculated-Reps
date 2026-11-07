@@ -407,7 +407,7 @@ private struct LiveProfileSetup: View {
         }
         guard await app.perform("save_profile", payload, refresh: false) != nil else { return }
         // The profile exists now; if the monkey doesn't stick, Account still offers Build my monkey.
-        if await app.perform("set_monkey", ["monkey": monkey.code]) == nil { await app.refresh(force: true) }
+        if await app.perform("set_monkey", ["monkey": monkey.code, "extras": monkey.extrasCode]) == nil { await app.refresh(force: true) }
     }
 }
 
@@ -443,6 +443,7 @@ final class LiveMatMindRuntime: AppRuntime {
     private var deletingComments: Set<String> = []
     /// One quiet reload after a burst of quick logs, instead of a full reload per tap.
     private var quickLogRefresh: Task<Void, Never>?
+    private var presentedLogMatches: Set<String> = []
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -459,7 +460,7 @@ final class LiveMatMindRuntime: AppRuntime {
     private func person(_ row: SocialRow) -> Person {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
                stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")], username: row.text("username"),
-               monkey: MMMonkeyLook(code: row.text("monkey")))
+               monkey: MMMonkeyLook(code: row.text("monkey"), extras: row.text("monkey_extras")))
     }
     func sync(now: Date = Date()) {
         // Every exit, signed in or out, refreshes what the home-screen widgets show.
@@ -476,6 +477,7 @@ final class LiveMatMindRuntime: AppRuntime {
             uploadedGoalPhotos = []
             mediaKeys = [:]; mediaPhotos = [:]; publishKeys = [:]; publishRequests = [:]
             uploadedSessionPhotos = [:]
+            presentedLogMatches = []
             photoOwner = model.userID
         }
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
@@ -483,7 +485,9 @@ final class LiveMatMindRuntime: AppRuntime {
             && model.snapshot.log_matches != nil && model.snapshot.shared_session_ids != nil
         ui.participantPhotosAvailable = model.snapshot.participant_photos_available == true
         ui.isSignedIn = true
-        if ui.quickTrainingLogEnabled, ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
+        if ui.quickTrainingLogEnabled, ui.trainingUndo == nil,
+           let match = model.snapshot.log_matches?.first(where: { !presentedLogMatches.contains($0.id) }) {
+            presentedLogMatches.insert(match.id)
             let title = model.session(match.text("session_id"))?.text("title") ?? "your session"
             ui.trainingToast("We matched your log to \(title)") { [weak self] in
                 return await self?.perform("restore_matched_log", ["id": match.id]) ?? false
@@ -758,9 +762,15 @@ final class LiveMatMindRuntime: AppRuntime {
         // A quick log is already on the card (or about to be), so its save neither locks the app nor
         // reloads everything; one reload follows a burst of taps.
         let quickLog = ["create_quick_log", "delete_quick_log"].contains(operation)
+        // Acknowledging a suggestion is bookkeeping. It can be triggered by Undo's
+        // follow-up sync and must never turn that local action into a global spinner.
+        let acknowledgingMatch = operation == "acknowledge_log_match"
         let result = await model.perform(operation, body, key: receiptKey,
-                                         blocking: deleting == nil && deletingComment == nil && !quickLog && !["share_goal", "set_follow", "follow_username"].contains(operation),
-                                         refresh: !quickLog)
+                                         blocking: deleting == nil && deletingComment == nil && !quickLog && !acknowledgingMatch && !["share_goal", "set_follow", "follow_username"].contains(operation),
+                                         refresh: !quickLog && !acknowledgingMatch)
+        if acknowledgingMatch, result != nil, let id = body["id"] as? String {
+            model.snapshot.log_matches?.removeAll { $0.id == id }
+        }
         if quickLog, result != nil {
             if operation == "delete_quick_log", let id = body["id"] as? String {
                 model.snapshot.quick_logs?.removeAll { $0.id == id }
@@ -948,10 +958,16 @@ final class LiveMatMindRuntime: AppRuntime {
         ui.showToast("Invite link copied", .success)
     }
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
+        await saveFocus(sessionID, items, blocking: true)
+    }
+    func saveFocusCompletion(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
+        await saveFocus(sessionID, items, blocking: false)
+    }
+    private func saveFocus(_ sessionID: String, _ items: [TrainingFocus], blocking: Bool) async -> Bool {
         guard let row = model.session(sessionID), TrainingFocusTree.isValid(items) else { return false }
         let old = SessionNoteCodec.decode(row.text("note"))
         let result = await model.perform("edit_session_focus", ["session_id": sessionID, "version": row.number("version"),
-                                                       "note": SessionNoteCodec.encode(note: old.note, focus: items)])
+                                                       "note": SessionNoteCodec.encode(note: old.note, focus: items)], blocking: blocking)
         sync(); return result != nil
     }
     func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,

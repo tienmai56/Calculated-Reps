@@ -286,18 +286,18 @@ struct TrainingFocusComposer: View {
     }
 }
 
-/// Save a check through the same versioned focus update used by the editor.
-/// Render saved state, so failed requests never leave an unsaved check on screen.
+/// Checks render immediately; the app model queues versioned saves in the background.
 struct TrainingSessionFocusChecklist: View {
     let session: Session
     @Environment(AppModel.self) private var mm
-    @State private var saving = false
 
     private var canComplete: Bool {
         session.organizer == "me" && mm.trainingSessions(past: true).contains { $0.id == session.id }
     }
 
     var body: some View {
+        let items = mm.displayedFocusItems(for: session)
+        let completedCount = items.filter(\.isCompleted).count
         VStack(alignment: .leading, spacing: MMSpace.s4) {
             HStack {
                 if canComplete {
@@ -305,27 +305,15 @@ struct TrainingSessionFocusChecklist: View {
                         .foregroundStyle(MMColor.textTertiary)
                 }
                 Spacer(minLength: 0)
-                MMMeta("\(session.focusItems.filter(\.isCompleted).count)/\(session.focusItems.count)")
-                    .accessibilityLabel("\(session.focusItems.filter(\.isCompleted).count) of \(session.focusItems.count) focuses completed")
+                MMMeta("\(completedCount)/\(items.count)")
+                    .accessibilityLabel("\(completedCount) of \(items.count) focuses completed")
             }
-            TrainingFocusChecklist(items: session.focusItems, onToggle: canComplete ? toggle : nil)
-                .disabled(saving || mm.busy)
+            TrainingFocusChecklist(items: items, onToggle: canComplete ? toggle : nil)
         }
     }
 
     private func toggle(_ id: UUID, _ completed: Bool) {
-        guard !saving, !mm.busy, canComplete,
-              var items = mm.findSession(session.id)?.focusItems else { return }
-        TrainingFocusTree.update(id, in: &items) { $0.isCompleted = completed }
-        saving = true
-        Task {
-            if let runtime = mm.runtime {
-                _ = await runtime.saveFocus(session.id, items)
-            } else {
-                mm.updateSessionFocus(session.id, items)
-            }
-            saving = false
-        }
+        mm.setSessionFocusCompleted(session.id, itemID: id, completed: completed)
     }
 }
 
@@ -417,13 +405,22 @@ struct TrainingFocusNames: View {
             .accessibilityHint(expanded ? "Hide technique names" : "Show technique names")
 
             if expanded {
-                VStack(alignment: .leading, spacing: MMSpace.s4) {
-                    ForEach(Array(titles.enumerated()), id: \.offset) { _, title in
-                        Text(title)
-                            .mmText(.bodyS, .medium)
-                            .foregroundStyle(MMColor.textPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: MMSpace.s2) {
+                    ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            // Quiet order marker: muted, tabular digits, fixed column so titles align.
+                            Text(String(format: "%02d", index + 1))
+                                .mmText(.caption, .medium)
+                                .monospacedDigit()
+                                .foregroundStyle(MMColor.textTertiary)
+                                .frame(width: MMSpace.s8, alignment: .leading)
+                                .accessibilityHidden(true)
+                            Text(title)
+                                .mmText(.bodyS, .medium)
+                                .foregroundStyle(MMColor.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                 }
                 .padding(.bottom, MMSpace.s5)

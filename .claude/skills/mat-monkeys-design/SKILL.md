@@ -41,7 +41,7 @@ Your favorite training partner: warm, a little cheeky, mat-literate. Sentence ca
 - Public browsing or matching with strangers. Explicit username lookup is supported: follow someone by @username with the same behavior as scanning their code. Suggestions and name search stay within your training circle.
 - Group chat or DMs.
 - Daily streaks, leaderboards, badges, milestones, rankings, performance analytics.
-- Avatar options beyond the monkey's mood, fur and haircut (see `DESIGN.md` › Monkeys).
+- Avatar options beyond the monkey's mood, fur, haircut and its listed extras (see `DESIGN.md` › Monkeys).
 - Decorative gradients, dark "fitness dashboard" styling, emoji UI, a redrawn or recolored logo (use the Silverback files in `assets/brand/` as-is).
 
 ## When producing work

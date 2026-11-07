@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const origin = "https://matmonkey.lovable.app";
+const origin = "https://mymatmonkey.com";
 const token = process.env.SESSION_SHARE_TOKEN;
 if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
   console.error("Set SESSION_SHARE_TOKEN to a real active session invitation token. It will not be printed or redeemed.");

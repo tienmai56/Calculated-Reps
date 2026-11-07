@@ -2,6 +2,8 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
+New session and goal links use `https://mymatmonkey.com/` when copied or shared to Messages and other apps. Existing Lovable invitations and native QR codes remain readable. This requires a new iOS build and publishing the matching website with `mymatmonkey.com` connected; see [shared-link rollout](website-link-handoff/README.md).
+
 Goals now use **Goal → Part → Note → References**. Each numbered note has **Add a link** and **Photo/video**; links use one inline field and an Add action, with no timestamp controls. Notes use dividers inside a part instead of nested cards. Existing part notes and references stay together as one note. Uploaded videos are private, support MP4/MOV/M4V up to 50 MB, and play from the note. Sharing preserves the note-to-reference associations. Apply `20261107012718_goal_note_references.sql` before shipping the new iOS build; the migration is included here and has not been deployed by this change.
 
 For a native preview, launch **MatMindPrototype** with `--goal-notes-review`. CI captures the actual editor as **goal-notes-native**.
@@ -9,6 +11,8 @@ For a native preview, launch **MatMindPrototype** with `--goal-notes-review`. CI
 Likes update the heart and count locally on tap, then save in the background without the global spinner or a full feed reload. Rapid taps save in order per post, older refreshes preserve the latest local choice, and failed saves restore the last confirmed state with an error. This client change requires a new iOS build.
 
 Quick-log Undo removes the log and its technique counts immediately, then deletes in the background without a spinner or full reload. If the original save is still running, the delete waits for it while the UI stays responsive. Failed deletes restore the log and offer Undo again; stale refreshes cannot bring an undone log back. This client change requires a new iOS build.
+
+Undo now applies its local change directly in the button handler, before scheduling any task. Matched-log acknowledgements triggered by its follow-up sync run silently without the global spinner or a full reload, and each suggestion is acknowledged once per account session.
 
 Activity groups all future hosted and accepted sessions under **Coming up**, including solo and friends-only plans, with one ticket per session and no “Coming up:” title prefix. Social posts follow under **Activity**. This client change requires a new iOS build.
 

@@ -706,11 +706,11 @@ private struct GoalPartCard: View {
         VStack(alignment: .leading, spacing: 0) {
             if isOpen {
                 HStack(spacing: 0) {
-                    TextField("Name this part", text: $part.title)
+                    TextField("Objective", text: $part.title)
                         .focused($nameFocused)
                         .mmFont(.display, 17, lineHeight: 1.2)
                         .foregroundStyle(MMColor.textPrimary).tint(MMColor.accent)
-                        .accessibilityLabel("Part name")
+                        .accessibilityLabel("Objective")
                     MMIconButton("trash-2", label: "Remove part") { requestRemove() }
                         .disabled(part.isLoadingMedia)
                     MMIconButton("chevron-up", label: "Close part", action: onToggle)
@@ -718,10 +718,12 @@ private struct GoalPartCard: View {
                 ForEach($part.noteItems) { $note in
                     let noteID = note.id
                     let number = (part.noteItems.firstIndex { $0.id == note.id } ?? 0) + 1
+                    if number > 1 {
+                        Rectangle().fill(MMColor.borderDefault).frame(height: 1)
+                    }
                     GoalNoteRow(note: $note, number: number) {
                         part.noteItems.removeAll { $0.id == noteID }
                     }
-                    Rectangle().fill(MMColor.borderDefault).frame(height: 1)
                 }
                 GoalTextAction(title: "Add a note", icon: "plus", color: MMColor.textTertiary) {
                     part.noteItems.append(GoalNoteDraft())

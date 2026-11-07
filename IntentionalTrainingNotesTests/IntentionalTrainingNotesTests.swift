@@ -2727,6 +2727,53 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertTrue(model.snapshot.likes.isEmpty)
     }
 
+    @MainActor
+    func testQuickLogUndoUpdatesInTapAndMatchAcknowledgementDoesNotShowSpinner() async throws {
+        let started = expectation(description: "Match acknowledgement in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), acknowledgementStarted: started)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        model.snapshot.quick_logs = []; model.snapshot.training_days = []
+        model.snapshot.log_matches = []; model.snapshot.shared_session_ids = []
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        _ = await ui.quickLogSaves[log.id]?.value
+        let toast = try XCTUnwrap(ui.toast)
+        // A refresh can deliver a match while the quick-log Undo is still displayed.
+        model.snapshot.log_matches = [SocialRow(values: ["id": .string("match"), "session_id": .string("session")])]
+        runtime.sync()
+        let undo = try XCTUnwrap(ui.undoTrainingToastNow(toast.id))
+        XCTAssertTrue(ui.quickLogs.isEmpty, "Removal happens inside the tap, without yielding to any task")
+        XCTAssertNil(ui.toast)
+        XCTAssertFalse(model.busy)
+        await undo.value
+        await fulfillment(of: [started], timeout: 5)
+        XCTAssertFalse(model.busy, "Undo's follow-up sync must not show a spinner for bookkeeping")
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        // Repeated syncs while the acknowledgement is pending cannot resubmit it.
+        ui.trainingUndo = nil
+        runtime.sync()
+        runtime.sync()
+        await fixture.releaseAcknowledgements()
+        let deadline = Date().addingTimeInterval(5)
+        while model.snapshot.log_matches?.isEmpty == false, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.snapshot.log_matches, [])
+        let requests = await fixture.requests
+        let operations = try requests.filter { $0.url?.path == "/rest/v1/rpc/command" }.map {
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap($0.httpBody)) as? [String: Any])
+            return body["operation"] as? String
+        }
+        XCTAssertEqual(operations.filter { $0 == "acknowledge_log_match" }.count, 1)
+        XCTAssertFalse(requests.contains { $0.url?.path == "/rest/v1/rpc/snapshot" }, "Neither Undo nor acknowledgement reloads the feed")
+    }
+
     private func creationRequests() -> [SessionCreationRequest] {
         let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
                                  note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
@@ -2780,6 +2827,9 @@ private actor BackendHTTPFixture {
     private var holdLikes: Bool
     private var likeWaiters: [CheckedContinuation<Void, Never>] = []
     private var likedPosts: Set<String> = []
+    private let acknowledgementStarted: XCTestExpectation?
+    private var holdAcknowledgements: Bool
+    private var acknowledgementWaiters: [CheckedContinuation<Void, Never>] = []
     private let rhythmRows: [RhythmSession]
     private let usernameRows: [SocialRow]
     private let followUsernameStatus: Int
@@ -2790,7 +2840,8 @@ private actor BackendHTTPFixture {
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
          snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200,
-         likeStarted: XCTestExpectation? = nil, holdLikes: Bool = false, likeStatus: Int = 200) {
+         likeStarted: XCTestExpectation? = nil, holdLikes: Bool = false, likeStatus: Int = 200,
+         acknowledgementStarted: XCTestExpectation? = nil) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -2806,6 +2857,15 @@ private actor BackendHTTPFixture {
         self.likeStarted = likeStarted
         self.holdLikes = holdLikes
         self.likeStatus = likeStatus
+        self.acknowledgementStarted = acknowledgementStarted
+        self.holdAcknowledgements = acknowledgementStarted != nil
+    }
+
+    func releaseAcknowledgements() {
+        holdAcknowledgements = false
+        let waiters = acknowledgementWaiters
+        acknowledgementWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     func releaseLikes() {
@@ -2868,6 +2928,13 @@ private actor BackendHTTPFixture {
            command["operation"] as? String == "save_profile" { profileSaved = true }
         if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
            let command = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            if command["operation"] as? String == "acknowledge_log_match" {
+                if holdAcknowledgements {
+                    acknowledgementStarted?.fulfill()
+                    await withCheckedContinuation { acknowledgementWaiters.append($0) }
+                }
+                return (200, Data("{}".utf8))
+            }
             if command["operation"] as? String == "set_like", let payload = command["payload"] as? [String: Any],
                let postID = payload["post_id"] as? String, let liked = payload["liked"] as? Bool {
                 if holdLikes {
@@ -3166,6 +3233,37 @@ final class MonkeyTests: XCTestCase {
         XCTAssertEqual(MMMonkeyLook(code: "grin.coral-700.topknot"), MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .topknot))
     }
 
+    func testMonkeyExtrasRoundTripAndMatchTheServerFormat() throws {
+        // Mirrors the profiles.monkey_extras check in 20261107040000_monkey_extras.sql.
+        let server = try NSRegularExpression(pattern: "^(none|earguards|headband)\\.(none|specs|shades|goggles|bandit|luchador|sleep)\\.(none|mouthguard)$")
+        let heads: [MMMonkeyLook.Head?] = [nil] + MMMonkeyLook.Head.allCases
+        let eyes: [MMMonkeyLook.Eyes?] = [nil] + MMMonkeyLook.Eyes.allCases
+        let mouths: [MMMonkeyLook.Mouth?] = [nil] + MMMonkeyLook.Mouth.allCases
+        for head in heads {
+            for eye in eyes {
+                for mouth in mouths {
+                    let look = MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .tuft, head: head, eyes: eye, mouth: mouth)
+                    XCTAssertEqual(MMMonkeyLook(code: look.code, extras: look.extrasCode), look)
+                    if look.hasExtras {
+                        XCTAssertEqual(server.numberOfMatches(in: look.extrasCode, range: NSRange(look.extrasCode.startIndex..., in: look.extrasCode)), 1, look.extrasCode)
+                    } else {
+                        XCTAssertEqual(look.extrasCode, "", "nothing worn sends an empty value")
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(MMMonkeyLook(code: "grin.coral-700.tuft", extras: "headband.shades.mouthguard"),
+                       MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .tuft, head: .headband, eyes: .shades, mouth: .mouthguard))
+        XCTAssertEqual(MMMonkeyLook(mood: .happy, head: .earguards, mouth: .mouthguard).wornExtras, ["Ear guards", "Mouthguard"])
+    }
+
+    func testUnknownExtrasStillShowTheMonkey() {
+        let bare = MMMonkeyLook(mood: .happy, fur: .midnight, haircut: .clean)
+        for extras in ["", "crown.none.none", "specs.none.none", "headband.shades", "headband.shades.mouthguard.extra"] {
+            XCTAssertEqual(MMMonkeyLook(code: "happy.ink-900.clean", extras: extras), bare, extras)
+        }
+    }
+
     func testUnknownOrMissingMonkeysMeanJustTheName() {
         for code in ["", "happy.ink-900", "angry.ink-900.tuft", "happy.sun-600.tuft", "happy.ink-900.afro", "happy.ink-900.tuft.extra"] {
             XCTAssertNil(MMMonkeyLook(code: code), code)
@@ -3415,7 +3513,8 @@ private final class TrainingRuntimeStub: AppRuntime {
     func connect(_ value: String) async -> String? { nil }
     func sessionInvitationURL(_ sessionID: String) async -> URL? { nil }
     func copySessionLink(_ sessionID: String) async {}
-    func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool { false }
+    var focusSave: @MainActor (String, [TrainingFocus]) async -> Bool = { _, _ in false }
+    func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool { await focusSave(sessionID, items) }
     func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String, focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool { false }
     func publishGoal(_ goal: MatGoal) async -> String? { nil }
     func copyGoalLink(_ sharedID: String) async -> Bool { false }
@@ -4426,9 +4525,7 @@ extension TrainingCalendarTests {
         let log = try XCTUnwrap(ui.logTrainingNow(day))
         let toast = try XCTUnwrap(ui.toast)
         await fulfillment(of: [started], timeout: 1)
-        let undo = Task { await ui.undoTrainingToast(toast.id) }
-        let deadline = Date().addingTimeInterval(1)
-        while ui.quickLogs.contains(where: { $0.id == log.id }), Date() < deadline { await Task.yield() }
+        let undo = try XCTUnwrap(ui.undoTrainingToastNow(toast.id))
         XCTAssertEqual(operations, ["create_quick_log"], "Undo waits for the create")
         XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id }, "The UI removes the log while its create is still pending")
         XCTAssertNil(ui.toast)
@@ -4598,5 +4695,99 @@ extension TrainingCalendarTests {
         XCTAssertNil(ui.toast, "A result for the previous account shows nothing in the next one")
         ui.applyServerQuickLogs([])
         XCTAssertTrue(ui.quickLogs.isEmpty)
+    }
+}
+
+
+final class OptimisticFocusChecklistTests: XCTestCase {
+    @MainActor
+    private func fixture() -> (AppModel, TrainingRuntimeStub, Session) {
+        let ui = AppModel(live: true)
+        let runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        let session = Session(id: "focus-session", title: "Open mat", day: "Tue", date: 3, month: "Nov",
+                              time: "10 AM", gym: "Academy", organizer: "me", privacy: .friends,
+                              people: [Attendee(id: "me", status: .going)],
+                              focusItems: [TrainingFocus(title: "Passing", children: [TrainingFocus(title: "Underhook")], goalID: "goal"),
+                                           TrainingFocus(title: "Escapes")], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [session]
+        return (ui, runtime, session)
+    }
+
+    @MainActor
+    func testRapidChecksRenderImmediatelyAndSaveSeriallyAgainstRefreshedOutline() async throws {
+        let (ui, runtime, session) = fixture()
+        let started = expectation(description: "First save suspended")
+        var release: CheckedContinuation<Bool, Never>?
+        var writes: [[TrainingFocus]] = []
+        runtime.focusSave = { _, items in
+            writes.append(items)
+            if writes.count == 1 {
+                return await withCheckedContinuation { release = $0; started.fulfill() }
+            }
+            return true
+        }
+        let first = session.focusItems[0].id, second = session.focusItems[1].id
+        ui.setSessionFocusCompleted(session.id, itemID: first, completed: true)
+        XCTAssertTrue(ui.displayedFocusItems(for: session)[0].isCompleted, "No network wait before rendering")
+        XCTAssertFalse(ui.busy)
+        let save = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        await fulfillment(of: [started], timeout: 2)
+        ui.setSessionFocusCompleted(session.id, itemID: first, completed: false)
+        ui.setSessionFocusCompleted(session.id, itemID: second, completed: true)
+        XCTAssertEqual(ui.displayedFocusItems(for: session).map(\.isCompleted), [false, true])
+        XCTAssertEqual(writes.count, 1, "Taps queue behind the current versioned write")
+        // A refresh can update other fields while the first write is in flight.
+        ui.upcoming[0].focusItems[0].title = "Updated passing"
+        let refreshed = try XCTUnwrap(ui.findSession(session.id))
+        XCTAssertEqual(ui.displayedFocusItems(for: refreshed).map(\.isCompleted), [false, true])
+        release?.resume(returning: true)
+        await save.value
+        XCTAssertEqual(writes.count, 2)
+        XCTAssertEqual(writes.last?.map(\.isCompleted), [false, true])
+        XCTAssertEqual(writes.last?.first?.title, "Updated passing")
+        XCTAssertEqual(writes.last?.first?.children, session.focusItems[0].children)
+        XCTAssertEqual(writes.last?.first?.goalID, "goal")
+        XCTAssertEqual(ui.findSession(session.id)?.focusItems.map(\.isCompleted), [false, true])
+        XCTAssertNil(ui.focusCheckSaves[session.id])
+        XCTAssertFalse(ui.busy)
+    }
+
+    @MainActor
+    func testFailedSaveRollsBackChecksAndAllowsRetry() async throws {
+        let (ui, runtime, session) = fixture()
+        let item = session.focusItems[0].id
+        ui.setSessionFocusCompleted(session.id, itemID: item, completed: true)
+        let failed = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        XCTAssertTrue(ui.displayedFocusItems(for: session)[0].isCompleted)
+        await failed.value
+        XCTAssertEqual(ui.displayedFocusItems(for: session), session.focusItems)
+        XCTAssertEqual(ui.findSession(session.id), session)
+        XCTAssertNotNil(ui.toast)
+        runtime.focusSave = { _, _ in true }
+        ui.setSessionFocusCompleted(session.id, itemID: item, completed: true)
+        let retry = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        await retry.value
+        XCTAssertTrue(try XCTUnwrap(ui.findSession(session.id)).focusItems[0].isCompleted)
+    }
+
+    @MainActor
+    func testAccountResetDiscardsPendingChecksAndIgnoresLateCompletion() async throws {
+        let (ui, runtime, session) = fixture()
+        let started = expectation(description: "Save suspended")
+        var release: CheckedContinuation<Bool, Never>?
+        runtime.focusSave = { _, _ in
+            await withCheckedContinuation { release = $0; started.fulfill() }
+        }
+        ui.setSessionFocusCompleted(session.id, itemID: session.focusItems[0].id, completed: true)
+        let save = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        await fulfillment(of: [started], timeout: 2)
+        ui.clearLiveData()
+        release?.resume(returning: true)
+        await save.value
+        XCTAssertNil(ui.findSession(session.id))
+        XCTAssertEqual(ui.displayedFocusItems(for: session), session.focusItems)
+        XCTAssertNil(ui.toast)
+        XCTAssertTrue(ui.focusCheckSaves.isEmpty)
     }
 }
