@@ -659,10 +659,10 @@ struct SessionDetailScreen: View {
         let photos = session.sessionPhotos
         return VStack(alignment: .leading, spacing: MMSpace.s4) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Photos").mmFont(.display, 18)
+                Text("Photos & videos").mmFont(.display, 18)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
-                MMMeta(photos.isEmpty ? "None yet" : photos.count == 1 ? "1 photo" : "\(photos.count) photos")
+                MMMeta(photos.isEmpty ? "None yet" : photos.count == 1 ? "1 item" : "\(photos.count) items")
             }
             if photos.isEmpty {
                 HStack(spacing: MMSpace.s5) {
@@ -686,7 +686,7 @@ struct SessionDetailScreen: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                if photo.author == "me" && mm.canPostParticipantPhoto(session) {
+                                if photo.author == "me" && (session.organizer != "me" || !session.usesMediaGallery) && mm.canPostParticipantPhoto(session) {
                                     Menu {
                                         Button {
                                             photoDraft = ParticipantPhotoDraft(sessionID: id, replacingPhotoID: photo.id)
@@ -702,7 +702,10 @@ struct SessionDetailScreen: View {
                                 }
                             }
                             .frame(minHeight: MMLayout.tapTarget)
-                            MMPhotoTile(photo: photo.source, height: 240, radius: MMRadius.md) { EmptyView() }
+                            Group {
+                                if let source = photo.source { MMSessionMediaTile(source: source, height: 240, radius: MMRadius.md) }
+                                else { MMPhotoTile(photo: nil, height: 240, radius: MMRadius.md) }
+                            }
                                 .accessibilityLabel("Session photo from \(mm.person(photo.author).name)")
                         }
                     }

@@ -2,6 +2,8 @@
 
 Native SwiftUI app for planning training with partners, sharing completed sessions and maintaining weekly friendship streaks.
 
+The host share composer supports up to five photos/videos combined, with ordered thumbnails and removal. Activity and post detail show a swipeable gallery with a counter and page dots; videos have a poster, duration and tap-to-play. Videos use MP4/MOV/M4V up to 50 MB each. Apply `20261107175852_session_media_gallery.sql` before shipping the client; this PR does not deploy it. See [gallery review and acceptance checks](docs/session-media-gallery.md).
+
 New session and goal links use `https://mymatmonkey.com/` when copied or shared to Messages and other apps. Existing Lovable invitations and native QR codes remain readable. This requires a new iOS build and publishing the matching website with `mymatmonkey.com` connected; see [shared-link rollout](website-link-handoff/README.md).
 
 Goals now use **Goal → Part → Note → References**. Each numbered note has **Add a link** and **Photo/video**; links use one inline field and an Add action, with no timestamp controls. Notes use dividers inside a part instead of nested cards. Existing part notes and references stay together as one note. Uploaded videos are private, support MP4/MOV/M4V up to 50 MB, and play from the note. Sharing preserves the note-to-reference associations. Apply `20261107012718_goal_note_references.sql` before shipping the new iOS build; the migration is included here and has not been deployed by this change.

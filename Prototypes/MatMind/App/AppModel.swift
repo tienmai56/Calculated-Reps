@@ -16,6 +16,8 @@ protocol AppRuntime: AnyObject {
     /// message to show, so a caller inside a sheet can display it (the app-level alert sits under sheets).
     func enableNotifications() async -> String?
     func create(_ draft: SessionDraft, key: UUID) async -> String?
+    func saveSessionMedia(_ sessionID: String, media: [String]) async -> Bool
+    func publish(_ sessionID: String, media: [String], caption: String, people: [String]) async -> PublishResult?
     func saveSessionPhoto(_ sessionID: String, photo: String) async -> Bool
     func postParticipantPhoto(_ sessionID: String, photo: String, replacing: String?) async -> Bool
     func removeParticipantPhoto(_ sessionID: String, photoID: String) async -> Bool
@@ -40,6 +42,9 @@ protocol AppRuntime: AnyObject {
 }
 
 extension AppRuntime {
+    func saveSessionMedia(_ sessionID: String, media: [String]) async -> Bool { false }
+    func publish(_ sessionID: String, media: [String], caption: String, people: [String]) async -> PublishResult? { nil }
+
     func saveFocusCompletion(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
         await saveFocus(sessionID, items)
     }
@@ -51,6 +56,7 @@ extension AppRuntime {
 final class AppModel {
     /// Live clients wait for the migration's snapshot capability before offering writes.
     var participantPhotosAvailable = false
+    var sessionMediaAvailable = false
     var runtime: (any AppRuntime)?
 #if DEBUG
     var previewAction: (() -> Void)?
@@ -194,6 +200,7 @@ final class AppModel {
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
         widgetQuickLogRequest = nil; widgetProfileSectionRequest = nil
+        sessionMediaAvailable = false
     }
 
     private func send(_ operation: String, _ payload: [String: Any], success: (() -> Void)? = nil) {
@@ -1102,6 +1109,39 @@ final class AppModel {
         }
         showToast("Your photo was removed")
         return true
+    }
+
+    @discardableResult
+    func saveSessionMedia(_ sessionID: String, media: [String]) async -> Bool {
+        guard SessionMedia.valid(media), let session = findSession(sessionID),
+              session.organizer == "me", startDate(of: session) <= Date() else { return false }
+        if let runtime { return await runtime.saveSessionMedia(sessionID, media: media) }
+        guard !isLive else { return false }
+        updateSession(sessionID) { session in
+            session.photos = media
+            session.usesMediaGallery = true
+            if session.photoContributions != nil {
+                session.photoContributions = session.sessionPhotos.filter { $0.author != "me" }
+                    + media.map { SessionPhoto(id: $0, author: "me", source: $0) }
+            }
+        }
+        return true
+    }
+
+    func publish(_ sessionID: String, media: [String], caption: String, people: [String]) -> PublishResult? {
+        guard SessionMedia.valid(media), let result = publish(sessionID, photo: media.first, caption: caption, people: people) else { return nil }
+        updatePost(result.post.id) { $0.media = media }
+        updateSession(sessionID) { session in
+            session.photos = media
+            session.usesMediaGallery = true
+            if session.photoContributions != nil {
+                session.photoContributions = session.sessionPhotos.filter { $0.author != "me" }
+                    + media.map { SessionPhoto(id: $0, author: "me", source: $0) }
+            }
+        }
+        var updated = result
+        updated.post.media = media
+        return updated
     }
 
     func publish(_ sessionID: String, photo: String?, caption: String, people: [String]) -> PublishResult? {
