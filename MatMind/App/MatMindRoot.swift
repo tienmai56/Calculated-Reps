@@ -900,7 +900,7 @@ final class LiveMatMindRuntime: AppRuntime {
         guard SessionMedia.valid(media) else { return false }
         guard model.snapshot.session_media_available == true else {
             if media.count == 1, let photo = media.first, !SessionMedia.isVideo(photo) { return await saveSessionPhoto(sessionID, photo: photo) }
-            model.error = "Update the server to save a photo/video gallery."
+            model.error = "Couldn’t save your media. Please try again."
             return false
         }
         let owner = model.userID
@@ -935,7 +935,7 @@ final class LiveMatMindRuntime: AppRuntime {
             }
             if model.snapshot.session_media_available == true { payload["media_ids"] = ids }
             else if ids.count <= 1, !media.contains(where: SessionMedia.isVideo) { payload["media_id"] = ids.first }
-            else { throw CloudError(message: "Update the server to publish a gallery.") }
+            else { throw CloudError(message: "Couldn’t share your media. Please try again.") }
             let request = caption + "|" + people.sorted().joined(separator: ",") + "|" + media.joined(separator: ",")
             if publishRequests[sessionID] != request { publishKeys[sessionID] = UUID(); publishRequests[sessionID] = request }
             let key = publishKeys[sessionID] ?? UUID(); publishKeys[sessionID] = key
