@@ -12,6 +12,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         let sources = ["/tmp/one.jpg", "/tmp/two.mp4", "/tmp/three.mov", "/tmp/four.jpg", "/tmp/five.m4v"]
         let saved = await ui.saveSessionMedia(session.id, media: sources)
         XCTAssertTrue(saved)
+        XCTAssertEqual(ui.findSession(session.id)?.usesMediaGallery, true)
         XCTAssertEqual(ui.findSession(session.id)?.photos, sources)
         XCTAssertFalse(ui.isCompleted(try XCTUnwrap(ui.findSession(session.id))))
         XCTAssertFalse(SessionMedia.valid(sources + ["/tmp/six.jpg"]))
@@ -62,6 +63,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
         model.snapshot.sessions[0].values["media_ids"] = .null
         runtime.sync()
         XCTAssertEqual(ui.findSession("session")?.photos.count, 1, "NULL keeps the old single-photo slot")
+        XCTAssertEqual(ui.findSession("session")?.usesMediaGallery, false)
         model.userID = nil
         runtime.sync()
         XCTAssertFalse(ui.sessionMediaAvailable)

@@ -406,6 +406,7 @@ struct MMSessionMediaTile: View {
                 .sheet(isPresented: $playing) { MMSessionVideoPlayer(source: source) }
             } else {
                 MMPhotoTile(photo: source, height: height, radius: radius)
+                    .accessibilityLabel("Training photo")
             }
         }
     }
@@ -468,7 +469,7 @@ struct MMSessionGallery: View {
                         ForEach(sources.indices, id: \.self) { index in
                             Button { page = index } label: {
                                 Circle().fill(index == page ? MMColor.accent : MMColor.ink200).frame(width: 6, height: 6)
-                                    .frame(width: 24, height: 30)
+                                    .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
                             }
                             .accessibilityLabel("Media \(index + 1) of \(sources.count)")
                             .accessibilityAddTraits(index == page ? .isSelected : [])

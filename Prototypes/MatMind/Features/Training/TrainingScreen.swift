@@ -686,7 +686,7 @@ struct SessionDetailScreen: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                if photo.author == "me" && session.organizer != "me" && mm.canPostParticipantPhoto(session) {
+                                if photo.author == "me" && (session.organizer != "me" || !session.usesMediaGallery) && mm.canPostParticipantPhoto(session) {
                                     Menu {
                                         Button {
                                             photoDraft = ParticipantPhotoDraft(sessionID: id, replacingPhotoID: photo.id)

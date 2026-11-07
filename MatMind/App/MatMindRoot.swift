@@ -534,7 +534,7 @@ final class LiveMatMindRuntime: AppRuntime {
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited, attended: $0.flag("attended")) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date,
                            photos: media.sources,
-                           photoContributions: media.contributions, mediaLoading: media.loading)
+                           photoContributions: media.contributions, mediaLoading: media.loading, usesMediaGallery: media.usesGallery)
 
         }
         let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))
@@ -622,7 +622,7 @@ final class LiveMatMindRuntime: AppRuntime {
                             time: RelativeDateTimeFormatter().localizedString(for: row.date("created_at") ?? Date(), relativeTo: Date()), unread: row.text("read_at").isEmpty)
         }
     }
-    private func sessionMedia(_ row: SocialRow) -> (sources: [String], contributions: [SessionPhoto]?, loading: Bool) {
+    private func sessionMedia(_ row: SocialRow) -> (sources: [String], contributions: [SessionPhoto]?, loading: Bool, usesGallery: Bool) {
         let ready = model.snapshot.media.filter { $0.text("session_id") == row.id && $0.text("state") == "ready" }
         let galleryIDs: [String]?
         if case .array(let values)? = row.values["media_ids"] { galleryIDs = values.compactMap(\.string) }
@@ -633,7 +633,7 @@ final class LiveMatMindRuntime: AppRuntime {
         }.filter { model.snapshot.participant_photos_available != true || ($0.flag("session_photo") && $0.text("owner") == row.text("organizer")) }
         let sources = galleryIDs?.compactMap { photos[$0] } ?? legacyHost.compactMap { photos[$0.id] }
         let loading = galleryIDs?.contains { photos[$0] == nil } ?? legacyHost.contains { photos[$0.id] == nil }
-        guard model.snapshot.participant_photos_available == true else { return (sources, nil, loading) }
+        guard model.snapshot.participant_photos_available == true else { return (sources, nil, loading, galleryIDs != nil) }
         var contributions = ready.filter { $0.flag("session_photo") && (galleryIDs == nil || $0.text("owner") != row.text("organizer")) }
             .sorted {
                 let a = $0.text("owner") == row.text("organizer"), b = $1.text("owner") == row.text("organizer")
@@ -642,7 +642,7 @@ final class LiveMatMindRuntime: AppRuntime {
         if let galleryIDs {
             contributions.insert(contentsOf: galleryIDs.map { SessionPhoto(id: $0, author: localID(row.text("organizer")), source: photos[$0]) }, at: 0)
         }
-        return (sources, contributions, loading)
+        return (sources, contributions, loading, galleryIDs != nil)
     }
 
     func loadPhotos() async {

@@ -338,8 +338,9 @@ struct CompleteScreen: View {
                             .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(index == selectedMedia ? MMColor.accent : .clear, lineWidth: 2) }
                             .contentShape(Rectangle()).onTapGesture { selectedMedia = index }
                             .accessibilityLabel("Preview media \(index + 1)")
+                            .accessibilityAddTraits(.isButton)
                             .overlay(alignment: .topTrailing) {
-                                MMIconButton("x", variant: .overlay, size: 32, label: "Remove media \(index + 1)") {
+                                MMIconButton("x", variant: .overlay, size: 44, label: "Remove media \(index + 1)") {
                                     media.remove(at: index); selectedMedia = min(selectedMedia, max(0, media.count - 1)); saveMedia()
                                 }
                             }

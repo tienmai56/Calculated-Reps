@@ -1119,6 +1119,7 @@ final class AppModel {
         guard !isLive else { return false }
         updateSession(sessionID) { session in
             session.photos = media
+            session.usesMediaGallery = true
             if session.photoContributions != nil {
                 session.photoContributions = session.sessionPhotos.filter { $0.author != "me" }
                     + media.map { SessionPhoto(id: $0, author: "me", source: $0) }
@@ -1132,6 +1133,7 @@ final class AppModel {
         updatePost(result.post.id) { $0.media = media }
         updateSession(sessionID) { session in
             session.photos = media
+            session.usesMediaGallery = true
             if session.photoContributions != nil {
                 session.photoContributions = session.sessionPhotos.filter { $0.author != "me" }
                     + media.map { SessionPhoto(id: $0, author: "me", source: $0) }

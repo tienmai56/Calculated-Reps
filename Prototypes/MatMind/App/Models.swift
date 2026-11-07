@@ -149,6 +149,7 @@ struct Session: Identifiable, Hashable {
     /// Nil for older servers/caches and legacy demo fixtures.
     var photoContributions: [SessionPhoto]? = nil
     var mediaLoading = false
+    var usesMediaGallery = false
 
     var sessionPhotos: [SessionPhoto] {
         photoContributions ?? photos.map { SessionPhoto(id: $0, author: organizer, source: $0) }
