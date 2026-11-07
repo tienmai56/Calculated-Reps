@@ -125,8 +125,20 @@ struct MonkeyBuilderView: View {
     var onDone: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var part: Part = .mood
+    @State private var part: Part
     @State private var pop = false
+
+    init(look: Binding<MMMonkeyLook>, name: String, mode: Mode, busy: Bool = false, startsOnExtras: Bool = false,
+         onBack: @escaping () -> Void, onSkip: (() -> Void)? = nil, onDone: @escaping () -> Void) {
+        _look = look
+        self.name = name
+        self.mode = mode
+        self.busy = busy
+        self.onBack = onBack
+        self.onSkip = onSkip
+        self.onDone = onDone
+        _part = State(initialValue: startsOnExtras ? .extras : .mood)
+    }
 
     private var hint: String {
         switch part {
@@ -454,6 +466,64 @@ struct MonkeyPromptSheet: View {
     }
 }
 
+/// The one-time new-gear sheet for members whose monkey predates extras. The picture is
+/// their own monkey trying on three looks, so it reads as "yours can do more", not as an ad.
+struct MonkeyExtrasSheet: View {
+    @Environment(AppModel.self) private var mm
+    var onTryOn: () -> Void
+    var onLater: () -> Void
+
+    /// Their monkey with a different mood and extras for each look.
+    private func trying(_ mood: MMMonkeyLook.Mood, head: MMMonkeyLook.Head? = nil, eyes: MMMonkeyLook.Eyes?) -> MMMonkeyLook {
+        var look = mm.me.monkey ?? MMMonkeyLook()
+        look.mood = mood
+        look.head = head
+        look.eyes = eyes
+        look.mouth = nil
+        return look
+    }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            HStack(alignment: .bottom, spacing: -6) {
+                MMMonkey(look: trying(.side, eyes: .specs), size: 84)
+                    .rotationEffect(.degrees(-10))
+                MMMonkey(look: trying(.grin, head: .headband, eyes: .shades), size: 124)
+                    .zIndex(1)
+                MMMonkey(look: trying(.happy, eyes: .luchador), size: 84)
+                    .rotationEffect(.degrees(10))
+            }
+            .padding(.bottom, 16)
+            .frame(maxWidth: .infinity, minHeight: 168, alignment: .bottom)
+            .background(RoundedRectangle(cornerRadius: MMRadius.xl, style: .continuous).fill(MMColor.surfaceSunken))
+            .clipShape(RoundedRectangle(cornerRadius: MMRadius.xl, style: .continuous))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Your monkey trying on specs, a headband with shades, and a luchador mask")
+            .padding(.top, 18)
+            VStack(spacing: 8) {
+                Text("Your monkey got new gear, \(mm.me.firstName).")
+                    .mmFont(.display, 28, tracking: -0.03, lineHeight: 1.05)
+                    .foregroundStyle(MMColor.ink900)
+                Text("Ear guards, shades, a luchador mask and more. Mix up to three.")
+                    .mmFont(.body, 17, lineHeight: 1.45)
+                    .foregroundStyle(MMColor.textSecondary)
+            }
+            .multilineTextAlignment(.center)
+            VStack(spacing: 6) {
+                MMButton("Try on extras", size: .lg, fullWidth: true, action: onTryOn)
+                MMButton("Maybe later", variant: .ghost, fullWidth: true, action: onLater)
+            }
+            .padding(.top, 4)
+        }
+        .padding(.horizontal, MMLayout.gutter)
+        .padding(.bottom, 12)
+        .presentationDetents([.height(540)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(MMRadius.xl)
+        .presentationBackground(MMColor.bgApp)
+    }
+}
+
 /// The builder over whatever screen was open. Saving closes it, and that screen
 /// redraws with the new monkey after the member's name.
 struct MonkeyEditScreen: View {
@@ -464,6 +534,7 @@ struct MonkeyEditScreen: View {
 
     var body: some View {
         MonkeyBuilderView(look: $look, name: mm.me.name, mode: .edit, busy: saving,
+                          startsOnExtras: mm.monkeyEditorStartsOnExtras,
                           onBack: { dismiss() },
                           onDone: { Task { await save() } })
             .onAppear { if let current = mm.me.monkey { look = current } }

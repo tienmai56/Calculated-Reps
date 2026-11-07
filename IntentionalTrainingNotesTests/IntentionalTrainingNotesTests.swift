@@ -3287,6 +3287,44 @@ final class MonkeyTests: XCTestCase {
         XCTAssertFalse(ui.shouldAskForMonkey)
     }
 
+    func testMembersWithAnOlderMonkeyHearAboutExtrasOnce() {
+        let ui = AppModel(live: false)
+        ui.run(.monkeyExtras)
+        XCTAssertNotNil(ui.me.monkey)
+        XCTAssertFalse(ui.shouldAskForMonkey, "they already have a monkey")
+        XCTAssertTrue(ui.shouldAnnounceExtras, "a monkey without extras gets the new-gear sheet on Activity")
+        ui.go(.notifications())
+        XCTAssertFalse(ui.shouldAnnounceExtras, "never over a pushed screen")
+        ui.back()
+        ui.setTab(.training)
+        XCTAssertFalse(ui.shouldAnnounceExtras, "only on Activity")
+        ui.setTab(.activity)
+        ui.editingMonkey = true
+        XCTAssertFalse(ui.shouldAnnounceExtras, "not while the builder is open")
+        ui.editingMonkey = false
+        XCTAssertTrue(ui.shouldAnnounceExtras)
+        ui.answerExtrasPrompt()
+        XCTAssertFalse(ui.shouldAnnounceExtras, "Try on extras or Maybe later: it doesn't come back")
+    }
+
+    func testExtrasSheetSkipsMembersWhoAlreadyMetExtras() async {
+        let wearing = AppModel(live: false)
+        wearing.run(.monkeyExtras)
+        wearing.me.monkey?.eyes = .shades
+        XCTAssertFalse(wearing.shouldAnnounceExtras, "already wearing extras")
+
+        let saved = AppModel(live: false)
+        saved.run(.monkeyExtras)
+        let didSave = await saved.saveMonkey(MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .tuft))
+        XCTAssertTrue(didSave)
+        XCTAssertFalse(saved.shouldAnnounceExtras, "saving from the builder means they've seen the Extras tab")
+
+        let noMonkey = AppModel(live: false)
+        noMonkey.enterDemo()
+        XCTAssertTrue(noMonkey.shouldAskForMonkey)
+        XCTAssertFalse(noMonkey.shouldAnnounceExtras, "no monkey yet: they get Your monkey's waiting instead")
+    }
+
     func testMaybeLaterStopsTheInvitation() {
         let ui = AppModel(live: false)
         ui.enterDemo()
