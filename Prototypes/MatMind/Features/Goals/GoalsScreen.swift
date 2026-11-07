@@ -1,3 +1,5 @@
+import AVKit
+import CoreTransferable
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
@@ -201,7 +203,7 @@ struct GoalDetailScreen: View {
                 updated.notes = draftNotes
                 if mm.saveGoal(updated, parts: draftParts) { mm.back() }
             }
-            .disabled(!hasChanges(goal) || draftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!hasChanges(goal) || draftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draftParts.contains { $0.isLoadingMedia })
         }
         .onAppear {
             guard loadedID != goal.id else { return }
@@ -448,7 +450,7 @@ struct WorkingOnGoalCard: View {
 }
 
 /// Add or edit a goal: what you're working on, broken down into parts. Each part
-/// carries its own notes, video link and photos; nothing is saved until Add goal.
+/// contains numbered notes with their own references; nothing is saved until Add goal.
 struct MatGoalEditorSheet: View {
     @Environment(AppModel.self) private var mm
     @Environment(\.dismiss) private var dismiss
@@ -469,7 +471,9 @@ struct MatGoalEditorSheet: View {
         showsGoalNotes = !draft.notes.isEmpty
     }
 
-    private var canSave: Bool { !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var canSave: Bool {
+        !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !parts.contains { $0.isLoadingMedia }
+    }
 
     var body: some View {
         ScrollView {
@@ -522,7 +526,7 @@ struct MatGoalEditorSheet: View {
 
 // MARK: - Parts
 
-/// A photo on a part while it's being edited: one already saved (`stored`),
+/// A photo on a note while it's being edited: one already saved (`stored`),
 /// or one just picked from the library (`data`, written to disk on save).
 struct GoalPhotoDraft: Identifiable, Equatable {
     let id: UUID
@@ -544,147 +548,150 @@ struct GoalPhotoDraft: Identifiable, Equatable {
     static func == (a: GoalPhotoDraft, b: GoalPhotoDraft) -> Bool { a.id == b.id }
 }
 
-/// A part of a goal as edited on screen. `AppModel.saveGoal(_:parts:)` turns it into a `GoalPart`.
+/// A picked movie owns its temporary file until the draft is saved or dismissed.
+final class GoalVideoFile: Sendable {
+    let url: URL
+    init(url: URL) { self.url = url }
+    deinit { try? FileManager.default.removeItem(at: url) }
+}
+
+struct GoalPickedVideo: Transferable {
+    let file: GoalVideoFile
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(importedContentType: .movie) { received in
+            let ext = received.file.pathExtension.lowercased()
+            let suffix = ["mp4", "mov", "m4v"].contains(ext) ? ext : "mov"
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("goal-video-\(UUID().uuidString).\(suffix)")
+            try FileManager.default.copyItem(at: received.file, to: url)
+            return GoalPickedVideo(file: GoalVideoFile(url: url))
+        }
+    }
+}
+
+struct GoalVideoDraft: Identifiable, Equatable {
+    let id = UUID()
+    var stored: String?
+    var file: GoalVideoFile?
+    var url: URL? {
+        if let file { return file.url }
+        return stored.map { source in
+            if let url = URL(string: source), url.scheme == "https" { return url }
+            return URL(fileURLWithPath: MatGoal.photoSource(source))
+        }
+    }
+    static func == (a: Self, b: Self) -> Bool { a.id == b.id }
+}
+
+struct GoalNoteDraft: Identifiable, Equatable {
+    var id: String = UUID().uuidString.lowercased()
+    var text = ""
+    var links: [String] = []
+    var photos: [GoalPhotoDraft] = []
+    var videos: [GoalVideoDraft] = []
+    var isLoadingMedia = false
+
+    init() {}
+    init(_ note: GoalNote) {
+        id = note.id
+        text = note.text
+        links = note.links
+        photos = note.photos.map { GoalPhotoDraft(stored: $0) }
+        videos = note.videos.map { GoalVideoDraft(stored: $0) }
+    }
+    var isBlank: Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && links.isEmpty && photos.isEmpty && videos.isEmpty
+    }
+}
+
 struct GoalPartDraft: Identifiable, Equatable {
     var id: String
     var title = ""
-    var notes = ""
-    var link = ""
-    var photos: [GoalPhotoDraft] = []
+    var noteItems: [GoalNoteDraft] = [GoalNoteDraft()]
 
-    init(id: String = GoalPart.newID()) {
-        self.id = id
-    }
-
+    init(id: String = GoalPart.newID()) { self.id = id }
     init(_ part: GoalPart) {
         id = part.id
         title = part.title
-        notes = part.notes
-        link = part.link
-        photos = part.photos.map { GoalPhotoDraft(stored: $0) }
+        noteItems = part.resolvedNotes.map(GoalNoteDraft.init)
+        if noteItems.isEmpty { noteItems = [GoalNoteDraft()] }
     }
-
     var displayName: String {
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return name.isEmpty ? "Unnamed part" : name
     }
+    var isBlank: Bool { title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && noteItems.allSatisfy(\.isBlank) }
+    var isLoadingMedia: Bool { noteItems.contains { $0.isLoadingMedia } }
+    var contentsSummary: String {
+        GoalPart.summary(noteCount: noteItems.filter { !$0.isBlank }.count,
+                         linkCount: noteItems.flatMap(\.links).count,
+                         photoCount: noteItems.flatMap(\.photos).count,
+                         videoCount: noteItems.flatMap(\.videos).count)
+    }
 }
 
-/// "Break it down": the parts of a goal as cards. One card is open at a time;
-/// the rest show a one-line summary. Parts have no order to follow.
+/// Parts are the only cards. Numbered notes and their references use plain rows.
 struct GoalPartsEditor: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var parts: [GoalPartDraft]
     @State private var openID: String?
-    @State private var viewing: ViewerTarget?
-
-    private struct ViewerTarget: Identifiable {
-        let id = UUID()
-        let partID: String
-        let index: Int
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Break it down")
-                    .mmFont(.display, 16, lineHeight: 1.25)
+                    .mmFont(.display, 18, lineHeight: 1.2)
                     .foregroundStyle(MMColor.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 if !parts.isEmpty {
                     Text(parts.count == 1 ? "1 part" : "\(parts.count) parts")
-                        .mmFont(.body, 13)
-                        .foregroundStyle(MMColor.textTertiary)
+                        .mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                 }
             }
-            if parts.isEmpty {
-                emptyState
-            } else {
-                ForEach($parts) { $part in
-                    let id = part.id
-                    GoalPartCard(part: $part,
-                                 isOpen: openID == id,
-                                 canMoveUp: parts.first?.id != id,
-                                 canMoveDown: parts.last?.id != id,
-                                 onToggle: { toggle(id) },
-                                 onRemove: { remove(id) },
-                                 onMove: { move(id, by: $0) },
-                                 onViewPhoto: { viewing = ViewerTarget(partID: id, index: $0) })
-                }
-                Button(action: addPart) {
-                    HStack(spacing: 8) {
-                        MMIcon("plus", size: 18, weight: .bold)
-                        Text("Add another part").mmFont(.display, 15, lineHeight: 1)
-                    }
-                    .foregroundStyle(MMColor.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(Capsule().fill(MMColor.paper2))
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(MMPressStyle())
+            Text("Add a note for each detail. Attach links, photos, and videos that explain it.")
+                .mmFont(.body, 13, lineHeight: 1.4)
+                .foregroundStyle(MMColor.textTertiary)
+            ForEach($parts) { $part in
+                let id = part.id
+                GoalPartCard(part: $part, isOpen: openID == id,
+                             canMoveUp: parts.first?.id != id, canMoveDown: parts.last?.id != id,
+                             onToggle: { animate { openID = openID == id ? nil : id } },
+                             onRemove: { animate { parts.removeAll { $0.id == id } } },
+                             onMove: { offset in move(id, by: offset) })
             }
+            Button(action: addPart) {
+                HStack(spacing: 8) {
+                    MMIcon("plus", size: 18, weight: .bold)
+                    Text(parts.isEmpty ? "Add a part" : "Add another part").mmFont(.display, 15, lineHeight: 1)
+                }
+                .foregroundStyle(MMColor.textPrimary)
+                .frame(maxWidth: .infinity).frame(height: 48)
+                .background(Capsule().fill(MMColor.paper2))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(MMPressStyle())
         }
-        .fullScreenCover(item: $viewing) { target in
-            if let i = parts.firstIndex(where: { $0.id == target.partID }) {
-                GoalPhotoViewer(part: $parts[i], startIndex: target.index)
-            }
+        .onChange(of: parts.map(\.id), initial: true) { _, ids in
+            if !ids.contains(openID ?? "") { openID = ids.first }
         }
     }
 
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Big moves are a few small ones")
-                    .mmFont(.display, 16, lineHeight: 1.25)
-                    .foregroundStyle(MMColor.textPrimary)
-                Text("Split it into the parts you want to sharpen. Each part gets its own notes, video and photos.")
-                    .mmFont(.body, 13, lineHeight: 1.4)
-                    .foregroundStyle(MMColor.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            MMButton("Break it down", variant: .secondary, size: .sm, iconLeft: "plus", action: addPart)
-        }
-        .padding(MMSpace.s7)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous).fill(MMColor.surfaceSunken))
+    private func animate(_ action: () -> Void) {
+        withAnimation(reduceMotion ? nil : MMMotion.easeOut(), action)
     }
-
-    private func animate(_ change: () -> Void) {
-        withAnimation(reduceMotion ? nil : MMMotion.easeOut(), change)
-    }
-
     private func addPart() {
         let part = GoalPartDraft()
-        animate {
-            parts.append(part)
-            openID = part.id
-        }
+        animate { parts.append(part); openID = part.id }
     }
-
-    private func toggle(_ id: String) {
-        animate { openID = openID == id ? nil : id }
-    }
-
-    private func remove(_ id: String) {
-        animate {
-            parts.removeAll { $0.id == id }
-            if openID == id { openID = nil }
-        }
-    }
-
     private func move(_ id: String, by offset: Int) {
-        guard let from = parts.firstIndex(where: { $0.id == id }) else { return }
-        let to = from + offset
-        guard parts.indices.contains(to) else { return }
-        animate { parts.swapAt(from, to) }
+        guard let index = parts.firstIndex(where: { $0.id == id }), parts.indices.contains(index + offset) else { return }
+        animate { parts.swapAt(index, index + offset) }
     }
 }
 
-/// One part: closed, it's a summary row; open, it edits the name, notes, video link and photos.
 private struct GoalPartCard: View {
-    @Environment(AppModel.self) private var mm
     @Binding var part: GoalPartDraft
     let isOpen: Bool
     let canMoveUp: Bool
@@ -692,371 +699,278 @@ private struct GoalPartCard: View {
     let onToggle: () -> Void
     let onRemove: () -> Void
     let onMove: (Int) -> Void
-    let onViewPhoto: (Int) -> Void
-
-    /// Photos per part; keeps the picker and memory in check.
-    static let photoLimit = 20
-
     @FocusState private var nameFocused: Bool
-    @FocusState private var linkFocused: Bool
-    @State private var editingLink = false
-    @State private var linkDraft = ""
-    @State private var linkError: String?
-    @State private var picked: [PhotosPickerItem] = []
-    @State private var justAdded: String?
     @State private var confirmRemove = false
 
-    private var isBlank: Bool {
-        part.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && part.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && part.link.isEmpty && part.photos.isEmpty
-    }
-
     var body: some View {
-        Group {
-            if isOpen { open } else { closed }
+        VStack(alignment: .leading, spacing: 0) {
+            if isOpen {
+                HStack(spacing: 0) {
+                    TextField("Objective", text: $part.title)
+                        .focused($nameFocused)
+                        .mmFont(.display, 17, lineHeight: 1.2)
+                        .foregroundStyle(MMColor.textPrimary).tint(MMColor.accent)
+                        .accessibilityLabel("Objective")
+                    MMIconButton("trash-2", label: "Remove part") { requestRemove() }
+                        .disabled(part.isLoadingMedia)
+                    MMIconButton("chevron-up", label: "Close part", action: onToggle)
+                }
+                ForEach($part.noteItems) { $note in
+                    let noteID = note.id
+                    let number = (part.noteItems.firstIndex { $0.id == note.id } ?? 0) + 1
+                    if number > 1 {
+                        Rectangle().fill(MMColor.borderDefault).frame(height: 1)
+                    }
+                    GoalNoteRow(note: $note, number: number) {
+                        part.noteItems.removeAll { $0.id == noteID }
+                    }
+                }
+                GoalTextAction(title: "Add a note", icon: "plus", color: MMColor.textTertiary) {
+                    part.noteItems.append(GoalNoteDraft())
+                }
+                .padding(.leading, 28).frame(minHeight: MMLayout.tapTarget)
+            } else {
+                Button(action: onToggle) {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(part.displayName).mmFont(.display, 16, lineHeight: 1.25)
+                                .foregroundStyle(MMColor.textPrimary)
+                            Text(part.contentsSummary).mmFont(.body, 13)
+                                .foregroundStyle(MMColor.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        MMIcon("chevron-down", size: 20, color: MMColor.ink500)
+                    }
+                    .frame(minHeight: MMLayout.tapTarget).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16).mmCardSurface(radius: MMRadius.lg)
+        .contextMenu {
+            if canMoveUp { Button("Move up") { onMove(-1) } }
+            if canMoveDown { Button("Move down") { onMove(1) } }
+            Button(role: .destructive, action: requestRemove) { Label("Remove part", image: "trash-2") }
+                .disabled(part.isLoadingMedia)
         }
         .confirmationDialog("Remove \(part.displayName)?", isPresented: $confirmRemove, titleVisibility: .visible) {
             Button("Remove part", role: .destructive, action: onRemove)
             Button("Keep it", role: .cancel) {}
-        } message: {
-            Text("Its notes, video and photos go with it.")
-        }
-        .onChange(of: picked) { _, items in load(items) }
+        } message: { Text("Its notes and references go with it.") }
+        .onAppear { if isOpen && part.isBlank { nameFocused = true } }
     }
-
-    // MARK: Closed
-
-    private var closed: some View {
-        Button(action: onToggle) {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(part.displayName)
-                        .mmFont(.display, 16, lineHeight: 1.25)
-                        .foregroundStyle(MMColor.textPrimary)
-                        .multilineTextAlignment(.leading)
-                    Text(GoalPart.summary(notes: part.notes, hasLink: !part.link.isEmpty, photoCount: part.photos.count))
-                        .mmFont(.body, 13, lineHeight: 1.3)
-                        .foregroundStyle(MMColor.textTertiary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                MMIcon("chevron-down", size: 20, color: MMColor.ink500)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(minHeight: 56)
-            .mmCardSurface(radius: MMRadius.lg)
-            .contentShape(RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous))
-        }
-        .buttonStyle(MMPressStyle())
-        .accessibilityHint("Opens its notes, video and photos")
-        .contextMenu {
-            if canMoveUp {
-                Button("Move up") { onMove(-1) }
-            }
-            if canMoveDown {
-                Button("Move down") { onMove(1) }
-            }
-            Button(role: .destructive) { requestRemove() } label: { Label("Remove part", image: "trash-2") }
-        }
-    }
-
-    // MARK: Open
-
-    private var open: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 0) {
-                TextField("Name this part", text: $part.title)
-                    .focused($nameFocused)
-                    .mmFont(.display, 17, lineHeight: 1.2)
-                    .foregroundStyle(MMColor.textPrimary)
-                    .tint(MMColor.accent)
-                    .submitLabel(.done)
-                    .accessibilityLabel("Part name")
-                smallIconButton("trash-2", label: "Remove part", action: requestRemove)
-                smallIconButton("chevron-down", label: "Close part", rotated: true, action: onToggle)
-            }
-            .padding(.trailing, -10)
-            .padding(.vertical, -6)
-
-            TextField("Notes", text: $part.notes, axis: .vertical)
-                .lineLimit(3...12)
-                .mmFont(.body, 15, lineHeight: 1.45)
-                .foregroundStyle(MMColor.textPrimary)
-                .tint(MMColor.accent)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.surfaceSunken))
-                .accessibilityLabel("Notes for \(part.displayName)")
-
-            references
-        }
-        .padding(14)
-        .mmCardSurface(radius: MMRadius.lg)
-        .overlay {
-            RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous)
-                .strokeBorder(MMColor.borderFocus, lineWidth: 1.5)
-        }
-        .task {
-            guard part.title.isEmpty else { return }
-            try? await Task.sleep(for: .seconds(0.3))
-            nameFocused = true
-        }
-    }
-
-    private func smallIconButton(_ icon: String, label: String, rotated: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            MMIcon(icon, size: 18, color: MMColor.textTertiary)
-                .rotationEffect(.degrees(rotated ? 180 : 0))
-                .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-    }
-
     private func requestRemove() {
-        if isBlank { onRemove() } else { confirmRemove = true }
+        if part.isBlank { onRemove() } else { confirmRemove = true }
     }
+}
 
-    // MARK: References
+private struct GoalNoteRow: View {
+    @Environment(AppModel.self) private var mm
+    @Binding var note: GoalNoteDraft
+    let number: Int
+    let onRemove: () -> Void
+    @State private var editingLink = false
+    @State private var linkDraft = ""
+    @State private var linkError: String?
+    @State private var picked: [PhotosPickerItem] = []
+    @State private var viewingPhoto: PhotoTarget?
+    @State private var viewingVideo: GoalVideoDraft?
+    @State private var confirmRemove = false
+    @FocusState private var linkFocused: Bool
+    @FocusState private var textFocused: Bool
 
-    private var references: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("References")
-                .mmFont(.body, 12, .semibold, lineHeight: 1.2)
-                .foregroundStyle(MMColor.textSecondary)
-            if !part.link.isEmpty {
-                linkPreview(part.link)
-            } else if editingLink {
-                linkField
-            }
-            let needsLink = part.link.isEmpty && !editingLink
-            if needsLink || part.photos.isEmpty {
-                HStack(spacing: 8) {
-                    if needsLink {
-                        Button {
-                            editingLink = true
-                            Task { @MainActor in
-                                // Focus once the field is on screen.
-                                try? await Task.sleep(for: .milliseconds(150))
-                                linkFocused = true
-                            }
-                        } label: {
-                            dashedLabel("video", "YouTube link")
-                        }
-                        .buttonStyle(MMPressStyle(scale: 0.97))
+    private struct PhotoTarget: Identifiable { let id = UUID(); let index: Int }
+    private let mediaLimit = 20
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(number)").mmFont(.body, 11, .bold)
+                .foregroundStyle(MMColor.white)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(linkFocused ? MMColor.accent : MMColor.ink900))
+                .padding(.top, 16)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 0) {
+                    TextField("What detail do you want to remember?", text: $note.text, axis: .vertical)
+                        .focused($textFocused).lineLimit(2...12)
+                        .mmFont(.body, 15, lineHeight: 1.45)
+                        .foregroundStyle(MMColor.textPrimary).tint(MMColor.accent)
+                        .accessibilityLabel("Note \(number)")
+                        .padding(.top, 14)
+                    Menu {
+                        Button(role: .destructive) {
+                            if note.isBlank { onRemove() } else { confirmRemove = true }
+                        } label: { Label("Delete note", image: "trash-2") }
+                        .disabled(note.isLoadingMedia)
+                    } label: {
+                        MMIcon("ellipsis", size: 18, color: MMColor.textTertiary)
+                            .frame(width: MMLayout.tapTarget, height: MMLayout.tapTarget)
                     }
-                    if part.photos.isEmpty {
-                        photosPicker { dashedLabel("image-plus", "Add photos") }
+                    .accessibilityLabel("Options for note \(number)")
+                }
+                ForEach(Array(note.links.enumerated()), id: \.offset) { index, link in
+                    HStack(spacing: 0) {
+                        if let url = URL(string: link) {
+                            Link(destination: url) {
+                                HStack(spacing: 6) {
+                                    MMIcon("link", size: 14)
+                                    Text(GoalPart.linkTitle(link)).mmFont(.mono, 12).lineLimit(1)
+                                    MMIcon("arrow-up-right", size: 12)
+                                }
+                                .foregroundStyle(MMColor.textTertiary)
+                                .frame(maxWidth: .infinity, minHeight: MMLayout.tapTarget, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel(link)
+                        }
+                        MMIconButton("x", label: "Remove link") { note.links.remove(at: index) }
                     }
                 }
+                if !note.photos.isEmpty || !note.videos.isEmpty { mediaStrip }
+                HStack(spacing: 16) {
+                    GoalTextAction(title: "Add a link", icon: "link", color: editingLink ? MMColor.textAccent : MMColor.textTertiary) {
+                        editingLink.toggle()
+                        if editingLink { linkFocused = true }
+                    }
+                    PhotosPicker(selection: $picked,
+                                 maxSelectionCount: max(1, mediaLimit - note.photos.count - note.videos.count),
+                                 selectionBehavior: .ordered, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
+                        HStack(spacing: 6) {
+                            MMIcon("image-plus", size: 16)
+                            Text("Photo/video").mmFont(.body, 13, .semibold)
+                        }
+                        .foregroundStyle(MMColor.textTertiary).frame(minHeight: MMLayout.tapTarget)
+                    }
+                    .disabled(note.isLoadingMedia || note.photos.count + note.videos.count >= mediaLimit)
+                    .accessibilityLabel("Add photo or video to note \(number)")
+                }
+                if note.isLoadingMedia {
+                    ProgressView("Adding media…").mmFont(.body, 12).padding(.vertical, 8)
+                }
+                if editingLink { linkField }
             }
-            if !part.photos.isEmpty { photoStrip }
+        }
+        .padding(.bottom, 12)
+        .onAppear { if number > 1 && note.isBlank { textFocused = true } }
+        .onChange(of: picked) { _, items in load(items) }
+        .confirmationDialog("Delete note \(number)?", isPresented: $confirmRemove, titleVisibility: .visible) {
+            Button("Delete note", role: .destructive, action: onRemove)
+            Button("Keep it", role: .cancel) {}
+        } message: { Text("Its references go with it.") }
+        .fullScreenCover(item: $viewingPhoto) { target in
+            GoalPhotoViewer(note: $note, startIndex: target.index)
+        }
+        .sheet(item: $viewingVideo) { video in
+            if let url = video.url {
+                GoalVideoPlayer(url: url) {
+                    note.videos.removeAll { $0.id == video.id }
+                    viewingVideo = nil
+                }
+            }
         }
     }
-
-    private func dashedLabel(_ icon: String, _ title: String) -> some View {
-        HStack(spacing: 8) {
-            MMIcon(icon, size: 18)
-            Text(title).mmFont(.body, 14, .semibold, lineHeight: 1)
-        }
-        .foregroundStyle(MMColor.textSecondary)
-        .frame(maxWidth: .infinity)
-        .frame(height: 48)
-        .background {
-            RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
-                .strokeBorder(MMColor.ink300, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-        }
-        .contentShape(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous))
-    }
-
-    // MARK: Link
 
     private var linkField: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                TextField("Paste a link", text: $linkDraft)
+                    .focused($linkFocused).keyboardType(.URL)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .submitLabel(.done).onSubmit(commitLink)
+                    .mmFont(.body, 14).tint(MMColor.accent)
+                    .accessibilityLabel("Link for note \(number)")
+                Button("Add", action: commitLink)
+                    .mmFont(.body, 14, .semibold).foregroundStyle(MMColor.textAccent)
+                    .frame(minWidth: MMLayout.tapTarget, minHeight: MMLayout.tapTarget)
+                MMIconButton("x", label: "Cancel adding link") {
+                    editingLink = false; linkDraft = ""; linkError = nil
+                }
+            }
+            Rectangle().fill(linkError == nil ? MMColor.borderStrong : MMColor.danger500).frame(height: 1)
+            if let linkError {
+                Text(linkError).mmFont(.body, 12).foregroundStyle(MMColor.danger500)
+            }
+        }
+    }
+
+    private var mediaStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                MMIcon("link", size: 18, color: MMColor.textTertiary)
-                TextField("Paste a YouTube link", text: $linkDraft)
-                    .focused($linkFocused)
-                    .keyboardType(.URL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .onSubmit(commitLink)
-                    .mmFont(.body, 15)
-                    .foregroundStyle(MMColor.textPrimary)
-                    .tint(MMColor.accent)
-                    .accessibilityLabel("YouTube link")
-                PasteButton(payloadType: String.self) { strings in
-                    guard let text = strings.first else { return }
-                    Task { @MainActor in
-                        linkDraft = text
-                        commitLink()
+                ForEach(Array(note.photos.enumerated()), id: \.element.id) { index, photo in
+                    Button { viewingPhoto = PhotoTarget(index: index) } label: {
+                        GoalPhotoImage(photo: photo)
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: MMRadius.sm))
                     }
+                    .accessibilityLabel("Photo \(index + 1) for note \(number)")
                 }
-                .labelStyle(.titleOnly)
-                .buttonBorderShape(.capsule)
-                .tint(MMColor.ink900)
-                smallIconButton("x", label: "Cancel") {
-                    editingLink = false
-                    linkDraft = ""
-                    linkError = nil
-                }
-            }
-            .padding(.leading, 14)
-            .frame(minHeight: 50)
-            .background {
-                let shape = RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous)
-                ZStack {
-                    shape.fill(MMColor.surfaceInput)
-                    shape.strokeBorder(linkError == nil ? MMColor.borderFocus : MMColor.danger500, lineWidth: 1.5)
+                ForEach(note.videos) { video in
+                    Button { viewingVideo = video } label: {
+                        MMIcon("play", size: 20, color: MMColor.textSecondary)
+                            .frame(width: 56, height: 56)
+                            .background(RoundedRectangle(cornerRadius: MMRadius.sm).fill(MMColor.paper2))
+                    }
+                    .accessibilityLabel("Play video for note \(number)")
                 }
             }
-            Text(linkError ?? "Links with a timestamp start the clip right there.")
-                .mmFont(.body, 12, .medium, lineHeight: 1.3)
-                .foregroundStyle(linkError == nil ? MMColor.textTertiary : MMColor.danger500)
+            .buttonStyle(.plain).padding(.vertical, 4)
         }
     }
 
     private func commitLink() {
         guard let link = AppModel.normalizedLink(linkDraft) else {
-            linkError = "That doesn't look like a link"
-            return
+            linkError = "That doesn't look like a link"; return
         }
-        part.link = link
-        editingLink = false
-        linkDraft = ""
-        linkError = nil
+        if !note.links.contains(link) { note.links.append(link) }
+        linkDraft = ""; linkError = nil; editingLink = false; linkFocused = false
     }
 
-    @ViewBuilder
-    private func linkPreview(_ link: String) -> some View {
-        let start = GoalPart.linkStart(link)
-        let host = URL(string: link)?.host ?? link
-        let content = HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: MMRadius.sm, style: .continuous).fill(MMColor.ink800)
-                MMIcon("play", size: 18, weight: .bold, color: MMColor.paper)
-            }
-            .frame(width: 88, height: 50)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(GoalPart.linkTitle(link))
-                    .mmFont(.body, 13, .semibold, lineHeight: 1.3)
-                    .foregroundStyle(MMColor.textPrimary)
-                Text(start.map { "\(host) · from \($0)" } ?? host)
-                    .mmFont(.mono, 11)
-                    .foregroundStyle(MMColor.textTertiary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        HStack(spacing: 0) {
-            if let url = URL(string: link) {
-                Link(destination: url) { content }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Opens the video")
-            } else {
-                content
-            }
-            smallIconButton("x", label: "Remove video") { part.link = "" }
-        }
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.surfaceBase))
-    }
-
-    // MARK: Photos
-
-    private func photosPicker<PickerLabel: View>(@ViewBuilder label: () -> PickerLabel) -> some View {
-        PhotosPicker(selection: $picked,
-                     maxSelectionCount: max(1, Self.photoLimit - part.photos.count),
-                     selectionBehavior: .ordered,
-                     matching: .images,
-                     photoLibrary: .shared(),
-                     label: label)
-            .buttonStyle(MMPressStyle(scale: 0.97))
-            .accessibilityLabel("Add photos")
-            .accessibilityHint("You can pick several at once")
-    }
-
-    private var photoStrip: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text(part.photos.count == 1 ? "1 photo" : "\(part.photos.count) photos")
-                    .mmFont(.body, 13, lineHeight: 1.3)
-                    .foregroundStyle(MMColor.textSecondary)
-                Spacer()
-                if let justAdded {
-                    HStack(spacing: 4) {
-                        MMIcon("check", size: 14, weight: .bold, color: MMColor.mint700)
-                        Text(justAdded).mmFont(.body, 12, .semibold, lineHeight: 1.3).foregroundStyle(MMColor.mint700)
-                    }
-                    .transition(.opacity)
-                }
-            }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    if part.photos.count < Self.photoLimit {
-                        photosPicker {
-                            VStack(spacing: 2) {
-                                MMIcon("image-plus", size: 20)
-                                Text("Add").mmFont(.body, 11, .semibold, lineHeight: 1.2)
-                            }
-                            .foregroundStyle(MMColor.textSecondary)
-                            .frame(width: 72, height: 72)
-                            .background {
-                                RoundedRectangle(cornerRadius: MMRadius.sm, style: .continuous)
-                                    .strokeBorder(MMColor.ink300, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                            }
-                            .contentShape(RoundedRectangle(cornerRadius: MMRadius.sm, style: .continuous))
-                        }
-                    }
-                    ForEach(Array(part.photos.enumerated()), id: \.element.id) { i, photo in
-                        Button { onViewPhoto(i) } label: {
-                            MMColor.paper3
-                                .frame(width: 72, height: 72)
-                                .overlay { GoalPhotoImage(photo: photo) }
-                                .clipShape(RoundedRectangle(cornerRadius: MMRadius.sm, style: .continuous))
-                                .contentShape(RoundedRectangle(cornerRadius: MMRadius.sm, style: .continuous))
-                        }
-                        .buttonStyle(MMPressStyle(scale: 0.96))
-                        .accessibilityLabel("Photo \(i + 1) of \(part.photos.count)")
-                        .accessibilityHint("Opens it full screen")
-                    }
-                }
-            }
-        }
-    }
-
-    /// Loads every picked photo in the order picked, scaled down right away to keep memory low.
     private func load(_ items: [PhotosPickerItem]) {
         guard !items.isEmpty else { return }
+        note.isLoadingMedia = true
         Task { @MainActor in
-            var added: [GoalPhotoDraft] = []
-            var failed = 0
+            defer { note.isLoadingMedia = false; picked = [] }
             for item in items {
-                if let data = try? await item.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data),
-                   let jpeg = AppModel.goalPhotoJPEG(image),
-                   let preview = UIImage(data: jpeg) {
-                    added.append(GoalPhotoDraft(data: jpeg, preview: preview))
-                } else {
-                    failed += 1
-                }
-            }
-            picked = []
-            if !added.isEmpty {
-                let message = added.count == 1 ? "1 photo added" : "\(added.count) photos added"
-                part.photos.append(contentsOf: added)
-                withAnimation(MMMotion.easeOut()) { justAdded = message }
-                AccessibilityNotification.Announcement(message).post()
-                try? await Task.sleep(for: .seconds(2.6))
-                if justAdded == message { withAnimation(MMMotion.easeOut()) { justAdded = nil } }
-            }
-            if failed > 0 {
-                mm.showToast(failed == 1 ? "A photo couldn't be read" : "\(failed) photos couldn't be read")
+                if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+                    if let movie = try? await item.loadTransferable(type: GoalPickedVideo.self) {
+                        let size = (try? movie.file.url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+                        if size > 0 && size <= AppModel.goalVideoSizeLimit {
+                            note.videos.append(GoalVideoDraft(file: movie.file))
+                        } else { mm.showToast("Choose a video under 50 MB") }
+                    } else { mm.showToast("That video couldn't be read") }
+                } else if let data = try? await item.loadTransferable(type: Data.self),
+                          let image = UIImage(data: data), let jpeg = AppModel.goalPhotoJPEG(image),
+                          let preview = UIImage(data: jpeg) {
+                    note.photos.append(GoalPhotoDraft(data: jpeg, preview: preview))
+                } else { mm.showToast("That photo couldn't be read") }
             }
         }
+    }
+}
+
+struct GoalVideoPlayer: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer
+    var onRemove: (() -> Void)?
+    init(url: URL, onRemove: (() -> Void)? = nil) {
+        _player = State(initialValue: AVPlayer(url: url))
+        self.onRemove = onRemove
+    }
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Video").mmFont(.display, 18)
+                Spacer()
+                MMIconButton("x", label: "Close video") { dismiss() }
+            }
+            VideoPlayer(player: player)
+            if let onRemove {
+                MMButton("Remove video", variant: .ghost, iconLeft: "trash-2", action: onRemove)
+            }
+        }
+        .padding(16).background(MMColor.bgApp)
+        .onDisappear { player.pause() }
     }
 }
 
@@ -1081,23 +995,23 @@ private struct GoalPhotoImage: View {
 
 // MARK: - Photo viewer
 
-/// A part's photos full screen: swipe between them, jump with the filmstrip,
+/// A note's photos full screen: swipe between them, jump with the filmstrip,
 /// remove one with a few seconds to undo. Changes apply to the draft, so they're
 /// only kept when the goal is saved.
 private struct GoalPhotoViewer: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Binding var part: GoalPartDraft
+    @Binding var note: GoalNoteDraft
     @State private var index: Int
     @State private var removed: (photo: GoalPhotoDraft, index: Int)?
     @State private var undoToken = UUID()
 
-    init(part: Binding<GoalPartDraft>, startIndex: Int) {
-        _part = part
+    init(note: Binding<GoalNoteDraft>, startIndex: Int) {
+        _note = note
         _index = State(initialValue: startIndex)
     }
 
-    private var count: Int { part.photos.count }
+    private var count: Int { note.photos.count }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -1105,7 +1019,7 @@ private struct GoalPhotoViewer: View {
             VStack(spacing: 0) {
                 topBar
                 TabView(selection: $index) {
-                    ForEach(Array(part.photos.enumerated()), id: \.element.id) { i, photo in
+                    ForEach(Array(note.photos.enumerated()), id: \.element.id) { i, photo in
                         GoalPhotoImage(photo: photo, fit: true)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .tag(i)
@@ -1147,7 +1061,7 @@ private struct GoalPhotoViewer: View {
                 Text("\(min(index, max(count - 1, 0)) + 1) of \(count)")
                     .mmFont(.display, 16, lineHeight: 1.2)
                     .foregroundStyle(MMColor.paper)
-                Text(part.displayName)
+                Text("Note references")
                     .mmFont(.body, 12, lineHeight: 1.3)
                     .foregroundStyle(MMColor.ink300)
                     .lineLimit(1)
@@ -1160,7 +1074,7 @@ private struct GoalPhotoViewer: View {
 
     private var filmstrip: some View {
         let strip = HStack(spacing: 6) {
-            ForEach(Array(part.photos.enumerated()), id: \.element.id) { i, photo in
+            ForEach(Array(note.photos.enumerated()), id: \.element.id) { i, photo in
                 let current = i == index
                 Button {
                     withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { index = i }
@@ -1225,15 +1139,15 @@ private struct GoalPhotoViewer: View {
     }
 
     private func removeCurrent() {
-        guard part.photos.indices.contains(index) else { return }
+        guard note.photos.indices.contains(index) else { return }
         let at = index
-        let photo = part.photos.remove(at: at)
+        let photo = note.photos.remove(at: at)
         // Removing the last one closes the viewer; the part card is all that's left to show.
-        guard !part.photos.isEmpty else {
+        guard !note.photos.isEmpty else {
             dismiss()
             return
         }
-        index = min(at, part.photos.count - 1)
+        index = min(at, note.photos.count - 1)
         let token = UUID()
         undoToken = token
         withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { removed = (photo, at) }
@@ -1247,8 +1161,8 @@ private struct GoalPhotoViewer: View {
 
     private func undoRemove() {
         guard let removed else { return }
-        let at = min(removed.index, part.photos.count)
-        part.photos.insert(removed.photo, at: at)
+        let at = min(removed.index, note.photos.count)
+        note.photos.insert(removed.photo, at: at)
         index = at
         undoToken = UUID()
         withAnimation(reduceMotion ? nil : MMMotion.easeOut()) { self.removed = nil }

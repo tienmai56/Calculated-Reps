@@ -547,7 +547,12 @@ struct GoalReferenceContent: View {
 
     private func localPart(_ part: GoalPart) -> GoalPart {
         var part = part
-        part.photos = part.photos.map(MatGoal.photoSource)
+        part.noteItems = part.resolvedNotes.map { note in
+            var note = note
+            note.photos = note.photos.map(MatGoal.photoSource)
+            note.videos = note.videos.map(MatGoal.photoSource)
+            return note
+        }
         return part
     }
 }
@@ -561,15 +566,10 @@ private struct SharedGoalPartCard: View {
             Text(part.title.isEmpty ? "Unnamed part" : part.title)
                 .mmFont(.display, 16, lineHeight: 1.25)
                 .foregroundStyle(MMColor.textPrimary)
-            if !part.notes.isEmpty {
-                Text(part.notes)
-                    .mmFont(.body, 14, lineHeight: 1.45)
-                    .foregroundStyle(MMColor.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+            ForEach(Array(part.resolvedNotes.enumerated()), id: \.element.id) { index, note in
+                if index > 0 { Rectangle().fill(MMColor.borderDefault).frame(height: 1) }
+                SharedGoalNoteRow(note: note, number: index + 1)
             }
-            if !part.link.isEmpty { SharedVideoRow(link: part.link) }
-            if !part.photos.isEmpty { SharedPhotoStrip(photos: part.photos, size: 72) }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -577,39 +577,60 @@ private struct SharedGoalPartCard: View {
     }
 }
 
-/// The part's video: opens in the browser or the YouTube app, at its start time.
-private struct SharedVideoRow: View {
-    let link: String
+private struct SharedGoalNoteRow: View {
+    let note: GoalNote
+    let number: Int
+    @State private var video: VideoTarget?
+    private struct VideoTarget: Identifiable { let id = UUID(); let url: URL }
 
     var body: some View {
-        let start = GoalPart.linkStart(link)
-        let host = URL(string: link)?.host ?? link
-        let content = HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: MMRadius.sm, style: .continuous).fill(MMColor.ink800)
-                MMIcon("play", size: 18, weight: .bold, color: MMColor.paper)
-            }
-            .frame(width: 88, height: 50)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(GoalPart.linkTitle(link))
-                    .mmFont(.body, 13, .semibold, lineHeight: 1.3)
-                    .foregroundStyle(MMColor.textPrimary)
-                Text(start.map { "\(host) · from \($0)" } ?? host)
-                    .mmFont(.mono, 11)
-                    .foregroundStyle(MMColor.textTertiary)
-                    .lineLimit(1)
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(number)").mmFont(.body, 11, .bold)
+                .foregroundStyle(MMColor.white).frame(width: 20, height: 20)
+                .background(Circle().fill(MMColor.ink900)).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 8) {
+                if !note.text.isEmpty {
+                    Text(note.text).mmFont(.body, 14, lineHeight: 1.45)
+                        .foregroundStyle(MMColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                }
+                ForEach(Array(note.links.enumerated()), id: \.offset) { _, link in
+                    if let url = URL(string: link) {
+                        Link(destination: url) {
+                            HStack(spacing: 6) {
+                                MMIcon("link", size: 14)
+                                Text(GoalPart.linkTitle(link)).mmFont(.mono, 12).lineLimit(1)
+                                MMIcon("arrow-up-right", size: 12)
+                            }
+                            .foregroundStyle(MMColor.textTertiary).frame(minHeight: MMLayout.tapTarget)
+                        }
+                        .accessibilityLabel(link)
+                    }
+                }
+                if !note.photos.isEmpty { SharedPhotoStrip(photos: note.photos, size: 56) }
+                if !note.videos.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(note.videos.enumerated()), id: \.offset) { _, source in
+                                Button {
+                                    let url = URL(string: source).flatMap { $0.scheme == "https" ? $0 : nil }
+                                        ?? URL(fileURLWithPath: source)
+                                    video = VideoTarget(url: url)
+                                } label: {
+                                    MMIcon("play", size: 20, color: MMColor.textSecondary)
+                                        .frame(width: 56, height: 56)
+                                        .background(RoundedRectangle(cornerRadius: MMRadius.sm).fill(MMColor.paper2))
+                                }
+                                .accessibilityLabel("Play video for note \(number)")
+                            }
+                        }
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: MMRadius.md, style: .continuous).fill(MMColor.surfaceBase))
-        if let url = URL(string: link) {
-            Link(destination: url) { content }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the video")
-        } else {
-            content
-        }
+        .padding(.vertical, 8)
+        .sheet(item: $video) { target in GoalVideoPlayer(url: target.url) }
     }
 }
 

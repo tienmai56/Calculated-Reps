@@ -1156,7 +1156,7 @@ struct TrainingWeekCard: View {
             // A system sheet covers the shell toast; older-week logging needs its own presentation.
             if !isActivity, let toast = mm.toast, mm.canUndoTrainingToast(toast.id) {
                 MMToast(message: toast.message, actionLabel: "Undo") {
-                    Task { await mm.undoTrainingToast(toast.id) }
+                    mm.undoTrainingToastNow(toast.id)
                 }.offset(y: -12)
             }
         }
@@ -1223,7 +1223,7 @@ struct TrainingWeekCard: View {
     private func inlineUndo(_ toast: MMToastData?) -> some View {
         Button {
             guard let toast else { return }
-            Task { await mm.undoTrainingToast(toast.id) }
+            mm.undoTrainingToastNow(toast.id)
         } label: {
             HStack(spacing: MMSpace.s2) {
                 Image(systemName: "arrow.uturn.backward")
@@ -1241,7 +1241,7 @@ struct TrainingWeekCard: View {
         .buttonStyle(MMPressStyle())
         .padding(.vertical, -8)
         .opacity(toast == nil ? 0 : 1)
-        .disabled(toast == nil || mm.busy)
+        .disabled(toast == nil)
         .accessibilityHidden(toast == nil)
         .accessibilityLabel("Undo training log")
     }
