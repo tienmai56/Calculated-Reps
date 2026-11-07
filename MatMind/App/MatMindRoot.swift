@@ -958,10 +958,16 @@ final class LiveMatMindRuntime: AppRuntime {
         ui.showToast("Invite link copied", .success)
     }
     func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
+        await saveFocus(sessionID, items, blocking: true)
+    }
+    func saveFocusCompletion(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool {
+        await saveFocus(sessionID, items, blocking: false)
+    }
+    private func saveFocus(_ sessionID: String, _ items: [TrainingFocus], blocking: Bool) async -> Bool {
         guard let row = model.session(sessionID), TrainingFocusTree.isValid(items) else { return false }
         let old = SessionNoteCodec.decode(row.text("note"))
         let result = await model.perform("edit_session_focus", ["session_id": sessionID, "version": row.number("version"),
-                                                       "note": SessionNoteCodec.encode(note: old.note, focus: items)])
+                                                       "note": SessionNoteCodec.encode(note: old.note, focus: items)], blocking: blocking)
         sync(); return result != nil
     }
     func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String,

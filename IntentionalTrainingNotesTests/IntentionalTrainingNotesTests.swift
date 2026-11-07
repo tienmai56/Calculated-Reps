@@ -3513,7 +3513,8 @@ private final class TrainingRuntimeStub: AppRuntime {
     func connect(_ value: String) async -> String? { nil }
     func sessionInvitationURL(_ sessionID: String) async -> URL? { nil }
     func copySessionLink(_ sessionID: String) async {}
-    func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool { false }
+    var focusSave: @MainActor (String, [TrainingFocus]) async -> Bool = { _, _ in false }
+    func saveFocus(_ sessionID: String, _ items: [TrainingFocus]) async -> Bool { await focusSave(sessionID, items) }
     func editSession(_ sessionID: String, title: String, startsAt: Date, gym: String, note: String, focusItems: [TrainingFocus], addedGuests: [String], removedGuests: [String]) async -> Bool { false }
     func publishGoal(_ goal: MatGoal) async -> String? { nil }
     func copyGoalLink(_ sharedID: String) async -> Bool { false }
@@ -4694,5 +4695,99 @@ extension TrainingCalendarTests {
         XCTAssertNil(ui.toast, "A result for the previous account shows nothing in the next one")
         ui.applyServerQuickLogs([])
         XCTAssertTrue(ui.quickLogs.isEmpty)
+    }
+}
+
+
+final class OptimisticFocusChecklistTests: XCTestCase {
+    @MainActor
+    private func fixture() -> (AppModel, TrainingRuntimeStub, Session) {
+        let ui = AppModel(live: true)
+        let runtime = TrainingRuntimeStub()
+        ui.runtime = runtime
+        let session = Session(id: "focus-session", title: "Open mat", day: "Tue", date: 3, month: "Nov",
+                              time: "10 AM", gym: "Academy", organizer: "me", privacy: .friends,
+                              people: [Attendee(id: "me", status: .going)],
+                              focusItems: [TrainingFocus(title: "Passing", children: [TrainingFocus(title: "Underhook")], goalID: "goal"),
+                                           TrainingFocus(title: "Escapes")], startsAt: Date().addingTimeInterval(-60))
+        ui.upcoming = [session]
+        return (ui, runtime, session)
+    }
+
+    @MainActor
+    func testRapidChecksRenderImmediatelyAndSaveSeriallyAgainstRefreshedOutline() async throws {
+        let (ui, runtime, session) = fixture()
+        let started = expectation(description: "First save suspended")
+        var release: CheckedContinuation<Bool, Never>?
+        var writes: [[TrainingFocus]] = []
+        runtime.focusSave = { _, items in
+            writes.append(items)
+            if writes.count == 1 {
+                return await withCheckedContinuation { release = $0; started.fulfill() }
+            }
+            return true
+        }
+        let first = session.focusItems[0].id, second = session.focusItems[1].id
+        ui.setSessionFocusCompleted(session.id, itemID: first, completed: true)
+        XCTAssertTrue(ui.displayedFocusItems(for: session)[0].isCompleted, "No network wait before rendering")
+        XCTAssertFalse(ui.busy)
+        let save = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        await fulfillment(of: [started], timeout: 2)
+        ui.setSessionFocusCompleted(session.id, itemID: first, completed: false)
+        ui.setSessionFocusCompleted(session.id, itemID: second, completed: true)
+        XCTAssertEqual(ui.displayedFocusItems(for: session).map(\.isCompleted), [false, true])
+        XCTAssertEqual(writes.count, 1, "Taps queue behind the current versioned write")
+        // A refresh can update other fields while the first write is in flight.
+        ui.upcoming[0].focusItems[0].title = "Updated passing"
+        let refreshed = try XCTUnwrap(ui.findSession(session.id))
+        XCTAssertEqual(ui.displayedFocusItems(for: refreshed).map(\.isCompleted), [false, true])
+        release?.resume(returning: true)
+        await save.value
+        XCTAssertEqual(writes.count, 2)
+        XCTAssertEqual(writes.last?.map(\.isCompleted), [false, true])
+        XCTAssertEqual(writes.last?.first?.title, "Updated passing")
+        XCTAssertEqual(writes.last?.first?.children, session.focusItems[0].children)
+        XCTAssertEqual(writes.last?.first?.goalID, "goal")
+        XCTAssertEqual(ui.findSession(session.id)?.focusItems.map(\.isCompleted), [false, true])
+        XCTAssertNil(ui.focusCheckSaves[session.id])
+        XCTAssertFalse(ui.busy)
+    }
+
+    @MainActor
+    func testFailedSaveRollsBackChecksAndAllowsRetry() async throws {
+        let (ui, runtime, session) = fixture()
+        let item = session.focusItems[0].id
+        ui.setSessionFocusCompleted(session.id, itemID: item, completed: true)
+        let failed = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        XCTAssertTrue(ui.displayedFocusItems(for: session)[0].isCompleted)
+        await failed.value
+        XCTAssertEqual(ui.displayedFocusItems(for: session), session.focusItems)
+        XCTAssertEqual(ui.findSession(session.id), session)
+        XCTAssertNotNil(ui.toast)
+        runtime.focusSave = { _, _ in true }
+        ui.setSessionFocusCompleted(session.id, itemID: item, completed: true)
+        let retry = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        await retry.value
+        XCTAssertTrue(try XCTUnwrap(ui.findSession(session.id)).focusItems[0].isCompleted)
+    }
+
+    @MainActor
+    func testAccountResetDiscardsPendingChecksAndIgnoresLateCompletion() async throws {
+        let (ui, runtime, session) = fixture()
+        let started = expectation(description: "Save suspended")
+        var release: CheckedContinuation<Bool, Never>?
+        runtime.focusSave = { _, _ in
+            await withCheckedContinuation { release = $0; started.fulfill() }
+        }
+        ui.setSessionFocusCompleted(session.id, itemID: session.focusItems[0].id, completed: true)
+        let save = try XCTUnwrap(ui.focusCheckSaves[session.id])
+        await fulfillment(of: [started], timeout: 2)
+        ui.clearLiveData()
+        release?.resume(returning: true)
+        await save.value
+        XCTAssertNil(ui.findSession(session.id))
+        XCTAssertEqual(ui.displayedFocusItems(for: session), session.focusItems)
+        XCTAssertNil(ui.toast)
+        XCTAssertTrue(ui.focusCheckSaves.isEmpty)
     }
 }
