@@ -1,16 +1,22 @@
 # Shared-link website implementation
 
-Target host: https://matmonkey.lovable.app/
+Target host: https://mymatmonkey.com/
 
-The published site moved from `matmindbjj.lovable.app` to this host. The old host
-now returns "Project not found" rather than redirecting. Generated HTTPS links,
-preview metadata, the verification script and the signed app's Associated Domains
-must all use the current host. Existing `matmind://` links keep their native
-fallback behavior, but messaging apps cannot fetch rich previews for them. The
-App Store build needs an iOS update to start copying the new HTTPS invitation links.
+Generated HTTPS links, preview metadata, the verification script and the signed
+app's Associated Domains now select the custom domain. The app still accepts
+`matmonkey.lovable.app`, retired `matmindbjj.lovable.app` and `matmind://` invitations
+so existing codes keep their native behavior. The previous Lovable Associated
+Domain remains in the entitlement for already-shared universal links.
+
+This custom-domain change is prepared in source, not verified live. Connect
+`mymatmonkey.com` to the existing website through Lovable's custom-domain setup,
+using the DNS records Lovable provides. Publish the updated website, check the
+association and preview routes on the custom domain, then ship a new signed iOS
+build. Configuring `auth.mymatmonkey.com` in Supabase does not connect the website
+at `mymatmonkey.com`. Domain purchases alone do not publish the website.
 
 The actual website implementation is in
-[PR #1](https://github.com/tienmai56/your-note-haven/pull/1) in `your-note-haven`.
+[mat-monkey-web](https://github.com/tienmai56/mat-monkey-web).
 It handles friend, training-session, and shared-goal URLs, serves Apple's association
 JSON, and generates real PNG social cards. Prefer it over the older static
 `public/invite.html` reference, which does not provide rich previews.
@@ -72,9 +78,9 @@ database regression suite, the published website's validator and metadata
 formatter against a real PostgreSQL response, and isolated hosted preview tests
 whose fixtures were rolled back. Anonymous table access remains denied.
 
-For device acceptance, share a fresh `https://matmonkey.lovable.app/session/…`
+For device acceptance after custom-domain rollout, share a fresh `https://mymatmonkey.com/session/…`
 link in Messages and confirm the card. Links using the retired
 `matmindbjj.lovable.app` address or `matmind://` cannot fetch this website's
 preview. Existing Messages cards can retain earlier responses. End-to-end live
 HTML/image checks and a physical Messages check still require a real shared URL;
-the execution environment cannot reach the Lovable host.
+the execution environment cannot reach the custom domain under its current network policy.

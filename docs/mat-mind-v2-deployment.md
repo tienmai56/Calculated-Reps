@@ -100,13 +100,13 @@ Validation: the complete disposable PostgreSQL 17 suite passed 266 assertions pl
 
 Development links use `matmind://friend/<token>`, `matmind://session/<token>` and `matmind://goal/<token>`. Real QR images encode those actual links, and scanning redeems a server-issued expiring capability.
 
-The selected invitation host is **https://matmonkey.lovable.app/**. It is configured as `AppLinkHost`, and `applinks:matmonkey.lovable.app` is in the app's Associated Domains entitlement.
+The selected invitation host is **https://mymatmonkey.com/**. It is configured as `AppLinkHost`, and `applinks:mymatmonkey.com` is in the app's Associated Domains entitlement. The previous `applinks:matmonkey.lovable.app` entitlement and both Lovable parser aliases remain for existing invitations. Copy and system-share actions both use the configured host.
 
-The site is live, but the association file and invitation paths currently return HTTP 404. `AppLinksEnabled` remains false until the website is published with those files and routes. The iOS client continues generating `matmind://` links during this setup.
+`AppLinksEnabled` is true. Before shipping this custom-domain change, connect the root domain to the Lovable website, publish the website with the matching `APP_LINK_ORIGIN`, and verify the association, invitation routes and preview images at the new domain. The Supabase auth subdomain is separate and does not serve session previews.
 
-The website source lives in [tienmai56/your-note-haven](https://github.com/tienmai56/your-note-haven). Its implemented association endpoint and invitation routes are in [draft PR #1](https://github.com/tienmai56/your-note-haven/pull/1). The production Cloudflare build, TypeScript, focused ESLint, six unit tests, and local HTTP checks passed. The iOS invitation-readiness test also passed. Static reference assets remain in [website-link-handoff](../website-link-handoff/README.md); the actual TanStack website implementation in the PR is the publication source. The AASA file uses the team configured in this Xcode project; confirm the production App Identifier Prefix before publishing it. The fallback uses the supplied App Store listing and asks users to return to their original invitation after installation.
+The website source lives in [tienmai56/mat-monkey-web](https://github.com/tienmai56/mat-monkey-web). Static reference assets and rollout details remain in [website-link-handoff](../website-link-handoff/README.md); the TanStack website is the publication source. The AASA file uses the team configured in this Xcode project; confirm the production App Identifier Prefix before publishing it. The fallback uses the supplied App Store listing and asks users to return to their original invitation after installation.
 
-Publish the web changes, regenerate the signing profile with Associated Domains, verify valid links on a physical device, then set `AppLinksEnabled` to true. No live website changes have been made.
+Publish the web changes, regenerate the signing profile with the custom Associated Domain, verify valid links on a physical device, then ship the signed app update. Existing installed builds continue copying their previous host until updated. No live website changes have been made for this custom-domain migration.
 
 ## Validation
 
