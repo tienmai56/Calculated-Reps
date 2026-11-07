@@ -702,6 +702,10 @@ final class LiveMatMindRuntime: AppRuntime {
         let fetched = model.snapshot.server_time.flatMap { clock.date(from: $0) ?? ISO8601DateFormatter().date(from: $0) }
         ui.publishWidgetSnapshot(now: now, updatedAt: fetched.map { min($0, now) } ?? now)
     }
+    func setLike(_ postID: String, liked: Bool) {
+        model.setLike(postID, liked: liked)
+        sync()
+    }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
         if operation == "enable_notifications" { return await enableNotifications() == nil }
