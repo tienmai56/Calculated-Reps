@@ -189,9 +189,6 @@ struct TrainingFocusComposer: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Edit focus: \(root.title)")
             .accessibilityHint("Edit the title and description in this row")
-            if let goal = root.linkedGoal(in: goals), goal.hasReferenceContent {
-                TrainingGoalNotes(goal: goal, initiallyExpanded: false)
-            }
         }
     }
 
@@ -230,9 +227,6 @@ struct TrainingFocusComposer: View {
                     MMIconButton("x", label: "Remove detail") { requestRemoval(row.node) }
                 }
                 .padding(.leading, CGFloat(min(row.depth, 3)) * MMSpace.s5)
-            }
-            if let goal = root.linkedGoal(in: goals), goal.hasReferenceContent {
-                TrainingGoalNotes(goal: goal, initiallyExpanded: false)
             }
         }
         .foregroundStyle(MMColor.textPrimary)
