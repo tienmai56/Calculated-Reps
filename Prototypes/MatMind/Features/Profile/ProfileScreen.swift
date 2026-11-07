@@ -997,19 +997,14 @@ private struct NotificationRow: View {
             VStack(alignment: .leading, spacing: 0) {
                 if note.kind == .invite, let invitation = mm.pendingTrainingInvitations.first(where: { $0.id == note.session }) {
                     if let title = invitation.title {
-                        mmRich([.body(p.firstName, 15, .bold), .body(" invited you to ", 15), .body(title, 15, .bold)])
+                        message(from: p, runs: [.body(" invited you to ", 15), .body(title, 15, .bold)])
                     } else {
-                        Text("\(p.firstName) invited you to train").mmFont(.body, 15, .bold)
+                        message(from: p, runs: [.body(" invited you to train", 15, .bold)])
                     }
                     Text(invitation.gym ?? "You're invited to train.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     MMButton("View details", variant: .ghost, size: .sm) { mm.go(.session(id: invitation.id)) }
                 } else if note.kind == .invite, let s = session {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
-                            .mmMonkey(p.monkey, size: 18)
-                            .frame(minHeight: MMLayout.tapTarget)
-                        mmRich([.body(" invited you to ", 15), .body(s.title, 15, .bold)])
-                    }
+                    message(from: p, runs: [.body(" invited you to ", 15), .body(s.title, 15, .bold)])
                     Text("\(s.day), \(s.month) \(s.date) · \(s.time) · \(s.gym)").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     if s.status(of: "me") == .invited {
                         MMButton("View details", variant: .ghost, size: .sm) { mm.go(.session(id: s.id)) }
@@ -1020,18 +1015,14 @@ private struct NotificationRow: View {
                             .padding(.top, 8)
                     }
                 } else {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
-                            .mmMonkey(p.monkey, size: 18)
-                            .frame(minHeight: MMLayout.tapTarget)
-                        Text(note.kind == .invite ? " invited you to train" : " \(note.text)").mmFont(.body, 15).foregroundStyle(MMColor.textPrimary)
-                    }
+                    message(from: p, runs: [.body(note.kind == .invite ? " invited you to train" : " \(note.text)", 15)])
                     if let quote = note.quote {
                         Text("“\(quote)”").mmFont(.body, 14).foregroundStyle(MMColor.textSecondary).padding(.top, 4)
                     }
                 }
                 Text(note.time).mmFont(.body, 12, .semibold).foregroundStyle(MMColor.textTertiary).padding(.top, 2)
             }
+            .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             if let photo = note.photo {
                 Button { openNotification() } label: {
@@ -1045,6 +1036,17 @@ private struct NotificationRow: View {
         .background(note.unread ? MMColor.coral500.opacity(0.06) : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture { openNotification() }
+    }
+
+    private func message(from person: Person, runs: [MMRun]) -> some View {
+        // Keep the name, monkey and message in one text flow so continuation
+        // lines use the full column width, including under a long name.
+        (mmRich([.body(person.firstName, 15, .bold)])
+            + mmMonkeyText(person.monkey, size: 18)
+            + mmRich(runs))
+            .mmFont(.body, 15)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(minHeight: MMLayout.tapTarget, alignment: .leading)
     }
 
     private func openNotification() {
