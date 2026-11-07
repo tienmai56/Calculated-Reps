@@ -72,7 +72,7 @@ struct SocialSnapshot: Codable, Equatable {
     /// Friends' open plans have their own limit, so discovery cannot crowd out your schedule.
     var activity_sessions: [SocialRow]? = nil
     var training_invitations: [SocialRow]? = nil
-    /// Title and venue for each pending invitation (`id`, `title`, `venue`). Optional for older backends.
+    /// Read-only pending invitation details. Older backends may send only title and venue.
     var invitation_previews: [SocialRow]? = nil
     /// Optional so older caches still decode. `circle`: people who share a training partner
     /// with you (`id`, `mutual` partner ids). `follows`: who you follow.

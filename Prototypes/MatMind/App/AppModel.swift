@@ -56,6 +56,41 @@ final class AppModel {
     }
 #endif
 #if DEBUG || MAT_MIND_PROTOTYPE
+    static func trainingInvitationMock() -> AppModel {
+        let model = AppModel(live: false)
+        model.loadTrainingInvitationMock()
+        return model
+    }
+
+    /// A fresh pending invite for testing View details, Accept and Decline locally.
+    func loadTrainingInvitationMock(now: Date = Date()) {
+        guard !isLive, runtime == nil else { return }
+        reset()
+        let calendar = TrainingCalendar.calendar
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+        let start = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: tomorrow)!
+        upcoming = [Session(
+            id: "mock-training-invitation", title: "Guard passing rounds",
+            day: start.formatted(.dateTime.weekday(.abbreviated)), date: calendar.component(.day, from: start),
+            month: start.formatted(.dateTime.month(.abbreviated)), time: start.formatted(.dateTime.hour().minute().timeZone()),
+            gym: "North Shore Grappling", organizer: "jamie", privacy: .friends,
+            people: [Attendee(id: "jamie", status: .going), Attendee(id: "sarah", status: .going),
+                     Attendee(id: "alex", status: .invited), Attendee(id: "me", status: .invited)],
+            note: "Bring your gi. We'll warm up, drill passing for 20 minutes, then finish with positional rounds.",
+            focusItems: [
+                TrainingFocus(title: "Knee-cut passing", children: [TrainingFocus(title: "Control the hip before clearing the knee")]),
+                TrainingFocus(title: "Guard retention", children: [TrainingFocus(title: "Frame early and recover inside position")]),
+            ], startsAt: start)]
+        notifications = [AppNotification(id: "mock-invite-notification", kind: .invite, who: "jamie",
+                                         session: "mock-training-invitation", time: "Just now", unread: true)]
+        posts = []; completedSessions = []; toComplete = nil; quickLogs = []
+        sharedSessionIDs = []; sharedGoals = []
+        monkeyPromptAnswered = true
+        isSignedIn = true
+        setTab(.activity)
+        go(.notifications(invites: true))
+    }
+
     private(set) var quickLogMockScenario: QuickLogMockScenario = .hostPlan
     private(set) var quickLogMockRevision = UUID()
 
@@ -170,7 +205,7 @@ final class AppModel {
     var pendingTrainingInvitations: [TrainingInvitation] {
         let existing = Set(trainingInvitations.map(\.id))
         return trainingInvitations + upcoming.filter { $0.status(of: "me") == .invited && !existing.contains($0.id) }
-            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer, title: $0.title, gym: $0.gym) }
+            .map { TrainingInvitation(id: $0.id, organizer: $0.organizer, title: $0.title, gym: $0.gym, details: $0) }
     }
     /// Sessions someone else invited you to (or added you to) that you're going to, soonest first.
     func joinedInvitations(at now: Date = Date()) -> [Session] {

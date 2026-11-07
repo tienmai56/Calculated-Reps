@@ -162,14 +162,14 @@ struct Session: Identifiable, Hashable {
     var going: [String] { people.filter { $0.status == .going }.map(\.id) }
 }
 
-/// A pending invitation. Its card previews only the session title and venue;
-/// the start time, notes, focus and guest list arrive once it's accepted.
-/// Backends without invitation previews leave `title` and `gym` nil.
+/// A pending invitation with read-only details, separate from accepted plans.
+/// Older backends may deliver only the host, title and gym.
 struct TrainingInvitation: Identifiable, Hashable {
     let id: String
     let organizer: String
     var title: String? = nil
     var gym: String? = nil
+    var details: Session? = nil
 }
 
 struct AppNotification: Identifiable, Hashable {
