@@ -1,10 +1,10 @@
 import SwiftUI
 import UIKit
 
-struct TrainingInvitationCard: View {
+/// Compatibility state on the full session page when an older server has no details.
+private struct UnavailableTrainingInvitationCard: View {
     @Environment(AppModel.self) private var mm
     let invitation: TrainingInvitation
-    var showsDetailsAction = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -13,17 +13,13 @@ struct TrainingInvitationCard: View {
             let preview = [invitation.title, invitation.gym].compactMap { $0 }.joined(separator: " · ")
             Text(preview.isEmpty ? "You're invited to train." : preview)
                 .mmFont(.body, 15).foregroundStyle(MMColor.textSecondary)
-            if showsDetailsAction {
-                MMButton("View details", variant: .secondary, size: .sm, fullWidth: true) { mm.go(.session(id: invitation.id)) }
-            } else {
-                Text("Details aren't available yet. Try again later.")
-                    .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
-                HStack(spacing: 8) {
-                    MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }
-                    MMButton("Accept", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(invitation.id, .going) }
-                }
-                .disabled(mm.busy)
+            Text("Details aren't available yet. Try again later.")
+                .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
+            HStack(spacing: 8) {
+                MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }
+                MMButton("Accept", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(invitation.id, .going) }
             }
+            .disabled(mm.busy)
         }
         .padding(16)
         .mmCardSurface(radius: 22)
@@ -63,7 +59,6 @@ struct TrainingScreen: View {
     private func training(now: Date) -> some View {
         let past = section == "past"
         let list = mm.trainingSessions(past: past, relativeTo: now).filter { $0.status(of: "me") != .invited }
-        let invites = past ? [] : mm.pendingTrainingInvitations
         let rest = list
         return MMScreen(tabPadding: true) {
             MMHeader(title: "Training", large: true, trailing: {
@@ -73,16 +68,7 @@ struct TrainingScreen: View {
         } content: {
             MMTabs(items: [MMTabItem("upcoming", "Upcoming"), MMTabItem("past", "Past")], selection: $section)
                 .padding(MMSpace.s6)
-            if !past && !mm.pendingTrainingInvitations.isEmpty {
-                MMEyebrow("Invites", topPadding: 8)
-                VStack(spacing: 16) {
-                    ForEach(mm.pendingTrainingInvitations) { invitation in
-                        TrainingInvitationCard(invitation: invitation)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-            if list.isEmpty && (past || mm.pendingTrainingInvitations.isEmpty) {
+            if list.isEmpty {
                 if past {
                     MMEmptyState(artwork: .plan, title: "Your past training",
                                  message: "Sessions show up here once their start time has passed. No photo needed.",
@@ -101,7 +87,6 @@ struct TrainingScreen: View {
                     ForEach(rest) { s in sessionCard(s, now: now) }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, !past && !invites.isEmpty ? MMLayout.sectionGap : MMSpace.s0)
             }
         }
         .animation(MMMotion.easeOut(), value: list.map(\.id))
@@ -426,7 +411,7 @@ struct SessionDetailScreen: View {
                     MMIconButton("chevron-left", label: "Back") { mm.back() }
                 })
             } content: {
-                TrainingInvitationCard(invitation: invitation, showsDetailsAction: false).padding(.horizontal, 16)
+                UnavailableTrainingInvitationCard(invitation: invitation).padding(.horizontal, 16)
             }
         } else if let s = mm.findSession(id) {
             detail(s)

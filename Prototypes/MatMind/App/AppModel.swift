@@ -87,7 +87,8 @@ final class AppModel {
         sharedSessionIDs = []; sharedGoals = []
         monkeyPromptAnswered = true
         isSignedIn = true
-        setTab(.training)
+        setTab(.activity)
+        go(.notifications(invites: true))
     }
 
     private(set) var quickLogMockScenario: QuickLogMockScenario = .hostPlan

@@ -21,21 +21,21 @@ All data is sample data held in memory (`App/SeedData.swift`, from `ui_kits/app/
 ## Training invitation UI mock
 
 Choose the **TrainingInvitationMock** Xcode scheme and run on an iPhone simulator.
-It opens Training signed in as the sample member, with Jamie's pending invitation
+It opens **Notifications → Invites** signed in as the sample member, with Jamie's pending invitation
 for **Guard passing rounds** tomorrow at 6:30 PM at North Shore Grappling.
 It uses the separate prototype app, with no sign-in or backend setup.
 
 1. Tap **View details**. Read the date/time and timezone, gym, description, focus
    descriptions and guest list. Your status stays **Invited**; focus is read-only.
 2. Go back: the invite is still waiting. Open **Activity** and verify it appears in
-   Invites and is absent from Coming up. The bell also shows it under All and Invites. Notification and Training invitation cards offer only View details; RSVP controls appear only on the full session page.
+   Invites and is absent from Coming up. The bell also shows it under All and Invites. The invitation card uses the host's monkey tile, title, gym and View details only; RSVP controls appear only on the full session page. Training has no pending invitation card.
 3. Open details and **Accept**. The invitation leaves the waiting list, and the
    session appears in Training and Activity's Coming up with your status Going.
 4. Tap **Reset invite** in the sample-data bar, then open View details and try **Decline**. The invitation
    leaves the waiting list without adding a plan. Reset restores it for another run.
 
 The date moves with the device's current day. All responses are simulated in memory;
-relaunching or Reset invite restores the pending invitation. This previews the UI;
+relaunching or Reset invite returns to Notifications → Invites with the pending invitation. This previews the UI;
 use the database regression suite to verify the live invitation permissions.
 
 ## Quick training log UI mock

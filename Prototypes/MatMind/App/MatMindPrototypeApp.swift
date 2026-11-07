@@ -25,12 +25,17 @@ struct MatMindPrototypeApp: App {
         WindowGroup {
             Group {
                 if checklistReview { SessionChecklistReview() }
+                else if invitationMock {
+                    VStack(spacing: 0) {
+                        TrainingInvitationMockControls()
+                        MMAppShell()
+                    }
+                }
                 else { MMAppShell() }
             }
                 .id(model.quickLogMockRevision)
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    if invitationMock { TrainingInvitationMockControls() }
-                    else if quickLogMock { QuickLogMockControls() }
+                    if quickLogMock && !invitationMock { QuickLogMockControls() }
                 }
                 .environment(model)
                 .preferredColorScheme(.light)
