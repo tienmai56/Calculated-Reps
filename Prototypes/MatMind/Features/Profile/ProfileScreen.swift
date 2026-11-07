@@ -846,12 +846,11 @@ private struct NotificationInvites: View {
                             .mmFont(.body, 14, lineHeight: 1.3)
                             .foregroundStyle(MMColor.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        Button("Join") { mm.rsvp(session.id, .going) }
+                        Button("View details") { mm.go(.session(id: session.id)) }
                             .mmFont(.display, 14, .bold, lineHeight: 1)
                             .foregroundStyle(MMColor.textLink)
                             .frame(minWidth: MMLayout.tapTarget, minHeight: MMLayout.tapTarget)
-                            .disabled(mm.busy)
-                            .accessibilityLabel("Join \(session.title)")
+                            .accessibilityLabel("View details for \(session.title)")
                     }
                     .padding(.horizontal, 20)
                 }
@@ -919,12 +918,6 @@ private struct PendingInviteCard: View {
             }
             .accessibilityElement(children: .combine)
             MMButton("View details", variant: .secondary, size: .sm, fullWidth: true) { mm.go(.session(id: invitation.id)) }
-            HStack(spacing: MMSpace.s3) {
-                Spacer(minLength: 0)
-                MMButton("Decline", variant: .ghost, size: .sm) { mm.rsvp(invitation.id, .declined) }
-                MMButton("Join", variant: .inverse, size: .sm, iconLeft: "check") { mm.rsvp(invitation.id, .going) }
-            }
-            .disabled(mm.busy)
         }
         .padding(.horizontal, 14)
         .padding(.top, 14)
@@ -1010,10 +1003,6 @@ private struct NotificationRow: View {
                     }
                     Text(invitation.gym ?? "You're invited to train.").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     MMButton("View details", variant: .ghost, size: .sm) { mm.go(.session(id: invitation.id)) }
-                    HStack(spacing: 8) {
-                        MMButton("Decline", variant: .secondary, size: .sm) { mm.rsvp(invitation.id, .declined) }
-                        MMButton("Accept", size: .sm, iconLeft: "check") { mm.rsvp(invitation.id, .going) }
-                    }.padding(.top, 10)
                 } else if note.kind == .invite, let s = session {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text(p.firstName).mmFont(.body, 15, .bold).foregroundStyle(MMColor.textPrimary)
@@ -1023,11 +1012,8 @@ private struct NotificationRow: View {
                     }
                     Text("\(s.day), \(s.month) \(s.date) · \(s.time) · \(s.gym)").mmFont(.body, 13).foregroundStyle(MMColor.textTertiary)
                     if s.status(of: "me") == .invited {
-                        HStack(spacing: 8) {
-                            MMButton("Decline", variant: .secondary, size: .sm) { mm.rsvp(s.id, .declined) }
-                            MMButton("Join", size: .sm, iconLeft: "check") { mm.rsvp(s.id, .going) }
-                        }
-                        .padding(.top, 10)
+                        MMButton("View details", variant: .ghost, size: .sm) { mm.go(.session(id: s.id)) }
+                            .padding(.top, 10)
                     } else {
                         let going = s.status(of: "me") == .going
                         MMBadge(going ? "You're going" : "Declined", variant: going ? .success : .neutral, dot: true)

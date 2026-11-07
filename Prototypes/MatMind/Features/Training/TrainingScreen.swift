@@ -18,10 +18,11 @@ struct TrainingInvitationCard: View {
             } else {
                 Text("Details aren't available yet. Try again later.")
                     .mmFont(.body, 13).foregroundStyle(MMColor.textSecondary)
-            }
-            HStack(spacing: 8) {
-                MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }
-                MMButton("Accept", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(invitation.id, .going) }
+                HStack(spacing: 8) {
+                    MMButton("Decline", variant: .secondary, size: .sm, fullWidth: true) { mm.rsvp(invitation.id, .declined) }
+                    MMButton("Accept", size: .sm, iconLeft: "check", fullWidth: true) { mm.rsvp(invitation.id, .going) }
+                }
+                .disabled(mm.busy)
             }
         }
         .padding(16)
@@ -568,11 +569,15 @@ struct SessionDetailScreen: View {
                         MMButton("Copy link", variant: .soft, iconLeft: "link", fullWidth: true) { mm.copySessionLink(s.id) }
                     }
                 }
-            } else if mine == .invited {
+            } else if mine == .invited || mine == .declined {
                 HStack(spacing: 8) {
-                    MMButton("Decline", variant: .secondary, fullWidth: true) {
-                        mm.rsvp(s.id, .declined)
-                        mm.back()
+                    if mine == .invited {
+                        MMButton("Decline", variant: .secondary, fullWidth: true) {
+                            mm.rsvp(s.id, .declined)
+                            mm.back()
+                        }
+                    } else {
+                        MMBadge("Declined", variant: .neutral)
                     }
                     MMButton("Accept", iconLeft: "check", fullWidth: true) { mm.rsvp(s.id, .going) }
                 }

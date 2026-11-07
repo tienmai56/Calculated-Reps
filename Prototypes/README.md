@@ -28,10 +28,10 @@ It uses the separate prototype app, with no sign-in or backend setup.
 1. Tap **View details**. Read the date/time and timezone, gym, description, focus
    descriptions and guest list. Your status stays **Invited**; focus is read-only.
 2. Go back: the invite is still waiting. Open **Activity** and verify it appears in
-   Invites and is absent from Coming up. The bell also shows it under All and Invites.
+   Invites and is absent from Coming up. The bell also shows it under All and Invites. Notification and Training invitation cards offer only View details; RSVP controls appear only on the full session page.
 3. Open details and **Accept**. The invitation leaves the waiting list, and the
    session appears in Training and Activity's Coming up with your status Going.
-4. Tap **Reset invite** in the sample-data bar, then try **Decline**. The invitation
+4. Tap **Reset invite** in the sample-data bar, then open View details and try **Decline**. The invitation
    leaves the waiting list without adding a plan. Reset restores it for another run.
 
 The date moves with the device's current day. All responses are simulated in memory;
