@@ -711,9 +711,9 @@ private struct GoalPartCard: View {
                         .mmFont(.display, 17, lineHeight: 1.2)
                         .foregroundStyle(MMColor.textPrimary).tint(MMColor.accent)
                         .accessibilityLabel("Objective")
+                    MMIconButton("chevron-up", label: "Close part", action: onToggle)
                     MMIconButton("trash-2", label: "Remove part") { requestRemove() }
                         .disabled(part.isLoadingMedia)
-                    MMIconButton("chevron-up", label: "Close part", action: onToggle)
                 }
                 ForEach($part.noteItems) { $note in
                     let noteID = note.id
