@@ -723,7 +723,7 @@ private struct GoalPartCard: View {
                         part.noteItems.removeAll { $0.id == noteID }
                     }
                 }
-                GoalTextAction(title: "Add a note", icon: "plus", color: MMColor.textTertiary) {
+                GoalTextAction(title: "Add a note", icon: "plus") {
                     part.noteItems.append(GoalNoteDraft())
                 }
                 .padding(.leading, 28).frame(minHeight: MMLayout.tapTarget)
@@ -759,6 +759,27 @@ private struct GoalPartCard: View {
     }
     private func requestRemove() {
         if part.isBlank { onRemove() } else { confirmRemove = true }
+    }
+}
+
+private struct GoalNoteAttachmentLabel: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let title: String
+    let icon: String
+    var isActive = false
+
+    var body: some View {
+        HStack(spacing: MMSpace.s3) {
+            MMIcon(icon, size: 16, color: isEnabled ? MMColor.coral700 : MMColor.textDisabled)
+            Text(title)
+                .mmFont(.body, 13, .semibold)
+                .foregroundStyle(isEnabled ? (isActive ? MMColor.coral700 : MMColor.textPrimary) : MMColor.textDisabled)
+        }
+        .padding(.horizontal, MMSpace.s5)
+        .frame(minHeight: MMLayout.tapTarget)
+        .background(Capsule().fill(isEnabled && isActive ? MMColor.accentTint : MMColor.surfaceSunken))
+        .contentShape(Capsule())
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
@@ -826,23 +847,15 @@ private struct GoalNoteRow: View {
                     }
                 }
                 if !note.photos.isEmpty || !note.videos.isEmpty { mediaStrip }
-                HStack(spacing: 16) {
-                    GoalTextAction(title: "Add a link", icon: "link", color: editingLink ? MMColor.textAccent : MMColor.textTertiary) {
-                        editingLink.toggle()
-                        if editingLink { linkFocused = true }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: MMSpace.s4) {
+                        attachmentActions
                     }
-                    PhotosPicker(selection: $picked,
-                                 maxSelectionCount: max(1, mediaLimit - note.photos.count - note.videos.count),
-                                 selectionBehavior: .ordered, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
-                        HStack(spacing: 6) {
-                            MMIcon("image-plus", size: 16)
-                            Text("Photo/video").mmFont(.body, 13, .semibold)
-                        }
-                        .foregroundStyle(MMColor.textTertiary).frame(minHeight: MMLayout.tapTarget)
+                    VStack(alignment: .leading, spacing: MMSpace.s4) {
+                        attachmentActions
                     }
-                    .disabled(note.isLoadingMedia || note.photos.count + note.videos.count >= mediaLimit)
-                    .accessibilityLabel("Add photo or video to note \(number)")
                 }
+                .padding(.vertical, MMSpace.s2)
                 if note.isLoadingMedia {
                     ProgressView("Adding media…").mmFont(.body, 12).padding(.vertical, 8)
                 }
@@ -867,6 +880,28 @@ private struct GoalNoteRow: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var attachmentActions: some View {
+        Button {
+            editingLink.toggle()
+            if editingLink { linkFocused = true }
+        } label: {
+            GoalNoteAttachmentLabel(title: "Add a link", icon: "link", isActive: editingLink)
+        }
+        .buttonStyle(MMPressStyle())
+        .accessibilityLabel("Add a link to note \(number)")
+        .accessibilityValue(editingLink ? "Link editor open" : "Link editor closed")
+
+        PhotosPicker(selection: $picked,
+                     maxSelectionCount: max(1, mediaLimit - note.photos.count - note.videos.count),
+                     selectionBehavior: .ordered, matching: .any(of: [.images, .videos]), photoLibrary: .shared()) {
+            GoalNoteAttachmentLabel(title: "Photo/video", icon: "image-plus")
+        }
+        .buttonStyle(MMPressStyle())
+        .disabled(note.isLoadingMedia || note.photos.count + note.videos.count >= mediaLimit)
+        .accessibilityLabel("Add photo or video to note \(number)")
     }
 
     private var linkField: some View {
