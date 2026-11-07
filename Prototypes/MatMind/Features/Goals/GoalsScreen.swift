@@ -706,11 +706,11 @@ private struct GoalPartCard: View {
         VStack(alignment: .leading, spacing: 0) {
             if isOpen {
                 HStack(spacing: 0) {
-                    TextField("Name this part", text: $part.title)
+                    TextField("Objective", text: $part.title)
                         .focused($nameFocused)
                         .mmFont(.display, 17, lineHeight: 1.2)
                         .foregroundStyle(MMColor.textPrimary).tint(MMColor.accent)
-                        .accessibilityLabel("Part name")
+                        .accessibilityLabel("Objective")
                     MMIconButton("trash-2", label: "Remove part") { requestRemove() }
                         .disabled(part.isLoadingMedia)
                     MMIconButton("chevron-up", label: "Close part", action: onToggle)
