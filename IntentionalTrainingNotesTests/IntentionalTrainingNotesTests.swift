@@ -4427,14 +4427,140 @@ extension TrainingCalendarTests {
         let toast = try XCTUnwrap(ui.toast)
         await fulfillment(of: [started], timeout: 1)
         let undo = Task { await ui.undoTrainingToast(toast.id) }
-        await Task.yield()
+        let deadline = Date().addingTimeInterval(1)
+        while ui.quickLogs.contains(where: { $0.id == log.id }), Date() < deadline { await Task.yield() }
         XCTAssertEqual(operations, ["create_quick_log"], "Undo waits for the create")
+        XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id }, "The UI removes the log while its create is still pending")
+        XCTAssertNil(ui.toast)
+        XCTAssertFalse(ui.busy, "Undo does not block the app while waiting for the create")
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty, "A stale snapshot cannot undo the local removal")
         resume?.resume(returning: true)
         await undo.value
         XCTAssertEqual(operations, ["create_quick_log", "delete_quick_log"])
         XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id })
         ui.applyServerQuickLogs([])
         XCTAssertTrue(ui.dayLogs(day).isEmpty, "An undone log never comes back from the local list")
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty, "Even a late read after the delete must not resurrect the log")
+    }
+
+    @MainActor func testUndoRemovesLogAndCountsBeforeDeleteFinishesAndAllowsAnotherLog() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        _ = await ui.quickLogSaves[log.id]?.value
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 3])
+        let toast = try XCTUnwrap(ui.toast)
+        let started = expectation(description: "Delete started")
+        var resume: CheckedContinuation<Bool, Never>?
+        var deletes = 0
+        runtime.command = { operation, _ in
+            guard operation == "delete_quick_log" else { return true }
+            deletes += 1
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await fulfillment(of: [started], timeout: 1)
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        XCTAssertTrue(TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID).trends.isEmpty, "Counts disappear with the log before the delete finishes")
+        XCTAssertNil(ui.toast)
+        XCTAssertFalse(ui.busy)
+        await ui.undoTrainingToast(toast.id)
+        XCTAssertEqual(deletes, 1, "A repeated Undo tap must not submit another delete")
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        let next = try XCTUnwrap(ui.logTrainingNow(day), "Logging remains available while Undo saves")
+        _ = await ui.quickLogSaves[next.id]?.value
+        let nextToast = ui.toast?.id
+        resume?.resume(returning: true)
+        await undo.value
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [next.id])
+        XCTAssertNil(ui.quickLogHitsByID[log.id])
+        XCTAssertEqual(ui.toast?.id, nextToast, "An older Undo result cannot dismiss a newer log's toast")
+    }
+
+    @MainActor func testFailedUndoRestoresLogCountsAndRetryWithoutLosingNewLogs() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        _ = await ui.quickLogSaves[log.id]?.value
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 4])
+        let toast = try XCTUnwrap(ui.toast)
+        let started = expectation(description: "Delete started")
+        var resume: CheckedContinuation<Bool, Never>?
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await fulfillment(of: [started], timeout: 1)
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        // An unrelated server log arriving during the request must survive rollback.
+        let other = QuickLog(id: "other", loggedOn: log.loggedOn, loggedAt: day.addingTimeInterval(-60), timezone: log.timezone)
+        ui.applyServerQuickLogs([log, other])
+        resume?.resume(returning: false)
+        await undo.value
+        XCTAssertEqual(Set(ui.dayLogs(day).map(\.id)), [log.id, other.id])
+        XCTAssertEqual(ui.quickLogHitsByID[log.id]?.first?.count, 4)
+        let retry = try XCTUnwrap(ui.toast)
+        XCTAssertEqual(retry.message, "Couldn't undo. Try again.")
+        XCTAssertTrue(ui.canUndoTrainingToast(retry.id))
+        runtime.command = { _, _ in true }
+        await ui.undoTrainingToast(retry.id)
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [other.id])
+        XCTAssertNil(ui.quickLogHitsByID[log.id])
+    }
+
+    @MainActor func testUndoOfFailedCreateStaysRemovedWithoutSendingDeleteOrShowingSaveError() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        let started = expectation(description: "Create started")
+        var resume: CheckedContinuation<Bool, Never>?
+        var operations: [String] = []
+        runtime.command = { operation, _ in
+            operations.append(operation)
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        let toast = try XCTUnwrap(ui.toast)
+        await fulfillment(of: [started], timeout: 1)
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        let deadline = Date().addingTimeInterval(1)
+        while !ui.quickLogs.isEmpty, Date() < deadline { await Task.yield() }
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        resume?.resume(returning: false)
+        await undo.value
+        XCTAssertEqual(operations, ["create_quick_log"])
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.toast)
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+    }
+
+    @MainActor func testUndoResultAfterAccountClearingCannotRestoreLogOrToast() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        _ = await ui.quickLogSaves[log.id]?.value
+        let toast = try XCTUnwrap(ui.toast)
+        let started = expectation(description: "Delete started")
+        var resume: CheckedContinuation<Bool, Never>?
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await fulfillment(of: [started], timeout: 1)
+        ui.clearLiveData()
+        resume?.resume(returning: false)
+        await undo.value
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.quickLogHitsByID.isEmpty)
+        XCTAssertNil(ui.toast)
     }
 
     @MainActor func testSnapshotsKeepSavedLogsUntilTheServerReturnsThem() async throws {

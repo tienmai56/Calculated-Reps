@@ -1241,7 +1241,7 @@ struct TrainingWeekCard: View {
         .buttonStyle(MMPressStyle())
         .padding(.vertical, -8)
         .opacity(toast == nil ? 0 : 1)
-        .disabled(toast == nil || mm.busy)
+        .disabled(toast == nil)
         .accessibilityHidden(toast == nil)
         .accessibilityLabel("Undo training log")
     }
