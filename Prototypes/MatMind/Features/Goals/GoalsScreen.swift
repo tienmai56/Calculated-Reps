@@ -711,16 +711,14 @@ private struct GoalPartCard: View {
                         .mmFont(.display, 17, lineHeight: 1.2)
                         .foregroundStyle(MMColor.textPrimary).tint(MMColor.accent)
                         .accessibilityLabel("Objective")
+                    MMIconButton("chevron-down", label: "Close part", action: onToggle)
+                        .rotationEffect(.degrees(180))
                     MMIconButton("trash-2", label: "Remove part") { requestRemove() }
                         .disabled(part.isLoadingMedia)
-                    MMIconButton("chevron-up", label: "Close part", action: onToggle)
                 }
                 ForEach($part.noteItems) { $note in
                     let noteID = note.id
                     let number = (part.noteItems.firstIndex { $0.id == note.id } ?? 0) + 1
-                    if number > 1 {
-                        Rectangle().fill(MMColor.borderDefault).frame(height: 1)
-                    }
                     GoalNoteRow(note: $note, number: number) {
                         part.noteItems.removeAll { $0.id == noteID }
                     }
