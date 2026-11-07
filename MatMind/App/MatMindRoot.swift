@@ -443,6 +443,7 @@ final class LiveMatMindRuntime: AppRuntime {
     private var deletingComments: Set<String> = []
     /// One quiet reload after a burst of quick logs, instead of a full reload per tap.
     private var quickLogRefresh: Task<Void, Never>?
+    private var presentedLogMatches: Set<String> = []
     var busy: Bool { model.busy }
 
     init(model: SocialAppModel, ui: AppModel, imageLoader: ((String, String) async throws -> Data)? = nil) {
@@ -476,6 +477,7 @@ final class LiveMatMindRuntime: AppRuntime {
             uploadedGoalPhotos = []
             mediaKeys = [:]; mediaPhotos = [:]; publishKeys = [:]; publishRequests = [:]
             uploadedSessionPhotos = [:]
+            presentedLogMatches = []
             photoOwner = model.userID
         }
         guard let userID = model.userID else { ui.clearLiveData(); ui.isSignedIn = false; return }
@@ -483,7 +485,9 @@ final class LiveMatMindRuntime: AppRuntime {
             && model.snapshot.log_matches != nil && model.snapshot.shared_session_ids != nil
         ui.participantPhotosAvailable = model.snapshot.participant_photos_available == true
         ui.isSignedIn = true
-        if ui.quickTrainingLogEnabled, ui.trainingUndo == nil, let match = model.snapshot.log_matches?.first {
+        if ui.quickTrainingLogEnabled, ui.trainingUndo == nil,
+           let match = model.snapshot.log_matches?.first(where: { !presentedLogMatches.contains($0.id) }) {
+            presentedLogMatches.insert(match.id)
             let title = model.session(match.text("session_id"))?.text("title") ?? "your session"
             ui.trainingToast("We matched your log to \(title)") { [weak self] in
                 return await self?.perform("restore_matched_log", ["id": match.id]) ?? false
@@ -758,9 +762,15 @@ final class LiveMatMindRuntime: AppRuntime {
         // A quick log is already on the card (or about to be), so its save neither locks the app nor
         // reloads everything; one reload follows a burst of taps.
         let quickLog = ["create_quick_log", "delete_quick_log"].contains(operation)
+        // Acknowledging a suggestion is bookkeeping. It can be triggered by Undo's
+        // follow-up sync and must never turn that local action into a global spinner.
+        let acknowledgingMatch = operation == "acknowledge_log_match"
         let result = await model.perform(operation, body, key: receiptKey,
-                                         blocking: deleting == nil && deletingComment == nil && !quickLog && !["share_goal", "set_follow", "follow_username"].contains(operation),
-                                         refresh: !quickLog)
+                                         blocking: deleting == nil && deletingComment == nil && !quickLog && !acknowledgingMatch && !["share_goal", "set_follow", "follow_username"].contains(operation),
+                                         refresh: !quickLog && !acknowledgingMatch)
+        if acknowledgingMatch, result != nil, let id = body["id"] as? String {
+            model.snapshot.log_matches?.removeAll { $0.id == id }
+        }
         if quickLog, result != nil {
             if operation == "delete_quick_log", let id = body["id"] as? String {
                 model.snapshot.quick_logs?.removeAll { $0.id == id }
