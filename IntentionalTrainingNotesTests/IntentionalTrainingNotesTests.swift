@@ -7,6 +7,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     @MainActor
     func testMixedSessionGalleryLimitOrderAndCaptionOnlyPublishing() async throws {
         let ui = AppModel(live: false)
+        ui.toComplete?.startsAt = Date().addingTimeInterval(-3600)
         let session = try XCTUnwrap(ui.toComplete)
         let sources = ["/tmp/one.jpg", "/tmp/two.mp4", "/tmp/three.mov", "/tmp/four.jpg", "/tmp/five.m4v"]
         let saved = await ui.saveSessionMedia(session.id, media: sources)

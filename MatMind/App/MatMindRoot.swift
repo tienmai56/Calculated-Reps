@@ -527,13 +527,14 @@ final class LiveMatMindRuntime: AppRuntime {
             }.map { row in
             let date = row.date("starts_at") ?? Date()
             let content = SessionNoteCodec.decode(row.text("note"))
+            let media = sessionMedia(row)
             return Session(id: row.id, title: row.text("title"), day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
                            month: dateText(date, "MMM"), time: dateText(date, "h:mm a"), gym: row.text("venue"), organizer: localID(row.text("organizer")),
                            privacy: Privacy(rawValue: row.text("join_mode")) ?? .friends,
                            people: model.attendees(row.id).map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited, attended: $0.flag("attended")) },
                            note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date,
-                           photos: sessionMedia(row).sources,
-                           photoContributions: sessionMedia(row).contributions, mediaLoading: sessionMedia(row).loading)
+                           photos: media.sources,
+                           photoContributions: media.contributions, mediaLoading: media.loading)
 
         }
         let plannedIDs = Set((model.snapshot.sessions + historical).filter { $0.text("status") == "planned" }.map(\.id))

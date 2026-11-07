@@ -38,6 +38,11 @@ select pg_temp.assert_true(not exists(select 1 from storage.objects where bucket
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000009504',true);
 select pg_temp.assert_true(not exists(select 1 from storage.objects where bucket_id='session-photos'),'friend has no unpublished draft access');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000009501',true);
+select public.command('save_session_media',jsonb_build_object('session_id',:'session_id','media_ids',jsonb_build_array((:'five'::jsonb)->>0)),gen_random_uuid());
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000009502',true);
+select pg_temp.assert_true((select count(*)=1 from storage.objects where bucket_id='session-photos'),'removing a draft slide revokes its session download access');
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000009501',true);
+select public.command('save_session_media',jsonb_build_object('session_id',:'session_id','media_ids',:'five'::jsonb),gen_random_uuid());
 select gen_random_uuid() as publish_key \gset
 select public.command('complete_and_publish',jsonb_build_object('session_id',:'session_id','media_ids',:'five'::jsonb,'attendees',jsonb_build_array('00000000-0000-0000-0000-000000009501','00000000-0000-0000-0000-000000009502')),:'publish_key')->>'id' as post_id \gset
 select pg_temp.assert_true((select to_jsonb(media_ids)=:'five'::jsonb and media_id=media_ids[1] from public.posts where id=:'post_id'),'post preserves five mixed items and cover');

@@ -59,6 +59,9 @@ begin
   where m.id=candidate.id and m.owner=actor and m.session_id=s.id
  )) then raise exception 'Media upload not ready'; end if;
  update public.media_assets set state='ready' where id=any(ids) and state<>'ready';
+ -- Gallery access is governed by the ordered session selection. Do not retain
+ -- the legacy host slot after an item is removed from an unpublished gallery.
+ update public.media_assets set session_photo=false where session_id=s.id and owner=actor and session_photo;
  update public.sessions set media_ids=ids where id=s.id;
  return jsonb_build_object('media_ids',ids);
 end $$;
