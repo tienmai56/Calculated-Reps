@@ -2,8 +2,9 @@ begin;
 insert into auth.users(id) values ('10000000-0000-0000-0000-000000000001'),('10000000-0000-0000-0000-000000000002'),('10000000-0000-0000-0000-000000000003');
 insert into public.profiles(id,name) select id,'Training test' from auth.users where id::text like '10000000%';
 insert into public.account_settings(user_id,timezone) select id,'UTC' from public.profiles where id::text like '10000000%';
+-- The assertions below query today; keep this started session on today's date near midnight.
 insert into public.sessions(id,organizer,title,starts_at,timezone,venue) values
- ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','No-gi',now()-interval '30 minutes','UTC','Gym');
+ ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','No-gi',greatest(date_trunc('day',now()),now()-interval '30 minutes'),'UTC','Gym');
 insert into public.session_participants select '20000000-0000-0000-0000-000000000001',id,'going',false from public.profiles where id::text like '10000000%';
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
 set local role authenticated;

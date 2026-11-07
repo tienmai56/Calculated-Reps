@@ -54,7 +54,7 @@ struct SocialPostScreen: View {
             List {
                 SocialPostCard(post:post).listRowInsets(EdgeInsets())
                 let liked = app.snapshot.likes.contains { $0.text("post_id")==postID && $0.text("user_id")==app.userID }
-                Button(liked ? "Unlike" : "Like") { Task { await app.perform("set_like",["post_id":postID,"liked":!liked]) } }
+                Button(liked ? "Unlike" : "Like") { app.setLike(postID, liked: !liked) }
                 Section("Comments") {
                     ForEach(app.snapshot.comments.filter { $0.text("post_id")==postID }.reversed()) { row in VStack(alignment:.leading) { Text(app.person(row.text("author"))).font(.caption.bold()); Text(row.text("body")) } }
                     Button("Load earlier comments") { Task { await app.loadMoreComments(postID) } }

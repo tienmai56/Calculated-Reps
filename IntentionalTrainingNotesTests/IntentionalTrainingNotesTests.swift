@@ -299,9 +299,14 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testPreviewInvitationShowsNoDetailsUntilAccepted() throws {
+    func testPreviewInvitationDetailsCanOpenWithoutAnswering() throws {
         let ui = AppModel(live: false)
         let invitation = try XCTUnwrap(ui.pendingTrainingInvitations.first)
+        let details = try XCTUnwrap(invitation.details)
+        XCTAssertEqual(details.status(of: "me"), .invited)
+        ui.go(.session(id: invitation.id))
+        XCTAssertEqual(ui.pendingTrainingInvitations.first, invitation)
+        XCTAssertEqual(ui.findSession(invitation.id)?.status(of: "me"), .invited)
         XCTAssertFalse(ui.activityPlans().contains { $0.id == invitation.id })
         ui.rsvp(invitation.id, .going)
         XCTAssertFalse(ui.pendingTrainingInvitations.contains { $0.id == invitation.id })
@@ -323,7 +328,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
                        session("declined", host: "marco", me: .declined), session("hosted", host: "me", me: .going)]
         ui.completedSessions = []
         XCTAssertEqual(ui.pendingTrainingInvitations,
-                       [TrainingInvitation(id: "pending", organizer: "jamie", title: "Pending", gym: "Harbor Jiu-Jitsu")])
+                       [TrainingInvitation(id: "pending", organizer: "jamie", title: "Pending", gym: "Harbor Jiu-Jitsu", details: ui.upcoming[0])])
         XCTAssertEqual(ui.joinedInvitations(at: now).map(\.id), ["joined"], "Your own plans aren't invitations")
         XCTAssertEqual(ui.declinedInvitations(at: now).map(\.id), ["declined"])
         XCTAssertTrue(ui.joinedInvitations(at: start.addingTimeInterval(60)).isEmpty, "Started sessions leave the Invites tab")
@@ -333,7 +338,7 @@ final class IntentionalTrainingNotesTests: XCTestCase {
     }
 
     @MainActor
-    func testLiveInvitationPreviewAddsOnlyTitleAndVenue() throws {
+    func testOlderInvitationPreviewAddsOnlyTitleAndVenue() throws {
         let model = SocialAppModel()
         model.userID = "owner"
         model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
@@ -347,8 +352,49 @@ final class IntentionalTrainingNotesTests: XCTestCase {
             TrainingInvitation(id: "invitation", organizer: "host", title: "Lunch rolls", gym: "Tidewater BJJ"),
             TrainingInvitation(id: "older", organizer: "host"),
         ], "Backends without a preview keep the generic invitation")
-        XCTAssertNil(ui.findSession("invitation"), "A preview never creates a session or reveals its time")
+        XCTAssertNil(ui.findSession("invitation"), "An invitation is separate from accepted plans")
         XCTAssertTrue(ui.activityPlans().isEmpty)
+    }
+
+    @MainActor
+    func testLiveInvitationDetailsStayPendingAndSeparateFromPlans() throws {
+        let model = SocialAppModel()
+        model.userID = "owner"
+        model.snapshot = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"""
+        {"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[],
+         "training_invitations":[{"id":"invitation","organizer":"host","organizer_name":"Sarah"}],
+         "invitation_previews":[{"id":"invitation","title":"Lunch rolls","venue":"Tidewater BJJ",
+           "starts_at":"2099-01-01T18:00:00Z","timezone":"America/Los_Angeles","join_mode":"friends",
+           "participants":[{"user_id":"host","name":"Sarah","rsvp":"going"},
+             {"user_id":"owner","name":"Dani","rsvp":"invited"},
+             {"user_id":"guest","name":"Alex","rsvp":"going"}]}]}
+        """#.utf8))
+        let focus = [TrainingFocus(title: "Knee cut", children: [TrainingFocus(title: "Control the hip")])]
+        model.snapshot.invitation_previews?[0].values["note"] = .string(SessionNoteCodec.encode(note: "Bring your gi", focus: focus))
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        let invitation = try XCTUnwrap(ui.pendingTrainingInvitations.first)
+        let details = try XCTUnwrap(invitation.details)
+        XCTAssertEqual(details.title, "Lunch rolls")
+        XCTAssertEqual(details.gym, "Tidewater BJJ")
+        XCTAssertEqual(details.startsAt, model.snapshot.invitation_previews?[0].date("starts_at"))
+        XCTAssertEqual(details.note, "Bring your gi")
+        XCTAssertEqual(details.focusItems, focus)
+        XCTAssertEqual(details.people.map(\.id), ["host", "me", "guest"])
+        XCTAssertEqual(details.status(of: "me"), .invited)
+        XCTAssertEqual(ui.person("guest").name, "Alex")
+        XCTAssertTrue(details.sessionPhotos.isEmpty)
+        ui.go(.session(id: invitation.id))
+        XCTAssertEqual(ui.pendingTrainingInvitations.first, invitation, "Viewing never answers the invitation")
+        XCTAssertNil(ui.findSession(invitation.id))
+        XCTAssertTrue(ui.activityPlans().isEmpty)
+        XCTAssertTrue(ui.plannedSessions.isEmpty)
+        XCTAssertEqual(ui.rhythmSessionDates, [])
+        model.snapshot.training_invitations = []
+        model.snapshot.invitation_previews = []
+        runtime.sync()
+        XCTAssertTrue(ui.pendingTrainingInvitations.isEmpty, "Revoked or declined invitations lose their details on refresh")
     }
 
     @MainActor
@@ -1168,18 +1214,93 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(roundTrip, withParts)
     }
 
-    func testGoalPartSummaryAndVideoStartTimes() {
-        XCTAssertEqual(GoalPart.summary(notes: "- Cup the knee\n\n- Pull it tight", hasLink: true, photoCount: 2), "2 notes · 1 video · 2 photos")
+    func testGoalPartSummaryAndLinkTitles() {
+        XCTAssertEqual(GoalPart.summary(notes: "- Cup the knee\n\n- Pull it tight", hasLink: true, photoCount: 2), "2 notes · 1 link · 2 photos")
         XCTAssertEqual(GoalPart.summary(notes: "", hasLink: false, photoCount: 1), "1 photo")
         XCTAssertEqual(GoalPart.summary(notes: "  ", hasLink: false, photoCount: 0), "Nothing added yet")
 
-        XCTAssertEqual(GoalPart.linkStart("https://youtu.be/abc?t=102"), "1:42")
-        XCTAssertEqual(GoalPart.linkStart("https://www.youtube.com/watch?v=abc&t=1m42s"), "1:42")
-        XCTAssertEqual(GoalPart.linkStart("https://www.youtube.com/embed/abc?start=3725"), "1:02:05")
-        XCTAssertNil(GoalPart.linkStart("https://www.youtube.com/watch?v=abc"))
-        XCTAssertNil(GoalPart.linkStart("https://youtu.be/abc?t=soon"))
         XCTAssertEqual(GoalPart.linkTitle("https://youtu.be/abc"), "YouTube video")
         XCTAssertEqual(GoalPart.linkTitle("https://www.bjjfanatics.com/x"), "bjjfanatics.com")
+    }
+
+    func testLegacyPartKeepsItsReferencesTogetherAsOneStableNote() throws {
+        let json = #"{"id":"entry","title":"Entry","notes":"- Collar tie\n- Level change","link":"https://youtu.be/example?t=42","photos":["old.jpg"]}"#
+        let part = try JSONDecoder().decode(GoalPart.self, from: Data(json.utf8))
+        XCTAssertEqual(part.resolvedNotes.count, 1, "Don't guess which sentence the old pile of references explained")
+        XCTAssertEqual(part.resolvedNotes.first?.text, "- Collar tie\n- Level change")
+        XCTAssertEqual(part.resolvedNotes.first?.links, ["https://youtu.be/example?t=42"], "Keep the original URL without interpreting timestamps")
+        XCTAssertEqual(part.resolvedNotes.first?.photos, ["old.jpg"])
+        XCTAssertEqual(part.resolvedNotes.first?.id, GoalPartDraft(part).noteItems.first?.id)
+        XCTAssertEqual(part, try JSONDecoder().decode(GoalPart.self, from: JSONEncoder().encode(part)))
+    }
+
+    @MainActor
+    func testGoalNotesKeepReferencesSeparateAndCleanUpOnlyRemovedMedia() throws {
+        let ui = AppModel(live: false)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { context in
+            UIColor.orange.setFill(); context.fill(CGRect(x: 0, y: 0, width: 20, height: 20))
+        }
+        let data = try XCTUnwrap(image.pngData())
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mp4")
+        try Data("file-lifecycle-fixture".utf8).write(to: source)
+        let videoFile = GoalVideoFile(url: source)
+        let goal = MatGoal(id: "note-test-\(UUID().uuidString)", title: "Single leg")
+        defer { ui.deleteGoal(goal.id) }
+        var part = GoalPartDraft(id: "setup")
+        part.title = "Setup & level change"
+        part.noteItems[0].text = "  Collar tie, then snap down.  "
+        part.noteItems[0].links = ["youtu.be/entry", "https://example.com/setup"]
+        part.noteItems[0].photos = [GoalPhotoDraft(data: data, preview: image)]
+        var second = GoalNoteDraft()
+        second.text = "Turn the corner."
+        second.links = ["https://example.com/finish"]
+        second.videos = [GoalVideoDraft(file: videoFile)]
+        part.noteItems += [second, GoalNoteDraft()]
+        XCTAssertTrue(ui.saveGoal(goal, parts: [part]))
+        let saved = try XCTUnwrap(ui.goal(goal.id))
+        let notes = saved.parts[0].noteItems
+        XCTAssertEqual(notes.count, 2)
+        XCTAssertEqual(notes[0].text, "Collar tie, then snap down.")
+        XCTAssertEqual(notes[0].links, ["https://youtu.be/entry", "https://example.com/setup"])
+        XCTAssertTrue(notes[0].videos.isEmpty)
+        XCTAssertEqual(notes[1].links, ["https://example.com/finish"])
+        XCTAssertTrue(notes[1].photos.isEmpty)
+        XCTAssertEqual(saved, try JSONDecoder().decode(MatGoal.self, from: JSONEncoder().encode(saved)))
+        XCTAssertEqual(saved.parts[0].contentsSummary, "2 notes · 3 links · 1 photo · 1 video")
+        let files = saved.allMedia.map { MatGoal.photoRoot.appendingPathComponent($0) }
+        XCTAssertTrue(files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+        var edit = GoalPartDraft(saved.parts[0])
+        edit.noteItems.removeFirst()
+        XCTAssertTrue(ui.saveGoal(saved, parts: [edit]))
+        XCTAssertEqual(ui.goal(goal.id)?.parts[0].noteItems.first?.id, second.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: files[0].path), "Only the removed note's photo is deleted")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: files[1].path), "The other note's video survives")
+        ui.deleteGoal(goal.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: files[1].path))
+    }
+
+    @MainActor
+    func testFailedNoteMediaSaveLeavesTheExistingGoalAndFilesIntact() throws {
+        let ui = AppModel(live: false)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { _ in }
+        let data = try XCTUnwrap(image.pngData())
+        let goal = MatGoal(id: "failed-note-\(UUID().uuidString)", title: "Single leg")
+        defer { ui.deleteGoal(goal.id) }
+        var part = GoalPartDraft()
+        part.noteItems[0].photos = [GoalPhotoDraft(data: data, preview: image)]
+        XCTAssertTrue(ui.saveGoal(goal, parts: [part]))
+        let saved = try XCTUnwrap(ui.goal(goal.id))
+        let folder = MatGoal.photoRoot.appendingPathComponent(goal.id)
+        let before = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
+        var edit = GoalPartDraft(saved.parts[0])
+        edit.noteItems[0].photos += [GoalPhotoDraft(data: data, preview: image), GoalPhotoDraft(data: Data("invalid".utf8), preview: image)]
+        XCTAssertFalse(ui.saveGoal(saved, parts: [edit]))
+        XCTAssertEqual(ui.goal(goal.id), saved)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted(), before, "Roll back newly written files")
+        edit = GoalPartDraft(saved.parts[0])
+        edit.noteItems[0].isLoadingMedia = true
+        XCTAssertFalse(ui.saveGoal(saved, parts: [edit]), "Don't save while the picker is still importing media")
+        XCTAssertEqual(ui.goal(goal.id), saved)
     }
 
     func testGoalPartsSavePhotosAndDropEmptyParts() throws {
@@ -1194,27 +1315,27 @@ final class MatMindLiveUITests: XCTestCase {
         goal.title = "Single leg from standing"
         var grip = GoalPartDraft(id: "grip")
         grip.title = "  Grip on the near leg "
-        grip.link = "youtu.be/abc?t=102"
-        grip.photos = [GoalPhotoDraft(data: data, preview: image), GoalPhotoDraft(data: data, preview: image)]
+        grip.noteItems[0].links = ["youtu.be/abc"]
+        grip.noteItems[0].photos = [GoalPhotoDraft(data: data, preview: image), GoalPhotoDraft(data: data, preview: image)]
         var notesOnly = GoalPartDraft(id: "head")
-        notesOnly.notes = "Head inside"
+        notesOnly.noteItems[0].text = "Head inside"
         let blank = GoalPartDraft(id: "blank")
         XCTAssertTrue(ui.saveGoal(goal, parts: [grip, notesOnly, blank]))
 
         let saved = try XCTUnwrap(ui.goal(goal.id))
         XCTAssertEqual(saved.parts.map(\.id), ["grip", "head"], "Parts with nothing in them are dropped")
         XCTAssertEqual(saved.parts[0].title, "Grip on the near leg")
-        XCTAssertEqual(saved.parts[0].link, "https://youtu.be/abc?t=102")
-        XCTAssertEqual(saved.parts[0].photos.count, 2)
-        let files = saved.parts[0].photos.map { MatGoal.photoRoot.appendingPathComponent($0) }
+        XCTAssertEqual(saved.parts[0].noteItems[0].links, ["https://youtu.be/abc"])
+        XCTAssertEqual(saved.parts[0].noteItems[0].photos.count, 2)
+        let files = saved.parts[0].noteItems[0].photos.map { MatGoal.photoRoot.appendingPathComponent($0) }
         XCTAssertTrue(files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
 
         // Remove one photo and the whole second part.
         var edited = GoalPartDraft(saved.parts[0])
-        edited.photos.removeLast()
+        edited.noteItems[0].photos.removeLast()
         XCTAssertTrue(ui.saveGoal(saved, parts: [edited]))
         XCTAssertEqual(ui.goal(goal.id)?.parts.count, 1)
-        XCTAssertEqual(ui.goal(goal.id)?.parts.first?.photos.count, 1)
+        XCTAssertEqual(ui.goal(goal.id)?.parts.first?.noteItems.first?.photos.count, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: files[0].path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: files[1].path), "A removed photo loses its file")
 
@@ -2471,6 +2592,141 @@ final class BackendSessionTests: XCTestCase {
         XCTAssertTrue(ui.usernamePeople.isEmpty)
     }
 
+    @MainActor
+    func testLikeUpdatesUIBeforeNetworkCompletesWithoutSpinnerOrReload() async throws {
+        let started = expectation(description: "Like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        model.snapshot.posts = [SocialRow(values: ["id": .string("post"), "author": .string("owner")])]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        ui.runtime = runtime
+        runtime.sync()
+
+        ui.like("post")
+        XCTAssertEqual(ui.post("post")?.likes, ["me"], "The tap must update before yielding to the network")
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        XCTAssertFalse(model.busy)
+        XCTAssertFalse(ui.busy)
+        runtime.sync()
+        XCTAssertEqual(ui.post("post")?.likes, ["me"], "Other UI syncs must retain the pending like")
+        await fixture.releaseLikes()
+        await save.value
+        let requests = await fixture.requests
+        XCTAssertEqual(requests.filter { $0.url?.path == "/rest/v1/rpc/command" }.count, 1)
+        XCTAssertFalse(requests.contains { $0.url?.path == "/rest/v1/rpc/snapshot" })
+        XCTAssertEqual(ui.posts.count, 1)
+    }
+
+    @MainActor
+    func testRapidUnlikeWaitsForLikeAndKeepsLatestLocalChoice() async throws {
+        let started = expectation(description: "First like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        model.setLike("post", liked: false)
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+        let beforeRelease = await fixture.requests
+        XCTAssertEqual(beforeRelease.count, 1, "Writes for one post must not race")
+        await fixture.releaseLikes()
+        await save.value
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+        let requests = await fixture.requests
+        let choices = try requests.map {
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap($0.httpBody)) as? [String: Any])
+            return try XCTUnwrap((body["payload"] as? [String: Any])?["liked"] as? Bool)
+        }
+        XCTAssertEqual(choices, [true, false])
+        await model.refresh()
+        XCTAssertTrue(model.snapshot.likes.isEmpty, "The server must also end unliked")
+    }
+
+    @MainActor
+    func testFailedLikeRestoresOnlyOwnReaction() async throws {
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStatus: 403)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let partner = SocialRow(values: ["post_id": .string("post"), "user_id": .string("partner")])
+        model.snapshot.likes = [partner]
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        XCTAssertEqual(model.snapshot.likes.count, 2)
+        await save.value
+        XCTAssertEqual(model.snapshot.likes, [partner])
+        XCTAssertNotNil(model.error)
+        XCTAssertFalse(model.busy)
+    }
+
+    @MainActor
+    func testRefreshKeepsPendingLikeUntilServerAcknowledges() async throws {
+        let likeStarted = expectation(description: "Like request in flight")
+        let snapshotStarted = expectation(description: "Older snapshot in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: snapshotStarted,
+                                         holdSnapshots: true, likeStarted: likeStarted, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let olderRead = Task { await model.refresh() }
+        await fulfillment(of: [snapshotStarted], timeout: 5)
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [likeStarted], timeout: 5)
+        await fixture.releaseSnapshots()
+        await olderRead.value
+        XCTAssertEqual(model.snapshot.likes.count, 1, "A refresh must not undo an in-flight tap")
+
+        // A second read captures the old server value while the write is still pending.
+        await model.refresh()
+        XCTAssertEqual(model.snapshot.likes.count, 1)
+        await fixture.releaseLikes()
+        await save.value
+        await model.refresh()
+        XCTAssertEqual(model.snapshot.likes.count, 1, "A fresh authoritative read confirms the saved like")
+    }
+
+    @MainActor
+    func testReadStartedBeforeLikeCannotOverwriteItsCompletedSave() async throws {
+        let started = expectation(description: "Old snapshot in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), snapshotStarted: started, holdSnapshots: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let read = Task { await model.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await save.value
+        await fixture.releaseSnapshots()
+        await read.value
+        XCTAssertEqual(model.snapshot.likes.count, 1)
+    }
+
+    @MainActor
+    func testLikeCompletionAfterLogoutCannotRestoreAccountData() async throws {
+        let started = expectation(description: "Like request in flight")
+        let fixture = BackendHTTPFixture(failureStatus: 403, failureBody: Data(), likeStarted: started, holdLikes: true)
+        let credential = CloudCredential(access_token: "fresh-token", refresh_token: "refresh", user: CloudUser(id: "owner"))
+        let (client, _) = try makeClient(credential: credential, fixture: fixture)
+        let model = SocialAppModel(backend: client)
+        model.userID = "owner"
+        let save = try XCTUnwrap(model.setLike("post", liked: true))
+        await fulfillment(of: [started], timeout: 5)
+        await model.logout()
+        await fixture.releaseLikes()
+        await save.value
+        XCTAssertNil(model.userID)
+        XCTAssertTrue(model.snapshot.likes.isEmpty)
+    }
+
     private func creationRequests() -> [SessionCreationRequest] {
         let draft = SessionDraft(title: "Partner drills", day: "", date: 0, month: "", time: "6:00 PM", gym: "Home gym",
                                  note: "Bring a gi", invited: ["friend"], privacy: .friends, past: false,
@@ -2519,6 +2775,11 @@ private actor BackendHTTPFixture {
     private var holdSnapshots: Bool
     private var snapshotWaiters: [CheckedContinuation<Void, Never>] = []
     private var profileSaved = false
+    private let likeStarted: XCTestExpectation?
+    private let likeStatus: Int
+    private var holdLikes: Bool
+    private var likeWaiters: [CheckedContinuation<Void, Never>] = []
+    private var likedPosts: Set<String> = []
     private let rhythmRows: [RhythmSession]
     private let usernameRows: [SocialRow]
     private let followUsernameStatus: Int
@@ -2528,7 +2789,8 @@ private actor BackendHTTPFixture {
     var createdSessionCount: Int { createReceipts.count }
 
     init(failureStatus: Int, failureBody: Data, rejectFreshToken: Bool = false, refreshStatus: Int = 200, refreshBody: Data? = nil,
-         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200) {
+         snapshotError: URLError.Code? = nil, snapshotStarted: XCTestExpectation? = nil, holdSnapshots: Bool = false, loseCreateResponseAt: Int? = nil, rhythmRows: [RhythmSession] = [], usernameRows: [SocialRow] = [], followUsernameStatus: Int = 200,
+         likeStarted: XCTestExpectation? = nil, holdLikes: Bool = false, likeStatus: Int = 200) {
         self.failureStatus = failureStatus
         self.failureBody = failureBody
         self.rejectFreshToken = rejectFreshToken
@@ -2541,6 +2803,16 @@ private actor BackendHTTPFixture {
         self.rhythmRows = rhythmRows
         self.usernameRows = usernameRows
         self.followUsernameStatus = followUsernameStatus
+        self.likeStarted = likeStarted
+        self.holdLikes = holdLikes
+        self.likeStatus = likeStatus
+    }
+
+    func releaseLikes() {
+        holdLikes = false
+        let waiters = likeWaiters
+        likeWaiters = []
+        for waiter in waiters { waiter.resume() }
     }
 
     func releaseSnapshots() {
@@ -2596,6 +2868,16 @@ private actor BackendHTTPFixture {
            command["operation"] as? String == "save_profile" { profileSaved = true }
         if request.url?.path == "/rest/v1/rpc/command", let body = request.httpBody,
            let command = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            if command["operation"] as? String == "set_like", let payload = command["payload"] as? [String: Any],
+               let postID = payload["post_id"] as? String, let liked = payload["liked"] as? Bool {
+                if holdLikes {
+                    likeStarted?.fulfill()
+                    await withCheckedContinuation { likeWaiters.append($0) }
+                }
+                if likeStatus != 200 { return (likeStatus, Data(#"{"message":"Like could not be saved"}"#.utf8)) }
+                if liked { likedPosts.insert(postID) } else { likedPosts.remove(postID) }
+                return (200, Data("{}".utf8))
+            }
             if command["operation"] as? String == "friend_token" {
                 return (200, try JSONSerialization.data(withJSONObject: ["token": String(repeating: "a1", count: 32)]))
             }
@@ -2617,6 +2899,7 @@ private actor BackendHTTPFixture {
         }
         if request.url?.path == "/rest/v1/rpc/snapshot" {
             var snapshot = SocialSnapshot(server_time: profileSaved ? "profile-saved" : "snapshot-loaded")
+            snapshot.likes = likedPosts.map { SocialRow(values: ["post_id": .string($0), "user_id": .string("owner")]) }
             if profileSaved {
                 snapshot.profiles = try JSONDecoder().decode([SocialRow].self, from: Data(#"[{"id":"owner","name":"Alex"}]"#.utf8))
             }
@@ -2776,7 +3059,7 @@ final class GoalSharingTests: XCTestCase {
         let goal = SharedGoal(id: "x", owner: "sarah", title: "Single leg", links: ["https://a.example", "https://b.example"],
                               photos: ["a"], parts: [GoalPart(title: "Entry", photos: ["b", "c"]),
                                                      GoalPart(title: "Pipe", link: "https://youtu.be/x")])
-        XCTAssertEqual(goal.contentsSummary, "2 parts · 1 video · 3 photos · 2 links")
+        XCTAssertEqual(goal.contentsSummary, "2 parts · 3 photos · 3 links")
         XCTAssertEqual(SharedGoal(id: "y", owner: "sarah", title: "Empty").contentsSummary, "")
         XCTAssertEqual(AppNotification.Kind(rawValue: "goal_share"), .goalShare)
     }
@@ -2785,6 +3068,29 @@ final class GoalSharingTests: XCTestCase {
         let old = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"{"server_time":null,"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]}"#.utf8))
         XCTAssertNil(old.shared_goals)
         XCTAssertNil(old.goal_shares)
+    }
+
+    @MainActor
+    func testSharedGoalSyncPreservesNoteReferenceAssociations() throws {
+        let model = SocialAppModel(backend: BackendClient(configuration: nil, loadCredential: { nil }, saveCredential: { _ in }))
+        model.userID = "me-id"
+        let json = #"""
+        {"id":"shared-notes","owner":"partner","client_id":"original","title":"Single leg","photos":[],
+         "parts":[{"id":"setup","title":"Setup","notes":"Compatibility preview","link":"https://example.com/legacy","photos":[],
+          "noteItems":[{"id":"entry","text":"Collar tie","links":["https://example.com/entry"],"photos":[],"videos":[]},
+                       {"id":"finish","text":"Turn the corner","links":["https://example.com/finish"],"photos":[],"videos":[]}]}]}
+        """#
+        model.snapshot.shared_goals = [try JSONDecoder().decode(SocialRow.self, from: Data(json.utf8))]
+        let share = #"{"goal_id":"shared-notes","recipient":"me-id","status":"accepted"}"#
+        model.snapshot.goal_shares = [try JSONDecoder().decode(SocialRow.self, from: Data(share.utf8))]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        let part = try XCTUnwrap(ui.sharedGoal("shared-notes")?.parts.first)
+        XCTAssertEqual(part.resolvedNotes.map(\.id), ["entry", "finish"])
+        XCTAssertEqual(part.resolvedNotes[0].links, ["https://example.com/entry"])
+        XCTAssertEqual(part.resolvedNotes[1].links, ["https://example.com/finish"])
+        XCTAssertFalse(part.resolvedNotes.flatMap(\.links).contains("https://example.com/legacy"), "Compatibility fields must not duplicate the modern notes")
     }
 
     @MainActor
@@ -3093,6 +3399,7 @@ private final class TrainingRuntimeStub: AppRuntime {
     var busy = false
     var command: @MainActor (String, [String: Any]) async -> Bool = { _, _ in false }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool { await command(operation, payload) }
+    func setLike(_ postID: String, liked: Bool) { Task { _ = await command("set_like", ["post_id": postID, "liked": liked]) } }
     func authenticate() async {}
     func signOut() async {}
     func partners(of personID: String) async -> [Person]? { nil }
@@ -4120,14 +4427,140 @@ extension TrainingCalendarTests {
         let toast = try XCTUnwrap(ui.toast)
         await fulfillment(of: [started], timeout: 1)
         let undo = Task { await ui.undoTrainingToast(toast.id) }
-        await Task.yield()
+        let deadline = Date().addingTimeInterval(1)
+        while ui.quickLogs.contains(where: { $0.id == log.id }), Date() < deadline { await Task.yield() }
         XCTAssertEqual(operations, ["create_quick_log"], "Undo waits for the create")
+        XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id }, "The UI removes the log while its create is still pending")
+        XCTAssertNil(ui.toast)
+        XCTAssertFalse(ui.busy, "Undo does not block the app while waiting for the create")
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty, "A stale snapshot cannot undo the local removal")
         resume?.resume(returning: true)
         await undo.value
         XCTAssertEqual(operations, ["create_quick_log", "delete_quick_log"])
         XCTAssertFalse(ui.quickLogs.contains { $0.id == log.id })
         ui.applyServerQuickLogs([])
         XCTAssertTrue(ui.dayLogs(day).isEmpty, "An undone log never comes back from the local list")
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty, "Even a late read after the delete must not resurrect the log")
+    }
+
+    @MainActor func testUndoRemovesLogAndCountsBeforeDeleteFinishesAndAllowsAnotherLog() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        _ = await ui.quickLogSaves[log.id]?.value
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 3])
+        let toast = try XCTUnwrap(ui.toast)
+        let started = expectation(description: "Delete started")
+        var resume: CheckedContinuation<Bool, Never>?
+        var deletes = 0
+        runtime.command = { operation, _ in
+            guard operation == "delete_quick_log" else { return true }
+            deletes += 1
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await fulfillment(of: [started], timeout: 1)
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        XCTAssertTrue(TechniqueTrendHistory(logs: ui.quickLogs, hitsByID: ui.quickLogHitsByID).trends.isEmpty, "Counts disappear with the log before the delete finishes")
+        XCTAssertNil(ui.toast)
+        XCTAssertFalse(ui.busy)
+        await ui.undoTrainingToast(toast.id)
+        XCTAssertEqual(deletes, 1, "A repeated Undo tap must not submit another delete")
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        let next = try XCTUnwrap(ui.logTrainingNow(day), "Logging remains available while Undo saves")
+        _ = await ui.quickLogSaves[next.id]?.value
+        let nextToast = ui.toast?.id
+        resume?.resume(returning: true)
+        await undo.value
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [next.id])
+        XCTAssertNil(ui.quickLogHitsByID[log.id])
+        XCTAssertEqual(ui.toast?.id, nextToast, "An older Undo result cannot dismiss a newer log's toast")
+    }
+
+    @MainActor func testFailedUndoRestoresLogCountsAndRetryWithoutLosingNewLogs() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let day = Date()
+        let log = try XCTUnwrap(ui.logTrainingNow(day))
+        _ = await ui.quickLogSaves[log.id]?.value
+        ui.setQuickLogHits(log.id, counts: ["heel-hook": 4])
+        let toast = try XCTUnwrap(ui.toast)
+        let started = expectation(description: "Delete started")
+        var resume: CheckedContinuation<Bool, Never>?
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await fulfillment(of: [started], timeout: 1)
+        XCTAssertTrue(ui.dayLogs(day).isEmpty)
+        // An unrelated server log arriving during the request must survive rollback.
+        let other = QuickLog(id: "other", loggedOn: log.loggedOn, loggedAt: day.addingTimeInterval(-60), timezone: log.timezone)
+        ui.applyServerQuickLogs([log, other])
+        resume?.resume(returning: false)
+        await undo.value
+        XCTAssertEqual(Set(ui.dayLogs(day).map(\.id)), [log.id, other.id])
+        XCTAssertEqual(ui.quickLogHitsByID[log.id]?.first?.count, 4)
+        let retry = try XCTUnwrap(ui.toast)
+        XCTAssertEqual(retry.message, "Couldn't undo. Try again.")
+        XCTAssertTrue(ui.canUndoTrainingToast(retry.id))
+        runtime.command = { _, _ in true }
+        await ui.undoTrainingToast(retry.id)
+        XCTAssertEqual(ui.dayLogs(day).map(\.id), [other.id])
+        XCTAssertNil(ui.quickLogHitsByID[log.id])
+    }
+
+    @MainActor func testUndoOfFailedCreateStaysRemovedWithoutSendingDeleteOrShowingSaveError() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        let started = expectation(description: "Create started")
+        var resume: CheckedContinuation<Bool, Never>?
+        var operations: [String] = []
+        runtime.command = { operation, _ in
+            operations.append(operation)
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        let toast = try XCTUnwrap(ui.toast)
+        await fulfillment(of: [started], timeout: 1)
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        let deadline = Date().addingTimeInterval(1)
+        while !ui.quickLogs.isEmpty, Date() < deadline { await Task.yield() }
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        resume?.resume(returning: false)
+        await undo.value
+        XCTAssertEqual(operations, ["create_quick_log"])
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertNil(ui.toast)
+        ui.applyServerQuickLogs([log])
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+    }
+
+    @MainActor func testUndoResultAfterAccountClearingCannotRestoreLogOrToast() async throws {
+        let (ui, runtime) = liveQuickLogModel()
+        runtime.command = { _, _ in true }
+        let log = try XCTUnwrap(ui.logTrainingNow(Date()))
+        _ = await ui.quickLogSaves[log.id]?.value
+        let toast = try XCTUnwrap(ui.toast)
+        let started = expectation(description: "Delete started")
+        var resume: CheckedContinuation<Bool, Never>?
+        runtime.command = { _, _ in
+            started.fulfill()
+            return await withCheckedContinuation { resume = $0 }
+        }
+        let undo = Task { await ui.undoTrainingToast(toast.id) }
+        await fulfillment(of: [started], timeout: 1)
+        ui.clearLiveData()
+        resume?.resume(returning: false)
+        await undo.value
+        XCTAssertTrue(ui.quickLogs.isEmpty)
+        XCTAssertTrue(ui.quickLogHitsByID.isEmpty)
+        XCTAssertNil(ui.toast)
     }
 
     @MainActor func testSnapshotsKeepSavedLogsUntilTheServerReturnsThem() async throws {

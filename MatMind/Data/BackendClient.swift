@@ -43,6 +43,7 @@ struct CloudCredential: Codable, Equatable, Sendable {
 struct CloudUser: Codable, Equatable, Sendable { var id: String }
 struct SocialRow: Codable, Identifiable, Equatable {
     var values: [String: ArchiveValue]
+    init(values: [String: ArchiveValue]) { self.values = values }
     var id: String { text("id").isEmpty ? [text("session_id"),text("post_id"),text("user_id"),text("friendship_id")].joined(separator:":") : text("id") }
     init(from decoder: Decoder) throws { values = try decoder.singleValueContainer().decode([String: ArchiveValue].self) }
     func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(values) }
@@ -71,7 +72,7 @@ struct SocialSnapshot: Codable, Equatable {
     /// Friends' open plans have their own limit, so discovery cannot crowd out your schedule.
     var activity_sessions: [SocialRow]? = nil
     var training_invitations: [SocialRow]? = nil
-    /// Title and venue for each pending invitation (`id`, `title`, `venue`). Optional for older backends.
+    /// Read-only pending invitation details. Older backends may send only title and venue.
     var invitation_previews: [SocialRow]? = nil
     /// Optional so older caches still decode. `circle`: people who share a training partner
     /// with you (`id`, `mutual` partner ids). `follows`: who you follow.
@@ -253,8 +254,8 @@ actor BackendClient {
     func comments(post: String, before: SocialRow) async throws -> [SocialRow] {
         try JSONDecoder().decode([SocialRow].self,from:await request(path:"rest/v1/rpc/comment_page",body:["target_post":post,"before_time":before.text("created_at"),"before_id":before.id]))
     }
-    func upload(_ data: Data, objectKey: String, bucket: String = "session-photos") async throws {
-        _ = try await request(path:"storage/v1/object/\(bucket)/" + objectKey, body:nil, bytes:data, contentType:"image/jpeg")
+    func upload(_ data: Data, objectKey: String, bucket: String = "session-photos", contentType: String = "image/jpeg") async throws {
+        _ = try await request(path:"storage/v1/object/\(bucket)/" + objectKey, body:nil, bytes:data, contentType:contentType)
     }
     func image(key: String, bucket: String = "session-photos") async throws -> Data {
         try await request(path:"storage/v1/object/authenticated/\(bucket)/" + key, body:nil)

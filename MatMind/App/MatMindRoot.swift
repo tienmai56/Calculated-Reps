@@ -589,7 +589,7 @@ final class LiveMatMindRuntime: AppRuntime {
             }
             return TrainingInvitation(id: row.text("id"), organizer: host)
         }
-        // Invitation cards preview the title and venue; nothing else until accepted.
+        // Invitation details stay separate from accepted plans and training history.
         let previews = Dictionary((model.snapshot.invitation_previews ?? []).map { ($0.text("id"), $0) }, uniquingKeysWith: { first, _ in first })
         // Old caches may still contain invited sessions; render only their invitation.
         for row in model.snapshot.sessions where row.text("organizer") != userID && model.attendees(row.id).contains(where: { $0.text("user_id") == userID && $0.text("rsvp") == "invited" }) {
@@ -602,6 +602,23 @@ final class LiveMatMindRuntime: AppRuntime {
             let title = preview.text("title"), venue = preview.text("venue")
             ui.trainingInvitations[i].title = title.isEmpty ? nil : title
             ui.trainingInvitations[i].gym = venue.isEmpty ? nil : venue
+            guard let date = preview.date("starts_at"),
+                  let value = preview.values["participants"], let data = try? JSONEncoder().encode(value),
+                  let participants = try? JSONDecoder().decode([SocialRow].self, from: data) else { continue }
+            for participant in participants {
+                let pid = localID(participant.text("user_id"))
+                if pid != "me", ui.people[pid] == nil {
+                    ui.people[pid] = Person(id: pid, name: participant.text("name"), belt: .white, stripes: 0, gym: "", hue: .coral)
+                }
+            }
+            let content = SessionNoteCodec.decode(preview.text("note"))
+            ui.trainingInvitations[i].details = Session(
+                id: preview.id, title: title, day: dateText(date, "EEE"), date: Int(dateText(date, "d")) ?? 1,
+                month: dateText(date, "MMM"), time: dateText(date, "h:mm a z"), gym: venue,
+                organizer: ui.trainingInvitations[i].organizer,
+                privacy: Privacy(rawValue: preview.text("join_mode")) ?? .friends,
+                people: participants.map { Attendee(id: localID($0.text("user_id")), status: RSVP(rawValue: $0.text("rsvp")) ?? .invited) },
+                note: content.note.isEmpty ? nil : content.note, focusItems: content.focus, startsAt: date)
         }
         ui.notifications = model.snapshot.notifications.map { row in
             AppNotification(id: row.id, kind: AppNotification.Kind(rawValue: row.text("kind")) ?? .published,
@@ -646,7 +663,8 @@ final class LiveMatMindRuntime: AppRuntime {
             do {
                 let data = try await imageLoader(key, "goal-media")
                 guard model.userID == owner else { return }
-                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-goal-\(UUID().uuidString).jpg")
+                let ext = URL(fileURLWithPath: key).pathExtension
+                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-goal-\(UUID().uuidString).\(ext)")
                 try data.write(to: path, options: .atomic)
                 goalPhotos[key] = path.path
             } catch { continue }
@@ -685,9 +703,18 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let value, case .array(let items) = value else { return [] }
         return items.enumerated().compactMap { index, item in
             guard case .object(let part) = item else { return nil }
-            return GoalPart(id: part["id"]?.string ?? "\(goal)-\(index)", title: part["title"]?.string ?? "",
-                            notes: part["notes"]?.string ?? "", link: part["link"]?.string ?? "",
-                            photos: (part["photos"]?.strings ?? []).compactMap { goalPhotos[$0] })
+            var result = GoalPart(id: part["id"]?.string ?? "\(goal)-\(index)", title: part["title"]?.string ?? "",
+                                  notes: part["notes"]?.string ?? "", link: part["link"]?.string ?? "",
+                                  photos: (part["photos"]?.strings ?? []).compactMap { goalPhotos[$0] })
+            if let raw = part["noteItems"], let data = try? JSONEncoder().encode(raw),
+               var notes = try? JSONDecoder().decode([GoalNote].self, from: data) {
+                for i in notes.indices {
+                    notes[i].photos = notes[i].photos.compactMap { goalPhotos[$0] }
+                    notes[i].videos = notes[i].videos.compactMap { goalPhotos[$0] }
+                }
+                result.noteItems = notes
+            }
+            return result
         }
     }
     func authenticate() async {
@@ -701,6 +728,10 @@ final class LiveMatMindRuntime: AppRuntime {
         let clock = ISO8601DateFormatter(); clock.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let fetched = model.snapshot.server_time.flatMap { clock.date(from: $0) ?? ISO8601DateFormatter().date(from: $0) }
         ui.publishWidgetSnapshot(now: now, updatedAt: fetched.map { min($0, now) } ?? now)
+    }
+    func setLike(_ postID: String, liked: Bool) {
+        model.setLike(postID, liked: liked)
+        sync()
     }
     func perform(_ operation: String, _ payload: [String: Any]) async -> Bool {
         if operation == "sign_in_apple" { await model.authenticate("apple"); sync(); return model.userID != nil }
@@ -726,11 +757,16 @@ final class LiveMatMindRuntime: AppRuntime {
             ?? UUID()
         // A quick log is already on the card (or about to be), so its save neither locks the app nor
         // reloads everything; one reload follows a burst of taps.
-        let quickLog = operation == "create_quick_log"
+        let quickLog = ["create_quick_log", "delete_quick_log"].contains(operation)
         let result = await model.perform(operation, body, key: receiptKey,
                                          blocking: deleting == nil && deletingComment == nil && !quickLog && !["share_goal", "set_follow", "follow_username"].contains(operation),
                                          refresh: !quickLog)
-        if quickLog, result != nil { scheduleQuickLogRefresh() }
+        if quickLog, result != nil {
+            if operation == "delete_quick_log", let id = body["id"] as? String {
+                model.snapshot.quick_logs?.removeAll { $0.id == id }
+            }
+            scheduleQuickLogRefresh()
+        }
         // On failure the post or comment comes back and the error alert explains why.
         if let deleting { deletingPosts.remove(deleting) }
         if let deletingComment {
@@ -931,10 +967,21 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let owner = model.userID else { model.error = "Sign in to share goals."; return nil }
         do {
             // Upload every photo at once rather than one after another, keeping their order.
-            let keys = try await uploadGoalPhotos(goal.photos + goal.parts.flatMap(\.photos), owner: owner)
+            let keys = try await uploadGoalPhotos(goal.allMedia, owner: owner)
             let photos = goal.photos.compactMap { keys[$0] }
             let parts: [[String: Any]] = goal.parts.map { part in
-                ["id": part.id, "title": part.title, "notes": part.notes, "link": part.link, "photos": part.photos.compactMap { keys[$0] }]
+                let notes = part.resolvedNotes
+                // Legacy fields let older clients keep reading the content. Modern clients
+                // use noteItems, where every reference retains its association.
+                return ["id": part.id, "title": part.title,
+                        "notes": String(notes.map(\.text).joined(separator: "\n").prefix(4000)),
+                        "link": notes.flatMap(\.links).first ?? "",
+                        "photos": notes.flatMap(\.photos).compactMap { keys[$0] },
+                        "noteItems": notes.map { note -> [String: Any] in
+                            ["id": note.id, "text": note.text, "links": note.links,
+                             "photos": note.photos.compactMap { keys[$0] },
+                             "videos": note.videos.compactMap { keys[$0] }]
+                        }]
             }
             // Not `model.perform`: saving a shared goal republishes in the background
             // and must not be refused while another command is running.
@@ -954,9 +1001,21 @@ final class LiveMatMindRuntime: AppRuntime {
     /// from this device are left out.
     private func uploadGoalPhotos(_ files: [String], owner: String) async throws -> [String: String] {
         try await withThrowingTaskGroup(of: (String, String?).self) { group in
-            for file in Set(files) { group.addTask { @MainActor in (file, try await self.uploadGoalPhoto(file, owner: owner)) } }
+            // Movies can be much larger than photos. Keep only three file bodies
+            // in flight rather than loading every attachment into memory at once.
+            var remaining = Array(Set(files)).makeIterator()
+            for _ in 0..<3 {
+                if let file = remaining.next() {
+                    group.addTask { @MainActor in (file, try await self.uploadGoalPhoto(file, owner: owner)) }
+                }
+            }
             var keys: [String: String] = [:]
-            for try await (file, key) in group { if let key { keys[file] = key } }
+            for try await (file, key) in group {
+                if let key { keys[file] = key }
+                if let next = remaining.next() {
+                    group.addTask { @MainActor in (next, try await self.uploadGoalPhoto(next, owner: owner)) }
+                }
+            }
             return keys
         }
     }
@@ -965,9 +1024,11 @@ final class LiveMatMindRuntime: AppRuntime {
     private func uploadGoalPhoto(_ photo: String, owner: String) async throws -> String? {
         guard let data = try? Data(contentsOf: MatGoal.photoRoot.appendingPathComponent(photo)) else { return nil }
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        let key = "\(owner.lowercased())/\(digest).jpg"
+        let ext = URL(fileURLWithPath: photo).pathExtension.lowercased()
+        let type = ext == "mov" ? "video/quicktime" : ext == "mp4" ? "video/mp4" : ext == "m4v" ? "video/x-m4v" : "image/jpeg"
+        let key = "\(owner.lowercased())/\(digest).\(ext)"
         if uploadedGoalPhotos.contains(key) { return key }
-        do { try await model.backend.upload(data, objectKey: key, bucket: "goal-media") }
+        do { try await model.backend.upload(data, objectKey: key, bucket: "goal-media", contentType: type) }
         catch {
             // Already there from an earlier save or a lost response: same name, same photo.
             guard let existing = try? await model.backend.image(key: key, bucket: "goal-media"), existing == data else { throw error }

@@ -13,7 +13,15 @@ import SwiftData
     var tab = 0
     var pendingLink: URL?
     private var epoch = UUID()
-    @ObservationIgnored private var refreshRequest: (id: UUID, task: Task<SocialSnapshot, Error>)?
+    @ObservationIgnored private var refreshRequest: (id: UUID, likeRevision: Int, task: Task<SocialSnapshot, Error>)?
+    private struct LocalLike {
+        var liked: Bool
+        var revision: Int
+        var pending: Bool
+    }
+    private var likeRevision = 0
+    private var localLikes: [String: LocalLike] = [:]
+    @ObservationIgnored private var likeTasks: [String: Task<Void, Never>] = [:]
     private var cache: ModelContainer?
     private let signIn = NativeCloudSignIn()
     init(backend: BackendClient = BackendClient()) {
@@ -40,19 +48,20 @@ import SwiftData
         guard userID != nil else { return }
         if force { refreshRequest?.task.cancel(); refreshRequest = nil }
         let generation = epoch
-        let request: (id: UUID, task: Task<SocialSnapshot, Error>)
+        let request: (id: UUID, likeRevision: Int, task: Task<SocialSnapshot, Error>)
         if let refreshRequest {
             request = refreshRequest
         } else {
             // This read belongs to the signed-in model. SwiftUI can cancel its
             // calling view task while switching from Google sign-in to setup.
-            request = (UUID(), Task { [backend] in try await backend.snapshot() })
+            request = (UUID(), likeRevision, Task { [backend] in try await backend.snapshot() })
             refreshRequest = request
         }
         defer { if refreshRequest?.id == request.id { refreshRequest = nil } }
         do {
-            let latest = try await request.task.value
+            var latest = try await request.task.value
             guard generation == epoch, refreshRequest?.id == request.id else { return }
+            reconcileLikes(in: &latest, readRevision: request.likeRevision)
             snapshot = latest; moreFeed = latest.posts.count == 30; persistCache()
         } catch {
             guard generation == epoch, refreshRequest?.id == request.id else { return }
@@ -64,6 +73,7 @@ import SwiftData
     }
     func hydratePost(_ id: String) async {
         let generation = epoch
+        let readRevision = likeRevision
         do {
             let rows = try await backend.postDetails(id)
             guard generation == epoch else { return }
@@ -72,7 +82,11 @@ import SwiftData
             snapshot.profiles = merged(snapshot.profiles,rows["profiles"] ?? [])
             snapshot.media = merged(snapshot.media,rows["media"] ?? [])
             snapshot.comments = merged(snapshot.comments,rows["comments"] ?? [])
-            snapshot.likes = merged(snapshot.likes,rows["likes"] ?? [])
+            // Details are authoritative for this post, including an empty likes list.
+            var latest = snapshot
+            latest.likes = snapshot.likes.filter { $0.text("post_id") != id } + (rows["likes"] ?? [])
+            reconcileLikes(in: &latest, readRevision: readRevision, postID: id)
+            snapshot.likes = latest.likes
             snapshot.tags = merged(snapshot.tags,rows["participants"] ?? [])
             persistCache()
         } catch { if generation == epoch { fail(error) } }
@@ -107,6 +121,7 @@ import SwiftData
                 try await backend.exchange(code:code,verifier:verifier)
             }
             userID = await backend.identity(); epoch = UUID()
+            resetLikes()
             refreshRequest?.task.cancel(); refreshRequest = nil
             snapshot = SocialSnapshot()
             if let userID { restoreCache(userID) }
@@ -115,10 +130,70 @@ import SwiftData
             // Closing the provider sheet leaves the user on Welcome.
         } catch { self.error = error.localizedDescription }
     }
+    /// Update the heart/count in the same tap, then serialize each post's writes.
+    /// Repeated taps replace the desired value while an earlier save is in flight.
+    @discardableResult
+    func setLike(_ postID: String, liked: Bool) -> Task<Void, Never>? {
+        guard let owner = userID else { return nil }
+        let confirmed = snapshot.likes.contains { $0.text("post_id") == postID && $0.text("user_id") == owner }
+        if confirmed == liked { return likeTasks[postID] }
+        likeRevision += 1
+        localLikes[postID] = LocalLike(liked: liked, revision: likeRevision, pending: true)
+        applyLike(liked, postID: postID, owner: owner, to: &snapshot)
+        persistCache()
+        if let task = likeTasks[postID] { return task }
+        let generation = epoch
+        let task = Task { [self] in
+            var saved = confirmed
+            while generation == epoch, let change = localLikes[postID] {
+                let requested = change.liked
+                let result = await perform("set_like", ["post_id": postID, "liked": requested], blocking: false, refresh: false)
+                guard generation == epoch else { return }
+                if result != nil { saved = requested }
+                // A newer tap takes precedence even when this older request failed.
+                if localLikes[postID]?.liked != requested { continue }
+                likeRevision += 1
+                localLikes[postID] = LocalLike(liked: saved, revision: likeRevision, pending: false)
+                applyLike(saved, postID: postID, owner: owner, to: &snapshot)
+                persistCache()
+                likeTasks[postID] = nil
+                return
+            }
+        }
+        likeTasks[postID] = task
+        return task
+    }
+
+    private func applyLike(_ liked: Bool, postID: String, owner: String, to value: inout SocialSnapshot) {
+        let existing = value.likes.first { $0.text("post_id") == postID && $0.text("user_id") == owner }
+        value.likes.removeAll { $0.text("post_id") == postID && $0.text("user_id") == owner }
+        if liked {
+            value.likes.append(existing ?? SocialRow(values: ["post_id": .string(postID), "user_id": .string(owner)]))
+        }
+    }
+
+    /// Reads begun before a tap/save must not undo it. A later read can reconcile
+    /// settled changes with the server; pending changes always keep the local value.
+    private func reconcileLikes(in value: inout SocialSnapshot, readRevision: Int, postID: String? = nil) {
+        guard let owner = userID else { return }
+        for (id, change) in localLikes where postID == nil || postID == id {
+            if change.pending || change.revision > readRevision {
+                applyLike(change.liked, postID: id, owner: owner, to: &value)
+            } else {
+                // Keep the revision for older post-detail reads still in flight.
+                localLikes[id]?.liked = value.likes.contains { $0.text("post_id") == id && $0.text("user_id") == owner }
+            }
+        }
+    }
+
+    private func resetLikes() {
+        for task in likeTasks.values { task.cancel() }
+        likeTasks = [:]; localLikes = [:]; likeRevision = 0
+    }
     /// `busy` guards save controls and shows the spinner during the write itself;
     /// navigation stays available, and the follow-up refresh runs without disabling saves.
     /// `blocking: false` skips the save guard, for writes the UI has already applied optimistically.
-    /// `refresh: false` skips the reload for writes that change nothing on screen.
+    /// `refresh: false` skips the reload for writes already applied locally or with no visible change.
     @discardableResult func perform(_ operation: String, _ payload: [String:Any], key: UUID = UUID(), blocking: Bool = true, refresh reload: Bool = true) async -> [String:ArchiveValue]? {
         if blocking { guard !busy else { return nil }; busy = true }
         error = nil
@@ -148,6 +223,7 @@ import SwiftData
     func logout() async {
         error = nil; message = nil
         epoch = UUID(); let old = userID; userID = nil; SocialPushCoordinator.pending = nil; snapshot = SocialSnapshot(); pendingLink = nil
+        resetLikes()
         refreshRequest?.task.cancel(); refreshRequest = nil
         if let cache, let old {
             let context = ModelContext(cache)
