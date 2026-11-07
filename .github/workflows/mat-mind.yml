@@ -89,6 +89,20 @@ jobs:
           name: session-checklist-native
           path: ${{ runner.temp }}/session-checklist
           if-no-files-found: error
+      - name: Capture native goal notes editor
+        run: |
+          mkdir -p "$RUNNER_TEMP/goal-notes"
+          xcrun simctl terminate "$SIMULATOR_ID" com.tienmai.intentionaltrainingnotes.matmind || true
+          xcrun simctl launch "$SIMULATOR_ID" com.tienmai.intentionaltrainingnotes.matmind --goal-notes-review
+          sleep 3
+          xcrun simctl io "$SIMULATOR_ID" screenshot "$RUNNER_TEMP/goal-notes/editor.png"
+          xcrun simctl terminate "$SIMULATOR_ID" com.tienmai.intentionaltrainingnotes.matmind
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: goal-notes-native
+          path: ${{ runner.temp }}/goal-notes
+          if-no-files-found: error
   database:
     runs-on: ubuntu-latest
     services:
@@ -103,7 +117,7 @@ jobs:
       - name: Validate migrations and authorization
         env:
           PGPASSWORD: local-test-password
-        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/comment_threads.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/goal_updates.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/session_photos.sql supabase/tests/training_log.sql supabase/tests/participant_photos.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+        run: cat supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/tests/social.sql supabase/tests/qr.sql supabase/tests/persistent_friend_codes.sql supabase/tests/profile.sql supabase/tests/notifications.sql supabase/tests/comment_threads.sql supabase/tests/mentions.sql supabase/tests/usernames.sql supabase/tests/goal_sharing.sql supabase/tests/goal_updates.sql supabase/tests/goal_notes.sql supabase/tests/session_edit.sql supabase/tests/follows.sql supabase/tests/invitation_previews.sql supabase/tests/session_link_rsvp.sql supabase/tests/upcoming_activity.sql supabase/tests/monkey.sql supabase/tests/session_photos.sql supabase/tests/training_log.sql supabase/tests/participant_photos.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
       - name: Validate username search and following
         env:
           PGPASSWORD: local-test-password

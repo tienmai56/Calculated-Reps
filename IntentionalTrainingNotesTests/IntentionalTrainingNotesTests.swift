@@ -1119,18 +1119,93 @@ final class MatMindLiveUITests: XCTestCase {
         XCTAssertEqual(roundTrip, withParts)
     }
 
-    func testGoalPartSummaryAndVideoStartTimes() {
-        XCTAssertEqual(GoalPart.summary(notes: "- Cup the knee\n\n- Pull it tight", hasLink: true, photoCount: 2), "2 notes · 1 video · 2 photos")
+    func testGoalPartSummaryAndLinkTitles() {
+        XCTAssertEqual(GoalPart.summary(notes: "- Cup the knee\n\n- Pull it tight", hasLink: true, photoCount: 2), "2 notes · 1 link · 2 photos")
         XCTAssertEqual(GoalPart.summary(notes: "", hasLink: false, photoCount: 1), "1 photo")
         XCTAssertEqual(GoalPart.summary(notes: "  ", hasLink: false, photoCount: 0), "Nothing added yet")
 
-        XCTAssertEqual(GoalPart.linkStart("https://youtu.be/abc?t=102"), "1:42")
-        XCTAssertEqual(GoalPart.linkStart("https://www.youtube.com/watch?v=abc&t=1m42s"), "1:42")
-        XCTAssertEqual(GoalPart.linkStart("https://www.youtube.com/embed/abc?start=3725"), "1:02:05")
-        XCTAssertNil(GoalPart.linkStart("https://www.youtube.com/watch?v=abc"))
-        XCTAssertNil(GoalPart.linkStart("https://youtu.be/abc?t=soon"))
         XCTAssertEqual(GoalPart.linkTitle("https://youtu.be/abc"), "YouTube video")
         XCTAssertEqual(GoalPart.linkTitle("https://www.bjjfanatics.com/x"), "bjjfanatics.com")
+    }
+
+    func testLegacyPartKeepsItsReferencesTogetherAsOneStableNote() throws {
+        let json = #"{"id":"entry","title":"Entry","notes":"- Collar tie\n- Level change","link":"https://youtu.be/example?t=42","photos":["old.jpg"]}"#
+        let part = try JSONDecoder().decode(GoalPart.self, from: Data(json.utf8))
+        XCTAssertEqual(part.resolvedNotes.count, 1, "Don't guess which sentence the old pile of references explained")
+        XCTAssertEqual(part.resolvedNotes.first?.text, "- Collar tie\n- Level change")
+        XCTAssertEqual(part.resolvedNotes.first?.links, ["https://youtu.be/example?t=42"], "Keep the original URL without interpreting timestamps")
+        XCTAssertEqual(part.resolvedNotes.first?.photos, ["old.jpg"])
+        XCTAssertEqual(part.resolvedNotes.first?.id, GoalPartDraft(part).noteItems.first?.id)
+        XCTAssertEqual(part, try JSONDecoder().decode(GoalPart.self, from: JSONEncoder().encode(part)))
+    }
+
+    @MainActor
+    func testGoalNotesKeepReferencesSeparateAndCleanUpOnlyRemovedMedia() throws {
+        let ui = AppModel(live: false)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { context in
+            UIColor.orange.setFill(); context.fill(CGRect(x: 0, y: 0, width: 20, height: 20))
+        }
+        let data = try XCTUnwrap(image.pngData())
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mp4")
+        try Data("file-lifecycle-fixture".utf8).write(to: source)
+        let videoFile = GoalVideoFile(url: source)
+        let goal = MatGoal(id: "note-test-\(UUID().uuidString)", title: "Single leg")
+        defer { ui.deleteGoal(goal.id) }
+        var part = GoalPartDraft(id: "setup")
+        part.title = "Setup & level change"
+        part.noteItems[0].text = "  Collar tie, then snap down.  "
+        part.noteItems[0].links = ["youtu.be/entry", "https://example.com/setup"]
+        part.noteItems[0].photos = [GoalPhotoDraft(data: data, preview: image)]
+        var second = GoalNoteDraft()
+        second.text = "Turn the corner."
+        second.links = ["https://example.com/finish"]
+        second.videos = [GoalVideoDraft(file: videoFile)]
+        part.noteItems += [second, GoalNoteDraft()]
+        XCTAssertTrue(ui.saveGoal(goal, parts: [part]))
+        let saved = try XCTUnwrap(ui.goal(goal.id))
+        let notes = saved.parts[0].noteItems
+        XCTAssertEqual(notes.count, 2)
+        XCTAssertEqual(notes[0].text, "Collar tie, then snap down.")
+        XCTAssertEqual(notes[0].links, ["https://youtu.be/entry", "https://example.com/setup"])
+        XCTAssertTrue(notes[0].videos.isEmpty)
+        XCTAssertEqual(notes[1].links, ["https://example.com/finish"])
+        XCTAssertTrue(notes[1].photos.isEmpty)
+        XCTAssertEqual(saved, try JSONDecoder().decode(MatGoal.self, from: JSONEncoder().encode(saved)))
+        XCTAssertEqual(saved.parts[0].contentsSummary, "2 notes · 3 links · 1 photo · 1 video")
+        let files = saved.allMedia.map { MatGoal.photoRoot.appendingPathComponent($0) }
+        XCTAssertTrue(files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+        var edit = GoalPartDraft(saved.parts[0])
+        edit.noteItems.removeFirst()
+        XCTAssertTrue(ui.saveGoal(saved, parts: [edit]))
+        XCTAssertEqual(ui.goal(goal.id)?.parts[0].noteItems.first?.id, second.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: files[0].path), "Only the removed note's photo is deleted")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: files[1].path), "The other note's video survives")
+        ui.deleteGoal(goal.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: files[1].path))
+    }
+
+    @MainActor
+    func testFailedNoteMediaSaveLeavesTheExistingGoalAndFilesIntact() throws {
+        let ui = AppModel(live: false)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { _ in }
+        let data = try XCTUnwrap(image.pngData())
+        let goal = MatGoal(id: "failed-note-\(UUID().uuidString)", title: "Single leg")
+        defer { ui.deleteGoal(goal.id) }
+        var part = GoalPartDraft()
+        part.noteItems[0].photos = [GoalPhotoDraft(data: data, preview: image)]
+        XCTAssertTrue(ui.saveGoal(goal, parts: [part]))
+        let saved = try XCTUnwrap(ui.goal(goal.id))
+        let folder = MatGoal.photoRoot.appendingPathComponent(goal.id)
+        let before = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
+        var edit = GoalPartDraft(saved.parts[0])
+        edit.noteItems[0].photos += [GoalPhotoDraft(data: data, preview: image), GoalPhotoDraft(data: Data("invalid".utf8), preview: image)]
+        XCTAssertFalse(ui.saveGoal(saved, parts: [edit]))
+        XCTAssertEqual(ui.goal(goal.id), saved)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted(), before, "Roll back newly written files")
+        edit = GoalPartDraft(saved.parts[0])
+        edit.noteItems[0].isLoadingMedia = true
+        XCTAssertFalse(ui.saveGoal(saved, parts: [edit]), "Don't save while the picker is still importing media")
+        XCTAssertEqual(ui.goal(goal.id), saved)
     }
 
     func testGoalPartsSavePhotosAndDropEmptyParts() throws {
@@ -1145,27 +1220,27 @@ final class MatMindLiveUITests: XCTestCase {
         goal.title = "Single leg from standing"
         var grip = GoalPartDraft(id: "grip")
         grip.title = "  Grip on the near leg "
-        grip.link = "youtu.be/abc?t=102"
-        grip.photos = [GoalPhotoDraft(data: data, preview: image), GoalPhotoDraft(data: data, preview: image)]
+        grip.noteItems[0].links = ["youtu.be/abc"]
+        grip.noteItems[0].photos = [GoalPhotoDraft(data: data, preview: image), GoalPhotoDraft(data: data, preview: image)]
         var notesOnly = GoalPartDraft(id: "head")
-        notesOnly.notes = "Head inside"
+        notesOnly.noteItems[0].text = "Head inside"
         let blank = GoalPartDraft(id: "blank")
         XCTAssertTrue(ui.saveGoal(goal, parts: [grip, notesOnly, blank]))
 
         let saved = try XCTUnwrap(ui.goal(goal.id))
         XCTAssertEqual(saved.parts.map(\.id), ["grip", "head"], "Parts with nothing in them are dropped")
         XCTAssertEqual(saved.parts[0].title, "Grip on the near leg")
-        XCTAssertEqual(saved.parts[0].link, "https://youtu.be/abc?t=102")
-        XCTAssertEqual(saved.parts[0].photos.count, 2)
-        let files = saved.parts[0].photos.map { MatGoal.photoRoot.appendingPathComponent($0) }
+        XCTAssertEqual(saved.parts[0].noteItems[0].links, ["https://youtu.be/abc"])
+        XCTAssertEqual(saved.parts[0].noteItems[0].photos.count, 2)
+        let files = saved.parts[0].noteItems[0].photos.map { MatGoal.photoRoot.appendingPathComponent($0) }
         XCTAssertTrue(files.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
 
         // Remove one photo and the whole second part.
         var edited = GoalPartDraft(saved.parts[0])
-        edited.photos.removeLast()
+        edited.noteItems[0].photos.removeLast()
         XCTAssertTrue(ui.saveGoal(saved, parts: [edited]))
         XCTAssertEqual(ui.goal(goal.id)?.parts.count, 1)
-        XCTAssertEqual(ui.goal(goal.id)?.parts.first?.photos.count, 1)
+        XCTAssertEqual(ui.goal(goal.id)?.parts.first?.noteItems.first?.photos.count, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: files[0].path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: files[1].path), "A removed photo loses its file")
 
@@ -2727,7 +2802,7 @@ final class GoalSharingTests: XCTestCase {
         let goal = SharedGoal(id: "x", owner: "sarah", title: "Single leg", links: ["https://a.example", "https://b.example"],
                               photos: ["a"], parts: [GoalPart(title: "Entry", photos: ["b", "c"]),
                                                      GoalPart(title: "Pipe", link: "https://youtu.be/x")])
-        XCTAssertEqual(goal.contentsSummary, "2 parts · 1 video · 3 photos · 2 links")
+        XCTAssertEqual(goal.contentsSummary, "2 parts · 3 photos · 3 links")
         XCTAssertEqual(SharedGoal(id: "y", owner: "sarah", title: "Empty").contentsSummary, "")
         XCTAssertEqual(AppNotification.Kind(rawValue: "goal_share"), .goalShare)
     }
@@ -2736,6 +2811,29 @@ final class GoalSharingTests: XCTestCase {
         let old = try JSONDecoder().decode(SocialSnapshot.self, from: Data(#"{"server_time":null,"profiles":[],"friendships":[],"sessions":[],"participants":[],"posts":[],"tags":[],"likes":[],"comments":[],"credits":[],"media":[],"notifications":[]}"#.utf8))
         XCTAssertNil(old.shared_goals)
         XCTAssertNil(old.goal_shares)
+    }
+
+    @MainActor
+    func testSharedGoalSyncPreservesNoteReferenceAssociations() throws {
+        let model = SocialAppModel(backend: BackendClient(configuration: nil, loadCredential: { nil }, saveCredential: { _ in }))
+        model.userID = "me-id"
+        let json = #"""
+        {"id":"shared-notes","owner":"partner","client_id":"original","title":"Single leg","photos":[],
+         "parts":[{"id":"setup","title":"Setup","notes":"Compatibility preview","link":"https://example.com/legacy","photos":[],
+          "noteItems":[{"id":"entry","text":"Collar tie","links":["https://example.com/entry"],"photos":[],"videos":[]},
+                       {"id":"finish","text":"Turn the corner","links":["https://example.com/finish"],"photos":[],"videos":[]}]}]}
+        """#
+        model.snapshot.shared_goals = [try JSONDecoder().decode(SocialRow.self, from: Data(json.utf8))]
+        let share = #"{"goal_id":"shared-notes","recipient":"me-id","status":"accepted"}"#
+        model.snapshot.goal_shares = [try JSONDecoder().decode(SocialRow.self, from: Data(share.utf8))]
+        let ui = AppModel(live: true)
+        let runtime = LiveMatMindRuntime(model: model, ui: ui)
+        runtime.sync()
+        let part = try XCTUnwrap(ui.sharedGoal("shared-notes")?.parts.first)
+        XCTAssertEqual(part.resolvedNotes.map(\.id), ["entry", "finish"])
+        XCTAssertEqual(part.resolvedNotes[0].links, ["https://example.com/entry"])
+        XCTAssertEqual(part.resolvedNotes[1].links, ["https://example.com/finish"])
+        XCTAssertFalse(part.resolvedNotes.flatMap(\.links).contains("https://example.com/legacy"), "Compatibility fields must not duplicate the modern notes")
     }
 
     @MainActor

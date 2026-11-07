@@ -609,7 +609,8 @@ final class LiveMatMindRuntime: AppRuntime {
             do {
                 let data = try await imageLoader(key, "goal-media")
                 guard model.userID == owner else { return }
-                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-goal-\(UUID().uuidString).jpg")
+                let ext = URL(fileURLWithPath: key).pathExtension
+                let path = FileManager.default.temporaryDirectory.appendingPathComponent("matmind-goal-\(UUID().uuidString).\(ext)")
                 try data.write(to: path, options: .atomic)
                 goalPhotos[key] = path.path
             } catch { continue }
@@ -648,9 +649,18 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let value, case .array(let items) = value else { return [] }
         return items.enumerated().compactMap { index, item in
             guard case .object(let part) = item else { return nil }
-            return GoalPart(id: part["id"]?.string ?? "\(goal)-\(index)", title: part["title"]?.string ?? "",
-                            notes: part["notes"]?.string ?? "", link: part["link"]?.string ?? "",
-                            photos: (part["photos"]?.strings ?? []).compactMap { goalPhotos[$0] })
+            var result = GoalPart(id: part["id"]?.string ?? "\(goal)-\(index)", title: part["title"]?.string ?? "",
+                                  notes: part["notes"]?.string ?? "", link: part["link"]?.string ?? "",
+                                  photos: (part["photos"]?.strings ?? []).compactMap { goalPhotos[$0] })
+            if let raw = part["noteItems"], let data = try? JSONEncoder().encode(raw),
+               var notes = try? JSONDecoder().decode([GoalNote].self, from: data) {
+                for i in notes.indices {
+                    notes[i].photos = notes[i].photos.compactMap { goalPhotos[$0] }
+                    notes[i].videos = notes[i].videos.compactMap { goalPhotos[$0] }
+                }
+                result.noteItems = notes
+            }
+            return result
         }
     }
     func authenticate() async {
@@ -871,10 +881,21 @@ final class LiveMatMindRuntime: AppRuntime {
         guard let owner = model.userID else { model.error = "Sign in to share goals."; return nil }
         do {
             // Upload every photo at once rather than one after another, keeping their order.
-            let keys = try await uploadGoalPhotos(goal.photos + goal.parts.flatMap(\.photos), owner: owner)
+            let keys = try await uploadGoalPhotos(goal.allMedia, owner: owner)
             let photos = goal.photos.compactMap { keys[$0] }
             let parts: [[String: Any]] = goal.parts.map { part in
-                ["id": part.id, "title": part.title, "notes": part.notes, "link": part.link, "photos": part.photos.compactMap { keys[$0] }]
+                let notes = part.resolvedNotes
+                // Legacy fields let older clients keep reading the content. Modern clients
+                // use noteItems, where every reference retains its association.
+                return ["id": part.id, "title": part.title,
+                        "notes": String(notes.map(\.text).joined(separator: "\n").prefix(4000)),
+                        "link": notes.flatMap(\.links).first ?? "",
+                        "photos": notes.flatMap(\.photos).compactMap { keys[$0] },
+                        "noteItems": notes.map { note -> [String: Any] in
+                            ["id": note.id, "text": note.text, "links": note.links,
+                             "photos": note.photos.compactMap { keys[$0] },
+                             "videos": note.videos.compactMap { keys[$0] }]
+                        }]
             }
             // Not `model.perform`: saving a shared goal republishes in the background
             // and must not be refused while another command is running.
@@ -894,9 +915,21 @@ final class LiveMatMindRuntime: AppRuntime {
     /// from this device are left out.
     private func uploadGoalPhotos(_ files: [String], owner: String) async throws -> [String: String] {
         try await withThrowingTaskGroup(of: (String, String?).self) { group in
-            for file in Set(files) { group.addTask { @MainActor in (file, try await self.uploadGoalPhoto(file, owner: owner)) } }
+            // Movies can be much larger than photos. Keep only three file bodies
+            // in flight rather than loading every attachment into memory at once.
+            var remaining = Array(Set(files)).makeIterator()
+            for _ in 0..<3 {
+                if let file = remaining.next() {
+                    group.addTask { @MainActor in (file, try await self.uploadGoalPhoto(file, owner: owner)) }
+                }
+            }
             var keys: [String: String] = [:]
-            for try await (file, key) in group { if let key { keys[file] = key } }
+            for try await (file, key) in group {
+                if let key { keys[file] = key }
+                if let next = remaining.next() {
+                    group.addTask { @MainActor in (next, try await self.uploadGoalPhoto(next, owner: owner)) }
+                }
+            }
             return keys
         }
     }
@@ -905,9 +938,11 @@ final class LiveMatMindRuntime: AppRuntime {
     private func uploadGoalPhoto(_ photo: String, owner: String) async throws -> String? {
         guard let data = try? Data(contentsOf: MatGoal.photoRoot.appendingPathComponent(photo)) else { return nil }
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        let key = "\(owner.lowercased())/\(digest).jpg"
+        let ext = URL(fileURLWithPath: photo).pathExtension.lowercased()
+        let type = ext == "mov" ? "video/quicktime" : ext == "mp4" ? "video/mp4" : ext == "m4v" ? "video/x-m4v" : "image/jpeg"
+        let key = "\(owner.lowercased())/\(digest).\(ext)"
         if uploadedGoalPhotos.contains(key) { return key }
-        do { try await model.backend.upload(data, objectKey: key, bucket: "goal-media") }
+        do { try await model.backend.upload(data, objectKey: key, bucket: "goal-media", contentType: type) }
         catch {
             // Already there from an earlier save or a lost response: same name, same photo.
             guard let existing = try? await model.backend.image(key: key, bucket: "goal-media"), existing == data else { throw error }

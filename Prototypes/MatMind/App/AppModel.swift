@@ -1160,25 +1160,50 @@ final class AppModel {
     func saveGoal(_ goal: MatGoal, parts drafts: [GoalPartDraft]) -> Bool {
         var goal = goal
         guard !goal.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard !drafts.contains(where: \.isLoadingMedia) else {
+            showToast("Wait for your photos and videos to finish adding")
+            return false
+        }
+        // Build the complete replacement before touching existing files or persisted data.
+        var written: [String] = []
+        var committed = false
+        defer { if !committed { written.forEach(Self.deleteGoalPhotoFile) } }
         var parts: [GoalPart] = []
         for draft in drafts {
             var part = GoalPart(id: draft.id,
-                                title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
-                                notes: draft.notes.trimmingCharacters(in: .whitespacesAndNewlines),
-                                link: Self.normalizedLink(draft.link) ?? "")
-            for photo in draft.photos {
-                if let stored = photo.stored {
-                    part.photos.append(stored)
-                } else if let data = photo.data, let saved = storeGoalPhoto(data, goalID: goal.id) {
-                    part.photos.append(saved)
+                                title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines))
+            for entry in draft.noteItems {
+                var note = GoalNote(id: entry.id, text: entry.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                for link in entry.links {
+                    guard let normalized = Self.normalizedLink(link) else {
+                        showToast("One of your note links isn't valid")
+                        return false
+                    }
+                    if !note.links.contains(normalized) { note.links.append(normalized) }
                 }
+                for photo in entry.photos {
+                    if let stored = photo.stored { note.photos.append(stored) }
+                    else if let data = photo.data, let saved = storeGoalPhoto(data, goalID: goal.id) {
+                        note.photos.append(saved); written.append(saved)
+                    } else { return false }
+                }
+                for video in entry.videos {
+                    if let stored = video.stored { note.videos.append(stored) }
+                    else if let source = video.file?.url, let saved = storeGoalVideo(source, goalID: goal.id) {
+                        note.videos.append(saved); written.append(saved)
+                    } else { return false }
+                }
+                if !note.isBlank { part.noteItems.append(note) }
             }
             if !part.isBlank { parts.append(part) }
         }
-        let kept = Set(parts.flatMap(\.photos))
-        self.goal(goal.id)?.parts.flatMap(\.photos).filter { !kept.contains($0) }.forEach(Self.deleteGoalPhotoFile)
         goal.parts = parts
-        return saveGoal(goal)
+        let previousFiles = self.goal(goal.id)?.allMedia ?? []
+        guard saveGoal(goal) else { return false }
+        committed = true
+        let kept = Set(goal.allMedia)
+        previousFiles.filter { !kept.contains($0) }.forEach(Self.deleteGoalPhotoFile)
+        return true
     }
 
     func deleteGoal(_ id: String) {
@@ -1191,7 +1216,7 @@ final class AppModel {
                 Task { _ = await publishing?.value; _ = await runtime.perform("unshare_goal", ["goal_id": shared]) }
             }
         }
-        goal(id)?.allPhotos.forEach(Self.deleteGoalPhotoFile)
+        goal(id)?.allMedia.forEach(Self.deleteGoalPhotoFile)
         goals.removeAll { $0.id == id }
         sessionGoals = sessionGoals.filter { $0.value != id }
         persistGoals()
@@ -1365,6 +1390,31 @@ final class AppModel {
             showToast(wasAccepted ? "Removed from Shared" : "Declined. No hard feelings.")
         }
         return true
+    }
+
+    static let goalVideoSizeLimit = 50 * 1024 * 1024
+
+    private func storeGoalVideo(_ source: URL, goalID id: String) -> String? {
+        let ext = source.pathExtension.lowercased()
+        guard ["mov", "mp4", "m4v"].contains(ext),
+              let size = try? source.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size > 0, size <= Self.goalVideoSizeLimit else {
+            showToast("Choose a video under 50 MB")
+            return nil
+        }
+        let folder = id.replacingOccurrences(of: "/", with: "-")
+        let relative = "\(folder)/\(UUID().uuidString.lowercased()).\(ext)"
+        let url = MatGoal.photoRoot.appendingPathComponent(relative)
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: source, to: url)
+            try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
+            return relative
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            showToast("That video couldn't be saved")
+            return nil
+        }
     }
 
     /// Writes a goal photo privately on this device (JPEG, no metadata, at most 2048 px)
