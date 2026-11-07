@@ -562,6 +562,30 @@
         "topknot",
         "curls"
       ],
+      "extras": {
+        "head": [
+          "earguards",
+          "headband"
+        ],
+        "eyes": [
+          "specs",
+          "shades",
+          "goggles",
+          "bandit",
+          "luchador",
+          "sleep"
+        ],
+        "mouth": [
+          "mouthguard"
+        ],
+        "rule": "one per spot, up to three; none by default; nothing unlocks them",
+        "colors": {
+          "onEyePatches": "fur",
+          "gearAndMasks": "coral-500",
+          "gearAndMasksOnGinger": "ink-900"
+        },
+        "stored": "profiles.monkey_extras as head.eyes.mouth ('none' for an empty spot)"
+      },
       "stored": "mood.fur.haircut",
       "backdrop": "none"
     },
@@ -637,7 +661,7 @@
       "leaderboards",
       "badges or milestones",
       "performance analytics",
-      "avatar options beyond the monkey (mood, fur, haircut)",
+      "avatar options beyond the monkey (mood, fur, haircut, listed extras)",
       "emoji in UI chrome",
       "gradients as decoration",
       "pure black text",

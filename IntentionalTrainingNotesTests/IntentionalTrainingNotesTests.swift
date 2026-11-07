@@ -3233,6 +3233,37 @@ final class MonkeyTests: XCTestCase {
         XCTAssertEqual(MMMonkeyLook(code: "grin.coral-700.topknot"), MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .topknot))
     }
 
+    func testMonkeyExtrasRoundTripAndMatchTheServerFormat() throws {
+        // Mirrors the profiles.monkey_extras check in 20261107040000_monkey_extras.sql.
+        let server = try NSRegularExpression(pattern: "^(none|earguards|headband)\\.(none|specs|shades|goggles|bandit|luchador|sleep)\\.(none|mouthguard)$")
+        let heads: [MMMonkeyLook.Head?] = [nil] + MMMonkeyLook.Head.allCases
+        let eyes: [MMMonkeyLook.Eyes?] = [nil] + MMMonkeyLook.Eyes.allCases
+        let mouths: [MMMonkeyLook.Mouth?] = [nil] + MMMonkeyLook.Mouth.allCases
+        for head in heads {
+            for eye in eyes {
+                for mouth in mouths {
+                    let look = MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .tuft, head: head, eyes: eye, mouth: mouth)
+                    XCTAssertEqual(MMMonkeyLook(code: look.code, extras: look.extrasCode), look)
+                    if look.hasExtras {
+                        XCTAssertEqual(server.numberOfMatches(in: look.extrasCode, range: NSRange(look.extrasCode.startIndex..., in: look.extrasCode)), 1, look.extrasCode)
+                    } else {
+                        XCTAssertEqual(look.extrasCode, "", "nothing worn sends an empty value")
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(MMMonkeyLook(code: "grin.coral-700.tuft", extras: "headband.shades.mouthguard"),
+                       MMMonkeyLook(mood: .grin, fur: .ginger, haircut: .tuft, head: .headband, eyes: .shades, mouth: .mouthguard))
+        XCTAssertEqual(MMMonkeyLook(mood: .happy, head: .earguards, mouth: .mouthguard).wornExtras, ["Ear guards", "Mouthguard"])
+    }
+
+    func testUnknownExtrasStillShowTheMonkey() {
+        let bare = MMMonkeyLook(mood: .happy, fur: .midnight, haircut: .clean)
+        for extras in ["", "crown.none.none", "specs.none.none", "headband.shades", "headband.shades.mouthguard.extra"] {
+            XCTAssertEqual(MMMonkeyLook(code: "happy.ink-900.clean", extras: extras), bare, extras)
+        }
+    }
+
     func testUnknownOrMissingMonkeysMeanJustTheName() {
         for code in ["", "happy.ink-900", "angry.ink-900.tuft", "happy.sun-600.tuft", "happy.ink-900.afro", "happy.ink-900.tuft.extra"] {
             XCTAssertNil(MMMonkeyLook(code: code), code)
