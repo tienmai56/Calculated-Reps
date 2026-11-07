@@ -110,10 +110,11 @@ struct MonkeyMeetView: View {
 
 // MARK: - Build
 
-/// Mood, fur and haircut. Every tile shows *your* monkey with that option applied.
+/// Mood, fur, haircut and extras. Every tile shows *your* monkey with that option applied.
+/// Extras mix: one per spot (head, eyes, mouth), so up to three at once.
 struct MonkeyBuilderView: View {
     enum Mode { case setup, edit }
-    private enum Part: String, CaseIterable { case mood = "Mood", fur = "Fur", haircut = "Haircut" }
+    private enum Part: String, CaseIterable { case mood = "Mood", fur = "Fur", haircut = "Haircut", extras = "Extras" }
 
     @Binding var look: MMMonkeyLook
     var name: String
@@ -132,6 +133,7 @@ struct MonkeyBuilderView: View {
         case .mood: return "How do you show up to class?"
         case .fur: return "Pick your fur."
         case .haircut: return "Fresh cut or post-roll chaos?"
+        case .extras: return "Mix up to three: one per spot."
         }
     }
 
@@ -159,9 +161,13 @@ struct MonkeyBuilderView: View {
                 .background(Capsule().fill(MMColor.white).mmShadowCard())
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Preview: \(name) with your monkey after the name")
-                Text(hint)
-                    .mmFont(.body, 15, lineHeight: 1.4)
-                    .foregroundStyle(MMColor.textSecondary)
+                if part == .extras && look.hasExtras {
+                    wornChips
+                } else {
+                    Text(hint)
+                        .mmFont(.body, 15, lineHeight: 1.4)
+                        .foregroundStyle(MMColor.textSecondary)
+                }
                 MMTabs(Part.allCases.map(\.rawValue), selection: Binding(
                     get: { part.rawValue },
                     set: { part = Part(rawValue: $0) ?? .mood }
@@ -173,12 +179,25 @@ struct MonkeyBuilderView: View {
             .padding(.horizontal, MMLayout.gutter)
             .padding(.bottom, 16)
         } footer: {
-            MMButton(mode == .setup ? "Looks like me" : "Save my monkey", size: .lg, fullWidth: true, action: onDone)
-                .disabled(busy)
+            HStack(spacing: 12) {
+                if part == .extras && look.hasExtras {
+                    MMButton("Clear all", variant: .ghost, size: .lg) {
+                        var bare = look
+                        bare.head = nil; bare.eyes = nil; bare.mouth = nil
+                        change(bare)
+                    }
+                }
+                MMButton(mode == .setup ? "Looks like me" : "Save my monkey", size: .lg, fullWidth: true, action: onDone)
+                    .disabled(busy)
+            }
         }
     }
 
-    private var options: some View {
+    @ViewBuilder private var options: some View {
+        if part == .extras { extras } else { grid }
+    }
+
+    private var grid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
             switch part {
             case .mood:
@@ -193,11 +212,85 @@ struct MonkeyBuilderView: View {
                 ForEach(MMMonkeyLook.Haircut.allCases) { haircut in
                     tile(haircut.title, with: { $0.haircut = haircut }, selected: look.haircut == haircut)
                 }
+            case .extras:
+                EmptyView()
             }
         }
     }
 
-    private func tile(_ title: String, with apply: (inout MMMonkeyLook) -> Void, selected: Bool) -> some View {
+    /// All extras in one place, grouped by spot. Tapping a picked one takes it off;
+    /// picking another in the same spot swaps it.
+    private var extras: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            extrasGroup("Head", note: "Mat gear") {
+                ForEach(MMMonkeyLook.Head.allCases) { item in
+                    let on = look.head == item
+                    tile(item.title, with: { $0.head = on ? nil : item }, selected: on, checked: on)
+                }
+            }
+            extrasGroup("Eyes", note: "Eyewear and masks") {
+                ForEach(MMMonkeyLook.Eyes.allCases) { item in
+                    let on = look.eyes == item
+                    tile(item.title, with: { $0.eyes = on ? nil : item }, selected: on, checked: on)
+                }
+            }
+            extrasGroup("Mouth", note: "Mat gear") {
+                ForEach(MMMonkeyLook.Mouth.allCases) { item in
+                    let on = look.mouth == item
+                    tile(item.title, with: { $0.mouth = on ? nil : item }, selected: on, checked: on)
+                }
+            }
+        }
+    }
+
+    private func extrasGroup<Tiles: View>(_ title: String, note: String, @ViewBuilder tiles: () -> Tiles) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .mmFont(.display, 16, tracking: -0.015, lineHeight: 1.2)
+                    .foregroundStyle(MMColor.ink900)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                Text(note).mmFont(.body, 13, lineHeight: 1.3).foregroundStyle(MMColor.textTertiary)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+                tiles()
+            }
+        }
+    }
+
+    /// What the monkey is wearing; tap a chip to take that extra off.
+    private var wornChips: some View {
+        HStack(spacing: 8) {
+            if let head = look.head { chip(head.title) { $0.head = nil } }
+            if let eyes = look.eyes { chip(eyes.title) { $0.eyes = nil } }
+            if let mouth = look.mouth { chip(mouth.title) { $0.mouth = nil } }
+        }
+        .frame(minHeight: 32)
+    }
+
+    private func chip(_ title: String, remove: @escaping (inout MMMonkeyLook) -> Void) -> some View {
+        Button {
+            var next = look
+            remove(&next)
+            change(next)
+        } label: {
+            HStack(spacing: 6) {
+                Text(title).mmFont(.body, 13, .semibold, lineHeight: 1).foregroundStyle(MMColor.ink900)
+                MMIcon("x", size: 14, color: MMColor.textTertiary)
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 10)
+            .frame(height: 32)
+            .background(Capsule().fill(MMColor.white).mmShadowCard())
+            .frame(minHeight: MMLayout.tapTarget)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Take off \(title)")
+    }
+
+    private func tile(_ title: String, with apply: (inout MMMonkeyLook) -> Void, selected: Bool, checked: Bool = false) -> some View {
         var preview = look
         apply(&preview)
         let next = preview
@@ -216,6 +309,15 @@ struct MonkeyBuilderView: View {
                 RoundedRectangle(cornerRadius: MMRadius.lg, style: .continuous)
                     .strokeBorder(MMColor.ink900, lineWidth: 2)
                     .opacity(selected ? 1 : 0)
+            }
+            .overlay(alignment: .topTrailing) {
+                if checked {
+                    MMIcon("check", size: 13, color: MMColor.white)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(MMColor.ink900))
+                        .padding(8)
+                        .accessibilityHidden(true)
+                }
             }
             .contentShape(Rectangle())
         }

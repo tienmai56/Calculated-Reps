@@ -711,7 +711,7 @@ final class AppModel {
                 showToast("Still saving your profile. Try again in a moment.")
                 return false
             }
-            guard await runtime.perform("set_monkey", ["monkey": look.code]) else { return false }
+            guard await runtime.perform("set_monkey", ["monkey": look.code, "extras": look.extrasCode]) else { return false }
         }
         me.monkey = look
         answerMonkeyPrompt()

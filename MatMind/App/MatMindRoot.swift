@@ -407,7 +407,7 @@ private struct LiveProfileSetup: View {
         }
         guard await app.perform("save_profile", payload, refresh: false) != nil else { return }
         // The profile exists now; if the monkey doesn't stick, Account still offers Build my monkey.
-        if await app.perform("set_monkey", ["monkey": monkey.code]) == nil { await app.refresh(force: true) }
+        if await app.perform("set_monkey", ["monkey": monkey.code, "extras": monkey.extrasCode]) == nil { await app.refresh(force: true) }
     }
 }
 
@@ -460,7 +460,7 @@ final class LiveMatMindRuntime: AppRuntime {
     private func person(_ row: SocialRow) -> Person {
         Person(id: localID(row.id), name: row.text("name"), belt: BeltRank(rawValue: row.text("belt")) ?? .white,
                stripes: row.number("stripes"), gym: row.text("gym"), hue: .mint, photo: avatarPhotos[row.text("avatar_key")], username: row.text("username"),
-               monkey: MMMonkeyLook(code: row.text("monkey")))
+               monkey: MMMonkeyLook(code: row.text("monkey"), extras: row.text("monkey_extras")))
     }
     func sync(now: Date = Date()) {
         // Every exit, signed in or out, refreshes what the home-screen widgets show.

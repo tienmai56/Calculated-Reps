@@ -209,25 +209,85 @@ struct MMMonkeyLook: Hashable {
         }
     }
 
+    /// Extras: one optional accessory per spot, so up to three at once.
+    enum Head: String, CaseIterable, Identifiable {
+        case earguards, headband
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .earguards: return "Ear guards"
+            case .headband: return "Headband"
+            }
+        }
+    }
+
+    /// The luchador mask covers the head but leaves the eyes and mouth open, so it
+    /// takes this spot and still goes with head and mouth extras.
+    enum Eyes: String, CaseIterable, Identifiable {
+        case specs, shades, goggles, bandit, luchador, sleep
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .specs: return "Specs"
+            case .shades: return "Shades"
+            case .goggles: return "Goggles"
+            case .bandit: return "Bandit"
+            case .luchador: return "Luchador"
+            case .sleep: return "Sleep mask"
+            }
+        }
+    }
+
+    enum Mouth: String, CaseIterable, Identifiable {
+        case mouthguard
+        var id: String { rawValue }
+        var title: String { "Mouthguard" }
+    }
+
     var mood: Mood = .happy
     var fur: Fur = .midnight
     var haircut: Haircut = .tuft
+    var head: Head?
+    var eyes: Eyes?
+    var mouth: Mouth?
 
-    init(mood: Mood = .happy, fur: Fur = .midnight, haircut: Haircut = .tuft) {
+    init(mood: Mood = .happy, fur: Fur = .midnight, haircut: Haircut = .tuft,
+         head: Head? = nil, eyes: Eyes? = nil, mouth: Mouth? = nil) {
         self.mood = mood
         self.fur = fur
         self.haircut = haircut
+        self.head = head
+        self.eyes = eyes
+        self.mouth = mouth
     }
 
     /// Parses "mood.fur.haircut"; anything else (including empty) means no monkey.
-    init?(code: String) {
+    /// `extras` is profiles.monkey_extras ("head.eyes.mouth", "none" for an empty
+    /// spot); unknown or missing extras just mean none, never no monkey.
+    init?(code: String, extras: String = "") {
         let parts = code.split(separator: ".").map(String.init)
         guard parts.count == 3, let mood = Mood(rawValue: parts[0]), let fur = Fur(rawValue: parts[1]),
               let haircut = Haircut(rawValue: parts[2]) else { return nil }
         self.init(mood: mood, fur: fur, haircut: haircut)
+        let spots = extras.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        if spots.count == 3 {
+            let head = Head(rawValue: spots[0]), eyes = Eyes(rawValue: spots[1]), mouth = Mouth(rawValue: spots[2])
+            let valid = (head != nil || spots[0] == "none") && (eyes != nil || spots[1] == "none") && (mouth != nil || spots[2] == "none")
+            if valid { self.head = head; self.eyes = eyes; self.mouth = mouth }
+        }
     }
 
     var code: String { "\(mood.rawValue).\(fur.rawValue).\(haircut.rawValue)" }
+
+    /// What set_monkey's "extras" takes; "" when nothing is worn.
+    var extrasCode: String {
+        hasExtras ? "\(head?.rawValue ?? "none").\(eyes?.rawValue ?? "none").\(mouth?.rawValue ?? "none")" : ""
+    }
+
+    var hasExtras: Bool { head != nil || eyes != nil || mouth != nil }
+
+    /// The extras being worn, head to mouth, for chips and labels.
+    var wornExtras: [String] { [head?.title, eyes?.title, mouth?.title].compactMap { $0 } }
 
     static func random() -> MMMonkeyLook {
         MMMonkeyLook(mood: Mood.allCases.randomElement() ?? .happy,
@@ -345,6 +405,146 @@ struct MMMonkey: View {
             eyes()
             strokes(Path(ellipseIn: CGRect(x: 93, y: 116, width: 14, height: 16)))
         }
+
+        drawExtras(look, fur: furColor, in: &context)
+    }
+
+    /// A circle arc as a polyline, angles in degrees on the y-down grid (90 = straight down).
+    private static func arc(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat, from: CGFloat, to: CGFloat) -> Path {
+        var p = Path()
+        let steps = 24
+        for i in 0...steps {
+            let a = (from + (to - from) * CGFloat(i) / CGFloat(steps)) * .pi / 180
+            let point = pt(cx + r * cos(a), cy + r * sin(a))
+            if i == 0 { p.move(to: point) } else { p.addLine(to: point) }
+        }
+        return p
+    }
+
+    /// Extras sit on top of the finished face. Flat shapes, no outlines: anything on the
+    /// eye patches is drawn in the fur color like the eyes; gear and masks use coral-500,
+    /// which flips to ink-900 on Ginger fur so it never blends in.
+    private static func drawExtras(_ look: MMMonkeyLook, fur furColor: Color, in context: inout GraphicsContext) {
+        guard look.hasExtras else { return }
+        let fur = GraphicsContext.Shading.color(furColor)
+        let face = GraphicsContext.Shading.color(MMColor.white)
+        let accent = GraphicsContext.Shading.color(look.fur == .ginger ? MMColor.ink900 : MMColor.coral500)
+        let evenOdd = FillStyle(eoFill: true)
+        func width(_ w: CGFloat, round: Bool = false) -> StrokeStyle {
+            StrokeStyle(lineWidth: w, lineCap: round ? .round : .butt, lineJoin: .round)
+        }
+
+        // The luchador mask goes first so head and mouth extras sit on top of it. Its
+        // cut-outs show the white eye patches and muzzle, and the mood, underneath.
+        if look.eyes == .luchador {
+            var mask = circle(100, 100, 62)
+            mask.addPath(circle(82, 96, 17))
+            mask.addPath(circle(118, 96, 17))
+            mask.addPath(Path(ellipseIn: CGRect(x: 76, y: 112, width: 48, height: 30)))
+            context.fill(mask, with: accent, style: evenOdd)
+            var diamond = Path()
+            diamond.addLines([pt(100, 44), pt(108, 61), pt(100, 76), pt(92, 61)])
+            diamond.closeSubpath()
+            context.fill(diamond, with: face)
+            for side: CGFloat in [1, -1] {
+                let x = { (v: CGFloat) in 100 + (v - 100) * side }
+                var flame = Path()
+                flame.move(to: pt(x(64), 92))
+                flame.addQuadCurve(to: pt(x(70), 68), control: pt(x(56), 76))
+                flame.addQuadCurve(to: pt(x(72), 88), control: pt(x(66), 80))
+                flame.closeSubpath()
+                context.fill(flame, with: face)
+            }
+        }
+
+        switch look.head {
+        case .earguards:
+            context.stroke(arc(100, 100, 58, from: 194, to: 346), with: accent, style: width(9))
+            context.stroke(arc(100, 100, 58, from: 162, to: 18), with: accent, style: width(7))
+            for x: CGFloat in [36, 164] {
+                context.fill(circle(x, 100, 19), with: accent)
+                for y: CGFloat in [92, 100, 108] { context.fill(circle(x, y, 3), with: face) }
+            }
+        case .headband:
+            context.stroke(line(pt(150, 60), pt(174, 48)), with: accent, style: width(7, round: true))
+            context.stroke(line(pt(150, 63), pt(172, 74)), with: accent, style: width(7, round: true))
+            context.stroke(curve(pt(50, 62), pt(100, 38), pt(150, 62)), with: accent, style: width(13))
+        case nil:
+            break
+        }
+
+        if look.mouth == .mouthguard {
+            // An open grin showing the guard replaces whatever mouth the mood drew.
+            context.fill(Path(ellipseIn: CGRect(x: 72, y: 114, width: 56, height: 28)), with: face)
+            var grin = Path()
+            grin.move(to: pt(78, 120))
+            grin.addQuadCurve(to: pt(122, 120), control: pt(100, 152))
+            grin.closeSubpath()
+            context.fill(grin, with: fur)
+            context.stroke(grin, with: fur, style: width(4))
+            var guardShape = Path()
+            guardShape.move(to: pt(83, 123))
+            guardShape.addQuadCurve(to: pt(117, 123), control: pt(100, 131))
+            guardShape.addLine(to: pt(115, 129))
+            guardShape.addQuadCurve(to: pt(85, 129), control: pt(100, 136))
+            guardShape.closeSubpath()
+            context.fill(guardShape, with: accent)
+        }
+
+        switch look.eyes {
+        case .specs:
+            context.stroke(circle(83, 97, 15), with: fur, style: width(6))
+            context.stroke(circle(117, 97, 15), with: fur, style: width(6))
+            context.stroke(curve(pt(97, 94), pt(100, 90), pt(103, 94)), with: fur, style: width(5, round: true))
+        case .shades:
+            context.fill(Path(CGRect(x: 64, y: 86, width: 72, height: 6)), with: fur)
+            for left: CGFloat in [66, 102] {
+                var lens = Path()
+                lens.move(to: pt(left, 88))
+                lens.addLine(to: pt(left + 32, 88))
+                lens.addLine(to: pt(left + 32, 98))
+                lens.addQuadCurve(to: pt(left + 16, 114), control: pt(left + 32, 114))
+                lens.addQuadCurve(to: pt(left, 98), control: pt(left, 114))
+                lens.closeSubpath()
+                context.fill(lens, with: fur)
+                context.stroke(line(pt(left + 6, 98), pt(left + 13, 92)), with: face, style: width(3, round: true))
+            }
+        case .goggles:
+            context.stroke(line(pt(40, 97), pt(68, 97)), with: accent, style: width(10))
+            context.stroke(line(pt(132, 97), pt(160, 97)), with: accent, style: width(10))
+            context.stroke(circle(83, 97, 16), with: accent, style: width(7))
+            context.stroke(circle(117, 97, 16), with: accent, style: width(7))
+        case .bandit:
+            var tails = Path()
+            tails.addLines([pt(146, 90), pt(174, 78), pt(170, 96)]); tails.closeSubpath()
+            tails.move(to: pt(146, 98)); tails.addLine(to: pt(172, 104)); tails.addLine(to: pt(162, 116)); tails.closeSubpath()
+            context.fill(tails, with: accent)
+            context.stroke(tails, with: accent, style: width(3))
+            var band = Path()
+            band.move(to: pt(52, 86))
+            band.addQuadCurve(to: pt(148, 86), control: pt(100, 72))
+            band.addLine(to: pt(150, 106))
+            band.addQuadCurve(to: pt(50, 106), control: pt(100, 118))
+            band.closeSubpath()
+            band.addPath(circle(84, 98, 11))
+            band.addPath(circle(116, 98, 11))
+            context.fill(band, with: accent, style: evenOdd)
+        case .sleep:
+            var band = Path()
+            band.move(to: pt(40, 90))
+            band.addQuadCurve(to: pt(160, 90), control: pt(100, 70))
+            band.addLine(to: pt(160, 106))
+            band.addQuadCurve(to: pt(40, 106), control: pt(100, 120))
+            band.closeSubpath()
+            context.fill(band, with: accent)
+            context.stroke(curve(pt(72, 98), pt(82, 106), pt(92, 98)), with: face, style: width(5, round: true))
+            context.stroke(curve(pt(108, 98), pt(118, 106), pt(128, 98)), with: face, style: width(5, round: true))
+            var z = Path()
+            z.addLines([pt(148, 22), pt(162, 22), pt(148, 36), pt(162, 36)])
+            context.stroke(z, with: fur, style: width(5, round: true))
+        case .luchador, nil:
+            break
+        }
     }
 }
 
@@ -354,7 +554,7 @@ enum MMMonkeyImages {
     private static var cache: [String: Image] = [:]
 
     static func image(_ look: MMMonkeyLook, size: CGFloat, scale: CGFloat) -> Image? {
-        let key = "\(look.code)@\(size)x\(scale)"
+        let key = "\(look.code)+\(look.extrasCode)@\(size)x\(scale)"
         if let hit = cache[key] { return hit }
         let renderer = ImageRenderer(content: MMMonkey(look: look, size: size))
         renderer.scale = scale
