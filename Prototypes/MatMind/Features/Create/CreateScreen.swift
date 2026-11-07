@@ -39,10 +39,10 @@ struct CreateScreen: View {
         mm.goals.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
     private var calendar: Calendar { dateSelection.calendar }
-    private var days: [SessionDaySelection.Day] { dateSelection.days(past: isPast) }
+    private var days: [SessionDaySelection.Day] { dateSelection.pastDays() }
     private var day: SessionDaySelection.Day { days[min(dateSelection.pastDayIndex, days.count - 1)] }
     private var completedCount: Int { mm.createdCount(for: requests) }
-    private var selectionCount: Int { isPast ? 1 : dateSelection.selectedDays.count }
+    private var selectionCount: Int { isPast ? 1 : dateSelection.selectedDates.count }
     private var buttonTitle: String {
         if submitting { return "Creating \(completedCount) of \(requests.count)…" }
         if completedCount > 0 { return "Retry remaining \(requests.count - completedCount)" }
@@ -97,21 +97,21 @@ struct CreateScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 18)
 
-                field("When", hint: isPast ? nil : "\(dateSelection.selectedDays.count) selected") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(Array(days.enumerated()), id: \.offset) { i, d in
-                                dayChip(d, on: isPast ? i == dateSelection.pastDayIndex : dateSelection.selectedDays.contains(i)) {
-                                    if isPast { dateSelection.pastDayIndex = i }
-                                    else if dateSelection.selectedDays.contains(i) { dateSelection.selectedDays.remove(i) }
-                                    else { dateSelection.selectedDays.insert(i) }
+                field("When", hint: isPast ? nil : "\(dateSelection.selectedDates.count) selected") {
+                    if isPast {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(Array(days.enumerated()), id: \.offset) { i, d in
+                                    dayChip(d, on: i == dateSelection.pastDayIndex) { dateSelection.pastDayIndex = i }
                                 }
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 2)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 2)
+                        .padding(.horizontal, -16)
+                    } else {
+                        SessionMonthCalendar(selection: $dateSelection)
                     }
-                    .padding(.horizontal, -16)
                     MMFlowLayout(spacing: 8, lineSpacing: 8) {
                         ForEach(timeOptions, id: \.self) { t in
                             MMTag(t, selected: time == t, size: .sm) { time = t }
@@ -240,7 +240,7 @@ struct CreateScreen: View {
                 mm.showToast("The calendar changed. Check your dates and try again.")
                 return
             }
-            let dates = isPast ? [day.value] : dateSelection.selectedDays.sorted().map { days[$0].value }
+            let dates = isPast ? [day.value] : dateSelection.sortedSelectedDates
             let draft = SessionDraft(
                 title: name.trimmingCharacters(in: .whitespacesAndNewlines), day: "", date: 0, month: "",
                 time: time, gym: gym, note: note, invited: invited,
@@ -613,5 +613,97 @@ private struct InviteFriendsSheet: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(streak > 0 ? "\(p.name), \(streak)-week streak" : p.name)
         .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+// MARK: - Month calendar
+
+/// Pick any number of upcoming days, up to a year ahead. Weeks run Monday to
+/// Sunday like streak weeks; today has a coral ring and picked days fill ink.
+private struct SessionMonthCalendar: View {
+    @Binding var selection: SessionDaySelection
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 0) {
+                Text(selection.monthTitle())
+                    .mmFont(.display, 18, tracking: -0.02, lineHeight: 1)
+                    .foregroundStyle(MMColor.ink900)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                monthButton("chevron-left", label: "Previous month", offset: -1, enabled: selection.canShowPreviousMonth)
+                monthButton("chevron-right", label: "Next month", offset: 1, enabled: selection.canShowNextMonth)
+            }
+            .padding(.leading, 8)
+
+            HStack(spacing: 0) {
+                ForEach(Array(selection.weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+                    Text(symbol)
+                        .mmFont(.body, 12, .bold, lineHeight: 1)
+                        .foregroundStyle(MMColor.textTertiary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.top, 6)
+            .padding(.bottom, 8)
+            .accessibilityHidden(true)
+
+            LazyVGrid(columns: columns, spacing: 2) {
+                ForEach(Array(selection.monthGrid().enumerated()), id: \.offset) { _, day in
+                    if let day {
+                        dayCell(day)
+                    } else {
+                        Color.clear.frame(height: 44).accessibilityHidden(true)
+                    }
+                }
+            }
+
+            if let elsewhere = selection.selectionElsewhereSummary {
+                MMMeta(elsewhere)
+                    .padding(.top, 10)
+                    .padding(.leading, 8)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .mmCardSurface()
+        .sensoryFeedback(.selection, trigger: selection.selectedDates)
+    }
+
+    private func monthButton(_ icon: String, label: String, offset: Int, enabled: Bool) -> some View {
+        MMIconButton(icon, iconSize: 18, label: label) {
+            withAnimation(MMMotion.easeOut(MMMotion.fast)) { selection.showMonth(offset: offset) }
+        }
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.3)
+    }
+
+    private func dayCell(_ day: Date) -> some View {
+        let enabled = selection.isPlannable(day)
+        let on = selection.isSelected(day)
+        let isToday = selection.calendar.isDate(day, inSameDayAs: selection.today)
+        return Button {
+            withAnimation(MMMotion.bounce(MMMotion.fast)) { selection.toggle(day) }
+        } label: {
+            Text("\(selection.calendar.component(.day, from: day))")
+                .mmFont(.display, 16, tracking: -0.02, lineHeight: 1)
+                .foregroundStyle(on ? MMColor.paper : enabled ? MMColor.ink900 : MMColor.textDisabled)
+                .frame(width: 40, height: 40)
+                .background {
+                    if on {
+                        Circle().fill(MMColor.ink900)
+                    } else if isToday {
+                        Circle().strokeBorder(MMColor.accent, lineWidth: 1.5)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(MMPressStyle(scale: 0.9, bounce: true))
+        .disabled(!enabled)
+        .accessibilityLabel(selection.accessibilityLabel(for: day))
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
