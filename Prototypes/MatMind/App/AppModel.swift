@@ -190,6 +190,7 @@ final class AppModel {
         people = [:]; friends = []; circle = []; following = []; trainingInvitations = []; partnerLists = [:]; listedPeople = [:]; posts = []; upcoming = []; discoverableSessions = []; completedSessions = []; toComplete = nil
         notifications = []; drafts = []; path = []; toast = nil; highlight = nil; fresh = nil
         editingMonkey = false; monkeyPromptVisible = false; monkeyPromptAnswered = true; monkeyAccount = nil
+        extrasPromptVisible = false; extrasPromptAnswered = true; monkeyEditorStartsOnExtras = false
         goals = []; sessionGoals = [:]; goalAccount = nil
         sharedGoals = []; sharedGoalIDs = [:]; goalRecipients = [:]; goalPublishes = [:]
         widgetQuickLogRequest = nil; widgetProfileSectionRequest = nil
@@ -686,6 +687,12 @@ final class AppModel {
     var monkeyPromptVisible = false
     /// Whether this account already answered that sheet (Build my monkey or Maybe later).
     private(set) var monkeyPromptAnswered = true
+    /// The one-time "Your monkey got new gear" sheet for members whose monkey predates extras.
+    var extrasPromptVisible = false
+    /// Whether this account already answered it, or met extras in the builder anyway.
+    private(set) var extrasPromptAnswered = true
+    /// The builder opens on the Extras tab when it comes from that sheet.
+    var monkeyEditorStartsOnExtras = false
     @ObservationIgnored private var monkeyAccount: String?
 
     /// Ask once, on Activity with nothing pushed, after the profile exists.
@@ -694,13 +701,31 @@ final class AppModel {
             && path.isEmpty && tab == .activity && !editingMonkey
     }
 
-    private static func monkeyPromptKey(_ account: String) -> String { "matmonkeys.monkeyPrompt.\(account)" }
+    /// Ask once, on Activity with nothing pushed, if their monkey has no extras yet.
+    /// Never on top of (or right after) the "Your monkey's waiting" sheet.
+    var shouldAnnounceExtras: Bool {
+        isSignedIn && !me.name.isEmpty && me.monkey?.hasExtras == false && !extrasPromptAnswered
+            && path.isEmpty && tab == .activity && !editingMonkey && !monkeyPromptVisible
+    }
 
-    /// Installed app: reads whether the signed-in account already answered the invitation.
-    func loadMonkeyPrompt(account: String) {
+    private static func monkeyPromptKey(_ account: String) -> String { "matmonkeys.monkeyPrompt.\(account)" }
+    private static func extrasPromptKey(_ account: String) -> String { "matmonkeys.extrasPrompt.\(account)" }
+
+    /// Installed app: reads whether the signed-in account already answered the invitations.
+    /// Someone still setting up their profile meets extras in the builder, so they're
+    /// never told about them.
+    func loadMonkeyPrompt(account: String, settingUp: Bool = false) {
         guard isLive, monkeyAccount != account else { return }
         monkeyAccount = account
         monkeyPromptAnswered = UserDefaults.standard.bool(forKey: Self.monkeyPromptKey(account))
+        extrasPromptAnswered = UserDefaults.standard.bool(forKey: Self.extrasPromptKey(account))
+        if settingUp { answerExtrasPrompt() }
+    }
+
+    /// Try on extras or Maybe later: either way the sheet doesn't come back.
+    func answerExtrasPrompt() {
+        extrasPromptAnswered = true
+        if isLive, let monkeyAccount { UserDefaults.standard.set(true, forKey: Self.extrasPromptKey(monkeyAccount)) }
     }
 
     /// Build or Maybe later: either way the sheet doesn't come back. Account keeps the row.
@@ -727,6 +752,8 @@ final class AppModel {
         }
         me.monkey = look
         answerMonkeyPrompt()
+        // They've been in the builder, Extras tab included.
+        answerExtrasPrompt()
         return true
     }
 
@@ -1662,12 +1689,15 @@ final class AppModel {
         fresh = nil
         editingMonkey = false
         monkeyPromptVisible = false
+        extrasPromptVisible = false
+        extrasPromptAnswered = true
+        monkeyEditorStartsOnExtras = false
     }
 
     /// Deep links from the web prototype's review panel (`index.html#…`).
     enum Preset: String, CaseIterable, Identifiable {
         case welcome, activity, training, create, complete, friends, qr, profile, notifications
-        case people, person
+        case people, person, monkeyExtras
         case empty, firstSession, awaitingPhoto, focusPlan, participantPhotos, invite, active, broken, scan, post
         var id: String { rawValue }
     }
@@ -1698,6 +1728,12 @@ final class AppModel {
         case .post: setTab(.activity); go(.post(id: "p1"))
         case .people: setTab(.activity); go(.people)
         case .person: setTab(.activity); go(.people); go(.person(id: "rafa"))
+        case .monkeyExtras:
+            // A member whose monkey predates extras: the new-gear sheet on Activity.
+            monkeyPromptAnswered = true
+            me.monkey = MMMonkeyLook(mood: .happy, fur: .midnight, haircut: .fringe)
+            extrasPromptAnswered = false
+            setTab(.activity)
         case .empty:
             upcoming = []
             toComplete = nil

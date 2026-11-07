@@ -62,11 +62,13 @@ struct MMAppShell: View {
     }
 }
 
-/// Members who joined before monkeys get one invitation on Activity once the feed is up;
+/// Members who joined before monkeys get one invitation on Activity once the feed is up,
+/// and members whose monkey predates extras get one new-gear sheet the same way;
 /// the builder opens over whatever screen is showing and closes back onto it.
 private struct MonkeyPresentation: ViewModifier {
     @Environment(AppModel.self) private var mm
     @State private var buildAfterPrompt = false
+    @State private var tryOnAfterPrompt = false
 
     func body(content: Content) -> some View {
         @Bindable var mm = mm
@@ -87,7 +89,28 @@ private struct MonkeyPresentation: ViewModifier {
                     onLater: { mm.monkeyPromptVisible = false }
                 )
             }
-            .fullScreenCover(isPresented: $mm.editingMonkey) {
+            .task(id: mm.shouldAnnounceExtras) {
+                guard mm.shouldAnnounceExtras else { return }
+                try? await Task.sleep(for: .seconds(1.2))
+                if mm.shouldAnnounceExtras { mm.extrasPromptVisible = true }
+            }
+            .sheet(isPresented: $mm.extrasPromptVisible, onDismiss: {
+                // Swiping the sheet away counts as Maybe later.
+                mm.answerExtrasPrompt()
+                if tryOnAfterPrompt {
+                    tryOnAfterPrompt = false
+                    mm.monkeyEditorStartsOnExtras = true
+                    mm.editingMonkey = true
+                }
+            }) {
+                MonkeyExtrasSheet(
+                    onTryOn: { tryOnAfterPrompt = true; mm.extrasPromptVisible = false },
+                    onLater: { mm.extrasPromptVisible = false }
+                )
+            }
+            .fullScreenCover(isPresented: $mm.editingMonkey, onDismiss: {
+                mm.monkeyEditorStartsOnExtras = false
+            }) {
                 MonkeyEditScreen()
             }
     }

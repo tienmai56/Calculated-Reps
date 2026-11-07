@@ -45,6 +45,7 @@ struct DemoPanel: View {
         (.awaitingPhoto, "Plan made · no shared photo yet"),
         (.empty, "Empty training schedule · keep activity history"), (.invite, "Pending invitation"), (.active, "Active streak"),
         (.broken, "Broken streak"), (.scan, "Scan → instant friends"), (.post, "Post detail + comments"),
+        (.monkeyExtras, "Monkey extras · new-gear sheet for existing members"),
     ]
 
     var body: some View {
